@@ -6,12 +6,6 @@
  * You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 
 #include <torch/library.h>
@@ -21,6 +15,28 @@
 
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {
+    /* Phase-1 staged pipeline used for correctness/overlap validation. */
+    ops.def(
+        "memfabric_o_proj_begin("
+        "Tensor x, int tp_rank, int tile_m, int chunks) -> (Tensor send, Tensor recv)");
+    ops.impl(
+        "memfabric_o_proj_begin",
+        torch::kPrivateUse1,
+        &vllm_ascend::memfabric_o_proj_begin);
+
+    ops.def("memfabric_o_proj_publish(Tensor send, int chunk_idx) -> ()");
+    ops.impl(
+        "memfabric_o_proj_publish",
+        torch::kPrivateUse1,
+        &vllm_ascend::memfabric_o_proj_publish);
+
+    ops.def("memfabric_o_proj_finish(Tensor recv) -> ()");
+    ops.impl(
+        "memfabric_o_proj_finish",
+        torch::kPrivateUse1,
+        &vllm_ascend::memfabric_o_proj_finish);
+
+    /* Reserved phase-2 single opaque op for direct AscendC matmul->SHM. */
     ops.def(
         "memfabric_w8a8_o_proj_allreduce("
         "Tensor x, Tensor weight, Tensor deq_scale, Tensor? quant_bias, "
