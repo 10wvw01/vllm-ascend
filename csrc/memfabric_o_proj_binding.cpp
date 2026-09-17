@@ -36,6 +36,12 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         torch::kPrivateUse1,
         &vllm_ascend::memfabric_o_proj_finish);
 
+    ops.def("memfabric_o_proj_mark_failed(Tensor recv, str reason) -> ()");
+    ops.impl(
+        "memfabric_o_proj_mark_failed",
+        torch::kPrivateUse1,
+        &vllm_ascend::memfabric_o_proj_mark_failed);
+
     /* Reserved phase-2 single opaque op for direct AscendC matmul->SHM. */
     ops.def(
         "memfabric_w8a8_o_proj_allreduce("
