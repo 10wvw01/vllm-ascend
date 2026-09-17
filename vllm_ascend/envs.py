@@ -100,15 +100,30 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
-    # Experimental 310P3-only path: fuse Qwen3.5/3.6 full-attention W8A8
-    # o_proj with TP=2 MemFabric SDMA all-reduce. Disabled by default until the
-    # MemFabric custom operator is compiled into vllm_ascend_C.
+    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention W8A8 o_proj
+    # plus TP=2 all-reduce implemented with the separately installed customized
+    # wgm-dev-310p MemFabric adapter. Disabled by default.
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
-    # M-dimension tile size used by the first MemFabric o_proj pipeline.
+    # Runtime path to the separately built adapter shared object. vllm-ascend
+    # deliberately does not assume the customized MemFabric SDK's own .so names.
+    "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO", None
+    ),
+    # Config-store rendezvous used by the customized MemFabric SHM runtime.
+    "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
+    ),
+    # Per-rank physical contribution to the symmetric pool. 32 MiB matches the
+    # supplied 310P AICore/AICPU/SDMA example and fits two 8 MiB arenas + flags.
+    "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(32 * 1024 * 1024))
+    ),
+    # M tile 32 => 32 * 2048 * BF16(2B) = 128 KiB per SDMA chunk, matching the
+    # independently validated customized MemFabric example.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "64")
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
     ),
 }
 
