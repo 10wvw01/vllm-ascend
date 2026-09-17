@@ -12,23 +12,47 @@ This document tracks the intentionally narrow fused path for Qwen3.6-35B-A3B-W8A
 - Quantization: static W8A8. Existing 310P weight layout, dequant scale and rank-0-only quant bias semantics must be preserved.
 - Communication: customized `wgm-dev-310p` MemFabric Hybrid SDMA path; HCCL/MC2 is not used by the fused operator.
 
-## External MemFabric dependency
+## MemFabric build/install choice
 
-The required 310P MemFabric implementation is **not** assumed to be part of the upstream/mainline MemFabric package and is **not** assumed to provide any upstream library name or ABI. It is an independently built and installed dependency from the customized `wgm-dev-310p` source tree.
+For this project, **do not build or install the official/upstream MemFabric**. Build and install the customized `wgm-dev-310p` MemFabric instead, and use that installation as the MemFabric implementation consumed by vLLM-Ascend.
 
-vLLM-Ascend must therefore treat it as an optional external SDK. The intended build contract is:
+In other words, the dependency relationship is:
 
-```bash
-export VLLM_ASCEND_MEMFABRIC_310P_ROOT=/path/to/custom/memfabric/install
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=64
+```text
+wgm-dev-310p MemFabric source
+        |
+        | build + install
+        v
+310P customized MemFabric installation
+        |
+        | headers + libraries
+        v
+vLLM-Ascend 310P fused o_proj build/runtime
 ```
 
-When the fusion build is enabled, CMake will consume include/library information from that custom installation prefix (or explicit include/library overrides if the custom build layout requires them). The normal vLLM-Ascend build must remain independent of this dependency.
+It is **not**:
 
-No library name, include directory layout, soname, or ABI will be hard-coded until the customized branch's build/install files and headers are available. The existing generic Python dependency named `memfabric_hybrid` is not considered sufficient evidence for linking this custom 310P SDMA runtime.
+```text
+upstream MemFabric + an additional 310P plugin/adapter
+```
 
-The runtime build must contain the customized MemFabric implementation; otherwise the custom op fails explicitly instead of silently falling back to a second all-reduce.
+and it is **not** expected that the official MemFabric installation already contains the required 310P AICore/AICPU/SDMA APIs.
+
+The vLLM-Ascend build therefore points directly at the install prefix produced from `wgm-dev-310p`:
+
+```bash
+# Build/install wgm-dev-310p MemFabric first.
+export VLLM_ASCEND_310P_MEMFABRIC_ROOT=/path/to/wgm-dev-310p/install
+
+# Use the actual libraries produced by that customized build/install.
+export VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES='/abs/path/libA.so;/abs/path/libB.so'
+
+# Enable the target fused path.
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32
+```
+
+No upstream MemFabric library name, soname, include layout or ABI is assumed. CMake consumes the headers and libraries from the `wgm-dev-310p` installation. The exact library list will be fixed once the customized branch's build/install files are available.
 
 ## Integration point
 
@@ -120,11 +144,11 @@ Replace per-tile matmul launches with one AscendC tiled W8A8 matmul producer. It
 
 ## Required customized MemFabric ABI before runtime code is finalized
 
-The supplied 310P example establishes the intended calls (`smem_shm_sdma_notify`, `smem_shm_sdma_poll_flag`, `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, symmetric SHM segments and the SDMA workspace), but the following branch-specific definitions are required to compile and to make buffer reuse correct:
+The supplied 310P example establishes the intended calls (`smem_shm_sdma_notify`, `smem_shm_sdma_poll_flag`, `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, symmetric SHM segments and the SDMA workspace), but the following `wgm-dev-310p` definitions are required to compile and make buffer reuse correct:
 
 - `smem_shm_aicore_sdma.h` (or the actual header declaring the notify/poll primitives and workspace constants).
 - Host declarations for `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, `smem_shm_sdma_get_workspace` and result APIs.
 - The AICPU SDMA orchestration implementation, especially mailbox consumption, destination-offset calculation and flag write semantics.
 - The customized branch's CMake/build/install files so the exact produced libraries, include directories, RPATH requirements and link dependencies are known.
 
-Until these definitions are available, the repository intentionally contains the model-side/operator contract but not a guessed MemFabric ABI implementation.
+Until those definitions are available, the repository intentionally contains the model-side/operator contract but does not guess the customized MemFabric ABI.
