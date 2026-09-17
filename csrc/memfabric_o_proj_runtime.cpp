@@ -1,28 +1,33 @@
 /*
- * Runtime bridge from vllm_ascend_C to the bridge built against the installed
- * wgm-dev-310p MemFabric implementation. This file has no dependency on
- * MemFabric headers or libraries: it uses a small stable C ABI and dlopen/dlsym.
+ * 310P3 TP=2 MemFabric runtime for the staged o_proj overlap pipeline.
+ *
+ * When VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ is enabled, vllm_ascend_C is
+ * compiled and linked directly against the MemFabric installation produced by
+ * wgm-dev-310p.  There is no runtime dlopen and no separately deployed bridge
+ * shared object.  The small mf310p_* C ABI remains only as an internal source
+ * boundary between vLLM-Ascend and the customized MemFabric APIs.
  */
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
+#include <c10/util/string_view.h>
 #include <torch/extension.h>
 
 #ifdef ASCEND_PLATFORM_310P
 #include <acl/acl.h>
 #include <acl/acl_rt.h>
-#include <dlfcn.h>
 #include <torch_npu/csrc/aten/common/from_blob.h>
 #include <torch_npu/csrc/core/npu/NPUStream.h>
 
 #include <cerrno>
 #include <cstdlib>
-#include <cstring>
 #include <mutex>
 #include <string>
 
 #include "memfabric_o_proj/external/memfabric310p_adapter_api.h"
 
 namespace vllm_ascend {
+
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
 namespace {
 
 constexpr int64_t kOProjWidth = 2048;
@@ -44,65 +49,25 @@ uint64_t parse_u64_env(const char* name, uint64_t fallback)
     return static_cast<uint64_t>(parsed);
 }
 
-const char* required_env(const char* name)
-{
-    const char* value = std::getenv(name);
-    TORCH_CHECK(
-        value != nullptr && *value != '\0',
-        name,
-        " is required when the 310P MemFabric o_proj path is enabled. It must "
-        "point to the vllm_ascend_memfabric310p_adapter.so built against the "
-        "installed wgm-dev-310p MemFabric implementation.");
-    return value;
-}
-
-template <typename T>
-T load_symbol(void* handle, const char* name)
-{
-    dlerror();
-    void* ptr = dlsym(handle, name);
-    const char* err = dlerror();
-    TORCH_CHECK(ptr != nullptr && err == nullptr,
-                "Missing symbol ", name, " in 310P MemFabric bridge: ",
-                (err == nullptr ? "unknown error" : err));
-    return reinterpret_cast<T>(ptr);
-}
-
-struct AdapterFns {
-    void* so = nullptr;
-    decltype(&mf310p_adapter_abi_version) abi_version = nullptr;
-    decltype(&mf310p_create) create = nullptr;
-    decltype(&mf310p_destroy) destroy = nullptr;
-    decltype(&mf310p_get_layout) get_layout = nullptr;
-    decltype(&mf310p_prepare_wave) prepare_wave = nullptr;
-    decltype(&mf310p_submit_wave) submit_wave = nullptr;
-    decltype(&mf310p_wait_wave) wait_wave = nullptr;
-    decltype(&mf310p_get_result) get_result = nullptr;
-    decltype(&mf310p_publish_chunk_async) publish_chunk_async = nullptr;
-    decltype(&mf310p_launch_reduce_consumer_async) launch_reduce_consumer_async = nullptr;
-};
-
 struct RuntimeState {
     std::mutex mutex;
-    AdapterFns api;
     mf310p_context_t* ctx = nullptr;
     mf310p_layout_t layout{};
     aclrtStream reduce_stream = nullptr;
     int tp_rank = -1;
     int64_t tile_m = 0;
     bool wave_active = false;
+    bool poisoned = false;
     uint32_t active_chunks = 0;
+    std::string failure_reason;
 
     ~RuntimeState()
     {
         if (reduce_stream != nullptr) {
             (void)aclrtDestroyStream(reduce_stream);
         }
-        if (ctx != nullptr && api.destroy != nullptr) {
-            (void)api.destroy(ctx);
-        }
-        if (api.so != nullptr) {
-            (void)dlclose(api.so);
+        if (ctx != nullptr) {
+            (void)mf310p_destroy(ctx);
         }
     }
 };
@@ -113,53 +78,18 @@ RuntimeState& runtime_state()
     return state;
 }
 
-void load_adapter_locked(RuntimeState& state)
-{
-    if (state.api.so != nullptr) {
-        return;
-    }
-    const char* path = required_env("VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO");
-    state.api.so = dlopen(path, RTLD_NOW | RTLD_LOCAL);
-    TORCH_CHECK(state.api.so != nullptr,
-                "Failed to dlopen 310P MemFabric bridge ", path, ": ",
-                dlerror());
-
-    state.api.abi_version = load_symbol<decltype(state.api.abi_version)>(
-        state.api.so, "mf310p_adapter_abi_version");
-    state.api.create = load_symbol<decltype(state.api.create)>(
-        state.api.so, "mf310p_create");
-    state.api.destroy = load_symbol<decltype(state.api.destroy)>(
-        state.api.so, "mf310p_destroy");
-    state.api.get_layout = load_symbol<decltype(state.api.get_layout)>(
-        state.api.so, "mf310p_get_layout");
-    state.api.prepare_wave = load_symbol<decltype(state.api.prepare_wave)>(
-        state.api.so, "mf310p_prepare_wave");
-    state.api.submit_wave = load_symbol<decltype(state.api.submit_wave)>(
-        state.api.so, "mf310p_submit_wave");
-    state.api.wait_wave = load_symbol<decltype(state.api.wait_wave)>(
-        state.api.so, "mf310p_wait_wave");
-    state.api.get_result = load_symbol<decltype(state.api.get_result)>(
-        state.api.so, "mf310p_get_result");
-    state.api.publish_chunk_async = load_symbol<decltype(state.api.publish_chunk_async)>(
-        state.api.so, "mf310p_publish_chunk_async");
-    state.api.launch_reduce_consumer_async =
-        load_symbol<decltype(state.api.launch_reduce_consumer_async)>(
-            state.api.so, "mf310p_launch_reduce_consumer_async");
-
-    TORCH_CHECK(
-        state.api.abi_version() == VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
-        "310P MemFabric bridge ABI mismatch: expected ",
-        VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
-        ", got ", state.api.abi_version());
-}
-
 void init_context_locked(
     RuntimeState& state,
     const at::Tensor& x,
     int64_t tp_rank,
     int64_t tile_m)
 {
-    load_adapter_locked(state);
+    TORCH_CHECK(
+        mf310p_adapter_abi_version() == VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
+        "310P MemFabric internal adapter ABI mismatch: expected ",
+        VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
+        ", got ", mf310p_adapter_abi_version());
+
     if (state.ctx != nullptr) {
         TORCH_CHECK(state.tp_rank == tp_rank,
                     "MemFabric runtime rank changed from ", state.tp_rank,
@@ -186,7 +116,7 @@ void init_context_locked(
         store_url = kDefaultStoreUrl;
     }
 
-    const int ret = state.api.create(
+    const int ret = mf310p_create(
         static_cast<int>(tp_rank),
         2,
         store_url,
@@ -197,13 +127,13 @@ void init_context_locked(
     TORCH_CHECK(ret == 0 && state.ctx != nullptr,
                 "mf310p_create failed with ret=", ret);
 
-    const int layout_ret = state.api.get_layout(state.ctx, &state.layout);
+    const int layout_ret = mf310p_get_layout(state.ctx, &state.layout);
     TORCH_CHECK(layout_ret == 0,
                 "mf310p_get_layout failed with ret=", layout_ret);
     TORCH_CHECK(state.layout.chunk_bytes == chunk_bytes,
-                "MemFabric bridge returned unexpected chunk_bytes");
+                "MemFabric returned unexpected chunk_bytes");
     TORCH_CHECK(state.layout.max_chunks == VLLM_ASCEND_MF310P_MAX_CHUNKS,
-                "MemFabric bridge returned unexpected max_chunks");
+                "MemFabric returned unexpected max_chunks");
 
     const aclError stream_ret = aclrtCreateStream(&state.reduce_stream);
     TORCH_CHECK(stream_ret == ACL_SUCCESS,
@@ -212,6 +142,15 @@ void init_context_locked(
     state.tp_rank = static_cast<int>(tp_rank);
     state.tile_m = tile_m;
     (void)x;
+}
+
+void check_runtime_healthy(const RuntimeState& state)
+{
+    TORCH_CHECK(
+        !state.poisoned,
+        "310P MemFabric o_proj runtime is poisoned after a previous failed wave. "
+        "Restart both TP workers before reusing it. First failure: ",
+        state.failure_reason);
 }
 
 at::Tensor wrap_pool_tensor(
@@ -245,20 +184,17 @@ std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
 
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
+    check_runtime_healthy(state);
     init_context_locked(state, x, tp_rank, tile_m);
     TORCH_CHECK(!state.wave_active,
                 "MemFabric o_proj begin called while previous wave is active");
 
-    /*
-     * prepare_wave performs a two-rank barrier, local clear, then a second
-     * barrier. It prevents a fresh peer arrival from being erased by a late
-     * local flag reset. No barrier is introduced between tiles in this wave.
-     */
-    int ret = state.api.prepare_wave(state.ctx);
+    /* Wave-boundary barriers are allowed. There is no barrier between tiles. */
+    int ret = mf310p_prepare_wave(state.ctx);
     TORCH_CHECK(ret == 0, "mf310p_prepare_wave failed with ret=", ret);
 
-    /* Consumer may poll before data arrives; that is intentional. */
-    ret = state.api.launch_reduce_consumer_async(
+    /* Consumer may poll before peer data arrives; that is intentional. */
+    ret = mf310p_launch_reduce_consumer_async(
         state.ctx,
         static_cast<uint32_t>(chunks),
         reinterpret_cast<void*>(state.reduce_stream));
@@ -266,7 +202,7 @@ std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
                 "mf310p_launch_reduce_consumer_async failed with ret=", ret);
 
     /* Arm AICPU/SDMA before producer notifications start arriving. */
-    ret = state.api.submit_wave(state.ctx, static_cast<uint32_t>(chunks));
+    ret = mf310p_submit_wave(state.ctx, static_cast<uint32_t>(chunks));
     TORCH_CHECK(ret == 0, "mf310p_submit_wave failed with ret=", ret);
 
     state.wave_active = true;
@@ -283,13 +219,14 @@ void memfabric_o_proj_publish(const at::Tensor& send, int64_t chunk_idx)
     TORCH_CHECK(send.is_privateuseone(), "send must be an NPU tensor");
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
+    check_runtime_healthy(state);
     TORCH_CHECK(state.wave_active, "MemFabric publish without active wave");
     TORCH_CHECK(chunk_idx >= 0 &&
                     chunk_idx < static_cast<int64_t>(state.active_chunks),
                 "chunk_idx out of active wave range: ", chunk_idx);
 
     aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
-    const int ret = state.api.publish_chunk_async(
+    const int ret = mf310p_publish_chunk_async(
         state.ctx,
         static_cast<uint32_t>(chunk_idx),
         state.layout.chunk_bytes,
@@ -304,9 +241,10 @@ void memfabric_o_proj_finish(const at::Tensor& recv)
     TORCH_CHECK(recv.is_privateuseone(), "recv must be an NPU tensor");
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
+    check_runtime_healthy(state);
     TORCH_CHECK(state.wave_active, "MemFabric finish without active wave");
 
-    int ret = state.api.wait_wave(state.ctx);
+    int ret = mf310p_wait_wave(state.ctx);
     TORCH_CHECK(ret == 0, "mf310p_wait_wave failed with ret=", ret);
 
     const aclError sync_ret = aclrtSynchronizeStream(state.reduce_stream);
@@ -316,7 +254,7 @@ void memfabric_o_proj_finish(const at::Tensor& recv)
     uint32_t main_ret = 0;
     uint32_t stage = 0;
     uint32_t sq_head = 0;
-    ret = state.api.get_result(state.ctx, &main_ret, &stage, &sq_head);
+    ret = mf310p_get_result(state.ctx, &main_ret, &stage, &sq_head);
     TORCH_CHECK(ret == 0,
                 "mf310p_get_result failed with ret=", ret);
     TORCH_CHECK(main_ret == 0,
@@ -326,6 +264,66 @@ void memfabric_o_proj_finish(const at::Tensor& recv)
     state.wave_active = false;
     state.active_chunks = 0;
 }
+
+void memfabric_o_proj_mark_failed(
+    const at::Tensor& recv,
+    c10::string_view reason)
+{
+    TORCH_CHECK(recv.is_privateuseone(), "recv must be an NPU tensor");
+    RuntimeState& state = runtime_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+
+    /*
+     * Do not attempt to clear flags, destroy SHM, or synchronize an unknown
+     * partial wave here. A peer may still be polling or AICPU may still own
+     * SQEs. Mark the process-local runtime permanently unusable and require a
+     * coordinated two-rank worker restart.
+     */
+    state.poisoned = true;
+    state.wave_active = false;
+    state.active_chunks = 0;
+    if (state.failure_reason.empty()) {
+        state.failure_reason.assign(reason.data(), reason.size());
+    }
+}
+
+#else  // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+
+namespace {
+[[noreturn]] void memfabric_not_built()
+{
+    TORCH_CHECK(
+        false,
+        "vllm_ascend_C was built without the 310P customized MemFabric o_proj "
+        "runtime. Build/install wgm-dev-310p MemFabric first, set "
+        "VLLM_ASCEND_310P_MEMFABRIC_ROOT and required build variables, then "
+        "rebuild vLLM-Ascend.");
+    std::abort();
+}
+} // namespace
+
+std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
+    const at::Tensor&, int64_t, int64_t, int64_t)
+{
+    memfabric_not_built();
+}
+
+void memfabric_o_proj_publish(const at::Tensor&, int64_t)
+{
+    memfabric_not_built();
+}
+
+void memfabric_o_proj_finish(const at::Tensor&)
+{
+    memfabric_not_built();
+}
+
+void memfabric_o_proj_mark_failed(const at::Tensor&, c10::string_view)
+{
+    memfabric_not_built();
+}
+
+#endif // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
 
 } // namespace vllm_ascend
 #endif // ASCEND_PLATFORM_310P
