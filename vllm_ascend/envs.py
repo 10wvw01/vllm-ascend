@@ -100,6 +100,16 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
+    # Experimental 310P3-only path: fuse Qwen3.5/3.6 full-attention W8A8
+    # o_proj with TP=2 MemFabric SDMA all-reduce. Disabled by default until the
+    # MemFabric custom operator is compiled into vllm_ascend_C.
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
+    ),
+    # M-dimension tile size used by the first MemFabric o_proj pipeline.
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "64")
+    ),
 }
 
 # end-env-vars-definition
