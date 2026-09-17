@@ -17,13 +17,14 @@ extern "C" {
 #endif
 
 /*
- * Stable ABI between vllm-ascend and the separately built/installed customized
- * MemFabric 310P adapter.  Nothing in this header depends on MemFabric headers.
+ * Stable ABI between vllm-ascend and the bridge built against the installed
+ * wgm-dev-310p MemFabric implementation. Nothing in this header depends on
+ * MemFabric headers.
  *
- * The adapter itself is built against the wgm-dev-310p MemFabric SDK and may
- * change internally when that SDK changes.  vllm-ascend only dlopens this ABI.
+ * The bridge may change internally when the customized MemFabric changes;
+ * vllm-ascend only depends on this small C ABI.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 1u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 2u
 #define VLLM_ASCEND_MF310P_MAX_CHUNKS 64u
 
 typedef struct mf310p_context mf310p_context_t;
@@ -51,7 +52,6 @@ typedef struct mf310p_layout {
     uint32_t reserved;
 } mf310p_layout_t;
 
-/* Returns VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION. */
 uint32_t mf310p_adapter_abi_version(void);
 
 /*
@@ -70,17 +70,26 @@ int mf310p_create(
 int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
-/* Clear mailbox state before reusing a wave. Pool flags use epoch/slot policy. */
-int mf310p_reset_mailbox(mf310p_context_t* ctx);
+/*
+ * Prepare a reusable wave without racing peer notification:
+ *
+ *   barrier #1  - both ranks have joined the previous wave;
+ *   clear       - each rank clears its local mailbox and local arrival flags;
+ *   barrier #2  - neither rank may submit/publish the new wave until both
+ *                 ranks have completed the clear.
+ *
+ * The barriers are only at wave boundaries; there is no barrier between tiles
+ * inside a wave, so MM[t+1] remains independent of SDMA/reduce[t].
+ */
+int mf310p_prepare_wave(mf310p_context_t* ctx);
 
 /*
- * Arm the AICPU/SDMA consumer for one wave. The adapter sends local send_arena
+ * Arm the AICPU/SDMA consumer for one wave. The bridge sends local send_arena
  * chunks to the peer's recv_arena and writes the peer arrival flags.
  */
 int mf310p_submit_wave(mf310p_context_t* ctx, uint32_t chunks);
 int mf310p_wait_wave(mf310p_context_t* ctx);
 
-/* Optional debug/status data from the customized MemFabric orchestration. */
 int mf310p_get_result(
     mf310p_context_t* ctx,
     uint32_t* main_ret,
