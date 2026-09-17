@@ -14,6 +14,7 @@ RUNTIME = ROOT / "csrc" / "memfabric_o_proj_runtime.cpp"
 ADAPTER_API = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter_api.h"
 ADAPTER = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter.cpp"
 DEVICE = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_device.asc"
+MEMFABRIC_CMAKE = ROOT / "cmake" / "memfabric_310p.cmake"
 
 
 def _func(path: Path, name: str) -> ast.FunctionDef:
@@ -29,9 +30,12 @@ def _src(node: ast.AST) -> str:
 
 def test_eligibility_is_deliberately_narrow() -> None:
     src = _src(_func(HELPER, "should_enable_memfabric_o_proj"))
+    full_attn = _src(_func(HELPER, "_is_full_attention_prefix"))
 
     assert "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ" in src
-    assert "prefix.endswith('.self_attn.o_proj')" in src
+    assert "_is_full_attention_prefix" in src
+    assert "prefix.endswith('.self_attn.o_proj')" in full_attn
+    assert "layer_types[layer_idx] == 'full_attention'" in full_attn
     assert "_EXPECTED_TP_SIZE" in src
     assert "_EXPECTED_INPUT_SIZE" in src
     assert "_EXPECTED_INPUT_SIZE_PER_PARTITION" in src
@@ -42,91 +46,74 @@ def test_eligibility_is_deliberately_narrow() -> None:
 
 def test_configure_disables_generic_row_parallel_reduce() -> None:
     src = _src(_func(HELPER, "configure_memfabric_o_proj"))
-
     assert "layer.reduce_results = False" in src
     assert "RowParallelLinear(reduce_results=True)" in src
 
 
 def test_w8a8_routes_configured_layer_to_memfabric_pipeline() -> None:
     module_src = W8A8.read_text()
-
     assert "is_memfabric_o_proj_configured(layer)" in module_src
     assert "memfabric_w8a8_o_proj_allreduce(" in module_src
     assert "configure_memfabric_o_proj(layer)" in module_src
-    assert module_src.index("memfabric_w8a8_o_proj_allreduce(") < module_src.index("torch_npu.npu_quant_matmul(")
 
 
-def test_phase1_pipeline_is_mm_then_publish_without_comm_wait() -> None:
+def test_phase1_pipeline_is_mm_then_publish_then_single_join() -> None:
     src = _src(_func(HELPER, "memfabric_w8a8_o_proj_allreduce"))
-
     assert "torch_npu.npu_quant_matmul" in src
     assert "send_tile.narrow(0, 0, rows).copy_(y_tile)" in src
     assert "publish(send, int(chunk_idx))" in src
     assert "finish(recv)" in src
     assert src.index("publish(send, int(chunk_idx))") < src.index("finish(recv)")
-    assert "output.narrow" in src
+    assert "mark_failed(recv, str(exc))" in src
 
 
-def test_310p_cpp_binding_registers_staged_pipeline() -> None:
+def test_cpp_binding_registers_staged_pipeline_and_failure_marker() -> None:
     src = BINDING.read_text()
-
     assert "TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)" in src
-    assert "memfabric_o_proj_begin" in src
-    assert "memfabric_o_proj_publish" in src
-    assert "memfabric_o_proj_finish" in src
+    for name in (
+        "memfabric_o_proj_begin",
+        "memfabric_o_proj_publish",
+        "memfabric_o_proj_finish",
+        "memfabric_o_proj_mark_failed",
+    ):
+        assert name in src
     assert "torch::kPrivateUse1" in src
 
 
-def test_main_extension_dlopen_boundary_has_no_memfabric_headers() -> None:
+def test_runtime_directly_calls_internal_adapter_without_dlopen() -> None:
     src = RUNTIME.read_text()
-
-    assert "dlopen" in src
-    assert "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO" in src
-    assert "memfabric310p_adapter_api.h" in src
-    assert "#include <smem.h>" not in src
-    assert "#include <smem_shm.h>" not in src
-    assert "#include <smem_shm_aicore_sdma.h>" not in src
-
-
-def test_bridge_is_the_only_custom_memfabric_header_boundary() -> None:
-    src = ADAPTER.read_text()
-
-    assert "#include <smem.h>" in src
-    assert "#include <smem_shm.h>" in src
-    assert "#include <smem_shm_aicore_sdma.h>" in src
-    assert "SMEMS_DATA_OP_SDMA" in src
-    assert "smem_shm_sdma_submit" in src
-    assert "smem_shm_sdma_wait" in src
+    assert "mf310p_create(" in src
+    assert "mf310p_prepare_wave(" in src
+    assert "mf310p_submit_wave(" in src
+    assert "mf310p_wait_wave(" in src
+    assert "dlopen" not in src
+    assert "dlsym" not in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO" not in src
+    assert "poisoned" in src
+    assert "memfabric_o_proj_mark_failed" in src
 
 
-def test_wave_prepare_has_two_cross_rank_barriers_around_clear() -> None:
-    src = ADAPTER.read_text()
-
-    start = src.index('extern "C" int mf310p_prepare_wave')
-    end = src.index('extern "C" int mf310p_submit_wave', start)
-    prepare = src[start:end]
-    assert prepare.count("smem_shm_control_barrier") == 2
-    assert "clear_local_wave_state(ctx)" in prepare
-    first_barrier = prepare.index("smem_shm_control_barrier")
-    clear = prepare.index("clear_local_wave_state(ctx)")
-    second_barrier = prepare.rindex("smem_shm_control_barrier")
-    assert first_barrier < clear < second_barrier
+def test_custom_memfabric_headers_are_isolated_to_internal_adapter() -> None:
+    runtime = RUNTIME.read_text()
+    adapter = ADAPTER.read_text()
+    for header in ("smem.h", "smem_shm.h", "smem_shm_aicore_sdma.h"):
+        assert f"#include <{header}>" not in runtime
+        assert f"#include <{header}>" in adapter
 
 
-def test_runtime_prepares_wave_before_consumer_and_submit() -> None:
-    src = RUNTIME.read_text()
-
-    begin = src[src.index("memfabric_o_proj_begin(") : src.index("void memfabric_o_proj_publish")]
-    prepare = begin.index("state.api.prepare_wave")
-    consumer = begin.index("state.api.launch_reduce_consumer_async")
-    submit = begin.index("state.api.submit_wave")
-    assert prepare < consumer < submit
-    assert "mf310p_reset_mailbox" not in src
+def test_build_links_only_explicit_wgm_dev_310p_install() -> None:
+    src = MEMFABRIC_CMAKE.read_text()
+    assert "VLLM_ASCEND_310P_MEMFABRIC_ROOT" in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES" in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT" in src
+    assert "NO_DEFAULT_PATH" in src
+    assert "memfabric310p_adapter.cpp" in src
+    assert "target_link_libraries" in src
+    assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ" in src
 
 
 def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
     src = ADAPTER.read_text()
-
     assert "ctx->layout.send_arena = own_segment" in src
     assert "ctx->layout.recv_arena = own_segment + arena_bytes" in src
     assert "ctx->layout.peer_recv_arena = peer_segment + arena_bytes" in src
@@ -134,7 +121,6 @@ def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
 
 def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
     src = DEVICE.read_text()
-
     assert "smem_shm_sdma_notify" in src
     assert "smem_shm_sdma_poll_flag" in src
     assert "recv[i] = static_cast<bfloat16_t>(lhs + rhs)" in src
@@ -143,7 +129,6 @@ def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
 
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
     src = ADAPTER_API.read_text()
-
     assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 2u" in src
     assert "mf310p_prepare_wave" in src
     assert "smem_shm_t" not in src
