@@ -75,24 +75,28 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
 
     # Experimental 310P3-only path: Qwen3.5/3.6 full-attention W8A8 o_proj
-    # plus TP=2 all-reduce implemented with the separately built and installed
-    # wgm-dev-310p MemFabric SDK. Disabled by default.
+    # plus TP=2 reduction using the wgm-dev-310p MemFabric build/install.
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
-    # Installation prefix of the independently built customized MemFabric SDK.
-    # Expected layout is SDK-defined; CMake searches ROOT/include and ROOT/lib{,64}
-    # but does not assume an upstream/official library package exists.
+    # Install prefix produced by building/installing wgm-dev-310p MemFabric.
+    # This is used when compiling the vLLM bridge against that customized
+    # MemFabric implementation; it is not an official/upstream installation.
     "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_ROOT", None
     ),
-    # Semicolon-separated libraries exported by the customized SDK. Entries may
-    # be absolute library paths or linker names. We intentionally do not hardcode
-    # any library name until the wgm-dev-310p install ABI is provided.
+    # Semicolon-separated libraries produced/required by the wgm-dev-310p
+    # installation when compiling the vLLM bridge.
     "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None
     ),
-    # Config-store rendezvous used by the customized MemFabric SHM runtime.
+    # Runtime path to the repo-owned bridge .so. This is NOT a MemFabric library;
+    # the bridge itself is compiled and linked against the installed
+    # wgm-dev-310p MemFabric implementation.
+    "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO", None
+    ),
+    # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
     ),
