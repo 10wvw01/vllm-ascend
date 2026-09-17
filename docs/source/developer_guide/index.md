@@ -2,6 +2,13 @@
 
 This section is for developers who want to contribute to vLLM Ascend or understand its internal architecture.
 
+## 310P3 Qwen3.6 W8A8 o_proj + MemFabric fusion
+
+- **[Design](310p_memfabric_o_proj.md)** — Architecture, integration points, memory ownership, pipeline and synchronization invariants
+- **[Development Plan](310p_memfabric_o_proj_development_plan.md)** — Overall roadmap, current completion status, remaining tasks and acceptance criteria
+- **[Build / Deployment / Usage](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)** — 310P server build, custom MemFabric dependency, hardware benchmark and Qwen3.6 launch procedure
+- **[OpenCode Handoff Prompt](310p_memfabric_o_proj_opencode_prompt.md)** — Prompt for continuing bring-up and development directly on the 310P server
+
 ## Contribution
 
 - **[Contribution Guide](contribution/index.md)** — How to contribute to vLLM Ascend
