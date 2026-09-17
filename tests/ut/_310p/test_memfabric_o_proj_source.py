@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[3]
 HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_o_proj.py"
 W8A8 = ROOT / "vllm_ascend" / "_310p" / "quantization" / "methods" / "w8a8_static.py"
 BINDING = ROOT / "csrc" / "memfabric_o_proj_binding.cpp"
+RUNTIME = ROOT / "csrc" / "memfabric_o_proj_runtime.cpp"
+ADAPTER_API = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter_api.h"
+ADAPTER = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter.cpp"
+DEVICE = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_device.asc"
 
 
 def _func(path: Path, name: str) -> ast.FunctionDef:
@@ -32,6 +36,7 @@ def test_eligibility_is_deliberately_narrow() -> None:
     assert "_EXPECTED_INPUT_SIZE" in src
     assert "_EXPECTED_INPUT_SIZE_PER_PARTITION" in src
     assert "_EXPECTED_OUTPUT_SIZE" in src
+    assert "torch.bfloat16" in src
     assert "AscendW8A8LinearMethod310" in src
 
 
@@ -42,7 +47,7 @@ def test_configure_disables_generic_row_parallel_reduce() -> None:
     assert "RowParallelLinear(reduce_results=True)" in src
 
 
-def test_w8a8_routes_configured_layer_to_fused_op() -> None:
+def test_w8a8_routes_configured_layer_to_memfabric_pipeline() -> None:
     module_src = W8A8.read_text()
 
     assert "is_memfabric_o_proj_configured(layer)" in module_src
@@ -51,9 +56,70 @@ def test_w8a8_routes_configured_layer_to_fused_op() -> None:
     assert module_src.index("memfabric_w8a8_o_proj_allreduce(") < module_src.index("torch_npu.npu_quant_matmul(")
 
 
-def test_310p_cpp_binding_registers_opaque_operator() -> None:
+def test_phase1_pipeline_is_mm_then_publish_without_comm_wait() -> None:
+    src = _src(_func(HELPER, "memfabric_w8a8_o_proj_allreduce"))
+
+    assert "torch_npu.npu_quant_matmul" in src
+    assert "send_tile.narrow(0, 0, rows).copy_(y_tile)" in src
+    assert "publish(send, int(chunk_idx))" in src
+    assert "finish(recv)" in src
+    assert src.index("publish(send, int(chunk_idx))") < src.index("finish(recv)")
+    assert "output.narrow" in src
+
+
+def test_310p_cpp_binding_registers_staged_pipeline() -> None:
     src = BINDING.read_text()
 
     assert "TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)" in src
-    assert "memfabric_w8a8_o_proj_allreduce" in src
+    assert "memfabric_o_proj_begin" in src
+    assert "memfabric_o_proj_publish" in src
+    assert "memfabric_o_proj_finish" in src
     assert "torch::kPrivateUse1" in src
+
+
+def test_main_extension_dlopen_boundary_has_no_memfabric_sdk_headers() -> None:
+    src = RUNTIME.read_text()
+
+    assert "dlopen" in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO" in src
+    assert "memfabric310p_adapter_api.h" in src
+    assert "#include <smem.h>" not in src
+    assert "#include <smem_shm.h>" not in src
+    assert "#include <smem_shm_aicore_sdma.h>" not in src
+
+
+def test_external_adapter_is_the_only_memfabric_sdk_boundary() -> None:
+    src = ADAPTER.read_text()
+
+    assert "#include <smem.h>" in src
+    assert "#include <smem_shm.h>" in src
+    assert "#include <smem_shm_aicore_sdma.h>" in src
+    assert "SMEMS_DATA_OP_SDMA" in src
+    assert "smem_shm_sdma_submit" in src
+    assert "smem_shm_sdma_wait" in src
+
+
+def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
+    src = ADAPTER.read_text()
+
+    assert "ctx->layout.send_arena = own_segment" in src
+    assert "ctx->layout.recv_arena = own_segment + arena_bytes" in src
+    assert "ctx->layout.peer_recv_arena = peer_segment + arena_bytes" in src
+
+
+def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
+    src = DEVICE.read_text()
+
+    assert "smem_shm_sdma_notify" in src
+    assert "smem_shm_sdma_poll_flag" in src
+    assert "recv[i] = static_cast<bfloat16_t>(lhs + rhs)" in src
+    assert "Mf310pCleanWords" in src
+
+
+def test_adapter_abi_does_not_expose_memfabric_types() -> None:
+    src = ADAPTER_API.read_text()
+
+    assert "smem_shm_t" not in src
+    assert "smem_shm_config_t" not in src
+    assert "mf310p_context_t" in src
+    assert "mf310p_layout_t" in src
