@@ -6,12 +6,6 @@
  * You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
  */
 #ifndef VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TORCH_ADPT_H
 #define VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TORCH_ADPT_H
@@ -22,6 +16,23 @@
 
 namespace vllm_ascend {
 
+/* Phase-1 staged pipeline. These functions live in vllm_ascend_C and load the
+ * independently built customized MemFabric adapter at runtime via dlopen. */
+std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
+    const at::Tensor& x,
+    int64_t tp_rank,
+    int64_t tile_m,
+    int64_t chunks);
+
+void memfabric_o_proj_publish(
+    const at::Tensor& send,
+    int64_t chunk_idx);
+
+void memfabric_o_proj_finish(const at::Tensor& recv);
+
+/* Reserved phase-2 direct-MM entry point. Once the AscendC W8A8 matmul writes
+ * directly into the symmetric send arena, Python will switch from the staged
+ * begin/publish/finish path to this single opaque op. */
 #ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
 at::Tensor memfabric_w8a8_o_proj_allreduce_impl(
     const at::Tensor& x,
@@ -72,9 +83,8 @@ inline at::Tensor memfabric_w8a8_o_proj_allreduce(
 #else
     TORCH_CHECK(
         false,
-        "memfabric_w8a8_o_proj_allreduce is registered, but this "
-        "vllm_ascend_C build does not contain the 310P MemFabric runtime. "
-        "Rebuild with VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ=ON.");
+        "Direct MemFabric W8A8 o_proj kernel is not built yet. The phase-1 "
+        "staged pipeline uses memfabric_o_proj_begin/publish/finish instead.");
 #endif
 }
 
