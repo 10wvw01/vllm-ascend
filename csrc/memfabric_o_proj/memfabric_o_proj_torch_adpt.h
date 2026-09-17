@@ -12,12 +12,14 @@
 
 #include <ATen/ATen.h>
 #include <c10/util/Optional.h>
+#include <c10/util/string_view.h>
 #include <torch/extension.h>
 
 namespace vllm_ascend {
 
 /* Phase-1 staged pipeline. These functions live in vllm_ascend_C and load the
- * independently built customized MemFabric adapter at runtime via dlopen. */
+ * repo-owned bridge (which is linked against installed wgm-dev-310p MemFabric)
+ * at runtime via dlopen. */
 std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
     const at::Tensor& x,
     int64_t tp_rank,
@@ -29,6 +31,13 @@ void memfabric_o_proj_publish(
     int64_t chunk_idx);
 
 void memfabric_o_proj_finish(const at::Tensor& recv);
+
+/* Mark a partially started wave unusable. A failed device/AICPU/SDMA pipeline
+ * cannot be safely reused because outstanding polling/SQE/flag state is not
+ * recoverable without a rank-wide restart. */
+void memfabric_o_proj_mark_failed(
+    const at::Tensor& recv,
+    c10::string_view reason);
 
 /* Reserved phase-2 direct-MM entry point. Once the AscendC W8A8 matmul writes
  * directly into the symmetric send arena, Python will switch from the staged
