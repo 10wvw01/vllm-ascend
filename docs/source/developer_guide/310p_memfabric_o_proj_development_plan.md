@@ -112,6 +112,34 @@ compute stream 不在 tile 间等待通信，wave 最后统一 join。
 
 服务器 bring-up 首先只解决“能正确编译和链接”，不要同时优化性能。
 
+### 4.9 实机 bring-up 状态（2026-09-17，服务器首轮）
+
+环境与工具链（已就绪并实测）：
+
+- Python 栈：`torch 2.10.0+cpu` / `torch-npu 2.10.0.post4` / `vllm 0.27.1+empty`
+  （源码装于 `/vllm-workspace/vllm` @ v0.27.1，`VLLM_TARGET_DEVICE=empty`，对齐
+  `Dockerfile.310p`）；ray 2.48.0 / modelscope / MPI（openmpi 4.1.2 发行版）。
+- `wgm-dev-310p` @ `e07ef883`（本地为 `d177bfaf`，含 orchestrator json 模式自判别
+  与失败面包屑诊断两处实机验证改动）：主构建（libmf_smem/libmf_hybm_core/
+  libacc_tcp_net 静态库+so）与 AICPU kernel standalone 构建
+  （`cmake -S src/hybm/ops -B <dir> -DASCEND_HOME_PATH=...`，产出
+  `libmf_sdma_orch.so` + CUST/launch 双 json）均通过。
+- example 08 用 `bisheng --npu-arch=dav-2002` 统一编译通过（host+AICore 可执行）；
+  实机双 rank 建池/`smem_shm_sdma_submit` 成功。
+- `smem_shm_control_barrier` 在 wgm-dev-310p 真实存在（smem_shm.h:123），仓库
+  adapter 的用法与实机 ABI 一致。
+
+**当前唯一阻塞（外部条件）**：AICPU 编排 kernel 必须部署到设备
+`/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/`（CP1 搜索路径）才能以
+AICPUKernel 模式执行；原部署工具 `deployer`/`mini_kfc` 在本容器缺失（全盘无
+残留）。deployer 功能已用 `aclrtBinaryLoadFromFile`(CUST json, mode=1) 自研
+复现（可把 ELF 迁移落盘到设备 `/home/CustAiCpuUser/lib/`），但设备内跨目录
+复制（原 mini_kfc 经 KFC 通道的 shell）无法复现。六条免部署替代通道已系统性
+实测排除（详见 memfabric 仓库 `docs/310p/部署档案.md` 第 6 节），其中
+CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不到 host CP 流
+注册的 SQ（mainRet=1300）。310P host 编排路径（HostDataOpAclMemcpy）为
+"async 降级 sync"，无 overlap 能力，不可作为替代。
+
 ### P0.1 确认定制 MemFabric install 产物
 
 在 `wgm-dev-310p` 编译安装后记录：
