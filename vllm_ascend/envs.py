@@ -80,21 +80,21 @@ env_variables: dict[str, Callable[[], Any]] = {
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
     # Install prefix produced by building/installing wgm-dev-310p MemFabric.
-    # This is used when compiling the vLLM bridge against that customized
-    # MemFabric implementation; it is not an official/upstream installation.
+    # vLLM-Ascend directly consumes headers/libraries from this installation;
+    # the official/upstream MemFabric installation is not used for this path.
     "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_ROOT", None
     ),
     # Semicolon-separated libraries produced/required by the wgm-dev-310p
-    # installation when compiling the vLLM bridge.
+    # installation when linking vllm_ascend_C.
     "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None
     ),
-    # Runtime path to the repo-owned bridge .so. This is NOT a MemFabric library;
-    # the bridge itself is compiled and linked against the installed
-    # wgm-dev-310p MemFabric implementation.
-    "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO", None
+    # Object generated from the repo-owned device cooperation source
+    # csrc/memfabric_o_proj/external/memfabric310p_device.asc, compiled with the
+    # same 310P customized MemFabric/AscendC toolchain as example 08.
+    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT", None
     ),
     # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
