@@ -110,6 +110,16 @@ set(
 
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
 
+# The customized 310P MemFabric used by the o_proj pipeline is not an upstream
+# system library. It is built and installed independently. Presence of
+# VLLM_ASCEND_310P_MEMFABRIC_ROOT opts this extension into consuming that SDK.
+if(SOC_VERSION MATCHES "ascend310p.*" AND
+   DEFINED ENV{VLLM_ASCEND_310P_MEMFABRIC_ROOT} AND
+   NOT "$ENV{VLLM_ASCEND_310P_MEMFABRIC_ROOT}" STREQUAL "")
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/memfabric_310p.cmake)
+    vllm_ascend_configure_310p_memfabric(vllm_ascend_C)
+endif()
+
 # Detect aclrtMemcpyBatchAsync availability (CANN 8.5+)
 # Can be overridden via VLLM_ASCEND_ENABLE_BATCH_MEMCPY env var (registered
 # in vllm_ascend/envs.py, forwarded by setup.py as a CMake variable):
