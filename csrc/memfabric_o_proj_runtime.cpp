@@ -1,7 +1,7 @@
 /*
- * Runtime bridge from vllm_ascend_C to the independently built customized
- * MemFabric 310P adapter.  This file has no dependency on MemFabric headers or
- * libraries: it uses a small stable C ABI and dlopen/dlsym.
+ * Runtime bridge from vllm_ascend_C to the bridge built against the installed
+ * wgm-dev-310p MemFabric implementation. This file has no dependency on
+ * MemFabric headers or libraries: it uses a small stable C ABI and dlopen/dlsym.
  */
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
@@ -51,7 +51,8 @@ const char* required_env(const char* name)
         value != nullptr && *value != '\0',
         name,
         " is required when the 310P MemFabric o_proj path is enabled. It must "
-        "point to the separately built vllm_ascend_memfabric310p_adapter.so.");
+        "point to the vllm_ascend_memfabric310p_adapter.so built against the "
+        "installed wgm-dev-310p MemFabric implementation.");
     return value;
 }
 
@@ -62,7 +63,7 @@ T load_symbol(void* handle, const char* name)
     void* ptr = dlsym(handle, name);
     const char* err = dlerror();
     TORCH_CHECK(ptr != nullptr && err == nullptr,
-                "Missing symbol ", name, " in customized MemFabric adapter: ",
+                "Missing symbol ", name, " in 310P MemFabric bridge: ",
                 (err == nullptr ? "unknown error" : err));
     return reinterpret_cast<T>(ptr);
 }
@@ -73,7 +74,7 @@ struct AdapterFns {
     decltype(&mf310p_create) create = nullptr;
     decltype(&mf310p_destroy) destroy = nullptr;
     decltype(&mf310p_get_layout) get_layout = nullptr;
-    decltype(&mf310p_reset_mailbox) reset_mailbox = nullptr;
+    decltype(&mf310p_prepare_wave) prepare_wave = nullptr;
     decltype(&mf310p_submit_wave) submit_wave = nullptr;
     decltype(&mf310p_wait_wave) wait_wave = nullptr;
     decltype(&mf310p_get_result) get_result = nullptr;
@@ -120,7 +121,7 @@ void load_adapter_locked(RuntimeState& state)
     const char* path = required_env("VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO");
     state.api.so = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     TORCH_CHECK(state.api.so != nullptr,
-                "Failed to dlopen customized MemFabric adapter ", path, ": ",
+                "Failed to dlopen 310P MemFabric bridge ", path, ": ",
                 dlerror());
 
     state.api.abi_version = load_symbol<decltype(state.api.abi_version)>(
@@ -131,8 +132,8 @@ void load_adapter_locked(RuntimeState& state)
         state.api.so, "mf310p_destroy");
     state.api.get_layout = load_symbol<decltype(state.api.get_layout)>(
         state.api.so, "mf310p_get_layout");
-    state.api.reset_mailbox = load_symbol<decltype(state.api.reset_mailbox)>(
-        state.api.so, "mf310p_reset_mailbox");
+    state.api.prepare_wave = load_symbol<decltype(state.api.prepare_wave)>(
+        state.api.so, "mf310p_prepare_wave");
     state.api.submit_wave = load_symbol<decltype(state.api.submit_wave)>(
         state.api.so, "mf310p_submit_wave");
     state.api.wait_wave = load_symbol<decltype(state.api.wait_wave)>(
@@ -147,7 +148,7 @@ void load_adapter_locked(RuntimeState& state)
 
     TORCH_CHECK(
         state.api.abi_version() == VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
-        "Customized MemFabric adapter ABI mismatch: expected ",
+        "310P MemFabric bridge ABI mismatch: expected ",
         VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
         ", got ", state.api.abi_version());
 }
@@ -200,9 +201,9 @@ void init_context_locked(
     TORCH_CHECK(layout_ret == 0,
                 "mf310p_get_layout failed with ret=", layout_ret);
     TORCH_CHECK(state.layout.chunk_bytes == chunk_bytes,
-                "MemFabric adapter returned unexpected chunk_bytes");
+                "MemFabric bridge returned unexpected chunk_bytes");
     TORCH_CHECK(state.layout.max_chunks == VLLM_ASCEND_MF310P_MAX_CHUNKS,
-                "MemFabric adapter returned unexpected max_chunks");
+                "MemFabric bridge returned unexpected max_chunks");
 
     const aclError stream_ret = aclrtCreateStream(&state.reduce_stream);
     TORCH_CHECK(stream_ret == ACL_SUCCESS,
@@ -210,7 +211,7 @@ void init_context_locked(
 
     state.tp_rank = static_cast<int>(tp_rank);
     state.tile_m = tile_m;
-    (void)x; // x fixes the device through the caller's current NPU context.
+    (void)x;
 }
 
 at::Tensor wrap_pool_tensor(
@@ -248,8 +249,13 @@ std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
     TORCH_CHECK(!state.wave_active,
                 "MemFabric o_proj begin called while previous wave is active");
 
-    int ret = state.api.reset_mailbox(state.ctx);
-    TORCH_CHECK(ret == 0, "mf310p_reset_mailbox failed with ret=", ret);
+    /*
+     * prepare_wave performs a two-rank barrier, local clear, then a second
+     * barrier. It prevents a fresh peer arrival from being erased by a late
+     * local flag reset. No barrier is introduced between tiles in this wave.
+     */
+    int ret = state.api.prepare_wave(state.ctx);
+    TORCH_CHECK(ret == 0, "mf310p_prepare_wave failed with ret=", ret);
 
     /* Consumer may poll before data arrives; that is intentional. */
     ret = state.api.launch_reduce_consumer_async(
