@@ -10,16 +10,25 @@ This document tracks the intentionally narrow fused path for Qwen3.6-35B-A3B-W8A
 - Full-attention geometry: 16 heads x 256 head-dim = 4096 input channels; hidden size = 2048.
 - Per TP rank: `A[M, 2048] x W[2048, 2048] -> Y_local[M, 2048]`.
 - Quantization: static W8A8. Existing 310P weight layout, dequant scale and rank-0-only quant bias semantics must be preserved.
-- Communication: MemFabric Hybrid 310P SDMA path; HCCL/MC2 is not used by the fused operator.
+- Communication: customized `wgm-dev-310p` MemFabric Hybrid SDMA path; HCCL/MC2 is not used by the fused operator.
 
-The feature is disabled by default. Enable model-side dispatch with:
+## External MemFabric dependency
+
+The required 310P MemFabric implementation is **not** assumed to be part of the upstream/mainline MemFabric package and is **not** assumed to provide any upstream library name or ABI. It is an independently built and installed dependency from the customized `wgm-dev-310p` source tree.
+
+vLLM-Ascend must therefore treat it as an optional external SDK. The intended build contract is:
 
 ```bash
+export VLLM_ASCEND_MEMFABRIC_310P_ROOT=/path/to/custom/memfabric/install
 export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
 export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=64
 ```
 
-The runtime build must also contain the MemFabric implementation; otherwise the custom op fails explicitly instead of silently falling back to a second all-reduce.
+When the fusion build is enabled, CMake will consume include/library information from that custom installation prefix (or explicit include/library overrides if the custom build layout requires them). The normal vLLM-Ascend build must remain independent of this dependency.
+
+No library name, include directory layout, soname, or ABI will be hard-coded until the customized branch's build/install files and headers are available. The existing generic Python dependency named `memfabric_hybrid` is not considered sufficient evidence for linking this custom 310P SDMA runtime.
+
+The runtime build must contain the customized MemFabric implementation; otherwise the custom op fails explicitly instead of silently falling back to a second all-reduce.
 
 ## Integration point
 
@@ -70,7 +79,7 @@ Each rank owns two non-overlapping symmetric arenas:
 send arena        [max_M, 2048]  BF16/FP16 local contribution, SDMA source
 recv/final arena  [max_M, 2048]  peer contribution, then final reduced output
 control/flags      generation + arrival/reduce completion metadata
-workspace          MemFabric SDMA mailbox/AICPU orchestration workspace
+workspace          customized MemFabric SDMA mailbox/AICPU orchestration workspace
 ```
 
 For tile `t`:
@@ -92,14 +101,14 @@ The runtime should allocate the symmetric pool and workspace once per rank/proce
 - Buffer reuse across invocations needs an epoch/generation discipline so stale non-zero flags cannot release a later invocation.
 - The operator may return only after every tile has completed MM, SDMA arrival and local reduction on both ranks.
 
-The exact flag-generation protocol must follow the 310P MemFabric branch ABI; it must not be guessed from the example's one-shot non-zero polling.
+The exact flag-generation protocol must follow the customized 310P MemFabric branch ABI; it must not be guessed from the example's one-shot non-zero polling.
 
 ## Implementation stages
 
 ### Stage 1: protocol bring-up
 
 - Opaque PyTorch custom op and strict eligibility checks.
-- Persistent MemFabric TP=2 context.
+- Persistent customized-MemFabric TP=2 context.
 - Tile-by-tile W8A8 matmul launches into the send arena.
 - Small AICore publish/reduce kernels plus AICPU/SDMA pipeline.
 - Numerical comparison against the existing local W8A8 matmul + TP all-reduce path.
@@ -107,15 +116,15 @@ The exact flag-generation protocol must follow the 310P MemFabric branch ABI; it
 
 ### Stage 2: true single-kernel producer
 
-Replace per-tile matmul launches with one AscendC tiled W8A8 matmul producer. It writes each completed M tile directly to the send arena, performs the required cache clean, and issues the MemFabric notify from inside the producer kernel. The communication/reduction state machine remains unchanged.
+Replace per-tile matmul launches with one AscendC tiled W8A8 matmul producer. It writes each completed M tile directly to the send arena, performs the required cache clean, and issues the customized MemFabric notify from inside the producer kernel. The communication/reduction state machine remains unchanged.
 
-## Required MemFabric branch ABI before runtime code is finalized
+## Required customized MemFabric ABI before runtime code is finalized
 
-The sample establishes the intended calls (`smem_shm_sdma_notify`, `smem_shm_sdma_poll_flag`, `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, symmetric SHM segments and the SDMA workspace), but the following branch-specific definitions are required to compile and to make buffer reuse correct:
+The supplied 310P example establishes the intended calls (`smem_shm_sdma_notify`, `smem_shm_sdma_poll_flag`, `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, symmetric SHM segments and the SDMA workspace), but the following branch-specific definitions are required to compile and to make buffer reuse correct:
 
 - `smem_shm_aicore_sdma.h` (or the actual header declaring the notify/poll primitives and workspace constants).
 - Host declarations for `smem_shm_sdma_submit`, `smem_shm_sdma_wait`, `smem_shm_sdma_get_workspace` and result APIs.
 - The AICPU SDMA orchestration implementation, especially mailbox consumption, destination-offset calculation and flag write semantics.
-- The example/build CMake or link command for the `wgm-dev-310p` branch so the exact include directories and libraries are used.
+- The customized branch's CMake/build/install files so the exact produced libraries, include directories, RPATH requirements and link dependencies are known.
 
 Until these definitions are available, the repository intentionally contains the model-side/operator contract but not a guessed MemFabric ABI implementation.
