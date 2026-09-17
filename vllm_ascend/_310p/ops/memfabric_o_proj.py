@@ -16,6 +16,7 @@ producer with a direct AscendC W8A8 matmul that writes the SHM send arena.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 import torch
@@ -31,6 +32,7 @@ _EXPECTED_INPUT_SIZE_PER_PARTITION = 2048
 _EXPECTED_OUTPUT_SIZE = 2048
 _EXPECTED_TP_SIZE = 2
 _MAX_CHUNKS_PER_WAVE = 64
+_LAYER_INDEX_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
 
 @dataclass(frozen=True)
@@ -68,13 +70,32 @@ def get_memfabric_o_proj_plan() -> MemFabricOProjPlan:
     return MemFabricOProjPlan(tile_m=tile_m)
 
 
-def _is_target_model() -> bool:
+def _target_text_config():
     try:
         vllm_config = get_current_vllm_config()
     except Exception:
-        return False
+        return None
     text_config = vllm_config.model_config.hf_text_config
-    return getattr(text_config, "model_type", None) == _QWEN35_MOE_TEXT_MODEL_TYPE
+    if getattr(text_config, "model_type", None) != _QWEN35_MOE_TEXT_MODEL_TYPE:
+        return None
+    return text_config
+
+
+def _is_full_attention_prefix(prefix: str, text_config) -> bool:
+    """Cross-check prefix against Qwen3.5/3.6's configured hybrid layer type."""
+
+    if not prefix.endswith(".self_attn.o_proj"):
+        return False
+
+    match = _LAYER_INDEX_RE.search(prefix)
+    if match is None:
+        return False
+    layer_idx = int(match.group(1))
+
+    layer_types = getattr(text_config, "layer_types", None)
+    if layer_types is None or layer_idx >= len(layer_types):
+        return False
+    return layer_types[layer_idx] == "full_attention"
 
 
 def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
@@ -82,11 +103,13 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
 
     if not envs.VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ:
         return False
-    if not _is_target_model():
+
+    text_config = _target_text_config()
+    if text_config is None:
         return False
 
     prefix = getattr(layer, "prefix", "")
-    if not prefix.endswith(".self_attn.o_proj"):
+    if not _is_full_attention_prefix(prefix, text_config):
         return False
 
     if getattr(layer, "tp_size", None) != _EXPECTED_TP_SIZE:
@@ -147,11 +170,12 @@ def _runtime_ops():
     begin = getattr(namespace, "memfabric_o_proj_begin", None)
     publish = getattr(namespace, "memfabric_o_proj_publish", None)
     finish = getattr(namespace, "memfabric_o_proj_finish", None)
-    if begin is None or publish is None or finish is None:
+    mark_failed = getattr(namespace, "memfabric_o_proj_mark_failed", None)
+    if begin is None or publish is None or finish is None or mark_failed is None:
         raise RuntimeError(
             "vllm_ascend_C was built without the staged 310P MemFabric o_proj runtime"
         )
-    return begin, publish, finish
+    return begin, publish, finish, mark_failed
 
 
 def memfabric_w8a8_o_proj_allreduce(
@@ -190,7 +214,7 @@ def memfabric_w8a8_o_proj_allreduce(
         )
 
     plan = get_memfabric_o_proj_plan()
-    begin, publish, finish = _runtime_ops()
+    begin, publish, finish, mark_failed = _runtime_ops()
 
     num_tokens = int(x_q.shape[0])
     if num_tokens == 0:
@@ -213,35 +237,43 @@ def memfabric_w8a8_o_proj_allreduce(
         chunks = plan.chunks_for_tokens(wave_rows)
         send, recv = begin(x_q, int(tp_rank), int(plan.tile_m), int(chunks))
 
-        for chunk_idx in range(chunks):
-            local_row = chunk_idx * plan.tile_m
-            rows = min(plan.tile_m, wave_rows - local_row)
-            global_row = wave_start + local_row
+        try:
+            for chunk_idx in range(chunks):
+                local_row = chunk_idx * plan.tile_m
+                rows = min(plan.tile_m, wave_rows - local_row)
+                global_row = wave_start + local_row
 
-            x_tile = x_q.narrow(0, global_row, rows)
-            y_tile = torch_npu.npu_quant_matmul(
-                x_tile,
-                layer.weight.data,
-                layer.deq_scale,
-                bias=quant_bias,
-                output_dtype=layer.params_dtype,
-            )
+                x_tile = x_q.narrow(0, global_row, rows)
+                y_tile = torch_npu.npu_quant_matmul(
+                    x_tile,
+                    layer.weight.data,
+                    layer.deq_scale,
+                    bias=quant_bias,
+                    output_dtype=layer.params_dtype,
+                )
 
-            # Each SDMA slot has fixed 128KB when tile_m=32. A partial tail is
-            # zero padded so the consumer can always reduce a fixed-size chunk.
-            send_tile = send.narrow(0, local_row, plan.tile_m)
-            if rows != plan.tile_m:
-                send_tile.zero_()
-            send_tile.narrow(0, 0, rows).copy_(y_tile)
+                # Each SDMA slot has fixed 128KB when tile_m=32. A partial tail
+                # is zero padded so the consumer reduces a fixed-size chunk.
+                send_tile = send.narrow(0, local_row, plan.tile_m)
+                if rows != plan.tile_m:
+                    send_tile.zero_()
+                send_tile.narrow(0, 0, rows).copy_(y_tile)
 
-            # publish() is enqueued on the same NPU stream after the MM/copy.
-            # It only orders producer -> communication; it does not wait for
-            # SDMA, so the next loop iteration can immediately enqueue MM[t+1].
-            publish(send, int(chunk_idx))
+                # publish() is enqueued on the same NPU stream after MM/copy.
+                # This only orders producer -> communication. It never waits for
+                # SDMA, so MM[t+1] can immediately be enqueued.
+                publish(send, int(chunk_idx))
 
-        # Host join for the correctness baseline: local outgoing AICPU/SDMA and
-        # peer-arrival reduce stream must both be complete before arena reuse.
-        finish(recv)
-        output.narrow(0, wave_start, wave_rows).copy_(recv.narrow(0, 0, wave_rows))
+            # Final join only after all producer tiles have been submitted.
+            finish(recv)
+            output.narrow(0, wave_start, wave_rows).copy_(recv.narrow(0, 0, wave_rows))
+        except BaseException as exc:
+            # A partially armed SDMA/reduce wave is unsafe to reuse. Poison the
+            # process-local runtime; both TP workers must be restarted.
+            try:
+                mark_failed(recv, str(exc))
+            except BaseException:
+                pass
+            raise
 
     return output
