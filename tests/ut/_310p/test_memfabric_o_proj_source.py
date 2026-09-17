@@ -77,7 +77,7 @@ def test_310p_cpp_binding_registers_staged_pipeline() -> None:
     assert "torch::kPrivateUse1" in src
 
 
-def test_main_extension_dlopen_boundary_has_no_memfabric_sdk_headers() -> None:
+def test_main_extension_dlopen_boundary_has_no_memfabric_headers() -> None:
     src = RUNTIME.read_text()
 
     assert "dlopen" in src
@@ -88,7 +88,7 @@ def test_main_extension_dlopen_boundary_has_no_memfabric_sdk_headers() -> None:
     assert "#include <smem_shm_aicore_sdma.h>" not in src
 
 
-def test_external_adapter_is_the_only_memfabric_sdk_boundary() -> None:
+def test_bridge_is_the_only_custom_memfabric_header_boundary() -> None:
     src = ADAPTER.read_text()
 
     assert "#include <smem.h>" in src
@@ -97,6 +97,31 @@ def test_external_adapter_is_the_only_memfabric_sdk_boundary() -> None:
     assert "SMEMS_DATA_OP_SDMA" in src
     assert "smem_shm_sdma_submit" in src
     assert "smem_shm_sdma_wait" in src
+
+
+def test_wave_prepare_has_two_cross_rank_barriers_around_clear() -> None:
+    src = ADAPTER.read_text()
+
+    start = src.index('extern "C" int mf310p_prepare_wave')
+    end = src.index('extern "C" int mf310p_submit_wave', start)
+    prepare = src[start:end]
+    assert prepare.count("smem_shm_control_barrier") == 2
+    assert "clear_local_wave_state(ctx)" in prepare
+    first_barrier = prepare.index("smem_shm_control_barrier")
+    clear = prepare.index("clear_local_wave_state(ctx)")
+    second_barrier = prepare.rindex("smem_shm_control_barrier")
+    assert first_barrier < clear < second_barrier
+
+
+def test_runtime_prepares_wave_before_consumer_and_submit() -> None:
+    src = RUNTIME.read_text()
+
+    begin = src[src.index("memfabric_o_proj_begin(") : src.index("void memfabric_o_proj_publish")]
+    prepare = begin.index("state.api.prepare_wave")
+    consumer = begin.index("state.api.launch_reduce_consumer_async")
+    submit = begin.index("state.api.submit_wave")
+    assert prepare < consumer < submit
+    assert "mf310p_reset_mailbox" not in src
 
 
 def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
@@ -119,6 +144,8 @@ def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
     src = ADAPTER_API.read_text()
 
+    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 2u" in src
+    assert "mf310p_prepare_wave" in src
     assert "smem_shm_t" not in src
     assert "smem_shm_config_t" not in src
     assert "mf310p_context_t" in src
