@@ -1,6 +1,6 @@
 /*
- * Adapter for the separately built wgm-dev-310p MemFabric SDK.
- * This file intentionally includes the customized SDK headers; the main
+ * Bridge for the installed wgm-dev-310p MemFabric implementation.
+ * This file intentionally includes the customized MemFabric headers; the main
  * vllm_ascend_C extension does not.
  */
 #include "memfabric310p_adapter_api.h"
@@ -38,6 +38,8 @@ extern "C" int mf310p_device_launch_reduce_consumer_async(
 constexpr uint64_t kFlagBytes =
     static_cast<uint64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * sizeof(uint64_t);
 
+int clear_local_wave_state(mf310p_context_t* ctx);
+
 } // namespace
 
 struct mf310p_context {
@@ -47,6 +49,30 @@ struct mf310p_context {
     smem_shm_t shm = nullptr;
     mf310p_layout_t layout{};
 };
+
+namespace {
+
+int clear_local_wave_state(mf310p_context_t* ctx)
+{
+    void* workspace = reinterpret_cast<void*>(ctx->layout.sdma_workspace);
+    aclError acl_ret = aclrtMemset(
+        workspace,
+        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE,
+        0,
+        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE);
+    if (acl_ret != ACL_SUCCESS) {
+        return static_cast<int>(acl_ret);
+    }
+
+    acl_ret = aclrtMemset(
+        reinterpret_cast<void*>(ctx->layout.arrival_flags),
+        kFlagBytes,
+        0,
+        kFlagBytes);
+    return acl_ret == ACL_SUCCESS ? 0 : static_cast<int>(acl_ret);
+}
+
+} // namespace
 
 extern "C" uint32_t mf310p_adapter_abi_version(void)
 {
@@ -127,7 +153,7 @@ extern "C" int mf310p_create(
         reinterpret_cast<uint64_t>(gva) + symmetric_size * (1 - rank);
 
     /* send + recv/final + MemFabric reserved flag region must fit in one
-     * physical contribution.  The two arenas use identical offsets on both
+     * physical contribution. The two arenas use identical offsets on both
      * ranks, which lets submit_wave point directly at peer recv_arena. */
     if (2 * arena_bytes + SMEM_SHM_SDMA_FLAG_REGION_SIZE > local_size ||
         kFlagBytes > SMEM_SHM_SDMA_FLAG_REGION_SIZE) {
@@ -193,29 +219,33 @@ extern "C" int mf310p_get_layout(
     return 0;
 }
 
-extern "C" int mf310p_reset_mailbox(mf310p_context_t* ctx)
+extern "C" int mf310p_prepare_wave(mf310p_context_t* ctx)
 {
     if (ctx == nullptr) {
         return -1;
     }
-    void* workspace = reinterpret_cast<void*>(ctx->layout.sdma_workspace);
-    aclError acl_ret = aclrtMemset(
-        workspace,
-        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE,
-        0,
-        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE);
-    if (acl_ret != ACL_SUCCESS) {
-        return static_cast<int>(acl_ret);
+
+    /*
+     * Barrier #1 prevents one rank from clearing a flag while the peer is
+     * still finishing the previous wave.  This is a wave-boundary operation;
+     * there is no synchronization added to the tile pipeline itself.
+     */
+    int ret = smem_shm_control_barrier(ctx->shm);
+    if (ret != 0) {
+        return ret;
     }
 
-    /* Flags are reused only after the previous wave has joined. Clearing them
-     * here gives every wave a fresh non-zero arrival transition. */
-    acl_ret = aclrtMemset(
-        reinterpret_cast<void*>(ctx->layout.arrival_flags),
-        kFlagBytes,
-        0,
-        kFlagBytes);
-    return acl_ret == ACL_SUCCESS ? 0 : static_cast<int>(acl_ret);
+    ret = clear_local_wave_state(ctx);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /*
+     * Barrier #2 prevents a fast rank from submitting/publishing the new wave
+     * before the peer has cleared its local arrival flags.  Without this, a
+     * fresh peer notification could be erased by a late local memset.
+     */
+    return smem_shm_control_barrier(ctx->shm);
 }
 
 extern "C" int mf310p_submit_wave(mf310p_context_t* ctx, uint32_t chunks)
