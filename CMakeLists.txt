@@ -108,10 +108,17 @@ set(
   ${ASCEND_HOME_PATH}/include
 )
 
-# The main extension deliberately does not include or link MemFabric. The
-# wgm-dev-310p MemFabric installation is consumed only by the separate bridge
-# under csrc/memfabric_o_proj/external, which is loaded at runtime via dlopen.
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
+
+# The fused 310P path consumes the MemFabric built/installed from wgm-dev-310p
+# directly. It must never silently pick an official/upstream MemFabric install.
+# Enabling the feature makes all customized build inputs mandatory at CMake
+# configure time, so a wheel cannot be produced with a latent runtime failure.
+if(DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ} AND
+   "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ}" STREQUAL "1")
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/memfabric_310p.cmake)
+    vllm_ascend_configure_310p_memfabric(vllm_ascend_C)
+endif()
 
 # Detect aclrtMemcpyBatchAsync availability (CANN 8.5+)
 # Can be overridden via VLLM_ASCEND_ENABLE_BATCH_MEMCPY env var (registered
