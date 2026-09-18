@@ -17,9 +17,9 @@
 
 namespace vllm_ascend {
 
-/* Phase-1 staged pipeline. These functions live in vllm_ascend_C and load the
- * repo-owned bridge (which is linked against installed wgm-dev-310p MemFabric)
- * at runtime via dlopen. */
+/* Phase-1 staged pipeline. These functions live in vllm_ascend_C, which links
+ * the repo-owned adapter (compiled against the installed wgm-dev-310p
+ * MemFabric) directly at build time. */
 std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
     const at::Tensor& x,
     int64_t tp_rank,

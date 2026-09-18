@@ -43,9 +43,14 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         &vllm_ascend::memfabric_o_proj_mark_failed);
 
     /* Deterministic worker-lifetime teardown (also auto-registered via
-     * atexit on first context creation). No tensor argument, so register a
-     * catch-all key instead of PrivateUse1. */
+     * atexit on first context creation). The schema is declared once and
+     * implemented for both the PrivateUse1 key and a catch-all key so it is
+     * callable without a tensor argument on any backend. */
     ops.def("memfabric_o_proj_shutdown() -> ()");
+    ops.impl(
+        "memfabric_o_proj_shutdown",
+        torch::kPrivateUse1,
+        &vllm_ascend::memfabric_o_proj_shutdown);
     ops.impl(
         "memfabric_o_proj_shutdown",
         c10::DispatchKey::CompositeExplicitAutograd,

@@ -3,8 +3,8 @@
  *
  * When VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ is enabled, vllm_ascend_C is
  * compiled and linked directly against the MemFabric installation produced by
- * wgm-dev-310p.  There is no runtime dlopen and no separately deployed bridge
- * shared object.  The small mf310p_* C ABI remains only as an internal source
+ * wgm-dev-310p.  Loading is by direct link time dependency only; no bridge shared
+ * object is ever opened dynamically at runtime.  The small mf310p_* C ABI remains only as an internal source
  * boundary between vLLM-Ascend and the customized MemFabric APIs.
  */
 #include <ATen/ATen.h>
@@ -338,6 +338,33 @@ void memfabric_o_proj_mark_failed(
     if (state.failure_reason.empty()) {
         state.failure_reason.assign(reason.data(), reason.size());
     }
+}
+
+at::Tensor memfabric_w8a8_o_proj_allreduce_impl(
+    const at::Tensor& x,
+    const at::Tensor& weight,
+    const at::Tensor& deq_scale,
+    const c10::optional<at::Tensor>& quant_bias,
+    int64_t tp_rank,
+    int64_t tile_m)
+{
+    /*
+     * Phase-2 direct AscendC/CATLASS tiled producer is not implemented yet.
+     * The binding declares this entry point so the op schema exists, but
+     * calling it must fail fast instead of silently falling back to HCCL.
+     * Model traffic uses the phase-1 staged begin/publish/finish pipeline.
+     */
+    (void)x;
+    (void)weight;
+    (void)deq_scale;
+    (void)quant_bias;
+    (void)tp_rank;
+    (void)tile_m;
+    TORCH_CHECK(
+        false,
+        "Phase-2 direct MemFabric W8A8 o_proj producer is not implemented yet. "
+        "The phase-1 staged pipeline (memfabric_o_proj_begin/publish/finish) "
+        "is the supported path on this build.");
 }
 
 #else  // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ

@@ -1,18 +1,21 @@
 # 310P customized MemFabric integration for the Qwen3.6 W8A8 o_proj pipeline.
 #
-# Contract:
-#   1. Build/install GDD_ESCC/memfabric_hybrid:wgm-dev-310p first.
+# Contract (all verified on the real 310P3 server):
+#   1. Build/install GDD_ESCC/memfabric_hybrid:wgm-dev-310p first:
+#        cmake -B build -DXPU_TYPE=NPU -DBUILD_PYTHON=OFF && cmake --build build -j
+#        cmake --install build --prefix /opt/memfabric-wgm-dev-310p
 #   2. Point VLLM_ASCEND_310P_MEMFABRIC_ROOT at that install prefix.
-#   3. Explicitly provide the libraries required by that customized install.
-#   4. Compile memfabric310p_device.asc with the same customized 310P toolchain
-#      used by the MemFabric example and provide the resulting object.
+#   3. Explicitly provide the libraries produced by that install via
+#      VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES (semicolon-separated list):
+#        <root>/lib64/libmf_smem.so;<root>/lib64/libmf_hybm_core.so;<root>/lib64/libacc_tcp_net.so
+#   4. csrc/memfabric_o_proj/external/memfabric310p_device.asc is compiled with
+#      the same customized 310P toolchain used by MemFabric example 08
+#      (bisheng --npu-arch=dav-2002, unified host+AICore compilation) into a
+#      shared library whose kernels launch through the public ACL binary API.
+#      The build is performed automatically by this CMake module; pass
+#      VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY to override with a prebuilt .so.
 #
 # No upstream/official MemFabric installation is searched or used.
-
-# Capture the directory of this file at include time. Inside the function
-# below, CMAKE_CURRENT_LIST_DIR would resolve to the caller's context
-# (repository root), which broke the adapter source path on the real server.
-set(_mf310p_cmake_dir ${CMAKE_CURRENT_LIST_DIR})
 
 function(vllm_ascend_configure_310p_memfabric target)
     if(NOT TARGET ${target})
@@ -39,9 +42,9 @@ function(vllm_ascend_configure_310p_memfabric target)
         message(FATAL_ERROR "wgm-dev-310p MemFabric install prefix does not exist: ${_mf_root}")
     endif()
 
-    # The customized branch may install headers either flat under include/ or
-    # into a subdirectory. Search only inside the explicitly selected install
-    # prefix so an upstream/system MemFabric can never be picked accidentally.
+    # The customized branch installs headers flat under include/. Search only
+    # inside the explicitly selected install prefix so an upstream/system
+    # MemFabric can never be picked accidentally.
     find_path(_mf_smem_include
         NAMES smem.h
         PATHS "${_mf_root}/include"
@@ -67,48 +70,80 @@ function(vllm_ascend_configure_310p_memfabric target)
     set(_mf_libs_raw "$ENV{VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES}")
     if(_mf_libs_raw STREQUAL "")
         message(FATAL_ERROR
-            "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES is required and must list the libraries produced/required by the installed wgm-dev-310p MemFabric")
+            "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES is required and must list the libraries produced by the installed wgm-dev-310p MemFabric, e.g. '${_mf_root}/lib64/libmf_smem.so;${_mf_root}/lib64/libmf_hybm_core.so;${_mf_root}/lib64/libacc_tcp_net.so'")
     endif()
     # Environment uses CMake's native semicolon-separated list syntax.
     set(_mf_libs ${_mf_libs_raw})
+    foreach(_mf_lib IN LISTS _mf_libs)
+        if(NOT EXISTS "${_mf_lib}")
+            message(FATAL_ERROR "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES entry does not exist: ${_mf_lib}")
+        endif()
+    endforeach()
 
-    set(_mf_device_object "$ENV{VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT}")
-    if(_mf_device_object STREQUAL "")
-        message(FATAL_ERROR
-            "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT is required. Compile csrc/memfabric_o_proj/external/memfabric310p_device.asc with the same wgm-dev-310p 310P toolchain used by example 08")
+    # ---- Device-side AICore cooperation library (memfabric310p_device.asc) ----
+    # Compiled with the example-08 bisheng toolchain into a shared library whose
+    # kernel launches resolve through the public ACL binary API (verified: no
+    # private runtime symbols are referenced).
+    set(_mf_asc_src "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external/memfabric310p_device.asc")
+    if(NOT EXISTS "${_mf_asc_src}")
+        message(FATAL_ERROR "memfabric310p_device.asc not found: ${_mf_asc_src}")
     endif()
-    if(NOT EXISTS "${_mf_device_object}")
-        message(FATAL_ERROR "310P MemFabric device object does not exist: ${_mf_device_object}")
+
+    set(_mf_device_lib_override "$ENV{VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY}")
+    if(NOT _mf_device_lib_override STREQUAL "")
+        if(NOT EXISTS "${_mf_device_lib_override}")
+            message(FATAL_ERROR "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY does not exist: ${_mf_device_lib_override}")
+        endif()
+        set(_mf_device_lib "${_mf_device_lib_override}")
+        message(STATUS "310P MemFabric device library (prebuilt): ${_mf_device_lib}")
+    else()
+        find_program(BISHENG_COMPILER
+            NAMES bisheng
+            HINTS "${ASCEND_HOME_PATH}/bin" "${ASCEND_HOME_PATH}/compiler/aarch64-linux/bin"
+            NO_DEFAULT_PATH)
+        if(NOT BISHENG_COMPILER)
+            message(FATAL_ERROR
+                "bisheng compiler not found under ${ASCEND_HOME_PATH}. It is required to compile memfabric310p_device.asc (same toolchain as MemFabric example 08)")
+        endif()
+
+        set(_mf_device_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_device.so")
+        add_custom_command(
+            OUTPUT "${_mf_device_lib}"
+            COMMAND ${BISHENG_COMPILER} --npu-arch=dav-2002 -O2 -std=c++17 -w
+                    -shared -fPIC
+                    -x asc "${_mf_asc_src}" -x none
+                    -o "${_mf_device_lib}"
+                    -I${ASCEND_HOME_PATH}/aarch64-linux/include
+                    -I${ASCEND_HOME_PATH}/aarch64-linux/ascendc/include
+                    -I${_mf_smem_include}
+                    -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
+                    -lascendcl -lruntime -ldl -pthread -lm
+                    -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
+            DEPENDS "${_mf_asc_src}"
+            COMMENT "Compiling 310P MemFabric device cooperation library (bisheng dav-2002)"
+            VERBATIM)
+        message(STATUS "310P MemFabric device library will be built from: ${_mf_asc_src}")
     endif()
 
     # The adapter is not a separately installed shared library. It is compiled
     # directly into vllm_ascend_C and calls the selected customized MemFabric.
     target_sources(${target} PRIVATE
-        "${_mf310p_cmake_dir}/../csrc/memfabric_o_proj/external/memfabric310p_adapter.cpp"
-        "${_mf_device_object}"
+        "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external/memfabric310p_adapter.cpp"
     )
 
-    # The bisheng-compiled device object references the AscendC launch stubs
-    # (AscendLaunchKernelWithHostArgs/AscendGetFuncFromBinary/AscendProf*).
-    # They live in the static libascendc_runtime.a shipped with CANN and must
-    # be linked explicitly; aclrt*/rt* symbols resolve at load time from
-    # libascendcl.so/libruntime.so which vllm_ascend_C already links.
-    # Verified on the real 310P3 server with CANN 9.1.0.
-    find_library(_mf_ascendc_runtime
-        NAMES libascendc_runtime.a ascendc_runtime
-        PATHS ${ASCEND_HOME_PATH}/lib64
-              ${ASCEND_HOME_PATH}/aarch64-linux/lib64
-              $ENV{ASCEND_HOME_PATH}/lib64
-              $ENV{ASCEND_HOME_PATH}/aarch64-linux/lib64
-        NO_DEFAULT_PATH)
-    if(NOT _mf_ascendc_runtime)
-        message(FATAL_ERROR
-            "libascendc_runtime.a was not found under ASCEND_HOME_PATH. It is "
-            "required to link the 310P MemFabric device object's AscendC launch stubs")
+    # The device cooperation library is a bisheng-built shared object. Driving
+    # it through a custom target triggers the .asc build; it must also be
+    # linked explicitly (a .so listed in target_sources is not linked).
+    if(NOT _mf_device_lib_override STREQUAL "")
+        target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
+    else()
+        add_custom_target(mf310p_device_lib DEPENDS "${_mf_device_lib}")
+        add_dependencies(${target} mf310p_device_lib)
+        target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
     endif()
 
     target_include_directories(${target} PRIVATE
-        "${_mf310p_cmake_dir}/../csrc/memfabric_o_proj/external"
+        "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external"
         "${_mf_smem_include}"
         "${_mf_shm_include}"
         "${_mf_sdma_include}"
@@ -122,23 +157,33 @@ function(vllm_ascend_configure_310p_memfabric target)
         target_link_directories(${target} PRIVATE "${_mf_root}/lib")
     endif()
 
-    target_link_libraries(${target} PRIVATE ${_mf_libs} ${_mf_ascendc_runtime})
+    # Link all three customized libraries explicitly. --no-as-needed keeps
+    # them in DT_NEEDED even though vllm_ascend_C references symbols only from
+    # libmf_smem directly; DT_RUNPATH does not propagate to transitive
+    # dependencies, so libmf_smem.so must not be relied on to pull in
+    # libmf_hybm_core.so/libacc_tcp_net.so at runtime.
+    target_link_libraries(${target} PRIVATE
+        "-Wl,--no-as-needed"
+        ${_mf_libs}
+        "-Wl,--as-needed")
+
     target_compile_definitions(${target} PRIVATE VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ)
 
     # Keep runtime lookup inside the selected customized installation when the
-    # caller supplied library names instead of absolute paths. The main
-    # CMakeLists sets its own -rpath via target_link_options; a second -rpath
-    # entry is appended so both survive in the final RUNPATH (verified with
-    # readelf on the real server build).
-    set_property(TARGET ${target} APPEND PROPERTY BUILD_RPATH
-        "${_mf_root}/lib64;${_mf_root}/lib")
-    set_property(TARGET ${target} APPEND PROPERTY INSTALL_RPATH
-        "${_mf_root}/lib64;${_mf_root}/lib")
+    # caller supplied library names instead of absolute paths. The AICPU
+    # orchestrator also auto-discovers its launch json relative to these libs
+    # (<prefix>/hybm/aicpu_kernel/libmf_sdma_orch_v4.json). The main
+    # CMakeLists sets rpath via target_link_options, so the same mechanism is
+    # required here (set_property INSTALL_RPATH is overridden by it).
     target_link_options(${target} PRIVATE
-        "-Wl,-rpath,${_mf_root}/lib64:${_mf_root}/lib")
+        "-Wl,-rpath,$ORIGIN:${_mf_root}/lib64:${_mf_root}/lib")
+
+    # Ship the device cooperation library next to vllm_ascend_C so the $ORIGIN
+    # rpath resolves after editable/regular installs.
+    install(FILES "${_mf_device_lib}" DESTINATION .)
 
     message(STATUS "310P customized MemFabric o_proj fusion enabled")
     message(STATUS "  MemFabric install: ${_mf_root}")
     message(STATUS "  MemFabric libraries: ${_mf_libs}")
-    message(STATUS "  Device object: ${_mf_device_object}")
+    message(STATUS "  Device library: ${_mf_device_lib}")
 endfunction()

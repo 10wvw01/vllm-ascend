@@ -90,11 +90,13 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None
     ),
-    # Object generated from the repo-owned device cooperation source
-    # csrc/memfabric_o_proj/external/memfabric310p_device.asc, compiled with the
-    # same 310P customized MemFabric/AscendC toolchain as example 08.
-    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT", None
+    # Optional prebuilt shared library for the repo-owned device cooperation
+    # source csrc/memfabric_o_proj/external/memfabric310p_device.asc. When
+    # unset, CMake compiles the .asc with the same 310P bisheng toolchain as
+    # MemFabric example 08 (dav-2002 unified host+AICore build producing a
+    # shared library that launches through the public ACL binary API).
+    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY", None
     ),
     # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(

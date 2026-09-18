@@ -96,16 +96,26 @@ def test_runtime_directly_calls_internal_adapter_without_dlopen() -> None:
 def test_custom_memfabric_headers_are_isolated_to_internal_adapter() -> None:
     runtime = RUNTIME.read_text()
     adapter = ADAPTER.read_text()
-    for header in ("smem.h", "smem_shm.h", "smem_shm_aicore_sdma.h"):
+    device = DEVICE.read_text()
+    # Host-side MemFabric headers are confined to the internal adapter.
+    for header in ("smem.h", "smem_shm.h"):
         assert f"#include <{header}>" not in runtime
         assert f"#include <{header}>" in adapter
+    # The device cooperation header pulls in AscendC (kernel_operator.h) and is
+    # only compilable by the bisheng device toolchain, so it must never leak
+    # into host sources; the workspace constants it defines reach the adapter
+    # through smem_shm.h.
+    assert "#include <smem_shm_aicore_sdma.h>" not in runtime
+    assert "#include <smem_shm_aicore_sdma.h>" not in adapter
+    assert '#include "smem_shm_aicore_sdma.h"' in device
 
 
 def test_build_links_only_explicit_wgm_dev_310p_install() -> None:
     src = MEMFABRIC_CMAKE.read_text()
     assert "VLLM_ASCEND_310P_MEMFABRIC_ROOT" in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES" in src
-    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT" in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY" in src
+    assert "--npu-arch=dav-2002" in src
     assert "NO_DEFAULT_PATH" in src
     assert "memfabric310p_adapter.cpp" in src
     assert "target_link_libraries" in src
@@ -123,8 +133,23 @@ def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
     src = DEVICE.read_text()
     assert "smem_shm_sdma_notify" in src
     assert "smem_shm_sdma_poll_flag" in src
-    assert "recv[i] = static_cast<bfloat16_t>(lhs + rhs)" in src
+    # Reduce is BF16 -> F32 add -> BF16 round via explicit conversion helpers.
+    assert "recv[i] = Mf310pFloatToBf16(lhs + rhs)" in src
     assert "Mf310pCleanWords" in src
+
+
+def test_device_reduce_is_gated_by_produced_and_arrival_flags() -> None:
+    """Real-machine race regression: the reduce must not read send[c] before
+    the local producer wrote it (produced gate on the mailbox slot words) and
+    must invalidate send on its own core across waves (arena reuse)."""
+    src = DEVICE.read_text()
+    assert "produced gate" in src
+    assert "arrival gate" in src
+    # Polls the mailbox slot's words field (offset +8) as the produced gate.
+    assert "mailbox + static_cast<uint64_t>(c) * SMEM_SHM_SDMA_WS_MAILBOX_SLOT_SIZE +" in src
+    assert "sizeof(uint64_t)" in src
+    # Cross-wave cache invalidation of the send chunk before reading.
+    assert "Invalidate send on this core before reading" in src
 
 
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
