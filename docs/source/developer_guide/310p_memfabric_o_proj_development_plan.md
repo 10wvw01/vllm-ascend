@@ -32,9 +32,9 @@ MM[t] -> publish[t] -> SDMA[t] -> peer arrival[t] -> local reduce[t]
 | --- | --- | --- |
 | M0 | 明确模型、硬件、TP、量化和通信契约 | 已完成 |
 | M1 | vLLM model-side 精确挂接和 feature gate | 已完成 |
-| M2 | 定制 MemFabric build/link + persistent runtime 骨架 | 基本完成，待实机编译 |
-| M3 | TP=2 bilateral SDMA + repeated-wave correctness | 代码骨架完成，私有 ABI 待核对 |
-| M4 | Phase-1 tiled W8A8 MM/communication overlap | 已实现代码，待 310P 实机验证 |
+| M2 | 定制 MemFabric build/link + persistent runtime 骨架 | 已完成(实机编译+加载验证, 2026-09-18) |
+| M3 | TP=2 bilateral SDMA + repeated-wave correctness | 已完成(M=1~2048 全 PASS; 1000 wave 逐次校验 PASS) |
+| M4 | Phase-1 tiled W8A8 MM/communication overlap | 通信管线就绪, W8A8 单层/模型接入验证中 |
 | M5 | Phase-2 direct AscendC/CATLASS tiled producer | 未开始实机实现 |
 | M6 | ACL graph + 端到端 Qwen3.6 correctness/performance | 未验证 |
 
@@ -139,6 +139,61 @@ AICPUKernel 模式执行；原部署工具 `deployer`/`mini_kfc` 在本容器缺
 CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不到 host CP 流
 注册的 SQ（mainRet=1300）。310P host 编排路径（HostDataOpAclMemcpy）为
 "async 降级 sync"，无 overlap 能力，不可作为替代。
+
+### 4.10 实机 bring-up 状态（2026-09-18，服务器第二轮：P0/P1 全部打通）
+
+**P0 编译（已完成）**：
+
+- `wgm-dev-310p` 合并远程后为 `d7f11c6d`（含 823697d5 部署链工具入库 +
+  075856a9 初始化自动部署 + 44e3c4e3 三件套接入主构建），主构建
+  `cmake -B build -DXPU_TYPE=NPU -DBUILD_PYTHON=OFF && cmake --build build -j`
+  通过；安装前缀组装于 `/opt/memfabric-wgm-dev-310p`（include/ + lib64/ +
+  hybm/aicpu_kernel/ 三件套，与运行时安装前缀发现路径一致）。
+- `.asc` 实机编译命令（必须 `-fPIC`，产物为可链接 ELF relocatable）：
+  `bisheng --npu-arch=dav-2002 -O2 -std=c++17 -w -fPIC -x asc
+  csrc/memfabric_o_proj/external/memfabric310p_device.asc -x none -c -o
+  build_310p_artifacts/memfabric310p_device.o -I$ASCEND_HOME_PATH/include
+  -I$MF_ROOT/include`。链接额外需要 CANN 静态库 `libascendc_runtime.a`
+  （AscendC launch stubs，已写入 cmake/memfabric_310p.cmake）。
+- 首轮记录的"AICPU kernel 部署阻塞"由远程三笔提交解决：初始化内嵌自动
+  部署（CUST 迁移落盘 + KFC 就位 + 完整性校验），example 08 与本管线均
+  零手工部署通过。
+- feature-on build `pip install -e . --no-build-isolation --no-deps` 通过，
+  extension 加载、`memfabric_o_proj_*` 四个 op 注册齐全，RUNPATH 指向
+  定制安装前缀。运行时需 `LD_LIBRARY_PATH=$MF_ROOT/lib64:$LD_LIBRARY_PATH`
+  （RUNPATH 不传递到 libmf_smem.so 的间接依赖）。
+
+**P1 通信 correctness + repeated-wave（已完成）**：
+
+- M = 1/8/32/64/128/512/2048 双 rank 结果与 HCCL reference 全部 allclose。
+- 1000 连续 wave × M∈{1,32,128,512,2048} 逐 wave 校验（`--stress-check`）
+  全部通过：无 hang、无 mismatch、无 stale flag，进程干净退出。
+- **发现并修复的实机 race（重要）**：reduce consumer 读本地 send arena
+  原先没有任何门控（arrival flag 只门控对端数据），对端 SDMA 先到时读
+  到未初始化内存（表现为间歇性、rank 不对称的 mismatch，常数模式冒烟
+  测试测不出）。修复：reduce 逐 chunk 双门控自旋（邮箱槽 words =
+  本地已产出 + arrival flag = 对端已到达）+ 读 send 前按 chunk 失效
+  （跨 wave 陈旧缓存行）。
+- **退出崩溃**：静态析构晚于 NPU runtime 终结导致双 rank SIGSEGV；修复
+  为 LIFO atexit 自动拆卸 + 显式 `memfabric_o_proj_shutdown()` op。
+
+**实机新事实（已登记，防止回退）**：
+
+- 本机 4 张 310P3 卡中，设备 0,1 卡全功能可用；设备 4,5 所在卡
+  `AclrtMemSetAccess` 返回 507899（跨 die VMM 授权失败），不可用于本
+  管线；设备 2,3 卡 npu-smi 显示 Alarm。**bring-up 一律用 0,1**。
+- 310P HCCL（CANN 9.1.0）不支持 BF16 allreduce（HcclAllreduce 直接拒
+  绝）；reference 路径用 FP32 allreduce 后转回 BF16。生产路径不受影响。
+- dav-2002 AICore 标量环境无 `bfloat16_t`（仅 float16_t）；BF16 reduce
+  用位级转换（round-to-nearest-even）。
+- KFC 通道（KFCKernel/system dlsym 回退）在本机可用：`test -f` 缺失
+  文件按设计回传 507018，退出码 0 命令 sync=0；同流非零退出后可继续
+  launch（流不毒化）。
+- `libascendc_runtime.a` 为设备对象链接必需（AscendLaunchKernelWithHostArgs
+  / AscendGetFuncFromBinary / AscendProf* 桩）。
+- 性能基线（Phase-1 标量 reduce + 每 wave 双 barrier）：M=1 约 3.9ms vs
+  HCCL 0.6ms；M=2048 约 161ms vs 5.3ms。**正确性已达标，性能差距为
+  Phase-2/reduce 优化的明确目标**（研发计划 §9/§10）。
 
 ### P0.1 确认定制 MemFabric install 产物
 

@@ -154,31 +154,23 @@ PY
 csrc/memfabric_o_proj/external/memfabric310p_device.asc
 ```
 
-当前仓库故意没有猜测 `.asc` 的编译命令。需要使用 `wgm-dev-310p` example 08 完全相同的定制 310P toolchain/build rule。
-
-先在 MemFabric 源码中定位实际规则：
-
-```bash
-cd /path/to/memfabric_hybrid
-
-grep -R "08_310p_aicore_aicpu_sdma" -n . || true
-grep -R "\.asc" -n CMakeLists.txt cmake examples 2>/dev/null | head -200
-```
-
-找到 example 08 的实际编译命令后，用同一套 include、macro、SOC 和 compiler 参数编译：
-
-```text
-/path/to/vllm-ascend/csrc/memfabric_o_proj/external/memfabric310p_device.asc
-```
-
-最终需要得到一个能链接进 `vllm_ascend_C` 的 object，例如：
+实机验证过的编译命令（2026-09-18，CANN 9.1.0；`-fPIC` 必需，产物为可
+直接链接进 `vllm_ascend_C` 的 ELF relocatable）：
 
 ```bash
-export MF_DEVICE_OBJ=/tmp/memfabric310p_device.o
-file "$MF_DEVICE_OBJ"
+export ASCEND_HOME_PATH=/usr/local/Ascend/ascend-toolkit/latest
+export MF_ROOT=/opt/memfabric-wgm-dev-310p
+
+bisheng --npu-arch=dav-2002 -O2 -std=c++17 -w -fPIC \
+  -x asc csrc/memfabric_o_proj/external/memfabric310p_device.asc -x none \
+  -c -o build_310p_artifacts/memfabric310p_device.o \
+  -I$ASCEND_HOME_PATH/include -I$MF_ROOT/include
 ```
 
-如果 example 08 不是直接生成 `.o`，而是生成另一种 object/stub，请按实际 build rule 修改 `cmake/memfabric_310p.cmake`，不要强行伪造成普通 host object。
+链接说明（已固化在 `cmake/memfabric_310p.cmake`）：设备对象引用的
+AscendC launch 桩（`AscendLaunchKernelWithHostArgs` 等）由 CANN 静态库
+`libascendc_runtime.a` 提供，CMake 会在 `ASCEND_HOME_PATH` 下自动查找并
+追加链接；`aclrt*` 符号在加载期由 `libascendcl.so` 解析。
 
 ## 6. 配置 MemFabric library list
 
@@ -310,12 +302,21 @@ export LD_LIBRARY_PATH="$MF_ROOT/lib64:$MF_ROOT/lib:$LD_LIBRARY_PATH"
 
 不要第一步就启动 35B 模型。
 
-一张双 die 310P3 上，以 `npu-smi` 实际显示的两个逻辑 NPU 为准。例如如果两个 die 映射为 0、1：
+实机要点（2026-09-18 验证）：
+
+- **设备选择**：以 `npu-smi` 实测为准。本服务器 4 张 310P3 卡中只有
+  设备 0,1 所在卡全功能可用（设备 4,5 所在卡 `AclrtMemSetAccess` 交叉
+  die 授权失败 507899，设备 2,3 卡有 Alarm）。**bring-up 固定用 0,1**。
+- **运行时库路径**：`export LD_LIBRARY_PATH=$MF_ROOT/lib64:$LD_LIBRARY_PATH`
+  （extension 的 RUNPATH 不传递到 `libmf_smem.so` 的间接依赖）。
+- 首次运行含 AICPU 编排 kernel 自动部署（CUST 迁移 + KFC 就位 + 校验），
+  秒级一次性开销，之后零部署复用。
 
 ```bash
 export ASCEND_RT_VISIBLE_DEVICES=0,1
 export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
 export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32
+export LD_LIBRARY_PATH=/opt/memfabric-wgm-dev-310p/lib64:$LD_LIBRARY_PATH
 
 torchrun --standalone --nproc-per-node=2 \
   benchmarks/scripts/bench_310p_memfabric_o_proj.py \
@@ -327,17 +328,19 @@ torchrun --standalone --nproc-per-node=2 \
 这个 benchmark：
 
 - MemFabric 路径执行 bilateral SDMA + local reduce；
-- HCCL 只作为 reference；
+- HCCL 只作为 reference（注意：310P CANN 9.1.0 的 HCCL 不支持 BF16
+  allreduce，reference 以 FP32 归约后转回 BF16）；
 - correctness 会先检查，再统计 latency。
 
-第一次成功后建议做 repeated-wave stress：
+repeated-wave 逐次校验 stress（验收门槛 1000 次）：
 
 ```bash
 torchrun --standalone --nproc-per-node=2 \
   benchmarks/scripts/bench_310p_memfabric_o_proj.py \
   --rows 1 32 128 512 2048 \
   --warmup 20 \
-  --repeat 1000
+  --repeat 1000 \
+  --stress-check
 ```
 
 如果这里出现随机 hang 或偶发 mismatch，优先处理 wave barrier/flag reset，不要先启动模型。
