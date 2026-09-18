@@ -189,6 +189,18 @@ std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
     TORCH_CHECK(!state.wave_active,
                 "MemFabric o_proj begin called while previous wave is active");
 
+    /*
+     * Join all previously enqueued compute-stream work before the wave-boundary
+     * rendezvous. Without this, a fast peer could start overwriting this rank's
+     * recv arena (wave N+1 SDMA) while a still-pending local kernel from wave N
+     * (e.g. the reduced-result output copy) is reading it. This is a wave-boundary
+     * wait only; tiles inside the wave remain unsynchronized.
+     */
+    const aclError join_ret =
+        aclrtSynchronizeStream(c10_npu::getCurrentNPUStream().stream());
+    TORCH_CHECK(join_ret == ACL_SUCCESS,
+                "wave-boundary compute stream join failed, ret=", join_ret);
+
     /* Wave-boundary barriers are allowed. There is no barrier between tiles. */
     int ret = mf310p_prepare_wave(state.ctx);
     TORCH_CHECK(ret == 0, "mf310p_prepare_wave failed with ret=", ret);

@@ -41,17 +41,9 @@ void memfabric_o_proj_mark_failed(
 
 /* Reserved phase-2 direct-MM entry point. Once the AscendC W8A8 matmul writes
  * directly into the symmetric send arena, Python will switch from the staged
- * begin/publish/finish path to this single opaque op. */
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
-at::Tensor memfabric_w8a8_o_proj_allreduce_impl(
-    const at::Tensor& x,
-    const at::Tensor& weight,
-    const at::Tensor& deq_scale,
-    const c10::optional<at::Tensor>& quant_bias,
-    int64_t tp_rank,
-    int64_t tile_m);
-#endif
-
+ * begin/publish/finish path to this single opaque op. The implementation is
+ * deliberately not linked yet; the op fails fast instead of referencing an
+ * undefined phase-2 symbol when the feature build is enabled. */
 inline at::Tensor memfabric_w8a8_o_proj_allreduce(
     const at::Tensor& x,
     const at::Tensor& weight,
@@ -86,15 +78,11 @@ inline at::Tensor memfabric_w8a8_o_proj_allreduce(
                     quant_bias->numel());
     }
 
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
-    return memfabric_w8a8_o_proj_allreduce_impl(
-        x, weight, deq_scale, quant_bias, tp_rank, tile_m);
-#else
     TORCH_CHECK(
         false,
         "Direct MemFabric W8A8 o_proj kernel is not built yet. The phase-1 "
         "staged pipeline uses memfabric_o_proj_begin/publish/finish instead.");
-#endif
+    return at::Tensor(); /* unreachable; keeps non-void signature well-formed */
 }
 
 } // namespace vllm_ascend

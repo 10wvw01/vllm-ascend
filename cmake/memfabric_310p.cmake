@@ -9,6 +9,11 @@
 #
 # No upstream/official MemFabric installation is searched or used.
 
+# Capture the directory of this file at include time. Inside the function
+# below, CMAKE_CURRENT_LIST_DIR would resolve to the caller's context
+# (repository root), which broke the adapter source path on the real server.
+set(_mf310p_cmake_dir ${CMAKE_CURRENT_LIST_DIR})
+
 function(vllm_ascend_configure_310p_memfabric target)
     if(NOT TARGET ${target})
         message(FATAL_ERROR "Unknown target passed to vllm_ascend_configure_310p_memfabric: ${target}")
@@ -79,12 +84,31 @@ function(vllm_ascend_configure_310p_memfabric target)
     # The adapter is not a separately installed shared library. It is compiled
     # directly into vllm_ascend_C and calls the selected customized MemFabric.
     target_sources(${target} PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/../csrc/memfabric_o_proj/external/memfabric310p_adapter.cpp"
+        "${_mf310p_cmake_dir}/../csrc/memfabric_o_proj/external/memfabric310p_adapter.cpp"
         "${_mf_device_object}"
     )
 
+    # The bisheng-compiled device object references the AscendC launch stubs
+    # (AscendLaunchKernelWithHostArgs/AscendGetFuncFromBinary/AscendProf*).
+    # They live in the static libascendc_runtime.a shipped with CANN and must
+    # be linked explicitly; aclrt*/rt* symbols resolve at load time from
+    # libascendcl.so/libruntime.so which vllm_ascend_C already links.
+    # Verified on the real 310P3 server with CANN 9.1.0.
+    find_library(_mf_ascendc_runtime
+        NAMES libascendc_runtime.a ascendc_runtime
+        PATHS ${ASCEND_HOME_PATH}/lib64
+              ${ASCEND_HOME_PATH}/aarch64-linux/lib64
+              $ENV{ASCEND_HOME_PATH}/lib64
+              $ENV{ASCEND_HOME_PATH}/aarch64-linux/lib64
+        NO_DEFAULT_PATH)
+    if(NOT _mf_ascendc_runtime)
+        message(FATAL_ERROR
+            "libascendc_runtime.a was not found under ASCEND_HOME_PATH. It is "
+            "required to link the 310P MemFabric device object's AscendC launch stubs")
+    endif()
+
     target_include_directories(${target} PRIVATE
-        "${CMAKE_CURRENT_LIST_DIR}/../csrc/memfabric_o_proj/external"
+        "${_mf310p_cmake_dir}/../csrc/memfabric_o_proj/external"
         "${_mf_smem_include}"
         "${_mf_shm_include}"
         "${_mf_sdma_include}"
@@ -98,15 +122,20 @@ function(vllm_ascend_configure_310p_memfabric target)
         target_link_directories(${target} PRIVATE "${_mf_root}/lib")
     endif()
 
-    target_link_libraries(${target} PRIVATE ${_mf_libs})
+    target_link_libraries(${target} PRIVATE ${_mf_libs} ${_mf_ascendc_runtime})
     target_compile_definitions(${target} PRIVATE VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ)
 
     # Keep runtime lookup inside the selected customized installation when the
-    # caller supplied library names instead of absolute paths.
+    # caller supplied library names instead of absolute paths. The main
+    # CMakeLists sets its own -rpath via target_link_options; a second -rpath
+    # entry is appended so both survive in the final RUNPATH (verified with
+    # readelf on the real server build).
     set_property(TARGET ${target} APPEND PROPERTY BUILD_RPATH
         "${_mf_root}/lib64;${_mf_root}/lib")
     set_property(TARGET ${target} APPEND PROPERTY INSTALL_RPATH
         "${_mf_root}/lib64;${_mf_root}/lib")
+    target_link_options(${target} PRIVATE
+        "-Wl,-rpath,${_mf_root}/lib64:${_mf_root}/lib")
 
     message(STATUS "310P customized MemFabric o_proj fusion enabled")
     message(STATUS "  MemFabric install: ${_mf_root}")

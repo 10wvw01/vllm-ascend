@@ -9,13 +9,24 @@
 #include <acl/acl_rt.h>
 #include <smem.h>
 #include <smem_shm.h>
-#include <smem_shm_aicore_sdma.h>
 
 #include <cstdint>
 #include <cstring>
 #include <new>
 
 namespace {
+
+/*
+ * Workspace/mailbox layout constants mirrored from the device-side header
+ * smem_shm_aicore_sdma.h (kSdmaWsMailboxRegionSize and
+ * kSdmaFlagRegionSize). The device header pulls the AscendC
+ * kernel environment (kernel_operator.h) and cannot be included from host
+ * code compiled with the regular toolchain; the customized MemFabric host
+ * implementation mirrors these constants the same way. CMake still verifies
+ * that the header exists in the selected install as a build-input contract.
+ */
+constexpr uint64_t kSdmaWsMailboxRegionSize = 1024;            /* 64 slots x 16B */
+constexpr uint64_t kSdmaFlagRegionSize = 2ULL * 1024ULL * 1024ULL; /* per-rank reserved tail */
 
 /* Implemented by memfabric310p_device.asc and compiled with the customized
  * MemFabric/AscendC toolchain. */
@@ -57,9 +68,9 @@ int clear_local_wave_state(mf310p_context_t* ctx)
     void* workspace = reinterpret_cast<void*>(ctx->layout.sdma_workspace);
     aclError acl_ret = aclrtMemset(
         workspace,
-        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE,
+        kSdmaWsMailboxRegionSize,
         0,
-        SMEM_SHM_SDMA_WS_MAILBOX_REGION_SIZE);
+        kSdmaWsMailboxRegionSize);
     if (acl_ret != ACL_SUCCESS) {
         return static_cast<int>(acl_ret);
     }
@@ -155,8 +166,8 @@ extern "C" int mf310p_create(
     /* send + recv/final + MemFabric reserved flag region must fit in one
      * physical contribution. The two arenas use identical offsets on both
      * ranks, which lets submit_wave point directly at peer recv_arena. */
-    if (2 * arena_bytes + SMEM_SHM_SDMA_FLAG_REGION_SIZE > local_size ||
-        kFlagBytes > SMEM_SHM_SDMA_FLAG_REGION_SIZE) {
+    if (2 * arena_bytes + kSdmaFlagRegionSize > local_size ||
+        kFlagBytes > kSdmaFlagRegionSize) {
         smem_shm_destroy(ctx->shm, 0);
         smem_shm_uninit(0);
         smem_uninit();
@@ -180,9 +191,9 @@ extern "C" int mf310p_create(
     ctx->layout.recv_arena = own_segment + arena_bytes;
     ctx->layout.peer_recv_arena = peer_segment + arena_bytes;
     ctx->layout.arrival_flags =
-        own_segment + local_size - SMEM_SHM_SDMA_FLAG_REGION_SIZE;
+        own_segment + local_size - kSdmaFlagRegionSize;
     ctx->layout.peer_arrival_flags =
-        peer_segment + local_size - SMEM_SHM_SDMA_FLAG_REGION_SIZE;
+        peer_segment + local_size - kSdmaFlagRegionSize;
     ctx->layout.sdma_workspace = reinterpret_cast<uint64_t>(workspace);
     ctx->layout.arena_bytes = arena_bytes;
     ctx->layout.chunk_bytes = chunk_bytes;
