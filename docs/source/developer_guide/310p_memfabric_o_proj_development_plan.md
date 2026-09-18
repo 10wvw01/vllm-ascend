@@ -195,6 +195,43 @@ CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不
   HCCL 0.6ms；M=2048 约 161ms vs 5.3ms。**正确性已达标，性能差距为
   Phase-2/reduce 优化的明确目标**（研发计划 §9/§10）。
 
+### 4.11 P2 阻塞：目标模型 o_proj 实为 FLOAT（需求基线冲突，待负责人裁决）
+
+2026-09-18 实机/仓库核查（P2 W8A8 单层验证启动时发现）：
+
+- **目标检查点的 full-attention `self_attn.o_proj` 未量化**：本地
+  `/home/models/Qwen/Qwen3.6-35B-A3B-w8a8` 与 modelscope 上游
+  `Eco-Tech/Qwen3.6-35B-A3B-w8a8`（仅下载 quant_model_description.json
+  核对）完全一致：11 个 o_proj 条目全部 FLOAT；仅 routed MoE experts 为
+  W8A8_DYNAMIC（92251 条目）。需求基线"310P static W8A8 o_proj"的
+  eligibility（AscendW8A8LinearMethod310 + input_size 4096 → 2048 → N 2048
+  + BF16）在真实目标模型上**永不命中**，E2E 验收"full-attention o_proj
+  确实走融合路径"无法按当前需求达成。
+- **310P npu_quant_matmul 不支持 BF16 输出**：CANN 9.1.0
+  `aclnnQuantMatmulWeightNz` 仅接受 INT8/FLOAT16 输出（实机报错
+  EZ1001 DT_BFLOAT16 拒绝）；plain 布局权重在 310P 上不可用（必须
+  FRACTAL_NZ + transpose）。需求"output dtype = BF16"在 W8A8 语义下
+  本机不可实现；现有 W8A8 生产路径只可能以 FP16 输出运行。
+- 本地 `Qwen3-30B-A3B-w8a8`（qwen3_moe，48 层 dense attention，
+  torch_dtype bfloat16）的 o_proj 为完整 W8A8 static（weight/scale/
+  offset/input_scale/quant_bias/deq_scale 齐备）——是唯一满足 W8A8
+  语义的本地检查点，但模型与需求指定的 Qwen3.6 不同（且同样受
+  BF16 输出限制）。
+
+待项目负责人在以下方案中裁决（均需同步修订 requirements 文档）：
+
+- **A. 按真实检查点重定基线**：融合目标改为 Qwen3.6 未量化 BF16
+  full-attention o_proj（per-tile BF16 matmul + MemFabric exchange），W8A8
+  机制（deq_scale/quant_bias/NZ）不再适用；BF16 payload 语义保留。
+- **B. 更换目标模型**：改为本地 Qwen3-30B-A3B-w8a8（W8A8 static o_proj
+  齐备），eligibility 的 model_type 检查需放宽（qwen3_moe）+ 输出 dtype
+  改 FP16。
+- **C. 提供 static W8A8 量化的 Qwen3.6 检查点**：当前 Eco-Tech 发行版
+  不含此量化形态，需另行产出。
+
+在裁决前，P2 及后续阶段（W8A8 单层/模型接入/overlap profiler/性能）
+暂停；P0/P1 成果（build、TP=2 correctness、1000-wave stress）不受影响。
+
 ### P0.1 确认定制 MemFabric install 产物
 
 在 `wgm-dev-310p` 编译安装后记录：
