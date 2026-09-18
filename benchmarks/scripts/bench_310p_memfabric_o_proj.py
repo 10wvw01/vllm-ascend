@@ -100,9 +100,12 @@ def _time_ms(fn, warmup: int, repeat: int) -> tuple[float, float, float]:
 
 
 def _hccl_once(local: torch.Tensor) -> torch.Tensor:
-    out = local.clone()
+    # 310P HCCL has no BF16 allreduce (CANN 9.1: HcclAllreduce rejects BF16).
+    # The reference reduces in FP32 and rounds back to BF16, which matches the
+    # MemFabric reduce kernel semantics (BF16 -> F32 add -> BF16 round).
+    out = local.float()
     dist.all_reduce(out)
-    return out
+    return out.to(torch.bfloat16)
 
 
 def main() -> None:
@@ -111,6 +114,15 @@ def main() -> None:
     parser.add_argument("--tile-m", type=int, default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")))
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--repeat", type=int, default=20)
+    parser.add_argument(
+        "--stress-check",
+        action="store_true",
+        help=(
+            "Repeated-wave correctness stress: run --repeat waves and verify "
+            "EVERY wave's output against the HCCL reference (requirements gate: "
+            "1000+ consecutive waves, no hang, no mismatch, no stale flag)."
+        ),
+    )
     parser.add_argument("--atol", type=float, default=2e-2)
     parser.add_argument("--rtol", type=float, default=2e-2)
     args = parser.parse_args()
@@ -144,6 +156,34 @@ def main() -> None:
             diff = (mf_out.float() - ref.float()).abs().max().item()
             raise AssertionError(f"MemFabric mismatch rows={rows}, max_abs_diff={diff}")
 
+        if args.stress_check:
+            # Repeated-wave correctness stress: verify EVERY wave. The reference
+            # depends only on `local`, which is fixed, so recompute it once per
+            # `rows` outside the loop and check each wave against it.
+            bad_waves = 0
+            for wave_idx in range(args.repeat):
+                out = _memfabric_once(local, rank, args.tile_m)
+                if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
+                    bad_waves += 1
+                    diff = (out.float() - ref.float()).abs().max().item()
+                    print(
+                        f"[rank{rank}] stress mismatch at rows={rows} "
+                        f"wave={wave_idx} max_abs_diff={diff}",
+                        flush=True,
+                    )
+            _sync()
+            if bad_waves == 0 and rank == 0:
+                print(
+                    f"stress rows={rows}: {args.repeat} consecutive waves, "
+                    "all verified, no stale flag",
+                    flush=True,
+                )
+            if bad_waves != 0:
+                raise AssertionError(
+                    f"repeated-wave stress failed rows={rows}: {bad_waves}/{args.repeat} mismatched waves"
+                )
+            continue
+
         mf_med, mf_min, _ = _time_ms(
             lambda: _memfabric_once(local, rank, args.tile_m),
             args.warmup,
@@ -163,6 +203,10 @@ def main() -> None:
                 f"{rows}\tPASS\t{stats[0].item():.4f}\t{stats[1].item():.4f}"
                 f"\t{stats[2].item():.4f}\t{stats[3].item():.4f}"
             )
+
+    # Tear the MemFabric context down explicitly while the NPU runtime is
+    # alive (also covered by atexit, but deterministic here).
+    torch.ops._C_ascend.memfabric_o_proj_shutdown()
 
     dist.barrier()
     dist.destroy_process_group()

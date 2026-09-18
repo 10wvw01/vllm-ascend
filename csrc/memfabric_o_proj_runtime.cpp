@@ -27,6 +27,9 @@
 
 namespace vllm_ascend {
 
+/* Defined below (both build variants); forward-declared for the atexit hook. */
+void memfabric_o_proj_shutdown();
+
 #ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
 namespace {
 
@@ -142,6 +145,20 @@ void init_context_locked(
     state.tp_rank = static_cast<int>(tp_rank);
     state.tile_m = tile_m;
     (void)x;
+
+    /*
+     * LIFO atexit teardown: the process-persistent MemFabric context must be
+     * destroyed while the ACL runtime is still alive. Registering here (after
+     * torch_npu's import-time registrations) makes this handler run first, so
+     * the RuntimeState static destructor - which may otherwise run after the
+     * NPU runtime was finalized and segfault - becomes a no-op. Verified on
+     * the real 310P3 server: without this, both ranks SIGSEGV at exit.
+     */
+    static bool atexit_registered = false;
+    if (!atexit_registered) {
+        atexit_registered = true;
+        (void)std::atexit([]() { memfabric_o_proj_shutdown(); });
+    }
 }
 
 void check_runtime_healthy(const RuntimeState& state)
@@ -277,6 +294,30 @@ void memfabric_o_proj_finish(const at::Tensor& recv)
     state.active_chunks = 0;
 }
 
+void memfabric_o_proj_shutdown()
+{
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+    RuntimeState& state = runtime_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    if (state.ctx == nullptr) {
+        return;
+    }
+    /* An armed wave is unsafe to destroy (outstanding SDMA/SQE/flag state);
+     * leak instead of tearing down mid-flight in a dying process. */
+    if (state.wave_active) {
+        state.poisoned = true;
+        return;
+    }
+    if (state.reduce_stream != nullptr) {
+        (void)aclrtSynchronizeStream(state.reduce_stream);
+        (void)aclrtDestroyStream(state.reduce_stream);
+        state.reduce_stream = nullptr;
+    }
+    (void)mf310p_destroy(state.ctx);
+    state.ctx = nullptr;
+#endif
+}
+
 void memfabric_o_proj_mark_failed(
     const at::Tensor& recv,
     c10::string_view reason)
@@ -333,6 +374,11 @@ void memfabric_o_proj_finish(const at::Tensor&)
 void memfabric_o_proj_mark_failed(const at::Tensor&, c10::string_view)
 {
     memfabric_not_built();
+}
+
+void memfabric_o_proj_shutdown()
+{
+    /* Feature-off builds never create the context; nothing to tear down. */
 }
 
 #endif // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ

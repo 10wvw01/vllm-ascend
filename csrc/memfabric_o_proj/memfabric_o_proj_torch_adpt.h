@@ -39,6 +39,11 @@ void memfabric_o_proj_mark_failed(
     const at::Tensor& recv,
     c10::string_view reason);
 
+/* Explicitly tear down the process-persistent MemFabric context while the ACL
+ * runtime is still alive. Also registered via atexit on first use; workers
+ * should call this on shutdown for deterministic teardown. */
+void memfabric_o_proj_shutdown();
+
 /* Reserved phase-2 direct-MM entry point. Once the AscendC W8A8 matmul writes
  * directly into the symmetric send arena, Python will switch from the staged
  * begin/publish/finish path to this single opaque op. The implementation is

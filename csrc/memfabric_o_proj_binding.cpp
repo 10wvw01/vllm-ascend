@@ -42,6 +42,15 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         torch::kPrivateUse1,
         &vllm_ascend::memfabric_o_proj_mark_failed);
 
+    /* Deterministic worker-lifetime teardown (also auto-registered via
+     * atexit on first context creation). No tensor argument, so register a
+     * catch-all key instead of PrivateUse1. */
+    ops.def("memfabric_o_proj_shutdown() -> ()");
+    ops.impl(
+        "memfabric_o_proj_shutdown",
+        c10::DispatchKey::CompositeExplicitAutograd,
+        &vllm_ascend::memfabric_o_proj_shutdown);
+
     /* Reserved phase-2 single opaque op for direct AscendC matmul->SHM. */
     ops.def(
         "memfabric_w8a8_o_proj_allreduce("

@@ -39,6 +39,7 @@ extern "C" int mf310p_device_publish_chunk_async(
     aclrtStream stream);
 
 extern "C" int mf310p_device_launch_reduce_consumer_async(
+    uint64_t workspace,
     uint64_t send_arena,
     uint64_t recv_arena,
     uint64_t arrival_flags,
@@ -319,6 +320,7 @@ extern "C" int mf310p_launch_reduce_consumer_async(
         return -1;
     }
     return mf310p_device_launch_reduce_consumer_async(
+        ctx->layout.sdma_workspace,
         ctx->layout.send_arena,
         ctx->layout.recv_arena,
         ctx->layout.arrival_flags,
