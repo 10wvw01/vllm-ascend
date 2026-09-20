@@ -259,6 +259,34 @@ P3 验收结果（TP=2 eager，die0/1，FP16）：
   路径 FP32-math reduce 不同（P2 单层验收已证融合与 FP32-math 语义 bit 级
   一致），属预期数值行为而非正确性错误。
 
+### 4.13 P4 验收记录：profiler 证明 MM 与通信/规约真实重叠（2026-09-20）
+
+采集方法：`torch_npu.profiler`（`_ExperimentalConfig(export_type=Text,
+profiler_level=Level1)`）包裹融合调用，其 `export_only_prof_dir` 产出 CANN
+kernel 级时间线（`task_time_*.csv`：kernel_name/AI_CORE|AI_CPU/MEMCPY_ASYNC、
+stream_id、task_start/stop）。分析工具已固化为
+`benchmarks/scripts/analyze_310p_memfabric_overlap.py`。
+
+代表性 workload（rows=2048，tile_m=32，单 wave 64 tiles，FP16，TP=2）：
+
+```text
+waves detected: [64, 64]
+== wave: 64 matmul tiles, compute span 8.859 ms, tile avg 32.6 us ==
+reduce consumer: active window overlaps compute span by 8.859 ms (dur 84.158 ms, stream 49)
+AICPU orchestrator: active window overlaps compute span by 8.859 ms (dur 9.219 ms, stream 2)
+matmul tiles (t>=1) overlapping reduce/AICPU activity: 63/63
+OVERLAP PROVEN
+```
+
+结论：compute stream（stream 24，te_matmul + mf310pPublishKernel 交错）的
+**每一个后续 MM tile（63/63）**都与独立流上的 reduce consumer（stream 49）
+和 AICPU SDMA 编排 kernel（stream 2，窗口覆盖全 wave）存在真实设备侧时间
+重叠 —— R4/验收 E 的 timeline 证据达成（非"无显式 wait"推断）。wave 内
+还可见 63 条 MEMCPY_ASYNC（mailbox/flag 清理与数据通路）与计算并行。
+
+证据文件：`/tmp/opencode/p4_evidence/task_time_rank0.csv`（随 PR 归档路径
+见 usage 文档）。
+
 ### P0.1 确认定制 MemFabric install 产物
 
 在 `wgm-dev-310p` 编译安装后记录：
