@@ -1,4 +1,4 @@
-# 310P3 Qwen3.6 W8A8 o_proj + MemFabric 融合算子需求目标
+# 310P3 Qwen3.6 BF16 o_proj + MemFabric 融合算子需求目标
 
 > 本文是本功能的**需求基线和最终验收合同**。
 >
@@ -14,14 +14,25 @@
 >
 > 如果实机或定制 MemFabric 真实接口证明当前设计不可行，应修改设计和实现以继续满足本文需求，而不是降低需求来适配现有代码。
 
+> **修订记录（2026-09-18，项目负责人裁决）**：原需求假设目标模型 full-attention
+> `o_proj` 为 static W8A8 量化层。实机核查（本地与 modelscope 上游
+> `quant_model_description.json` 一致）证明 Qwen3.6-35B-A3B-w8a8 的全部 10 个
+> full-attention `o_proj` 均为**未量化 BF16（FLOAT）**；且本机 CANN 9.1 的
+> `npu_quant_matmul` 不支持 BF16 输出（仅 INT8/FP16），原"W8A8 + BF16 输出"
+> 组合在本机不可实现。经项目负责人裁决（方案 A），融合目标**按真实检查点
+> 重定基线为未量化 BF16 o_proj**；W8A8 相关语义条目（activation INT8、
+> FRACTAL_NZ、deq_scale、quant_bias）整体移除，其余目标（计算通信重叠、
+> MemFabric SDMA、tile 级流水、ACL Graph、性能收益）不变。310P 实机已验证
+> BF16 matmul 可用。详见研发计划 4.11。
+
 ## 1. 项目背景
 
-目标模型 `Eco-Tech/Qwen3.6-35B-A3B-w8a8` 在 Ascend 310P3 单卡双 die、Tensor Parallel=2 场景中，full-attention 的 `self_attn.o_proj` 为 RowParallel W8A8 线性层。
+目标模型 `Eco-Tech/Qwen3.6-35B-A3B-w8a8` 在 Ascend 310P3 单卡双 die、Tensor Parallel=2 场景中，full-attention 的 `self_attn.o_proj` 为 RowParallel **未量化 BF16** 线性层（实机核查定论，见顶部修订记录）。
 
 正常路径可以抽象为：
 
 ```text
-local W8A8 o_proj matmul
+local BF16 o_proj matmul
     -> materialize local partial output
     -> tensor-parallel allreduce
     -> final o_proj output
@@ -31,7 +42,7 @@ local W8A8 o_proj matmul
 
 ## 2. 一句话最终目标
 
-在 **Ascend 310P3 单卡双 die、TP=2** 上，为 **Qwen3.6-35B-A3B-w8a8 full-attention `self_attn.o_proj`** 提供一个由 vLLM-Ascend 调用的专用融合算子，使其同时拥有 W8A8 o_proj 本地矩阵乘和 TP=2 reduction，并通过 **`wgm-dev-310p` 定制 MemFabric** 实现 tile 级“边算边搬”，最终用实机 correctness、profiler overlap 和性能数据证明有效。
+在 **Ascend 310P3 单卡双 die、TP=2** 上，为 **Qwen3.6-35B-A3B-w8a8 full-attention `self_attn.o_proj`** 提供一个由 vLLM-Ascend 调用的专用融合算子，使其同时拥有 BF16 o_proj 本地矩阵乘和 TP=2 reduction，并通过 **`wgm-dev-310p` 定制 MemFabric** 实现 tile 级“边算边搬”，最终用实机 correctness、profiler overlap 和性能数据证明有效。
 
 ## 3. 固定适用范围
 
@@ -43,7 +54,7 @@ local W8A8 o_proj matmul
 - Model: `Eco-Tech/Qwen3.6-35B-A3B-w8a8`；
 - vLLM model type: 当前对应 `qwen3_5_moe_text`；
 - Layer: **仅 full-attention `self_attn.o_proj`**；
-- Quantization: 310P static W8A8；
+- Quantization: **未量化（BF16 权重，checkpoint FLOAT 条目）**；
 - Output dtype: BF16；
 - full-attention global input K: 4096；
 - TP=2 local input K: 2048；
@@ -66,7 +77,7 @@ config.layer_types[N] == full_attention
 TP == 2
 local K == 2048
 N == 2048
-310P static W8A8
+未量化 BF16 linear（310P AscendUnquantizedLinearMethod 路由）
 BF16 output
 ```
 
@@ -201,28 +212,18 @@ recv/final buffer : peer 数据落地后供 local reduce 写最终结果
 
 具体 barrier/epoch/flag 协议必须依据 `wgm-dev-310p` 真实实现确定，不能猜不存在的 MemFabric barrier API。
 
-## 5. 必须保持的 W8A8 数值语义
+## 5. 必须保持的 BF16 数值语义
 
-融合不能以牺牲现有量化语义为代价。
+融合不能以牺牲现有未量化路径语义为代价。
 
-必须保持现有 310P W8A8 路径的：
+必须保持：
 
-- activation INT8 语义；
-- 310P runtime weight layout / FRACTAL_NZ 相关处理；
-- `deq_scale` 语义；
-- output dtype = `layer.params_dtype`，当前目标为 BF16；
-- quantized bias 处理；
-- TP bias 只添加一次。
+- 本地 matmul 与 `torch.mm`/`torch.nn.functional.linear` 在相同 BF16 权重上的数值语义一致（同为 BF16 输入、BF16 累加精度行为按 aclnn matmul 默认）；
+- output dtype = `layer.params_dtype`（BF16）；
+- o_proj 无 bias（Qwen 系列该层无 bias）；若未来权重带 bias，bias 只允许 rank0 应用一次；
+- 通信 payload 为本地 partial BF16 result（与对端相加前不做其它数值变换）。
 
-特别要求：
-
-```text
-quant_bias 只允许 rank0 应用
-```
-
-否则两个 rank 各加一次后再求和会造成 bias double-count。
-
-通信 payload 第一版优先使用已经 dequantized 的 BF16 partial result。除非通过数值推导和实机验证证明完全等价，否则不要为了减少通信量擅自改成传输 INT32 accumulator。
+本地 reduce kernel 语义为 BF16 -> F32 add -> BF16 round（与 TP allreduce 的 FP32 求和后回 BF16 对齐，实机已验证 allclose）。除非通过数值推导和实机验证证明完全等价，否则不要为了减少通信量擅自改成其它压缩 payload。
 
 ## 6. 分阶段实现目标
 
@@ -231,7 +232,7 @@ quant_bias 只允许 rank0 应用
 允许继续使用现有：
 
 ```text
-per-tile torch_npu.npu_quant_matmul
+per-tile BF16 matmul (torch.mm / F.linear)
     -> copy to symmetric send arena
     -> clean/notify
     -> MemFabric SDMA
@@ -257,9 +258,8 @@ Phase 1 是必要里程碑，但**不是最终融合形态**。
 目标 producer：
 
 ```text
-AscendC/CATLASS-level W8A8 tiled matmul
-    -> dequant BF16
-    -> rank0-only quant_bias
+AscendC/CATLASS-level BF16 tiled matmul
+    -> rank0-only bias (if any)
     -> direct write symmetric send tile
     -> cache clean
     -> smem_shm_sdma_notify(tile)
@@ -268,10 +268,10 @@ AscendC/CATLASS-level W8A8 tiled matmul
 
 需要尽量消除：
 
-- `npu_quant_matmul output -> send arena` 的额外本地 copy；
+- `BF16 matmul output -> send arena` 的额外本地 copy；
 - 每个 M tile 单独 ACLNN matmul launch 的调度开销。
 
-优先复用当前 CANN/CATLASS/vLLM-Ascend 中真实可用的 310P INT8 matmul primitive，不要求为了形式上的“自研”从零手写 Cube matmul。
+优先复用当前 CANN/CATLASS/vLLM-Ascend 中真实可用的 310P BF16 matmul primitive，不要求为了形式上的“自研”从零手写 Cube matmul。
 
 ## 7. Decode 与 Prefill 需求
 
@@ -373,13 +373,13 @@ M = 1, 8, 32, 64, 128, 512, 2048
 - repeated-wave >= 1000 次稳定；
 - 无 hang、无随机 mismatch。
 
-### C. W8A8 单层 correctness 验收
+### C. BF16 单层 correctness 验收
 
 对目标 o_proj 比较：
 
 ```text
-reference = npu_quant_matmul(local) + TP allreduce
-fused     = tiled/direct W8A8 MM + MemFabric exchange + local reduce
+reference = torch.mm(local, weight) + TP allreduce(FP32 math)
+fused     = tiled BF16 MM + MemFabric exchange + local reduce
 ```
 
 至少覆盖：
@@ -387,7 +387,6 @@ fused     = tiled/direct W8A8 MM + MemFabric exchange + local reduce
 - 多种 M；
 - tail M；
 - repeated calls；
-- rank0-only quant_bias；
 - feature on/off；
 - full-attention 命中与 linear-attention 不命中。
 
@@ -473,7 +472,7 @@ Qwen3.6-35B-A3B-w8a8
 + Ascend 310P3 single-card dual-die
 + TP=2
 + full-attention self_attn.o_proj only
-+ static W8A8 -> BF16 semantics preserved
++ unquantized BF16 -> BF16 semantics preserved
 + custom wgm-dev-310p MemFabric
 + o_proj matmul and TP reduction owned by one fused path
 + MM[t+1] overlaps communication/reduce[t]

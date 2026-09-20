@@ -20,11 +20,6 @@ from typing import Any
 import torch
 import torch_npu
 
-from vllm_ascend._310p.ops.memfabric_o_proj import (
-    configure_memfabric_o_proj,
-    is_memfabric_o_proj_configured,
-    memfabric_w8a8_o_proj_allreduce,
-)
 from vllm_ascend.utils import maybe_trans_nz
 
 from .registry import register_scheme
@@ -67,14 +62,6 @@ class AscendW8A8LinearMethod310(AscendW8A8Linear310pScheme):
         rank = int(tp_rank or 0)
         quant_bias = layer.quant_bias if rank == 0 else None
 
-        if is_memfabric_o_proj_configured(layer):
-            return memfabric_w8a8_o_proj_allreduce(
-                layer=layer,
-                x_q=x,
-                quant_bias=quant_bias,
-                tp_rank=rank,
-            )
-
         # NOTE(310P):
         # - Current torch_npu.npu_quant_matmul on Ascend 310P expects the weight layout in a transposed form
         #   for correct/efficient execution, so we pass `layer.weight.T` here.
@@ -113,7 +100,3 @@ class AscendW8A8LinearMethod310(AscendW8A8Linear310pScheme):
         layer.weight_scale.data = torch.flatten(layer.weight_scale.data)
         layer.weight_offset.data = torch.flatten(layer.weight_offset.data)
 
-        # Configure only the exact 310P3/Qwen3.5-MoE/TP=2/full-attention
-        # contract.  When enabled, this turns off RowParallelLinear's generic
-        # all-reduce because the fused operator returns the reduced result.
-        configure_memfabric_o_proj(layer)

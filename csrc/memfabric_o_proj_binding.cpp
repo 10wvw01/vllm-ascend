@@ -56,14 +56,14 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         c10::DispatchKey::CompositeExplicitAutograd,
         &vllm_ascend::memfabric_o_proj_shutdown);
 
-    /* Reserved phase-2 single opaque op for direct AscendC matmul->SHM. */
+    /* Reserved phase-2 single opaque op for the direct AscendC BF16
+     * matmul->SHM producer (owner decision A: unquantized BF16 o_proj). */
     ops.def(
-        "memfabric_w8a8_o_proj_allreduce("
-        "Tensor x, Tensor weight, Tensor deq_scale, Tensor? quant_bias, "
-        "int tp_rank, int tile_m) -> Tensor");
+        "memfabric_direct_o_proj_allreduce("
+        "Tensor x, Tensor weight, int tp_rank, int tile_m) -> Tensor");
     ops.impl(
-        "memfabric_w8a8_o_proj_allreduce",
+        "memfabric_direct_o_proj_allreduce",
         torch::kPrivateUse1,
-        &vllm_ascend::memfabric_w8a8_o_proj_allreduce);
+        &vllm_ascend::memfabric_direct_o_proj_allreduce);
 }
 #endif

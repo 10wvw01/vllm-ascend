@@ -1,24 +1,25 @@
 # SPDX-License-Identifier: Apache-2.0
-"""310P3 TP=2 W8A8 o_proj single-layer correctness benchmark.
+"""310P3 TP=2 unquantized-BF16 o_proj single-layer correctness benchmark.
 
-Compares the Phase-1 MemFabric fused path against the existing 310P W8A8
-reference on one dual-die 310P3:
+Compares the Phase-1 MemFabric fused path against the stock unquantized
+reference on one dual-die 310P3 (owner decision A, 2026-09-18: the target
+checkpoint keeps full-attention o_proj as FLOAT/BF16):
 
-  reference = full-M npu_quant_matmul(local) + TP=2 allreduce
-  fused     = tiled npu_quant_matmul + MemFabric exchange + local reduce
+  reference = full-M F.linear(local, weight) + TP=2 allreduce (FP32 math)
+  fused     = tiled F.linear + MemFabric exchange + local reduce
 
 The fused path is the production entry point used by
-``AscendW8A8LinearMethod310.apply`` for target full-attention o_proj layers.
-Quantization semantics under test: int8 activation, 310P FRACTAL_NZ runtime
-weight layout, int64 deq_scale, rank0-only int32 quant_bias, BF16 output.
+``MemFabricOProjLinearMethod310.apply`` for target full-attention o_proj
+layers. Semantics under test: BF16 activation, 310P FRACTAL_NZ runtime weight
+layout (via the stock unquantized process_weights path), BF16 output, and the
+BF16 -> F32 add -> BF16 round reduce kernel.
 
 Run:
 
   VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 \
   ASCEND_RT_VISIBLE_DEVICES=0,1 \
-  LD_LIBRARY_PATH=/opt/memfabric-wgm-dev-310p/lib64:$LD_LIBRARY_PATH \
   torchrun --standalone --nproc-per-node=2 \
-    benchmarks/scripts/bench_310p_memfabric_w8a8_layer.py
+    benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py
 """
 
 from __future__ import annotations
@@ -29,9 +30,11 @@ import types
 
 import torch
 import torch.distributed as dist
+import torch.nn.functional as F
 import torch_npu  # noqa: F401
 
-from vllm_ascend._310p.ops.memfabric_o_proj import memfabric_w8a8_o_proj_allreduce
+import vllm_ascend.vllm_ascend_C  # noqa: F401  (registers the _C_ascend ops)
+from vllm_ascend._310p.ops.memfabric_o_proj import memfabric_o_proj_allreduce
 from vllm_ascend.utils import maybe_trans_nz
 
 K_LOCAL = 2048
@@ -39,40 +42,28 @@ N_OUT = 2048
 
 
 def _make_layer(rank: int, device: torch.device) -> types.SimpleNamespace:
-    """Mimic AscendW8A8LinearMethod310.process_weights_after_loading."""
+    """Mimic AscendUnquantizedLinearMethod.process_weights_after_loading."""
 
     layer = types.SimpleNamespace()
 
-    # Canonical quantized weight [N, K] int8, then the 310P runtime layout:
-    # FRACTAL_NZ + transpose(0, 1) - exactly what apply() consumes.
-    weight = torch.randint(
-        -127, 128, (N_OUT, K_LOCAL), dtype=torch.int8, device=device)
-    layer.weight = types.SimpleNamespace(
-        data=maybe_trans_nz(weight).transpose(0, 1))
-
-    # int64 deq_scale and int32 quant_bias match get_perchannel_param.
-    layer.deq_scale = torch.randint(
-        1 << 19, 1 << 21, (N_OUT,), dtype=torch.int64, device=device)
-    layer.quant_bias = torch.randint(
-        -(1 << 28), 1 << 28, (N_OUT,), dtype=torch.int32, device=device)
-    layer.params_dtype = torch.bfloat16
+    # vllm linear weight is [out, in] = [N, K_local] FP16; the 310P runtime
+    # layout applies FRACTAL_NZ (kept logical shape) - exactly what the stock
+    # unquantized apply()/F.linear consumes.
+    weight = torch.randn(N_OUT, K_LOCAL, dtype=torch.float16, device=device)
+    layer.weight = types.SimpleNamespace(data=maybe_trans_nz(weight))
+    layer.params_dtype = torch.float16
     return layer
 
 
-def _reference(layer, x_q, quant_bias):
-    # Same npu_quant_matmul as the non-fused 310P path, full M.
-    y = torch_npu.npu_quant_matmul(
-        x_q,
-        layer.weight.data,
-        layer.deq_scale,
-        bias=quant_bias,
-        output_dtype=layer.params_dtype,
-    )
-    # 310P HCCL has no BF16 allreduce; reduce in FP32 and round back, which is
-    # exactly the fused kernel's BF16 -> F32 add -> BF16 semantics.
+def _reference(layer, x):
+    # Same F.linear as the stock unquantized path, full M.
+    y = F.linear(x, layer.weight.data)
+    # 310P HCCL has no FP16 allreduce with matching rounding; reduce in FP32
+    # and round back, which is exactly the fused kernel's FP16 -> F32 add ->
+    # FP16 round semantics.
     y = y.float()
     dist.all_reduce(y)
-    return y.to(torch.bfloat16)
+    return y.to(torch.float16)
 
 
 def main() -> None:
@@ -101,22 +92,19 @@ def main() -> None:
         print("rows\tverdict\tmax_abs_diff\tn_bad\tfused_ms")
 
     layer = _make_layer(rank, device)
-    quant_bias = layer.quant_bias if rank == 0 else None
 
     for rows in args.rows:
         if rows <= 0:
             raise ValueError(f"rows must be positive, got {rows}")
         torch.manual_seed(42 + rows)
-        x_q = torch.randint(
-            -127, 128, (rows, K_LOCAL), dtype=torch.int8, device=device)
+        x = torch.randn(rows, K_LOCAL, dtype=torch.float16, device=device)
 
-        ref = _reference(layer, x_q, quant_bias)
+        ref = _reference(layer, x)
         torch.npu.synchronize()
 
         import time
         t0 = time.perf_counter()
-        fused = memfabric_w8a8_o_proj_allreduce(
-            layer=layer, x_q=x_q, quant_bias=quant_bias, tp_rank=rank)
+        fused = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
         torch.npu.synchronize()
         fused_ms = (time.perf_counter() - t0) * 1e3
 
@@ -127,8 +115,7 @@ def main() -> None:
 
         # Repeated calls: verify every call to catch wave-reuse issues.
         for call_idx in range(args.repeat - 1):
-            out = memfabric_w8a8_o_proj_allreduce(
-                layer=layer, x_q=x_q, quant_bias=quant_bias, tp_rank=rank)
+            out = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
             if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
                 n_bad += (out.float() - ref.float()).abs().numel()
                 ok = False
@@ -139,7 +126,7 @@ def main() -> None:
             print(f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{fused_ms:.3f}")
         if not ok:
             raise AssertionError(
-                f"W8A8 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
+                f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 
     torch.ops._C_ascend.memfabric_o_proj_shutdown()
     dist.barrier()

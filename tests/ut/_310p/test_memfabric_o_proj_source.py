@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_o_proj.py"
 W8A8 = ROOT / "vllm_ascend" / "_310p" / "quantization" / "methods" / "w8a8_static.py"
+MODELSLIM = ROOT / "vllm_ascend" / "_310p" / "quantization" / "modelslim_config.py"
 BINDING = ROOT / "csrc" / "memfabric_o_proj_binding.cpp"
 RUNTIME = ROOT / "csrc" / "memfabric_o_proj_runtime.cpp"
 ADAPTER_API = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter_api.h"
@@ -40,8 +41,11 @@ def test_eligibility_is_deliberately_narrow() -> None:
     assert "_EXPECTED_INPUT_SIZE" in src
     assert "_EXPECTED_INPUT_SIZE_PER_PARTITION" in src
     assert "_EXPECTED_OUTPUT_SIZE" in src
-    assert "torch.bfloat16" in src
-    assert "AscendW8A8LinearMethod310" in src
+    # Owner decision A (2026-09-18): unquantized o_proj; the model runs FP16
+    # on 310P (no torch_dtype in the checkpoint, BF16 NZ linear unsupported).
+    assert "torch.float16" in src
+    assert "AscendUnquantizedLinearMethod" in src
+    assert "AscendW8A8LinearMethod310" not in src
 
 
 def test_configure_disables_generic_row_parallel_reduce() -> None:
@@ -50,16 +54,26 @@ def test_configure_disables_generic_row_parallel_reduce() -> None:
     assert "RowParallelLinear(reduce_results=True)" in src
 
 
-def test_w8a8_routes_configured_layer_to_memfabric_pipeline() -> None:
+def test_w8a8_scheme_no_longer_references_memfabric() -> None:
+    # Owner decision A: o_proj is unquantized; the W8A8 scheme must not
+    # reference the MemFabric pipeline anymore.
     module_src = W8A8.read_text()
-    assert "is_memfabric_o_proj_configured(layer)" in module_src
-    assert "memfabric_w8a8_o_proj_allreduce(" in module_src
-    assert "configure_memfabric_o_proj(layer)" in module_src
+    assert "memfabric" not in module_src
+
+
+def test_modelslim_router_dispatches_eligible_float_layer() -> None:
+    src = MODELSLIM.read_text()
+    assert "should_enable_memfabric_o_proj(layer)" in src
+    assert "make_memfabric_o_proj_linear_method" in src
+    assert "MemFabricOProjLinearMethod310" not in src  # built lazily
+    # The stock path stays the fallback.
+    assert "return AscendUnquantizedLinearMethod()" in src
 
 
 def test_phase1_pipeline_is_mm_then_publish_then_single_join() -> None:
-    src = _src(_func(HELPER, "memfabric_w8a8_o_proj_allreduce"))
-    assert "torch_npu.npu_quant_matmul" in src
+    src = _src(_func(HELPER, "memfabric_o_proj_allreduce"))
+    # Same op as the unquantized fallback, so numerics match exactly.
+    assert "F.linear(x_tile, layer.weight.data)" in src
     assert "send_tile.narrow(0, 0, rows).copy_(y_tile)" in src
     assert "publish(send, int(chunk_idx))" in src
     assert "finish(recv)" in src
@@ -133,8 +147,8 @@ def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
     src = DEVICE.read_text()
     assert "smem_shm_sdma_notify" in src
     assert "smem_shm_sdma_poll_flag" in src
-    # Reduce is BF16 -> F32 add -> BF16 round via explicit conversion helpers.
-    assert "recv[i] = Mf310pFloatToBf16(lhs + rhs)" in src
+    # Reduce is FP16 -> F32 add -> FP16 round via native conversion helpers.
+    assert "recv[i] = Mf310pFloatToFp16(lhs + rhs)" in src
     assert "Mf310pCleanWords" in src
 
 

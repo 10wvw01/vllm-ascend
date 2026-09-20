@@ -1,8 +1,12 @@
 # 310P3 TP=2 W8A8 o_proj + MemFabric AllReduce 使用说明
 
-> 适用目标：Ascend 310P3 单卡双 die、TP=2、`Eco-Tech/Qwen3.6-35B-A3B-w8a8`。
+> 适用目标：Ascend 310P3 单卡双 die、TP=2、`Eco-Tech/Qwen3.6-35B-A3B-w8a8` 的
+> **未量化 full-attention `o_proj`**（负责人裁决 A，2026-09-18：该 checkpoint 的
+> o_proj 为 FLOAT；模型在 310P 上以 FP16 运行，融合管线交换 FP16 partial）。
 >
-> 当前状态：用于 310P 实机 bring-up。文档中的 custom MemFabric library 名称和 `.asc` 编译命令必须以 `wgm-dev-310p` 服务器实际源码/构建产物为准。
+> 当前状态：P0/P1/P2 实机验收已通过（build、TP=2 correctness、1000-wave
+> stress、单层 bit 级一致）。文档中的 custom MemFabric library 名称和 `.asc`
+> 编译命令以 `wgm-dev-310p` 服务器实际源码/构建产物为准。
 >
 > 设计说明：[310p_memfabric_o_proj.md](../../developer_guide/310p_memfabric_o_proj.md)
 >

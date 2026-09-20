@@ -1,4 +1,4 @@
-# 310P3 TP=2 W8A8 o_proj + MemFabric AllReduce 融合算子设计文档
+# 310P3 TP=2 BF16 o_proj + MemFabric AllReduce 融合算子设计文档
 
 > 状态：研发中，当前分支已经具备 Phase-1 代码骨架与服务器 bring-up 基础设施，但尚未完成 Ascend 310P3 实机编译和数值/性能验收。
 >
@@ -17,7 +17,7 @@
 普通 `RowParallelLinear` 路径为：
 
 ```text
-W8A8 local o_proj matmul
+BF16 local o_proj matmul
         |
         v
 TP all-reduce
@@ -46,8 +46,9 @@ MM tile[t]
 - 模型：Qwen3.5/Qwen3.6 MoE text trunk；本项目实机目标为 `Eco-Tech/Qwen3.6-35B-A3B-w8a8`。
 - 目标层：仅 `full_attention` 的 `self_attn.o_proj`。
 - 不命中：`linear_attn` / GDN / MLP / MoE expert linear / 其他 RowParallelLinear。
-- 量化：310P static W8A8。
-- 输出 dtype：当前 bring-up 路径仅 BF16。
+- 量化：未量化 BF16（2026-09-18 负责人裁决 A，实机核查目标 checkpoint 的
+  full-attention o_proj 为 FLOAT 条目；原 W8A8 契约废弃，见研发计划 4.11）。
+- 输出 dtype：BF16。
 - 通信：定制 `wgm-dev-310p` MemFabric Hybrid 的 AICore/AICPU/SDMA 路径。
 - 融合算子内部不使用 HCCL/MC2；HCCL 仅可作为 correctness reference。
 
@@ -70,6 +71,7 @@ A[M, 2048] x W[2048, 2048] -> Y_local[M, 2048]
 - TP>2；
 - 多物理卡通信；
 - 任意模型/任意 hidden size；
+- W8A8/INT8 量化路径回归（除非负责人再次裁决）；
 - FP16/INT32 通信路径泛化；
 - linear-attention/GDN 融合；
 - 通用 collective 库替代品；
@@ -111,7 +113,8 @@ if reduce_results and tp_size > 1:
 - `input_size == 4096`；
 - `input_size_per_partition == 2048`；
 - `output_size == 2048`；
-- 310P static W8A8 scheme；
+- 310P 未量化 BF16 路由（`AscendUnquantizedLinearMethod`，modelslim
+  description 中该层为 FLOAT 条目）；
 - `params_dtype == torch.bfloat16`。
 
 Qwen hybrid decoder 的 linear-attention 路径使用 `linear_attn` 命名，因此不会被 `self_attn.o_proj` 条件命中；额外检查 `layer_types[N]` 用于防止未来上游命名变化导致误匹配。
@@ -221,16 +224,16 @@ chunk_bytes = 32 * 2048 * 2 = 128 KiB
 
 ## 8. Phase-1：staged correctness/overlap baseline
 
-当前代码首先复用已有、已知语义的 310P：
+当前代码首先复用标准 BF16 matmul（310P 实机已验证可用）：
 
 ```python
-torch_npu.npu_quant_matmul(...)
+torch.mm(x_tile, weight)  # weight [K_local, N] BF16
 ```
 
 每个 M tile 的执行顺序：
 
 ```text
-npu_quant_matmul(x_tile)
+BF16 matmul(x_tile)
         |
         v
 copy local result -> symmetric send[t]
@@ -255,12 +258,11 @@ smem_shm_sdma_notify(mailbox[t], src, words)
 
 ## 9. Phase-2：最终 direct tiled producer
 
-最终目标是一个 AscendC/CATLASS 级 tiled W8A8 producer：
+最终目标是一个 AscendC/CATLASS 级 tiled BF16 producer：
 
 ```text
-Cube W8A8 MM tile[t]
-    -> dequant
-    -> rank0-only quant_bias
+Cube BF16 MM tile[t]
+    -> rank0-only bias (if any)
     -> direct write symmetric send[t]
     -> DataCacheCleanAndInvalid
     -> smem_shm_sdma_notify(t)
@@ -271,17 +273,14 @@ Cube W8A8 MM tile[t]
 
 对于大 M/prefill，优先 M-row tiling；对于 decode 小 M，M-only tiling 很可能没有足够流水深度，后续需要评估 N-panel tiling。
 
-## 10. W8A8 数值语义
+## 10. BF16 数值语义
 
-融合算子必须保持现有 310P static W8A8 语义：
+融合算子必须保持未量化路径语义：
 
-- activation INT8；
-- weight 为 310P runtime FRACTAL_NZ/transposed layout；
-- 使用现有 dequant scale；
+- 输入/权重均为 BF16，本地 matmul 数值与 `torch.mm` 一致；
 - output dtype 保持 BF16；
-- `quant_bias` 只在 TP rank 0 应用一次。
-
-特别是 rank0-only quant bias 不能在两个 rank 都加，否则 TP sum 后会重复 bias。
+- o_proj 无 bias；若未来带 bias，只在 TP rank 0 应用一次（TP sum 后不重复）；
+- 本地 reduce 为 BF16 -> F32 add -> BF16 round（与 allreduce FP32 求和对齐）。
 
 ## 11. Runtime 生命周期
 
@@ -388,7 +387,7 @@ tests/ut/_310p/test_memfabric_o_proj_source.py
 
 1. TP=2 bilateral MemFabric exchange + local reduce 数值正确；
 2. 连续重复 wave 不出现 stale flag、丢 notify、reset race；
-3. Phase-1 结果与现有 `npu_quant_matmul + TP allreduce` 对齐；
+3. Phase-1 结果与现有 `torch.mm + TP allreduce`（FP32 math）对齐；
 4. profiler 能证明 `MM[t+1]` 与 `SDMA[t]` 有实际重叠；
 5. Qwen3.6 full-attention `o_proj` 才命中，其他层保持原路径；
 6. eager 与 ACL graph 均能稳定重复运行；

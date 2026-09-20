@@ -4,14 +4,19 @@
 """310P3 TP=2 MemFabric fused full-attention o_proj helpers.
 
 The fused path is intentionally narrow. It is only enabled for Qwen3.5/3.6
-MoE full-attention ``self_attn.o_proj`` layers running static W8A8 with TP=2.
-All other layers keep the existing RowParallelLinear implementation.
+MoE full-attention ``self_attn.o_proj`` layers that are *unquantized*
+(the real Qwen3.6-35B-A3B-w8a8 checkpoint keeps them FLOAT; owner decision A,
+2026-09-18) running with TP=2. All other layers keep the existing
+RowParallelLinear implementation. The checkpoint carries no torch_dtype, so
+vLLM runs it as FP16 on 310P (BF16 NZ linear is unsupported by this CANN
+anyway); the fused path therefore exchanges FP16 partial results.
 
-Phase 1 uses the existing 310P ``npu_quant_matmul`` in M tiles, stages each
-finished tile into MemFabric symmetric memory, publishes it immediately, and
-lets AICPU/SDMA plus a separate AICore reduce stream consume earlier tiles while
-the compute stream continues with later matmuls. Phase 2 will replace only the
-producer with a direct AscendC W8A8 matmul that writes the SHM send arena.
+Phase 1 uses per-tile BF16 matmul (``F.linear``/``unquantized_gemm``
+semantics, NZ weight layout included), stages each finished tile into
+MemFabric symmetric memory, publishes it immediately, and lets AICPU/SDMA
+plus a separate AICore reduce stream consume earlier tiles while the compute
+stream continues with later matmuls. Phase 2 will replace only the producer
+with a direct AscendC BF16 matmul that writes the SHM send arena.
 """
 
 from __future__ import annotations
@@ -20,7 +25,7 @@ import re
 from dataclasses import dataclass
 
 import torch
-import torch_npu
+import torch.nn.functional as F
 from vllm.config import get_current_vllm_config
 from vllm.logger import logger
 
@@ -120,14 +125,23 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
         return False
     if getattr(layer, "output_size", None) != _EXPECTED_OUTPUT_SIZE:
         return False
-    # The first device-side reduction kernel is deliberately BF16-only.
-    if getattr(layer, "params_dtype", None) != torch.bfloat16:
+    # The model runs FP16 on 310P (checkpoint has no torch_dtype and BF16 NZ
+    # linear is unsupported here); the exchange/reduce kernel is FP16-only.
+    if getattr(layer, "params_dtype", None) != torch.float16:
         return False
 
+    # Owner decision A (2026-09-18): the target checkpoint's full-attention
+    # o_proj is unquantized BF16, routed through the 310P unquantized linear
+    # method. Accept either that method or the MemFabric dispatch subclass of
+    # it (during quant-method routing quant_method may still be None).
     quant_method = getattr(layer, "quant_method", None)
-    scheme = getattr(quant_method, "quant_method", None)
-    if scheme is None or scheme.__class__.__name__ != "AscendW8A8LinearMethod310":
-        return False
+    if quant_method is not None:
+        method_name = type(quant_method).__name__
+        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricOProjLinearMethod310"):
+            return False
+        nested = getattr(quant_method, "quant_method", None)
+        if nested is not None and type(nested).__name__ != "AscendUnquantizedLinearMethod":
+            return False
 
     return True
 
@@ -178,17 +192,17 @@ def _runtime_ops():
     return begin, publish, finish, mark_failed
 
 
-def memfabric_w8a8_o_proj_allreduce(
+def memfabric_o_proj_allreduce(
     layer: torch.nn.Module,
-    x_q: torch.Tensor,
-    quant_bias: torch.Tensor | None,
+    x: torch.Tensor,
     tp_rank: int,
 ) -> torch.Tensor:
-    """Run the phase-1 MM/SDMA/reduce overlap pipeline.
+    """Run the phase-1 MM/SDMA/reduce overlap pipeline (unquantized, FP16).
 
     For each wave:
       1. arm peer receive/reduce and local AICPU/SDMA orchestration;
-      2. compute one W8A8 matmul tile;
+      2. compute one FP16 matmul tile (``F.linear`` semantics, matching the
+         unquantized fallback exactly, NZ weight layout included);
       3. copy that tile into its immutable symmetric-memory send slot;
       4. publish the slot; SDMA can move it while the next matmul executes;
       5. after the wave joins, copy reduced recv/final rows to ordinary NPU
@@ -200,28 +214,28 @@ def memfabric_w8a8_o_proj_allreduce(
 
     if tp_rank not in (0, 1):
         raise RuntimeError(f"MemFabric o_proj fusion only supports TP rank 0/1, got {tp_rank}")
-    if x_q.dtype != torch.int8:
-        raise TypeError(f"MemFabric o_proj expects int8 activation, got {x_q.dtype}")
-    if x_q.dim() != 2 or x_q.shape[1] != _EXPECTED_INPUT_SIZE_PER_PARTITION:
+    if x.dtype != torch.float16:
+        raise TypeError(f"MemFabric o_proj expects FP16 activation, got {x.dtype}")
+    if x.dim() != 2 or x.shape[1] != _EXPECTED_INPUT_SIZE_PER_PARTITION:
         raise ValueError(
-            "MemFabric o_proj expects x_q=[M, 2048], "
-            f"got {tuple(x_q.shape)}"
+            "MemFabric o_proj expects x=[M, 2048], "
+            f"got {tuple(x.shape)}"
         )
-    if layer.params_dtype != torch.bfloat16:
+    if layer.params_dtype != torch.float16:
         raise TypeError(
-            "Phase-1 MemFabric o_proj reduction currently requires BF16 output, "
+            "Phase-1 MemFabric o_proj reduction currently requires FP16 output, "
             f"got {layer.params_dtype}"
         )
 
     plan = get_memfabric_o_proj_plan()
     begin, publish, finish, mark_failed = _runtime_ops()
 
-    num_tokens = int(x_q.shape[0])
+    num_tokens = int(x.shape[0])
     if num_tokens == 0:
         return torch.empty(
             (0, _EXPECTED_OUTPUT_SIZE),
             dtype=layer.params_dtype,
-            device=x_q.device,
+            device=x.device,
         )
 
     # Ordinary NPU result storage prevents a later o_proj wave from overwriting
@@ -229,13 +243,13 @@ def memfabric_w8a8_o_proj_allreduce(
     output = torch.empty(
         (num_tokens, _EXPECTED_OUTPUT_SIZE),
         dtype=layer.params_dtype,
-        device=x_q.device,
+        device=x.device,
     )
 
     for wave_start in range(0, num_tokens, plan.max_rows_per_wave):
         wave_rows = min(plan.max_rows_per_wave, num_tokens - wave_start)
         chunks = plan.chunks_for_tokens(wave_rows)
-        send, recv = begin(x_q, int(tp_rank), int(plan.tile_m), int(chunks))
+        send, recv = begin(x, int(tp_rank), int(plan.tile_m), int(chunks))
 
         try:
             for chunk_idx in range(chunks):
@@ -243,14 +257,11 @@ def memfabric_w8a8_o_proj_allreduce(
                 rows = min(plan.tile_m, wave_rows - local_row)
                 global_row = wave_start + local_row
 
-                x_tile = x_q.narrow(0, global_row, rows)
-                y_tile = torch_npu.npu_quant_matmul(
-                    x_tile,
-                    layer.weight.data,
-                    layer.deq_scale,
-                    bias=quant_bias,
-                    output_dtype=layer.params_dtype,
-                )
+                x_tile = x.narrow(0, global_row, rows)
+                # Same op as the unquantized fallback (torch.ops.vllm.
+                # unquantized_gemm == F.linear), so numerics are identical
+                # including the 310P NZ weight layout.
+                y_tile = F.linear(x_tile, layer.weight.data)
 
                 # Each SDMA slot has fixed 128KB when tile_m=32. A partial tail
                 # is zero padded so the consumer reduces a fixed-size chunk.
@@ -277,3 +288,50 @@ def memfabric_w8a8_o_proj_allreduce(
             raise
 
     return output
+
+
+def make_memfabric_o_proj_linear_method():
+    """Build the MemFabric dispatch linear method (lazy import, no cycles).
+
+    The returned class subclasses the 310P unquantized linear method so the
+    FLOAT-routed o_proj keeps its exact weight handling (NZ cast) while its
+    apply() takes over matmul+TP-reduction for eligible layers.
+    """
+    from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
+
+    class MemFabricOProjLinearMethod310(AscendUnquantizedLinearMethod):
+        """Unquantized linear method that owns o_proj matmul + TP reduction.
+
+        Selected by the 310P modelslim router for layers matching the
+        MemFabric o_proj prefix/geometry contract; configure-time checks in
+        ``configure_memfabric_o_proj`` remain the single eligibility source
+        and can still reject this layer (leaving the stock behavior).
+        """
+
+        def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+            super().process_weights_after_loading(layer)
+            configure_memfabric_o_proj(layer)
+
+        def apply(
+            self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            bias: torch.Tensor | None = None,
+        ) -> torch.Tensor:
+            if is_memfabric_o_proj_configured(layer):
+                if bias is not None:
+                    # Qwen o_proj is bias-free; a biased RowParallel o_proj
+                    # would need explicit rank0-only handling before fusion.
+                    raise RuntimeError(
+                        "MemFabric o_proj fusion does not support biased o_proj"
+                    )
+                from vllm.distributed import get_tensor_model_parallel_rank
+
+                return memfabric_o_proj_allreduce(
+                    layer=layer,
+                    x=x,
+                    tp_rank=get_tensor_model_parallel_rank(),
+                )
+            return super().apply(layer, x, bias)
+
+    return MemFabricOProjLinearMethod310

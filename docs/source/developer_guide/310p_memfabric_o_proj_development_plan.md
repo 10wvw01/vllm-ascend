@@ -195,7 +195,7 @@ CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不
   HCCL 0.6ms；M=2048 约 161ms vs 5.3ms。**正确性已达标，性能差距为
   Phase-2/reduce 优化的明确目标**（研发计划 §9/§10）。
 
-### 4.11 P2 阻塞：目标模型 o_proj 实为 FLOAT（需求基线冲突，待负责人裁决）
+### 4.11 目标模型 o_proj 实为 FLOAT（已裁决：方案 A 重定基线为 BF16）
 
 2026-09-18 实机/仓库核查（P2 W8A8 单层验证启动时发现）：
 
@@ -218,19 +218,18 @@ CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不
   语义的本地检查点，但模型与需求指定的 Qwen3.6 不同（且同样受
   BF16 输出限制）。
 
-待项目负责人在以下方案中裁决（均需同步修订 requirements 文档）：
+**裁决结果（2026-09-18，项目负责人）：方案 A** —— 按真实检查点重定基线：
 
-- **A. 按真实检查点重定基线**：融合目标改为 Qwen3.6 未量化 BF16
-  full-attention o_proj（per-tile BF16 matmul + MemFabric exchange），W8A8
-  机制（deq_scale/quant_bias/NZ）不再适用；BF16 payload 语义保留。
-- **B. 更换目标模型**：改为本地 Qwen3-30B-A3B-w8a8（W8A8 static o_proj
-  齐备），eligibility 的 model_type 检查需放宽（qwen3_moe）+ 输出 dtype
-  改 FP16。
-- **C. 提供 static W8A8 量化的 Qwen3.6 检查点**：当前 Eco-Tech 发行版
-  不含此量化形态，需另行产出。
-
-在裁决前，P2 及后续阶段（W8A8 单层/模型接入/overlap profiler/性能）
-暂停；P0/P1 成果（build、TP=2 correctness、1000-wave stress）不受影响。
+- 融合目标改为 Qwen3.6 未量化 BF16 full-attention o_proj（per-tile BF16
+  matmul + MemFabric exchange），W8A8 机制（deq_scale/quant_bias/NZ）整体
+  移除；BF16 payload 语义保留。
+- requirements/设计文档已同步修订（标题、范围、eligibility、数值语义、
+  Phase-2 producer、验收 C）。
+- 310P 实机已验证 BF16 matmul（torch.mm）可用。
+- 代码改造点：eligibility 改查 `AscendUnquantizedLinearMethod`；Python
+  编排 MM 改 `torch.mm`；dispatch 挂接点从 w8a8_static 迁移到未量化
+  linear 路径；单层验收 harness 改 BF16 字面比较。
+- 曾评估的 B（换 Qwen3-30B）/C（重新量化）不再采用。
 
 ### P0.1 确认定制 MemFabric install 产物
 

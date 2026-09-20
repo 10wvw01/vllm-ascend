@@ -109,7 +109,7 @@ void init_context_locked(
     TORCH_CHECK(tile_m > 0, "tile_m must be positive");
 
     const uint64_t chunk_bytes =
-        static_cast<uint64_t>(tile_m) * kOProjWidth * sizeof(at::BFloat16);
+        static_cast<uint64_t>(tile_m) * kOProjWidth * sizeof(at::Half); /* FP16 payload */
     const uint64_t arena_bytes =
         static_cast<uint64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * chunk_bytes;
     const uint64_t local_pool_bytes = parse_u64_env(
@@ -177,7 +177,7 @@ at::Tensor wrap_pool_tensor(
 {
     const int64_t rows =
         static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
-    const auto options = x.options().dtype(at::kBFloat16);
+    const auto options = x.options().dtype(at::kHalf); /* FP16 payload */
     return at_npu::native::from_blob(
         reinterpret_cast<void*>(address),
         {rows, kOProjWidth},
@@ -340,29 +340,25 @@ void memfabric_o_proj_mark_failed(
     }
 }
 
-at::Tensor memfabric_w8a8_o_proj_allreduce_impl(
+at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
-    const at::Tensor& deq_scale,
-    const c10::optional<at::Tensor>& quant_bias,
     int64_t tp_rank,
     int64_t tile_m)
 {
     /*
-     * Phase-2 direct AscendC/CATLASS tiled producer is not implemented yet.
-     * The binding declares this entry point so the op schema exists, but
+     * Phase-2 direct AscendC/CATLASS tiled BF16 producer is not implemented
+     * yet. The binding declares this entry point so the op schema exists, but
      * calling it must fail fast instead of silently falling back to HCCL.
      * Model traffic uses the phase-1 staged begin/publish/finish pipeline.
      */
     (void)x;
     (void)weight;
-    (void)deq_scale;
-    (void)quant_bias;
     (void)tp_rank;
     (void)tile_m;
     TORCH_CHECK(
         false,
-        "Phase-2 direct MemFabric W8A8 o_proj producer is not implemented yet. "
+        "Phase-2 direct MemFabric BF16 o_proj producer is not implemented yet. "
         "The phase-1 staged pipeline (memfabric_o_proj_begin/publish/finish) "
         "is the supported path on this build.");
 }
