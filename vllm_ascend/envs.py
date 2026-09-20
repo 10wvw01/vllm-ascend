@@ -9,7 +9,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -35,71 +35,81 @@ env_variables: dict[str, Callable[[], Any]] = {
     # The build type of the package. It can be one of the following values:
     # Release, Debug, RelWithDebugInfo. If not set, the default value is Release.
     "CMAKE_BUILD_TYPE": lambda: os.getenv("CMAKE_BUILD_TYPE"),
-    # Whether to compile custom kernels. If not set, the default value is True.
-    # If set to False, the custom kernels will not be compiled.
-    # This configuration option should only be set to False when running UT
-    # scenarios in an environment without an NPU. Do not set it to False in
-    # other scenarios.
+    # Whether to compile custom kernels. If not set, the default is True.
     "COMPILE_CUSTOM_KERNELS": lambda: bool(int(os.getenv("COMPILE_CUSTOM_KERNELS", "1"))),
-    # The CXX compiler used for compiling the package. If not set, the default
-    # value is None, which means the system default CXX compiler will be used.
+    # The CXX compiler used for compiling the package.
     "CXX_COMPILER": lambda: os.getenv("CXX_COMPILER", None),
-    # The C compiler used for compiling the package. If not set, the default
-    # value is None, which means the system default C compiler will be used.
+    # The C compiler used for compiling the package.
     "C_COMPILER": lambda: os.getenv("C_COMPILER", None),
     # The version of the Ascend chip. It's used for package building.
-    # If not set, we will query chip info through `npu-smi`.
-    # Please make sure that the version is correct.
     "SOC_VERSION": lambda: os.getenv("SOC_VERSION", None),
     # If set, vllm-ascend will print verbose logs during compilation
     "VERBOSE": lambda: bool(int(os.getenv("VERBOSE", "0"))),
-    # The home path for CANN toolkit. If not set, the default value is
-    # /usr/local/Ascend/ascend-toolkit/latest
+    # The home path for CANN toolkit.
     "ASCEND_HOME_PATH": lambda: os.getenv("ASCEND_HOME_PATH", None),
-    # The path for HCCL library, it's used by pyhccl communicator backend. If
-    # not set, the default value is libhccl.so.
+    # The path for HCCL library.
     "HCCL_SO_PATH": lambda: os.getenv("HCCL_SO_PATH", None),
-    # The version of vllm is installed. This value is used for developers who
-    # installed vllm from source locally. In this case, the version of vllm is
-    # usually changed. For example, if the version of vllm is "0.9.0", but when
-    # it's installed from source, the version of vllm is usually set to "0.9.1".
-    # In this case, developers need to set this value to "0.9.0" to make sure
-    # that the correct package is installed.
+    # The version of vllm is installed.
     "VLLM_VERSION": lambda: os.getenv("VLLM_VERSION", None),
     # Whether to enable FlashComm optimization when tensor parallel is enabled.
-    # This feature will get better performance when concurrency is large.
     # DEPRECATED: use additional_config.enable_flashcomm1 instead.
     "VLLM_ASCEND_ENABLE_FLASHCOMM1": lambda: bool(int(os.getenv("VLLM_ASCEND_ENABLE_FLASHCOMM1", "0"))),
     # Whether to enable msMonitor tool to monitor the performance of vllm-ascend.
     "MSMONITOR_USE_DAEMON": lambda: bool(int(os.getenv("MSMONITOR_USE_DAEMON", "0"))),
     # Whether to enable MLAPO optimization for DeepSeek W8A8 series models.
-    # This option is enabled by default. MLAPO can improve performance, but
-    # it will consume more NPU memory. If reducing NPU memory usage is a higher priority
-    # for your DeepSeek W8A8 scene, then disable it.
     "VLLM_ASCEND_ENABLE_MLAPO": lambda: bool(int(os.getenv("VLLM_ASCEND_ENABLE_MLAPO", "1"))),
     # Whether to enable weight cast format to FRACTAL_NZ.
-    # 0: close nz;
-    # 1: only quant case enable nz;
-    # 2: enable nz as long as possible.
+    # 0: close nz; 1: only quant case enable nz; 2: enable nz as long as possible.
     "VLLM_ASCEND_ENABLE_NZ": lambda: int(os.getenv("VLLM_ASCEND_ENABLE_NZ", 1)),
     # Whether to anbale dynamic EPLB
     "DYNAMIC_EPLB": lambda: os.getenv("DYNAMIC_EPLB", "false").lower(),
     # Whether to enable fused MC2 (`dispatch_ffn_combine/mega_moe`).
-    # 0, or not set: default ALLTOALL and MC2 will be used.
-    # 1: ALLTOALL and MC2 might be replaced by `dispatch_ffn_combine/mega_moe` operator.
-    # `dispatch_ffn_combine` can be used only for moe layer with W8A8, EP<=32, non-mtp, non-dynamic-eplb.
-    # `mega_moe` can be used only for moe layer with W8A8/W4A8/bf16(none quant), EP<=64, non-dynamic-eplb.
     "VLLM_ASCEND_ENABLE_FUSED_MC2": lambda: int(os.getenv("VLLM_ASCEND_ENABLE_FUSED_MC2", "0")),
-    # DEPRECATED: VLLM_ASCEND_BALANCE_SCHEDULING env var will be removed in a future release.
-    # Use --additional-config '{"enable_balance_scheduling": true}' instead.
+    # DEPRECATED: use --additional-config '{"enable_balance_scheduling": true}' instead.
     "VLLM_ASCEND_BALANCE_SCHEDULING": lambda: bool(int(os.getenv("VLLM_ASCEND_BALANCE_SCHEDULING", "0"))),
     # use fused op transpose_kv_cache_by_block, default is True
     "VLLM_ASCEND_FUSION_OP_TRANSPOSE_KV_CACHE_BY_BLOCK": lambda: bool(
         int(os.getenv("VLLM_ASCEND_FUSION_OP_TRANSPOSE_KV_CACHE_BY_BLOCK", "1"))
     ),
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
-    # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
+
+    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention W8A8 o_proj
+    # plus TP=2 reduction using the wgm-dev-310p MemFabric build/install.
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
+    ),
+    # Install prefix produced by building/installing wgm-dev-310p MemFabric.
+    # vLLM-Ascend directly consumes headers/libraries from this installation;
+    # the official/upstream MemFabric installation is not used for this path.
+    "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_ROOT", None
+    ),
+    # Semicolon-separated libraries produced/required by the wgm-dev-310p
+    # installation when linking vllm_ascend_C.
+    "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None
+    ),
+    # Object generated from the repo-owned device cooperation source
+    # csrc/memfabric_o_proj/external/memfabric310p_device.asc, compiled with the
+    # same 310P customized MemFabric/AscendC toolchain as example 08.
+    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT", None
+    ),
+    # Config-store rendezvous used by customized MemFabric SHM.
+    "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
+    ),
+    # Per-rank physical contribution to the symmetric pool. 32 MiB matches the
+    # supplied 310P AICore/AICPU/SDMA example.
+    "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(32 * 1024 * 1024))
+    ),
+    # M tile 32 => 32 * 2048 * BF16(2B) = 128 KiB per SDMA chunk, matching the
+    # supplied 310P overlap example.
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
+    ),
 }
 
 # end-env-vars-definition
