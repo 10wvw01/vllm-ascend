@@ -35,12 +35,12 @@ def _sync() -> None:
 
 
 def _make_local(rows: int, rank: int, device: torch.device) -> torch.Tensor:
-    # Values are exactly representable enough for a deterministic BF16 sum while
-    # still varying by row/rank. Keep magnitude small to avoid reduction noise.
+    # Values are exactly representable in FP16 while still varying by row/rank.
+    # Keep magnitude small to avoid reduction noise.
     row = torch.arange(rows, device=device, dtype=torch.float32).unsqueeze(1)
     col = torch.arange(WIDTH, device=device, dtype=torch.float32).unsqueeze(0)
     value = (rank + 1) * 0.25 + (row % 31) * 0.001 + (col % 17) * 0.0001
-    return value.to(torch.bfloat16)
+    return value.to(torch.float16)
 
 
 def _runtime_ops():
@@ -100,12 +100,11 @@ def _time_ms(fn, warmup: int, repeat: int) -> tuple[float, float, float]:
 
 
 def _hccl_once(local: torch.Tensor) -> torch.Tensor:
-    # 310P HCCL has no BF16 allreduce (CANN 9.1: HcclAllreduce rejects BF16).
-    # The reference reduces in FP32 and rounds back to BF16, which matches the
-    # MemFabric reduce kernel semantics (BF16 -> F32 add -> BF16 round).
+    # The reference reduces in FP32 and rounds back to FP16, which matches the
+    # MemFabric reduce kernel semantics (FP16 -> F32 add -> FP16 round).
     out = local.float()
     dist.all_reduce(out)
-    return out.to(torch.bfloat16)
+    return out.to(torch.float16)
 
 
 def main() -> None:

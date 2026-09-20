@@ -231,6 +231,34 @@ CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不
   linear 路径；单层验收 harness 改 BF16 字面比较。
 - 曾评估的 B（换 Qwen3-30B）/C（重新量化）不再采用。
 
+### 4.12 P3 验收记录：Qwen3.6 TP=2 eager 端到端通过（2026-09-20）
+
+环境事实（本轮新增）：
+
+- `wgm-dev-310p` 上游已更新（本地 `d7f11c6d`）：编排 kernel 三件套接入主构建，
+  并内置 **KFC 通道自部署**（`SdmaOrchestrator::KfcExec`/`MigrateViaCustChannel`
+  /`DeployOrchestratorKernel`，`KFCKernel` json + `system` 函数 dlsym 回退）——
+  设备侧 kernel 缺失时按"验证门 → CUST 迁移 → 设备内 cat → 加载"自动部署，
+  ex08 实测部署成功（加速比 2.31x）。
+- vllm worker 场景注意事项：multiproc 默认 fork 与 MemFabric 库链的多线程
+  状态组合会导致 dlopen 重定位极慢（10min+），须 `VLLM_WORKER_MULTIPROC_METHOD=spawn`。
+- KFC 自动部署在已初始化 HCCL 的 torch worker 中曾报 launch 507018（当时的直接
+  原因是设备 kernel 缺失走到自动部署分支）；设备 kernel 经 ex08 自动部署就位后，
+  bench/torchrun/vllm 的 gate 直接命中已部署路径，全链正常。
+
+P3 验收结果（TP=2 eager，die0/1，FP16）：
+
+- 模型加载 18.85 GB，KV cache 7.9 GiB，warmup 正常；
+- **full-attention `o_proj` 命中融合路径**（worker 日志 "Enable 310P3 TP=2
+  MemFabric unquantized full-attention o_proj pipeline (tile_m=32,
+  chunk_bytes=131072, FP16 exchange)"）；linear-attention 层因 prefix/
+  layer_types 检查结构性不命中；
+- 3 轮 × 4 prompt 共 12 次 generate 全部成功，同 prompt 跨轮输出逐字一致；
+- feature-off baseline 对比：12 输出中 10 个逐字一致，2 个存在 token 级细微
+  分歧（如"和助手"vs"与助手"）——根因是 HCCL allreduce 内部累加精度与融合
+  路径 FP32-math reduce 不同（P2 单层验收已证融合与 FP32-math 语义 bit 级
+  一致），属预期数值行为而非正确性错误。
+
 ### P0.1 确认定制 MemFabric install 产物
 
 在 `wgm-dev-310p` 编译安装后记录：

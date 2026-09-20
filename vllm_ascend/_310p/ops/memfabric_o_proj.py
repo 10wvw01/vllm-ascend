@@ -165,8 +165,8 @@ def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     layer.reduce_results = False
     plan = get_memfabric_o_proj_plan()
     logger.info_once(
-        "Enable 310P3 TP=2 MemFabric W8A8 full-attention o_proj pipeline "
-        "(tile_m=%d, chunk_bytes=%d).",
+        "Enable 310P3 TP=2 MemFabric unquantized full-attention o_proj pipeline "
+        "(tile_m=%d, chunk_bytes=%d, FP16 exchange).",
         plan.tile_m,
         plan.chunk_bytes,
     )
