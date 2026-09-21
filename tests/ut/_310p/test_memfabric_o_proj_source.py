@@ -253,6 +253,7 @@ def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
 
     # Eager teardown synchronizes its known stream. Graph-used contexts remain
     # process-lifetime because NPUGraph replay may run on an unseen stream.
+    assert "mf310p_quiet_async(" in src
     assert "aclrtSynchronizeStream(state.eager_stream)" in src
     assert "graph-used context kept process-lifetime" in src
     assert "resources intentionally leaked" in src
