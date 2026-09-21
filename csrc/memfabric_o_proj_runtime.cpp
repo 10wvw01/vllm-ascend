@@ -465,6 +465,11 @@ at::Tensor memfabric_o_proj_debug_snapshot()
     w[15] = static_cast<int64_t>(arena_word(layout.peer_recv_arena, &peer_ok));
     w[16] = own_ok ? 1 : 0;
     w[17] = peer_ok ? 1 : 0;
+    uint64_t protocol_status = 0;
+    const int status_ret =
+        mf310p_debug_protocol_status(state.ctx, &protocol_status);
+    w[18] = static_cast<int64_t>(protocol_status);
+    w[19] = status_ret == 0 ? 1 : 0;
 #endif
     return out;
 }
