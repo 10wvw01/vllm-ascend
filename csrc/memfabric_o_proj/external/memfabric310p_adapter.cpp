@@ -19,6 +19,9 @@ namespace {
 
 constexpr uint64_t kAckSlotBytes = 8ULL;
 constexpr uint32_t kOProjWidthElems = 2048;
+constexpr uint64_t kProducerReadyStrideBytes = 64ULL;
+constexpr uint64_t kProducerControlBytes =
+    VLLM_ASCEND_MF310P_MAX_CHUNKS * kProducerReadyStrideBytes;
 
 extern "C" int mf310p_device_launch_direct_producer_async(
     uint64_t pool_base,
@@ -31,6 +34,7 @@ extern "C" int mf310p_device_launch_direct_producer_async(
     uint32_t chunk_count,
     uint32_t a_advance_rows,
     uint64_t chunk_bytes,
+    uint64_t producer_control,
     aclrtStream stream);
 
 extern "C" int mf310p_device_wait_mails_async(
@@ -92,6 +96,7 @@ struct mf310p_context {
     bool smem_inited = false;
     bool shm_inited = false;
     smem_shm_t shm = nullptr;
+    void* producer_control = nullptr;
     mf310p_layout_t layout{};
 };
 
@@ -102,6 +107,10 @@ void destroy_partial(mf310p_context_t* opaque)
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
     if (ctx == nullptr) {
         return;
+    }
+    if (ctx->producer_control != nullptr) {
+        (void)aclrtFree(ctx->producer_control);
+        ctx->producer_control = nullptr;
     }
     if (ctx->shm != nullptr) {
         (void)smem_shm_destroy(ctx->shm, 0);
@@ -236,6 +245,18 @@ extern "C" int mf310p_create(
     ctx->layout.chunk_bytes = chunk_bytes;
     ctx->layout.max_chunks = VLLM_ASCEND_MF310P_MAX_CHUNKS;
 
+    /* vLLM-private cross-AICore ready flags. One cache line per chunk avoids
+     * false sharing between MM workers and the single communication
+     * coordinator. This buffer is unrelated to MemFabric's internal state. */
+    ret = aclrtMalloc(
+        &ctx->producer_control,
+        kProducerControlBytes,
+        ACL_MEM_MALLOC_HUGE_FIRST);
+    if (ret != ACL_SUCCESS || ctx->producer_control == nullptr) {
+        destroy_partial(ctx);
+        return -7;
+    }
+
     *out_ctx = ctx;
     return 0;
 }
@@ -247,6 +268,13 @@ extern "C" int mf310p_destroy(mf310p_context_t* opaque)
         return 0;
     }
     int first_ret = 0;
+    if (ctx->producer_control != nullptr) {
+        const aclError ret = aclrtFree(ctx->producer_control);
+        if (ret != ACL_SUCCESS && first_ret == 0) {
+            first_ret = static_cast<int>(ret);
+        }
+        ctx->producer_control = nullptr;
+    }
     if (ctx->shm != nullptr) {
         const int ret = smem_shm_destroy(ctx->shm, 0);
         if (ret != 0) {
@@ -309,6 +337,17 @@ extern "C" int mf310p_direct_producer_async(
         return -1;
     }
 
+    const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
+    const aclError clear_ret = aclrtMemsetAsync(
+        ctx->producer_control,
+        kProducerControlBytes,
+        0,
+        kProducerControlBytes,
+        stream);
+    if (clear_ret != ACL_SUCCESS) {
+        return static_cast<int>(clear_ret);
+    }
+
     return mf310p_device_launch_direct_producer_async(
         ctx->layout.pool_base,
         x,
@@ -320,7 +359,8 @@ extern "C" int mf310p_direct_producer_async(
         chunk_count,
         a_advance_rows,
         ctx->layout.chunk_bytes,
-        reinterpret_cast<aclrtStream>(acl_stream));
+        reinterpret_cast<uint64_t>(ctx->producer_control),
+        stream);
 }
 
 extern "C" int mf310p_wait_mails_async(
