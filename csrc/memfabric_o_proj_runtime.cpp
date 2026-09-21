@@ -135,21 +135,12 @@ struct RuntimeState {
     uint32_t producer_warmed_buckets = 0; /* bit (log2(bucket)-4) per bucket */
     bool waiter_warmed = false;
     bool add_warmed = false;
-    /* Completed-wave counter driving the ack/gate rendezvous: the ack for
-     * wave N carries imm = N, and the gate before wave N+1 expects it.
-     * Identical on both ranks by the same symmetry. */
-    uint64_t wave_count = 0;
-    bool ack_gate_warmed = false;
+    bool protocol_warmed = false;
+    bool protocol_initialized = false;
+    aclrtStream bound_stream = nullptr;
 
-    ~RuntimeState()
-    {
-        if (producer_scratch != 0) {
-            (void)aclrtFree(reinterpret_cast<void*>(producer_scratch));
-        }
-        if (ctx != nullptr) {
-            (void)mf310p_destroy(ctx);
-        }
-    }
+    /* Teardown is owned by the atexit hook while ACL is still alive. */
+    ~RuntimeState() = default;
 };
 
 RuntimeState& runtime_state()
@@ -231,8 +222,11 @@ void init_context_locked(
      */
     static bool atexit_registered = false;
     if (!atexit_registered) {
+        const int atexit_ret =
+            std::atexit([]() { memfabric_o_proj_shutdown(); });
+        TORCH_CHECK(atexit_ret == 0,
+                    "failed to register MemFabric shutdown hook");
         atexit_registered = true;
-        (void)std::atexit([]() { memfabric_o_proj_shutdown(); });
     }
 }
 
@@ -302,12 +296,11 @@ void warm_producer_bucket_locked(
     state.producer_warmed_buckets |= bit;
 }
 
-/* Same double-launch warmup contract for the waiter and add kernels. */
+/* Same double-launch warmup contract for waiter/add/protocol kernels. */
 void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
 {
-    if (state.waiter_warmed) {
-        return;
-    }
+    if (state.waiter_warmed) return;
+
     for (int i = 0; i < 2; ++i) {
         const int ret = mf310p_warmup_waiter_async(
             state.ctx, reinterpret_cast<void*>(stream));
@@ -323,24 +316,62 @@ void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
         }
         state.add_warmed = true;
     }
-    if (!state.ack_gate_warmed) {
+    if (!state.protocol_warmed) {
         for (int i = 0; i < 2; ++i) {
-            const int ret = mf310p_warmup_ack_gate_async(
+            const int ret = mf310p_warmup_protocol_async(
                 state.ctx, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0,
-                        "mf310p_warmup_ack_gate_async failed with ret=", ret);
+                        "mf310p_warmup_protocol_async failed with ret=", ret);
         }
-        state.ack_gate_warmed = true;
-    }
-    if (state.add_warmed || state.ack_gate_warmed) {
-        const aclError sync_ret = aclrtSynchronizeStream(stream);
-        TORCH_CHECK(sync_ret == ACL_SUCCESS,
-                    "add/ack-gate warmup sync failed, ret=", sync_ret);
+        state.protocol_warmed = true;
     }
     const aclError sync_ret = aclrtSynchronizeStream(stream);
     TORCH_CHECK(sync_ret == ACL_SUCCESS,
-                "waiter warmup sync failed, ret=", sync_ret);
+                "waiter/add/protocol warmup sync failed, ret=", sync_ret);
     state.waiter_warmed = true;
+}
+
+void bind_stream_locked(RuntimeState& state, aclrtStream stream)
+{
+    TORCH_CHECK(stream != nullptr, "MemFabric requires a valid ACL stream");
+    if (state.bound_stream == nullptr) {
+        state.bound_stream = stream;
+        return;
+    }
+    TORCH_CHECK(
+        state.bound_stream == stream,
+        "310P MemFabric o_proj context is single-stream by contract. "
+        "The first call bound stream=",
+        reinterpret_cast<void*>(state.bound_stream),
+        ", current stream=",
+        reinterpret_cast<void*>(stream),
+        ". Use one stream per TP worker/context.");
+}
+
+void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
+{
+    if (state.protocol_initialized) return;
+
+    warm_waiter_locked(state, stream);
+
+    int ret = mf310p_prepare_wave_async(
+        state.ctx, reinterpret_cast<void*>(stream));
+    TORCH_CHECK(ret == 0,
+                "mf310p_prepare_wave_async(init) failed with ret=", ret);
+
+    ret = mf310p_control_barrier(state.ctx);
+    TORCH_CHECK(ret == 0,
+                "mf310p_control_barrier(init) failed with ret=", ret);
+
+    ret = mf310p_init_credit_async(
+        state.ctx, reinterpret_cast<void*>(stream));
+    TORCH_CHECK(ret == 0,
+                "mf310p_init_credit_async failed with ret=", ret);
+
+    const aclError sync_ret = aclrtSynchronizeStream(stream);
+    TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                "initial MemFabric credit sync failed, ret=", sync_ret);
+    state.protocol_initialized = true;
 }
 
 } // namespace
@@ -350,21 +381,40 @@ void memfabric_o_proj_shutdown()
 #ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
-    if (state.ctx == nullptr) {
-        return;
+    if (state.ctx == nullptr) return;
+
+    if (state.bound_stream != nullptr) {
+        const aclError sync_ret = aclrtSynchronizeStream(state.bound_stream);
+        if (sync_ret != ACL_SUCCESS) {
+            state.poisoned = true;
+            if (state.failure_reason.empty()) {
+                state.failure_reason =
+                    "shutdown stream synchronization failed; MemFabric "
+                    "resources intentionally leaked until process exit";
+            }
+            std::fprintf(
+                stderr,
+                "[mf310p] skip unsafe destroy after stream sync failure ret=%d\n",
+                static_cast<int>(sync_ret));
+            return;
+        }
     }
-    /*
-     * An in-flight wave is unsafe to destroy (outstanding communication state);
-     * leak instead of tearing down mid-flight in a dying process. The
-     * wave-boundary join inside the fused op means a healthy shutdown between
-     * calls is always safe.
-     */
+
     if (state.producer_scratch != 0) {
         (void)aclrtFree(reinterpret_cast<void*>(state.producer_scratch));
         state.producer_scratch = 0;
     }
-    (void)mf310p_destroy(state.ctx);
+    const int destroy_ret = mf310p_destroy(state.ctx);
+    if (destroy_ret != 0) {
+        std::fprintf(stderr, "[mf310p] mf310p_destroy ret=%d\n", destroy_ret);
+    }
     state.ctx = nullptr;
+    state.bound_stream = nullptr;
+    state.protocol_initialized = false;
+    state.protocol_warmed = false;
+    state.waiter_warmed = false;
+    state.add_warmed = false;
+    state.producer_warmed_buckets = 0;
 #endif
 }
 
@@ -411,7 +461,7 @@ at::Tensor memfabric_o_proj_debug_snapshot()
     w[9] = static_cast<int64_t>(layout.peer_ack_slot);
     w[10] = static_cast<int64_t>(layout.arena_bytes);
     w[11] = static_cast<int64_t>(layout.chunk_bytes);
-    w[12] = static_cast<int64_t>(state.wave_count);
+    w[12] = state.protocol_initialized ? 1 : 0;
     w[13] = static_cast<int64_t>(arena_word(layout.send_arena, &own_ok));
     w[14] = static_cast<int64_t>(arena_word(layout.recv_arena, &own_ok));
     w[15] = static_cast<int64_t>(arena_word(layout.peer_recv_arena, &peer_ok));
@@ -478,6 +528,10 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const int64_t max_rows_per_wave =
         static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
 
+    aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
+    bind_stream_locked(state, stream);
+    initialize_protocol_locked(state, stream);
+
     for (int64_t wave_start = 0; wave_start < num_tokens;
          wave_start += max_rows_per_wave) {
         const int64_t wave_rows =
@@ -492,37 +546,21 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             has_tail ? producer_bucket_for_rows(rows_last) : 0;
 
         try {
-            aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
-
             const int64_t t_join0 = trace_now_us();
             /*
-             * Wave-boundary rendezvous (P6 Fix C): the very first wave uses
-             * a stream sync + control barrier as the pool-creation
-             * rendezvous. Every later wave uses the device-side gate
-             * kernel, which waits for the peer's ack mail proving the
-             * peer's reduced-output add completed - only then may this
-             * rank's signals overwrite the peer's recv arena. This removes
-             * the per-wave host barrier (~150 us steady state, rare ~40 ms
-             * TCP spikes) and keeps waves fully pipelined on the stream.
+             * Graph-safe fixed application credit. Every wave consumes one
+             * token before reusing peer recv; the previous wave publishes the
+             * next token after its local add.
              */
             int64_t t_join1 = t_join0;
-            int ret = 0;
-            if (state.wave_count == 0) {
-                const aclError sync_ret = aclrtSynchronizeStream(stream);
-                TORCH_CHECK(sync_ret == ACL_SUCCESS,
-                            "first-wave stream join failed, ret=", sync_ret);
-                t_join1 = trace_now_us();
-                ret = mf310p_control_barrier(state.ctx);
-                TORCH_CHECK(ret == 0,
-                            "mf310p_control_barrier failed with ret=", ret);
-            } else {
-                ret = mf310p_gate_async(
-                    state.ctx,
-                    state.wave_count - 1,
-                    reinterpret_cast<void*>(stream));
-                TORCH_CHECK(ret == 0,
-                            "mf310p_gate_async failed with ret=", ret);
-            }
+            int ret = mf310p_prepare_wave_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_prepare_wave_async failed with ret=", ret);
+            ret = mf310p_gate_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_gate_async failed with ret=", ret);
             const int64_t t_join2 = trace_now_us();
 
             /* Lazy per-symbol warmup before the wave is armed. */
@@ -533,7 +571,6 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             if (has_tail) {
                 warm_producer_bucket_locked(state, tail_bucket, stream);
             }
-            warm_waiter_locked(state, stream);
             const int64_t t_warm = trace_now_us();
 
             const uint64_t x_wave = reinterpret_cast<uint64_t>(
@@ -649,10 +686,8 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
              * arena. MemFabric's internal sequencing is opaque to vLLM. */
             ret = mf310p_ack_async(
                 state.ctx,
-                state.wave_count,
                 reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
-            state.wave_count += 1;
 
             if (trace_enabled()) {
                 const int64_t t_enq = trace_now_us();
@@ -660,8 +695,8 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     state.tp_rank,
                     wave_rows,
                     chunks,
-                    t_join1 - t_join0,
-                    t_join2 - t_join1,
+                    0,
+                    t_join2 - t_join0,
                     t_warm - t_join2,
                     t_enq - t_warm,
                     wave_start == 0 ? t_join0 - t_entry : 0);
