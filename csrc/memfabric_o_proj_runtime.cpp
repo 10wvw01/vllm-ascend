@@ -667,9 +667,9 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     wave_start == 0 ? t_join0 - t_entry : 0);
             }
         } catch (const std::exception& exc) {
-            /* A partially executed wave is unsafe to reuse (outstanding
-             * mailbox/SDMA state is not recoverable without a rank-wide
-             * restart); poison the process-local runtime and rethrow. */
+            /* A partially executed wave is unsafe to reuse. Treat the
+             * external communication subsystem as opaque, poison this
+             * process-local context, and restart both TP workers. */
             state.poisoned = true;
             if (state.failure_reason.empty()) {
                 state.failure_reason = exc.what();
@@ -689,9 +689,9 @@ namespace {
     TORCH_CHECK(
         false,
         "vllm_ascend_C was built without the 310P customized MemFabric o_proj "
-        "runtime. Build/install wgm-dev-310p MemFabric first, set "
-        "VLLM_ASCEND_310P_MEMFABRIC_ROOT and required build variables, then "
-        "rebuild vLLM-Ascend.");
+        "runtime. Install wgm-dev-310p MemFabric, source its set_env.sh, "
+        "enable VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1, then rebuild "
+        "vLLM-Ascend.");
     std::abort();
 }
 } // namespace
