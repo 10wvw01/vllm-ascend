@@ -17,8 +17,8 @@
  *                   wave, proving its reduced-output add that reads recv
  *                   completed - only then may our signals overwrite its
  *                   recv arena);
- *     producer    - multi-block AscendC FP16 matmul followed by a
- *                   single-block public MemFabric signal publisher;
+ *     producer    - one communication coordinator overlaps public MemFabric
+ *                   signal() with seven interleaved AscendC MM workers;
  *     waiter      - public quiet + public wait x chunks (peer chunks
  *                   landed in my recv);
  *     add         - out[wave] = send[wave] + recv[wave] on the same stream;
