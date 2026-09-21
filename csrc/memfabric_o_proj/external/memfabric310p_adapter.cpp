@@ -353,6 +353,24 @@ extern "C" int mf310p_get_layout(
     return 0;
 }
 
+extern "C" int mf310p_debug_protocol_status(
+    mf310p_context_t* opaque,
+    uint64_t* out_status)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        out_status == nullptr) {
+        return -1;
+    }
+    const aclError ret = aclrtMemcpy(
+        out_status,
+        sizeof(*out_status),
+        ctx->protocol_status,
+        sizeof(*out_status),
+        ACL_MEMCPY_DEVICE_TO_HOST);
+    return ret == ACL_SUCCESS ? 0 : static_cast<int>(ret);
+}
+
 extern "C" int mf310p_control_barrier(mf310p_context_t* opaque)
 {
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
