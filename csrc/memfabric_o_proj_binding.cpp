@@ -15,9 +15,9 @@
 
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {
-    /* Fused o_proj matmul + TP=2 reduction on the customized V5 MemFabric
-     * (signal/wait/quiet mailbox rings). The op is always registered; on
-     * builds without the MemFabric feature it raises a clear error. */
+    /* Fused o_proj matmul + TP=2 reduction through the installed MemFabric
+     * public SHM/SDMA API. The op is always registered; feature-off builds
+     * raise a clear error. */
     ops.def(
         "memfabric_direct_o_proj_allreduce("
         "Tensor x, Tensor weight, int tp_rank, int tile_m) -> Tensor");
@@ -40,7 +40,7 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         c10::DispatchKey::CompositeExplicitAutograd,
         &vllm_ascend::memfabric_o_proj_shutdown);
 
-    /* Debug-only live mailbox snapshot (see torch_adpt.h). */
+    /* Debug-only application snapshot (see torch_adpt.h). */
     ops.def("memfabric_o_proj_debug_snapshot() -> Tensor");
     ops.impl(
         "memfabric_o_proj_debug_snapshot",
