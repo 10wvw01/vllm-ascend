@@ -75,10 +75,8 @@ uint64_t parse_u64_env(const char* name, uint64_t fallback)
 }
 
 /*
- * P6 phase tracing (debug only): VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1
- * prints per-wave host-side wall time of each protocol phase. Only the
- * host-blocking phases (join sync/barrier, warmup sync) are accurate
- * device-side waits; enqueue times measure host launch overhead.
+ * Optional host enqueue tracing. These timestamps are not device execution
+ * timings; use the CANN profiler for MM/SDMA overlap measurements.
  */
 bool trace_enabled()
 {
@@ -449,7 +447,7 @@ at::Tensor memfabric_o_proj_debug_snapshot()
 
     bool own_ok = true;
     bool peer_ok = true;
-    w[0] = 0x4D465035; /* MFP5 */
+    w[0] = 0x4D465036; /* MFP6 */
     w[1] = state.tp_rank;
     w[2] = static_cast<int64_t>(layout.pool_base);
     w[3] = static_cast<int64_t>(layout.symmetric_size);
