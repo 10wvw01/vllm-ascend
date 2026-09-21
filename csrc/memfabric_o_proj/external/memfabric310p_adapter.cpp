@@ -22,6 +22,7 @@ constexpr uint32_t kOProjWidthElems = 2048;
 constexpr uint64_t kProducerReadyStrideBytes = 64ULL;
 constexpr uint64_t kProducerControlBytes =
     VLLM_ASCEND_MF310P_MAX_CHUNKS * kProducerReadyStrideBytes;
+constexpr uint64_t kProtocolStatusBytes = 64ULL;
 
 extern "C" int mf310p_device_launch_direct_producer_async(
     uint64_t pool_base,
@@ -35,10 +36,14 @@ extern "C" int mf310p_device_launch_direct_producer_async(
     uint32_t a_advance_rows,
     uint64_t chunk_bytes,
     uint64_t producer_control,
+    uint64_t protocol_status,
     aclrtStream stream);
 
 extern "C" int mf310p_device_wait_mails_async(
     uint64_t pool_base,
+    uint64_t recv_arena,
+    uint64_t chunk_bytes,
+    uint64_t protocol_status,
     uint32_t chunks,
     aclrtStream stream);
 
@@ -56,6 +61,7 @@ extern "C" int mf310p_device_add_async(
     uint64_t out,
     uint64_t send_arena,
     uint64_t recv_arena,
+    uint64_t protocol_status,
     uint64_t elems,
     uint32_t block_count,
     aclrtStream stream);
@@ -68,14 +74,20 @@ extern "C" int mf310p_device_ack_async(
     uint64_t pool_base,
     uint64_t ack_slot,
     uint64_t peer_ack_slot,
-    uint64_t imm,
+    uint64_t protocol_status,
     uint32_t enable,
     aclrtStream stream);
 
 extern "C" int mf310p_device_gate_async(
     uint64_t pool_base,
     uint64_t ack_slot,
-    uint64_t expected_imm,
+    uint64_t protocol_status,
+    uint32_t enable,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_quiet_async(
+    uint64_t pool_base,
+    uint64_t protocol_status,
     uint32_t enable,
     aclrtStream stream);
 
@@ -97,6 +109,8 @@ struct mf310p_context {
     bool shm_inited = false;
     smem_shm_t shm = nullptr;
     void* producer_control = nullptr;
+    void* protocol_status = nullptr;
+    int device_id = -1;
     mf310p_layout_t layout{};
 };
 
@@ -107,6 +121,10 @@ void destroy_partial(mf310p_context_t* opaque)
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
     if (ctx == nullptr) {
         return;
+    }
+    if (ctx->protocol_status != nullptr) {
+        (void)aclrtFree(ctx->protocol_status);
+        ctx->protocol_status = nullptr;
     }
     if (ctx->producer_control != nullptr) {
         (void)aclrtFree(ctx->producer_control);
@@ -151,9 +169,16 @@ extern "C" int mf310p_create(
     }
     *out_ctx = nullptr;
 
+    const uint64_t app_bytes = 2 * arena_bytes + kAckSlotBytes;
+    /* Reject an impossible application layout before asking MemFabric to
+     * create the external pool. The remaining suffix stays opaque to vLLM. */
+    if (app_bytes >= local_size) {
+        return -2;
+    }
+
     auto* ctx = new (std::nothrow) mf310p_context();
     if (ctx == nullptr) {
-        return -2;
+        return -3;
     }
     ctx->rank = rank;
     ctx->world_size = world_size;
@@ -165,6 +190,15 @@ extern "C" int mf310p_create(
         return ret;
     }
     ctx->smem_inited = true;
+
+    int32_t device_id = -1;
+    const aclError device_ret = aclrtGetDevice(&device_id);
+    if (device_ret != ACL_SUCCESS || device_id < 0 ||
+        device_id > static_cast<int32_t>(UINT16_MAX)) {
+        destroy_partial(ctx);
+        return device_ret == ACL_SUCCESS ? -4 : static_cast<int>(device_ret);
+    }
+    ctx->device_id = device_id;
 
     smem_shm_config_t cfg;
     ret = smem_shm_config_init(&cfg);
@@ -178,7 +212,7 @@ extern "C" int mf310p_create(
         store_url,
         static_cast<uint32_t>(world_size),
         static_cast<uint32_t>(rank),
-        static_cast<uint16_t>(rank),
+        static_cast<uint16_t>(device_id),
         &cfg);
     if (ret != 0) {
         destroy_partial(ctx);
@@ -197,7 +231,7 @@ extern "C" int mf310p_create(
         &gva);
     if (ctx->shm == nullptr || gva == nullptr) {
         destroy_partial(ctx);
-        return -3;
+        return -7;
     }
 
     /*
@@ -206,7 +240,7 @@ extern "C" int mf310p_create(
      */
     if (smem_shm_sdma_get_workspace(ctx->shm) == nullptr) {
         destroy_partial(ctx);
-        return -4;
+        return -6;
     }
 
     const uint64_t symmetric_size = smem_shm_get_symmetric_size(ctx->shm);
@@ -215,10 +249,9 @@ extern "C" int mf310p_create(
         return -5;
     }
 
-    const uint64_t app_bytes = 2 * arena_bytes + kAckSlotBytes;
-    if (app_bytes > local_size || app_bytes > symmetric_size) {
+    if (app_bytes > symmetric_size) {
         destroy_partial(ctx);
-        return -6;
+        return -8;
     }
 
     const uint64_t pool_base = reinterpret_cast<uint64_t>(gva);
@@ -254,7 +287,15 @@ extern "C" int mf310p_create(
         ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS || ctx->producer_control == nullptr) {
         destroy_partial(ctx);
-        return -7;
+        return -9;
+    }
+    ret = aclrtMalloc(
+        &ctx->protocol_status,
+        kProtocolStatusBytes,
+        ACL_MEM_MALLOC_HUGE_FIRST);
+    if (ret != ACL_SUCCESS || ctx->protocol_status == nullptr) {
+        destroy_partial(ctx);
+        return -10;
     }
 
     *out_ctx = ctx;
@@ -268,6 +309,13 @@ extern "C" int mf310p_destroy(mf310p_context_t* opaque)
         return 0;
     }
     int first_ret = 0;
+    if (ctx->protocol_status != nullptr) {
+        const aclError ret = aclrtFree(ctx->protocol_status);
+        if (ret != ACL_SUCCESS && first_ret == 0) {
+            first_ret = static_cast<int>(ret);
+        }
+        ctx->protocol_status = nullptr;
+    }
     if (ctx->producer_control != nullptr) {
         const aclError ret = aclrtFree(ctx->producer_control);
         if (ret != ACL_SUCCESS && first_ret == 0) {
@@ -315,6 +363,51 @@ extern "C" int mf310p_control_barrier(mf310p_context_t* opaque)
     return smem_shm_control_barrier(ctx->shm);
 }
 
+extern "C" int mf310p_prepare_wave_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
+        return -1;
+    }
+    const aclError ret = aclrtMemsetAsync(
+        ctx->protocol_status,
+        kProtocolStatusBytes,
+        0,
+        kProtocolStatusBytes,
+        reinterpret_cast<aclrtStream>(acl_stream));
+    return ret == ACL_SUCCESS ? 0 : static_cast<int>(ret);
+}
+
+extern "C" int mf310p_init_credit_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
+        return -1;
+    }
+    const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
+    int ret = mf310p_device_ack_async(
+        ctx->layout.pool_base,
+        ctx->layout.ack_slot,
+        ctx->layout.peer_ack_slot,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        1,
+        stream);
+    if (ret != 0) {
+        return ret;
+    }
+    return mf310p_device_quiet_async(
+        ctx->layout.pool_base,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        1,
+        stream);
+}
+
 extern "C" int mf310p_direct_producer_async(
     mf310p_context_t* opaque,
     uint64_t x,
@@ -360,6 +453,7 @@ extern "C" int mf310p_direct_producer_async(
         a_advance_rows,
         ctx->layout.chunk_bytes,
         reinterpret_cast<uint64_t>(ctx->producer_control),
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         stream);
 }
 
@@ -375,6 +469,9 @@ extern "C" int mf310p_wait_mails_async(
     }
     return mf310p_device_wait_mails_async(
         ctx->layout.pool_base,
+        ctx->layout.recv_arena,
+        ctx->layout.chunk_bytes,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         chunks,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
@@ -439,6 +536,7 @@ extern "C" int mf310p_add_async(
         out,
         ctx->layout.send_arena,
         ctx->layout.recv_arena,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         elems,
         block_count,
         reinterpret_cast<aclrtStream>(acl_stream));
@@ -459,45 +557,46 @@ extern "C" int mf310p_warmup_add_async(
 
 extern "C" int mf310p_ack_async(
     mf310p_context_t* opaque,
-    uint64_t imm,
     void* acl_stream)
 {
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
-    if (ctx == nullptr || acl_stream == nullptr) {
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
         return -1;
     }
     return mf310p_device_ack_async(
         ctx->layout.pool_base,
         ctx->layout.ack_slot,
         ctx->layout.peer_ack_slot,
-        imm,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         1,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 
 extern "C" int mf310p_gate_async(
     mf310p_context_t* opaque,
-    uint64_t expected_imm,
     void* acl_stream)
 {
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
-    if (ctx == nullptr || acl_stream == nullptr) {
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
         return -1;
     }
     return mf310p_device_gate_async(
         ctx->layout.pool_base,
         ctx->layout.ack_slot,
-        expected_imm,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         1,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 
-extern "C" int mf310p_warmup_ack_gate_async(
+extern "C" int mf310p_warmup_protocol_async(
     mf310p_context_t* opaque,
     void* acl_stream)
 {
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
-    if (ctx == nullptr || acl_stream == nullptr) {
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
         return -1;
     }
     const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
@@ -505,16 +604,24 @@ extern "C" int mf310p_warmup_ack_gate_async(
         ctx->layout.pool_base,
         ctx->layout.ack_slot,
         ctx->layout.peer_ack_slot,
-        0,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         0,
         stream);
     if (ret != 0) {
         return ret;
     }
-    return mf310p_device_gate_async(
+    ret = mf310p_device_gate_async(
         ctx->layout.pool_base,
         ctx->layout.ack_slot,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         0,
+        stream);
+    if (ret != 0) {
+        return ret;
+    }
+    return mf310p_device_quiet_async(
+        ctx->layout.pool_base,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
         0,
         stream);
 }
