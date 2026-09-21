@@ -35,6 +35,7 @@
 #include <acl/acl_rt.h>
 #include <torch_npu/csrc/aten/common/from_blob.h>
 #include <torch_npu/csrc/core/npu/NPUStream.h>
+#include <torch_npu/csrc/core/npu/NPUGraphsUtils.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -135,7 +136,8 @@ struct RuntimeState {
     bool add_warmed = false;
     bool protocol_warmed = false;
     bool protocol_initialized = false;
-    aclrtStream bound_stream = nullptr;
+    aclrtStream eager_stream = nullptr;
+    bool graph_capture_seen = false;
 
     /* Teardown is owned by the atexit hook while ACL is still alive. */
     ~RuntimeState() = default;
@@ -329,21 +331,74 @@ void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
     state.waiter_warmed = true;
 }
 
-void bind_stream_locked(RuntimeState& state, aclrtStream stream)
+bool is_current_stream_capturing()
+{
+    return c10_npu::currentStreamCaptureStatusMayInitCtx() ==
+           c10_npu::CaptureStatus::Active;
+}
+
+void validate_execution_stream_locked(
+    RuntimeState& state,
+    aclrtStream stream,
+    bool capturing)
 {
     TORCH_CHECK(stream != nullptr, "MemFabric requires a valid ACL stream");
-    if (state.bound_stream == nullptr) {
-        state.bound_stream = stream;
+
+    /*
+     * torch.npu.graph() intentionally switches to an internal non-default
+     * capture stream. The graph context synchronizes the device before that
+     * transition, so it is a framework-managed quiescent stream handoff, not
+     * arbitrary concurrent eager use. Keep the eager contract strict while
+     * allowing that capture side stream.
+     */
+    if (capturing) {
+        state.graph_capture_seen = true;
+        return;
+    }
+
+    if (state.eager_stream == nullptr) {
+        state.eager_stream = stream;
         return;
     }
     TORCH_CHECK(
-        state.bound_stream == stream,
-        "310P MemFabric o_proj context is single-stream by contract. "
-        "The first call bound stream=",
-        reinterpret_cast<void*>(state.bound_stream),
+        state.eager_stream == stream,
+        "310P MemFabric o_proj eager execution is single-stream by contract. "
+        "The first eager call used stream=",
+        reinterpret_cast<void*>(state.eager_stream),
         ", current stream=",
         reinterpret_cast<void*>(stream),
-        ". Use one stream per TP worker/context.");
+        ". ACL Graph capture side streams are handled separately.");
+}
+
+void require_capture_ready_locked(
+    const RuntimeState& state,
+    uint32_t full_bucket,
+    bool has_full,
+    uint32_t tail_bucket,
+    bool has_tail)
+{
+    TORCH_CHECK(
+        state.ctx != nullptr && state.protocol_initialized &&
+            state.producer_scratch != 0 && state.waiter_warmed &&
+            state.add_warmed && state.protocol_warmed,
+        "310P MemFabric o_proj entered ACL Graph capture before runtime "
+        "initialization/warmup completed. Run the normal eager warmup/profile "
+        "path before graph capture.");
+
+    if (has_full) {
+        const uint32_t bit = producer_bucket_bit(full_bucket);
+        TORCH_CHECK(
+            state.producer_warmed_buckets & bit,
+            "310P MemFabric producer bucket ", full_bucket,
+            " was not warmed before ACL Graph capture.");
+    }
+    if (has_tail) {
+        const uint32_t bit = producer_bucket_bit(tail_bucket);
+        TORCH_CHECK(
+            state.producer_warmed_buckets & bit,
+            "310P MemFabric tail bucket ", tail_bucket,
+            " was not warmed before ACL Graph capture.");
+    }
 }
 
 void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
@@ -381,8 +436,24 @@ void memfabric_o_proj_shutdown()
     std::lock_guard<std::mutex> guard(state.mutex);
     if (state.ctx == nullptr) return;
 
-    if (state.bound_stream != nullptr) {
-        const aclError sync_ret = aclrtSynchronizeStream(state.bound_stream);
+    if (state.graph_capture_seen) {
+        /*
+         * NPUGraph replay may execute the captured model on whichever stream
+         * is current at replay time, and replay bypasses this host function.
+         * We therefore cannot prove all replay streams quiescent here without
+         * a device-wide synchronization (which this integration deliberately
+         * avoids). Keep the external pool process-lifetime instead of risking
+         * destruction with in-flight graph work.
+         */
+        std::fprintf(
+            stderr,
+            "[mf310p] graph-used context kept process-lifetime; skip unsafe "
+            "MemFabric destroy\n");
+        return;
+    }
+
+    if (state.eager_stream != nullptr) {
+        const aclError sync_ret = aclrtSynchronizeStream(state.eager_stream);
         if (sync_ret != ACL_SUCCESS) {
             state.poisoned = true;
             if (state.failure_reason.empty()) {
@@ -407,7 +478,8 @@ void memfabric_o_proj_shutdown()
         std::fprintf(stderr, "[mf310p] mf310p_destroy ret=%d\n", destroy_ret);
     }
     state.ctx = nullptr;
-    state.bound_stream = nullptr;
+    state.eager_stream = nullptr;
+    state.graph_capture_seen = false;
     state.protocol_initialized = false;
     state.protocol_warmed = false;
     state.waiter_warmed = false;
@@ -508,7 +580,19 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
     check_runtime_healthy(state);
+
+    const auto npu_stream = c10_npu::getCurrentNPUStream();
+    aclrtStream stream = npu_stream.stream();
+    const bool capturing = is_current_stream_capturing();
+
+    if (capturing) {
+        TORCH_CHECK(
+            state.ctx != nullptr,
+            "310P MemFabric context must be created by eager warmup before "
+            "ACL Graph capture.");
+    }
     init_context_locked(state, x, tp_rank, tile_m);
+    validate_execution_stream_locked(state, stream, capturing);
 
     /* Tail staging buffer: the partial last chunk reads bucket-padded rows,
      * which may exceed x's valid rows, so it reads from this scratch copy
@@ -516,6 +600,10 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const uint64_t scratch_bytes =
         static_cast<uint64_t>(tile_m) * kOProjWidth * sizeof(at::Half);
     if (state.producer_scratch == 0) {
+        TORCH_CHECK(
+            !capturing,
+            "310P MemFabric producer scratch must be allocated by eager "
+            "warmup before ACL Graph capture.");
         void* scratch = nullptr;
         const aclError malloc_ret = aclrtMalloc(
             &scratch, scratch_bytes, ACL_MEM_MALLOC_HUGE_FIRST);
@@ -531,9 +619,14 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const int64_t max_rows_per_wave =
         static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
 
-    aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
-    bind_stream_locked(state, stream);
-    initialize_protocol_locked(state, stream);
+    if (capturing) {
+        TORCH_CHECK(
+            state.protocol_initialized,
+            "310P MemFabric fixed-credit protocol must be initialized before "
+            "ACL Graph capture.");
+    } else {
+        initialize_protocol_locked(state, stream);
+    }
 
     for (int64_t wave_start = 0; wave_start < num_tokens;
          wave_start += max_rows_per_wave) {
@@ -552,12 +645,21 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             /* Finish one-time local kernel preparation before consuming the
              * peer credit. A warmup failure must not spend a credit token. */
             const int64_t t_warm0 = trace_now_us();
-            if (full_count > 0) {
-                warm_producer_bucket_locked(
-                    state, static_cast<uint32_t>(tile_m), stream);
-            }
-            if (has_tail) {
-                warm_producer_bucket_locked(state, tail_bucket, stream);
+            if (capturing) {
+                require_capture_ready_locked(
+                    state,
+                    static_cast<uint32_t>(tile_m),
+                    full_count > 0,
+                    tail_bucket,
+                    has_tail);
+            } else {
+                if (full_count > 0) {
+                    warm_producer_bucket_locked(
+                        state, static_cast<uint32_t>(tile_m), stream);
+                }
+                if (has_tail) {
+                    warm_producer_bucket_locked(state, tail_bucket, stream);
+                }
             }
             const int64_t t_warm = trace_now_us();
 
