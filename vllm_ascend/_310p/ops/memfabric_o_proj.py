@@ -12,14 +12,14 @@ vLLM runs it as FP16 on 310P (BF16 NZ linear is unsupported by this CANN
 anyway); the fused path therefore exchanges FP16 partial results.
 
 The fused op runs on the V5 customized MemFabric (origin/wgm-dev-310p,
-mailbox-ring epoch API): one fused AscendC FP16 matmul kernel per wave
-writes each chunk straight into the symmetric send arena (matmul -> 64B-line
-clean -> signal), the AICPU epoch kernel moves it to the peer die while the
-producer continues, and a waiter kernel (quiet + wait x chunks) joins the
-wave before the host-side ``add_out`` reduces send + recv into the output.
-The M-bucket specialized kernel recipe was validated bit-exact against
-``F.linear`` for m = 1..4096 on dav-2002; see the development plan P5 notes
-for the details.
+mailbox-ring epoch API): the multi-block AscendC FP16 producer writes chunks
+straight into the symmetric send arena (matmul -> 64B-line clean -> ordered
+mailbox post), the AICPU epoch kernel moves them to the peer die while later
+matmuls continue, then waiter -> repo-owned FP16 add -> ack completes the
+wave. Later waves start with the peer-ack gate instead of a host barrier.
+The M-bucket kernel recipe is bit-exact against ``F.linear`` for
+m = 1..4096 on dav-2002; see the current architecture and AI-native status
+docs for the maintained contract and evidence.
 """
 
 from __future__ import annotations
@@ -129,10 +129,10 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     if getattr(layer, "params_dtype", None) != torch.float16:
         return False
 
-    # Owner decision A (2026-09-18): the target checkpoint's full-attention
-    # o_proj is unquantized BF16, routed through the 310P unquantized linear
-    # method. Accept either that method or the MemFabric dispatch subclass of
-    # it (during quant-method routing quant_method may still be None).
+    # The target checkpoint marks full-attention o_proj as an unquantized
+    # FLOAT entry; on this 310P stack it runs through the FP16 unquantized
+    # linear path. Accept either that method or the MemFabric dispatch
+    # subclass (during quant-method routing quant_method may still be None).
     quant_method = getattr(layer, "quant_method", None)
     if quant_method is not None:
         method_name = type(quant_method).__name__

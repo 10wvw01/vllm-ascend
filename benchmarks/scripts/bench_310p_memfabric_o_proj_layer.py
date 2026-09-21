@@ -169,7 +169,7 @@ def main() -> None:
         if not ok:
             raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 
-    # Exit contract on V5 (see development plan P5 notes): while the pool is
+    # Exit contract on the current V5 platform (see AI-native status/usage): while the pool is
     # alive, torch_npu HCCL collectives (barrier/allreduce) internally do a
     # device-wide synchronize, which waits for the perpetual epoch AICPU task
     # and dies with 507901 once the epoch launch-timeout kills it. The

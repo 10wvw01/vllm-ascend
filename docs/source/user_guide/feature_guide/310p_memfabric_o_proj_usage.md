@@ -148,7 +148,10 @@ pytest -q tests/ut/_310p/test_memfabric_o_proj_source.py
 先跑这个，不要直接启动 35B：
 
 ```bash
-torchrun --standalone --nproc-per-node=2   benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py   --rows 1 8 32 33 64 128 512 2048 4096   --repeat 20
+torchrun --standalone --nproc-per-node=2 \\
+  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \\
+  --rows 1 8 32 33 64 128 512 2048 4096 \\
+  --repeat 20
 ```
 
 当前基线应全部 PASS，并覆盖 tail、64-chunk 单 wave 和 4096 multi-wave。
@@ -160,7 +163,12 @@ torchrun --standalone --nproc-per-node=2   benchmarks/scripts/bench_310p_memfabr
 分析工具：
 
 ```bash
-python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py   /path/to/task_time.csv   --rows 2048   --tile-m 32   --chunk-kib 128   --bandwidth-gbps 20
+python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \\
+  /path/to/task_time.csv \\
+  --rows 2048 \\
+  --tile-m 32 \\
+  --chunk-kib 128 \\
+  --bandwidth-gbps 20
 ```
 
 当前平台上采集 profiler 时必须遵守常驻 epoch 限制。推荐流程：
@@ -192,7 +200,18 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 MODEL=/models/Qwen3.6-35B-A3B-w8a8
 
-vllm serve "$MODEL"   --host 0.0.0.0   --port 8000   --served-model-name qwen3.6-35b-a3b-w8a8   --tensor-parallel-size 2   --quantization ascend   --dtype float16   --trust-remote-code   --enforce-eager   --max-model-len 4096   --max-num-seqs 1   --gpu-memory-utilization 0.90
+vllm serve "$MODEL" \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name qwen3.6-35b-a3b-w8a8 \
+  --tensor-parallel-size 2 \
+  --quantization ascend \
+  --dtype float16 \
+  --trust-remote-code \
+  --enforce-eager \
+  --max-model-len 4096 \
+  --max-num-seqs 1 \
+  --gpu-memory-utilization 0.90
 ```
 
 当前最终 HEAD 仍需要重新做这项 E2E；旧 commit 的成功结果不算当前验收。
