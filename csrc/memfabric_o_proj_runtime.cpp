@@ -453,6 +453,26 @@ void memfabric_o_proj_shutdown()
     }
 
     if (state.eager_stream != nullptr) {
+        /* The last healthy wave ends with an asynchronous credit signal.
+         * Enqueue public quiet before the final stream sync so every local
+         * MemFabric request, including that credit, is proven landed before
+         * pool destruction. */
+        const int quiet_ret = mf310p_quiet_async(
+            state.ctx, reinterpret_cast<void*>(state.eager_stream));
+        if (quiet_ret != 0) {
+            state.poisoned = true;
+            if (state.failure_reason.empty()) {
+                state.failure_reason =
+                    "shutdown quiet enqueue failed; MemFabric resources "
+                    "intentionally leaked until process exit";
+            }
+            std::fprintf(
+                stderr,
+                "[mf310p] skip unsafe destroy after quiet enqueue ret=%d\n",
+                quiet_ret);
+            return;
+        }
+
         const aclError sync_ret = aclrtSynchronizeStream(state.eager_stream);
         if (sync_ret != ACL_SUCCESS) {
             state.poisoned = true;
