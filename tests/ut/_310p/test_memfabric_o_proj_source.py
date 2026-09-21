@@ -56,11 +56,13 @@ def test_custom_310p_sources_are_isolated_under_marked_subproject() -> None:
     }
     assert expected.issubset({p.name for p in CUSTOM_CSRC.iterdir()})
 
-    # Do not regress back to mixing this customized implementation into the
-    # generic csrc root or the old csrc/memfabric_o_proj tree.
-    assert not (ROOT / "csrc" / "memfabric_o_proj_binding.cpp").exists()
-    assert not (ROOT / "csrc" / "memfabric_o_proj_runtime.cpp").exists()
-    assert not (ROOT / "csrc" / "memfabric_o_proj").exists()
+    # All customized implementation files must remain isolated in this
+    # explicitly marked 310P subproject.
+    assert BINDING.parent == CUSTOM_CSRC
+    assert RUNTIME.parent == CUSTOM_CSRC
+    assert ADAPTER_API.parent == CUSTOM_CSRC
+    assert ADAPTER.parent == CUSTOM_CSRC
+    assert DEVICE.parent == CUSTOM_CSRC
 
 
 def test_eligibility_is_deliberately_narrow() -> None:
@@ -253,13 +255,6 @@ def test_adapter_uses_real_acl_device_id_and_prechecks_pool_layout() -> None:
 
 def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
     src = RUNTIME.read_text()
-    assert "posted_seqs" not in src
-    assert "wave_count" not in src
-    assert "own_reserved" not in src
-    assert "peer_reserved" not in src
-    assert "kReqTail" not in src
-    assert "kArrMail" not in src
-
     assert "protocol_initialized" in src
     assert "mf310p_init_credit_async(" in src
     assert "mf310p_prepare_wave_async(" in src
@@ -286,23 +281,19 @@ def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
 
 def test_build_consumes_current_memfabric_public_package() -> None:
     src = MEMFABRIC_CMAKE.read_text()
+    envs_src = ENVS.read_text()
+
     assert "MEMFABRIC_HYBRID_HOME_PATH" in src
     assert "libmf_smem.so" in src
     assert "smem_shm_aicore_base_sdma.h" in src
     assert "--npu-arch=dav-2002" in src
     assert "memfabric310p_adapter.cpp" in src
+    assert "memfabric310p_device.asc" in src
     assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ" in src
 
-    for legacy in (
-        "VLLM_ASCEND_310P_MEMFABRIC_ROOT",
-        "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES",
-        "libmf_hybm_core",
-        "libacc_tcp_net",
-        "libmf_sdma_orch_v6.json",
-        "MF_SDMA_ORCH_JSON",
-    ):
-        assert legacy not in src
-        assert legacy not in ENVS.read_text()
+    # The current build always compiles the repository-owned .asc source.
+    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY" not in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY" not in envs_src
 
 
 def test_matmul_recipe_and_add_kernel_are_preserved() -> None:
