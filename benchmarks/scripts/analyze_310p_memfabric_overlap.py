@@ -80,11 +80,22 @@ def main() -> None:
     if not by[PRODUCER_MARK] or not by[WAITER_MARK]:
         raise SystemExit("no current fused o_proj events found")
 
-    chunks = (args.rows + args.tile_m - 1) // args.tile_m
-    wave_bytes = chunks * args.chunk_kib * 1024
+    if args.rows % args.tile_m != 0:
+        raise SystemExit(
+            "this analyzer currently requires rows % tile_m == 0 so each "
+            "wave has one producer launch; use a divisible performance shape"
+        )
+
+    total_chunks = args.rows // args.tile_m
+    max_wave_chunks = 64
+    waves_per_call = (total_chunks + max_wave_chunks - 1) // max_wave_chunks
+    wave_chunks = [
+        min(max_wave_chunks, total_chunks - i * max_wave_chunks)
+        for i in range(waves_per_call)
+    ]
     print(
-        f"wave: rows={args.rows} tile_m={args.tile_m} "
-        f"chunks={chunks} ({wave_bytes / 1024 / 1024:.1f} MiB/rank)\n"
+        f"shape: rows={args.rows} tile_m={args.tile_m} "
+        f"total_chunks={total_chunks} waves={wave_chunks}\n"
     )
 
     calls = min(len(by[PRODUCER_MARK]), len(by[WAITER_MARK]))
@@ -101,28 +112,36 @@ def main() -> None:
         add = by[ADD_MARK][i]
         ack = by[ACK_MARK][i]
         cycle = ack["stop"] - (gate["start"] if gate else prod["start"])
+        chunks_this_wave = wave_chunks[i % waves_per_call]
+        bytes_this_wave = chunks_this_wave * args.chunk_kib * 1024
         print(
             f"{i:>2} {(gate['dur'] if gate else 0):>8.1f} "
             f"{prod['dur']:>11.1f} {wait['dur']:>9.1f} "
             f"{add['dur']:>7.1f} {ack['dur']:>7.1f} {cycle:>9.1f}"
         )
-        if i > 0:
-            steady.append((prod["dur"], wait["dur"], add["dur"], cycle))
+        if i >= waves_per_call:  # drop the first full fused call
+            steady.append(
+                (prod["dur"], wait["dur"], add["dur"], cycle, bytes_this_wave)
+            )
 
     if not steady:
         raise SystemExit("need at least two fused calls for steady-state analysis")
 
-    producer_med = sorted(x[0] for x in steady)[len(steady) // 2]
-    waiter_med = sorted(x[1] for x in steady)[len(steady) // 2]
-    cycle_med = sorted(x[3] for x in steady)[len(steady) // 2]
+    # Evaluate each steady-state wave with its actual payload. Multiple-wave
+    # calls (for example rows=4096,tile_m=32) must not be treated as one 128
+    # chunk transfer.
+    records = []
+    for prod_us, wait_us, add_us, cycle_us, wave_bytes in steady:
+        implied = wave_bytes / (wait_us * 1e-6) / 1e9
+        serial_sdma = wave_bytes / (args.bandwidth_gbps * 1e9) * 1e6
+        serial_cycle = prod_us + serial_sdma + (cycle_us - prod_us - wait_us)
+        records.append((prod_us, wait_us, cycle_us, implied, serial_cycle))
 
-    implied_gbps = wave_bytes / (waiter_med * 1e-6) / 1e9
-    serial_sdma_us = wave_bytes / (args.bandwidth_gbps * 1e9) * 1e6
-    serial_cycle_us = (
-        producer_med
-        + serial_sdma_us
-        + (cycle_med - producer_med - waiter_med)
-    )
+    producer_med = sorted(x[0] for x in records)[len(records) // 2]
+    waiter_med = sorted(x[1] for x in records)[len(records) // 2]
+    cycle_med = sorted(x[2] for x in records)[len(records) // 2]
+    implied_gbps = sorted(x[3] for x in records)[len(records) // 2]
+    serial_cycle_us = sorted(x[4] for x in records)[len(records) // 2]
 
     print(
         f"\nsteady medians: producer={producer_med:.0f}us "
@@ -134,8 +153,8 @@ def main() -> None:
         f"{args.bandwidth_gbps:.1f} GB/s"
     )
     print(
-        f"serial lower bound: {serial_cycle_us:.0f}us; "
-        f"measured cycle: {cycle_med:.0f}us"
+        f"median serial lower bound: {serial_cycle_us:.0f}us; "
+        f"median measured cycle: {cycle_med:.0f}us"
     )
 
     if (
