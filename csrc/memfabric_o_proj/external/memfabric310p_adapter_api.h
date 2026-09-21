@@ -63,19 +63,17 @@ int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
 /*
- * Phase-A rendezvous kept outside the data plane.  This wrapper is public-API
- * only and will be removed from the hot path once the initial-credit protocol
- * lands in Phase B.
+ * Initialization rendezvous.  It is public-API only and is not part of the
+ * per-chunk data plane.
  */
 int mf310p_control_barrier(mf310p_context_t* ctx);
 
 /*
- * Correctness-first public-API producer.
- *
- * The device library first computes the requested chunks with the existing
- * multi-block FP16 matmul kernel, then a single AICore publisher walks those
- * chunks in order and calls smem_shm_sdma_signal().  This deliberately avoids
- * any assumption that MemFabric's public signal API is multi-producer safe.
+ * Phase-B fused producer. One AICore block is the communication coordinator
+ * and is the only caller of public smem_shm_sdma_signal(); the remaining
+ * blocks compute interleaved o_proj chunks and publish vLLM-owned ready flags.
+ * This preserves chunk-level MM/SDMA overlap without depending on MemFabric
+ * mailbox/ring internals or multi-producer behavior.
  */
 int mf310p_direct_producer_async(
     mf310p_context_t* ctx,
