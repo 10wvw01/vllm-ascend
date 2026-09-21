@@ -74,18 +74,11 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
     # Experimental 310P3-only path: Qwen3.5/3.6 full-attention unquantized
-    # o_proj plus TP=2 reduction using the V5 wgm-dev-310p MemFabric
-    # (origin/wgm-dev-310p mailbox-ring epoch API) build/install.
+    # o_proj plus TP=2 reduction through the installed wgm-dev-310p
+    # MemFabric public SHM/SDMA API.
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
-    # Install prefix produced by building/installing wgm-dev-310p MemFabric.
-    # vLLM-Ascend directly consumes headers/libraries from this installation;
-    # the official/upstream MemFabric installation is not used for this path.
-    "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_ROOT", None),
-    # Semicolon-separated libraries produced/required by the wgm-dev-310p
-    # installation when linking vllm_ascend_C.
-    "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None),
     # Optional prebuilt shared library for the repo-owned device cooperation
     # source csrc/memfabric_o_proj/external/memfabric310p_device.asc. When
     # unset, CMake compiles the .asc with the same 310P bisheng toolchain as
