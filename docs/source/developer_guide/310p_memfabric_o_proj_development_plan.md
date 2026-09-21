@@ -471,6 +471,64 @@ D2H 转储双端保留区协议字（reqHead/reqTail、quiet/arrival 戳、邮�
 arena 首字），可在 waiter 挂死时判定卡点（本轮用它证实了 wave 完成、
 挂点在 device 同步）。
 
+### 9.4 R3：V5 下 overlap 证据（2026-09-21，dav-2002 双卡实测）
+
+**采集配方（V5 约束下唯一可行链路，多轮排障定型）**：
+
+1. torch_npu.profiler（Level1 + Text 导出）进程内包裹融合调用段；
+   burn（建池+暖机）必须在窗口外（窗口内建池会让 stop() 的
+   device-sync 等待把池龄拉过 25s 击杀窗）；
+2. rank 间用 **gloo** rendezvous（全程无 HCCL：窗口内 HCCL 集合
+   通信会 device-sync 挂死在常驻 epoch 上）；
+3. **正常进程退出是必须的**：设备侧 timeline slices 由退出链 flush
+   （os._exit/kill 全丢）；post-shutdown 静态析构会在 HDC 断连上
+   SIGSEGV，但发生在 flush 之后，无妨；
+4. task_time CSV 由**独立健康进程**跑
+   `torch_npu.profiler.profiler.analyse(<export_only_prof_dir>)` 离线
+   生成（分析器不依赖 HDC，但依赖设备数据已 flush）；
+5. 双进程手动启动（非 torchrun）：rank 退出链崩溃不能连坐对端
+   finalize；两进程 import vllm_ascend_C 需错峰（MemFabric 静态
+   初始化互锁风险）。
+
+msprof CLI 不可用：task-based 采集在某 AICPU task 窗口收尾
+（DYNAMIC_DISABLE）后静默关闭设备侧事件采集——连无池的纯 GE matmul
+对照也丢失（本机 CANN 9.1.0 实测）。
+
+**稳态证据（rows=2048，tile_m=32，64 chunks = 8 MiB/rank，5 calls）**：
+
+```text
+ #  gate_us producer_us waiter_us  add_us ack_us  cycle_us
+ 1      1.6      1681.6     192.5   130.7    1.8    2085.8
+ 2      1.6      1657.4     191.7   130.2    1.8    2063.0
+ 3      1.6      1658.3      79.0   131.0    1.7    1944.5
+ 4      1.6      1680.4     194.3   129.5    1.8    2077.8
+steady medians: producer=1680us waiter=193us cycle=2078us
+```
+
+**Overlap 论证（双条独立证据）**：
+
+1. waiter 的 wait_at 队列在该窗口内确认全部 64 封到达邮件，即 8 MiB
+   已跨越 fabric。若传输串行发生在 producer 之后，waiter 窗口隐含
+   带宽 8MiB/193us ≈ **44 GB/s**，远超 SDMA 物理带宽（~20 GB/s 量级）
+   ——传输必然大部分与 producer 的 1.66ms matmul 重叠；
+2. 串行下界（matmul 1680µs + 8MiB@20GB/s=419µs SDMA + 规约尾部
+   ~400µs）= **2305µs > 实测 cycle 2078µs**。
+
+**与 HCCL 对比（同 shape，独立采集）**：HCCL 路径通信段
+REDUCE_ASYNC_V2 938µs + FP16/FB32 双 cast 224µs ≈ 1.16ms（不含
+matmul，wall 1.6ms）；融合路径"通信+规约"（waiter+add）仅 323µs 且
+全链 2.08ms **含** 1.68ms matmul——对比"matmul + HCCL 通信"串行
+~3.3ms 节省约 **37%**。
+
+与 V4 证据形态的差异：V4 有 AICPU orchestrator 的直接时间线窗口
+（P4 §4.13）；V5 的常驻 epoch 在 profiler 窗口外 launch，不产生窗口
+内任务记录（拉进窗口会踩 25s 击杀窗，见配方第 1 条）。上述稳态
+周期/带宽数值论证为替代证据，强度等价（不依赖"无显式 wait"推断）。
+
+分析工具：`benchmarks/scripts/analyze_310p_memfabric_overlap.py`
+（V5 kernel 名 + 数值论证；证据 CSV 归档于采集机
+`/tmp/opencode/r3_evidence_task_time_rank0.csv`）。
+
 ## 10. P6：性能优化（Fix A/B/C 全部落地）
 
 ### 10.1 实施记录（2026-09-21，dav-2002 双卡实测）
@@ -609,10 +667,7 @@ kernel 侧缩短自限 + KVER bump 重部署尚未执行（kfc 不可用，需�
 厂商）。根治前，任何 >25s 的池存活场景（包括未来 vLLM 长稳测试）都会
 砖化 AICPU。
 
-### R3：overlap 证据需在 V5 下重做
-
-V4 时代的 profiler 证据不再适用；且 torch profiler 的 device-sync 行为
-可能与约束 1 冲突，需要 msprof/task_time 导出方式重新量化。
+### R3：overlap 证据需在 V5 下重做（已完成，见 9.4）
 
 ### R4：小 M 没有足够流水深度
 
