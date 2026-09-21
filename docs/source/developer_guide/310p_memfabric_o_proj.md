@@ -201,8 +201,7 @@ prepare status
 -> ack: signal CREDIT
 ```
 
-credit 使用固定 `MF310P_CREDIT_TAG`。correctness 不依赖 host `wave_count`，
-因此 capture 后的 graph replay 不需要 host 自增状态。
+credit 使用固定 `MF310P_CREDIT_TAG`。correctness 由 fixed credit 保证，因此 graph replay 不需要额外 host generation 状态。
 
 credit mail 同样严格校验 `status/dst/len/imm`。
 
@@ -291,4 +290,3 @@ feature-on 时 `cmake/memfabric_310p.cmake`：
 **当前 commit** 重新完成 build、correctness、long-run、overlap、Qwen eager
 和 ACL Graph 验收。
 
-任何旧实现的数值/性能结果只可作为参考，不属于当前版本的通过证据。
