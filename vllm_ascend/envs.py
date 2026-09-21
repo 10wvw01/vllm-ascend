@@ -79,24 +79,17 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
-    # Optional prebuilt shared library for the repo-owned device cooperation
-    # source csrc/memfabric_o_proj/external/memfabric310p_device.asc. When
-    # unset, CMake compiles the .asc with the same 310P bisheng toolchain as
-    # MemFabric example 08 (dav-2002 unified host+AICore build producing a
-    # shared library that launches through the public ACL binary API).
-    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY", None),
     # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
     ),
-    # Per-rank physical contribution to the symmetric pool. 32 MiB matches the
-    # supplied 310P AICore/AICPU/SDMA example.
+    # Per-rank physical contribution to the symmetric pool.
     "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(32 * 1024 * 1024))
     ),
-    # M tile 32 => 32 * 2048 * FP16(2B) = 128 KiB per SDMA chunk, matching the
-    # supplied 310P overlap example. Must be a power of two in [16, 4096]
-    # (the fused producer kernels are M-bucket specialized).
+    # M tile. 32 rows => 128 KiB per FP16 [32, 2048] chunk. Must be a
+    # power of two in [16, 4096] because producer kernels are M-bucket
+    # specialized.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
     ),
