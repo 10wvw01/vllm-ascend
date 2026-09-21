@@ -471,7 +471,7 @@ D2H 转储双端保留区协议字（reqHead/reqTail、quiet/arrival 戳、邮�
 arena 首字），可在 waiter 挂死时判定卡点（本轮用它证实了 wave 完成、
 挂点在 device 同步）。
 
-## 10. P6：性能优化（Fix A/B 已落地，C 待做）
+## 10. P6：性能优化（Fix A/B/C 全部落地）
 
 ### 10.1 实施记录（2026-09-21，dav-2002 双卡实测）
 
@@ -497,14 +497,35 @@ waiter/quiet 语义不变（quiet 等末封戳 FIFO）。
 
 **测量基线与结果**（tile_m=32，repeat=8~20 稳态 med）：
 
-| rows | P5 基线 | P6 后 | 提升 |
-| --- | --- | --- | --- |
-| 1 | 1.09ms | 1.16ms | ~1x（单 chunk 无并行深度） |
-| 32 | 0.63ms | 0.50ms | 1.3x |
-| 512 | 3.42ms | 0.95ms | 3.6x |
-| 2048 | 12.47ms | 2.24ms | 5.6x |
-| 4096 | 24.72ms | 4.42ms | 5.7x |
-| 首 call | ~90ms/shape | ~0 | 消除 |
+**Fix C：ack/gate 设备侧 wave 会合（替代 host join）**。join 的
+TCP control barrier 典型 ~150µs 且概率性 ~40ms 尖峰（delayed-ACK），
+bench max 列可见、p99 杀手。改为纯设备侧邮件链：本 rank add 完成后
+ack kernel 向对端 ack 槽 signal 8B（imm=wave 序号，占用一个请求环
+seq，posted_seqs 随之推进）；下一 wave 前本 rank gate kernel
+wait_at 消费一封到达邮件并校验 imm/dst——等到它即证明对端 add 已
+完成，本 rank 的 signal 才可覆写对端 recv。到达环 FIFO 序
+[data x N, ack] 与接收端 [waiter, gate] 消费序严格一致；跨 wave 无
+循环等待（归纳：wave N 的 gate 依赖的 ack 在 wave N-1 数据全部落地
+之后才产生）。首 wave 保留一次 stream sync + barrier 作建池会合。
+协议违例（对端死亡/FIFO 失步）时 gate 把观测到的 status|imm 暂存
+进协议永不读取的 ack 槽供 debug_snapshot 事后取证，随后放行（与
+waiter 同等失败姿态）。
+
+**最终测量**（tile_m=32，repeat=8~25 稳态 med / max）：
+
+| rows | P5 基线 | Fix B 后 | Fix C 后（med/max） | 总提升 |
+| --- | --- | --- | --- | --- |
+| 1 | 1.09ms | 1.16ms | 0.95 / 1.43ms | 1.1x |
+| 32 | 0.63ms | 0.50ms | 0.49 / 1.83ms | 1.3x |
+| 128 | 1.09ms | 0.59ms | 0.47 / 0.65ms | 2.3x |
+| 512 | 3.42ms | 0.95ms | 0.74 / 1.04ms | 4.6x |
+| 2048 | 12.47ms | 2.24ms | 2.09 / 2.25ms | 6.0x |
+| 4096 | 24.72ms | 4.42ms | 4.11 / 4.42ms | 6.0x |
+| 首 call | ~90ms/shape | ~0 | ~0 | 消除 |
+| max 尖峰 | 13~22ms | 依旂数十 ms | **全部 <1.9ms** | 消除 |
+
+Fix C 的核心价值在尾延迟：TCP barrier 的 40ms 概率尖峰彻底消失，
+且所有 wave（含同 call 内多 wave）完全流水化，无任何 host 同步。
 
 正确性：rows=1..4096 全集 bit-exact（含 64-chunk 单 wave、双 wave、
 tail bucket），repeat=20 stress 通过。

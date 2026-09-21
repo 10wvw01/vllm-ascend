@@ -26,6 +26,9 @@ namespace {
  */
 constexpr uint64_t kSdmaReservedRegionSize = 48ULL * 1024ULL;
 
+/* P6 Fix C wave-acknowledgement slot size. */
+constexpr uint64_t kAckSlotBytes = 8ULL;
+
 /* Implemented by memfabric310p_device.asc and compiled with the customized
  * MemFabric/AscendC toolchain. */
 extern "C" int mf310p_device_launch_direct_producer_async(
@@ -67,6 +70,21 @@ extern "C" int mf310p_device_add_async(
 
 extern "C" int mf310p_device_warmup_add_async(
     uint64_t arena,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_ack_async(
+    uint64_t pool_base,
+    uint64_t ack_slot,
+    uint64_t peer_ack_slot,
+    uint64_t imm,
+    uint32_t enable,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_gate_async(
+    uint64_t pool_base,
+    uint64_t ack_slot,
+    uint64_t expected_imm,
+    uint32_t enable,
     aclrtStream stream);
 
 /* o_proj output width shared by the fused producer kernels (FP16 elements).
@@ -166,10 +184,12 @@ extern "C" int mf310p_create(
     const uint64_t peer_segment =
         reinterpret_cast<uint64_t>(gva) + symmetric_size * (1 - rank);
 
-    /* send + recv/final + the V5 SDMA mailbox reserved tail must fit in one
-     * physical contribution. The two arenas use identical offsets on both
-     * ranks, which lets the producer signal directly at peer recv_arena. */
-    if (2 * arena_bytes + kSdmaReservedRegionSize > local_size) {
+    /* send + recv/final + the 8-byte P6 ack slot + the V5 SDMA mailbox
+     * reserved tail must fit in one physical contribution. The two arenas
+     * use identical offsets on both ranks, which lets the producer signal
+     * directly at peer recv_arena and the ack kernel at peer ack_slot. */
+    if (2 * arena_bytes + kAckSlotBytes + kSdmaReservedRegionSize >
+        local_size) {
         smem_shm_destroy(ctx->shm, 0);
         smem_shm_uninit(0);
         smem_uninit();
@@ -197,6 +217,8 @@ extern "C" int mf310p_create(
     ctx->layout.send_arena = own_segment;
     ctx->layout.recv_arena = own_segment + arena_bytes;
     ctx->layout.peer_recv_arena = peer_segment + arena_bytes;
+    ctx->layout.ack_slot = own_segment + 2 * arena_bytes;
+    ctx->layout.peer_ack_slot = peer_segment + 2 * arena_bytes;
     ctx->layout.sdma_workspace = reinterpret_cast<uint64_t>(workspace);
     ctx->layout.arena_bytes = arena_bytes;
     ctx->layout.chunk_bytes = chunk_bytes;
@@ -356,4 +378,61 @@ extern "C" int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream)
     return mf310p_device_warmup_add_async(
         ctx->layout.send_arena,
         reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_ack_async(
+    mf310p_context_t* ctx,
+    uint64_t imm,
+    void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_ack_async(
+        ctx->layout.pool_base,
+        ctx->layout.ack_slot,
+        ctx->layout.peer_ack_slot,
+        imm,
+        1,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_gate_async(
+    mf310p_context_t* ctx,
+    uint64_t expected_imm,
+    void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_gate_async(
+        ctx->layout.pool_base,
+        ctx->layout.ack_slot,
+        expected_imm,
+        1,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_ack_gate_async(mf310p_context_t* ctx, void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
+    int ret = mf310p_device_ack_async(
+        ctx->layout.pool_base,
+        ctx->layout.ack_slot,
+        ctx->layout.peer_ack_slot,
+        0,
+        0,
+        stream);
+    if (ret != 0) {
+        return ret;
+    }
+    return mf310p_device_gate_async(
+        ctx->layout.pool_base,
+        ctx->layout.ack_slot,
+        0,
+        0,
+        stream);
 }

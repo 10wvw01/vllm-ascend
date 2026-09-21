@@ -11,14 +11,19 @@
  *
  * Per call (single fused op, no host-side staging anymore):
  *   for each wave (capacity batching, no host syncs between chunks):
- *     join        - sync current stream + control barrier: both ranks
- *                   finished every arena access of the previous wave,
- *                   including the reduced-output add that reads recv;
+ *     join        - first wave only: stream sync + control barrier as the
+ *                   pool-creation rendezvous; later waves use the gate
+ *                   kernel (waits for the peer's ack mail of the previous
+ *                   wave, proving its reduced-output add that reads recv
+ *                   completed - only then may our signals overwrite its
+ *                   recv arena);
  *     producer    - fused AscendC FP16 matmul kernel(s): per chunk
  *                   matmul -> 64B-line clean -> signal toward peer recv;
  *     waiter      - quiet (my signals landed) + wait x chunks (peer chunks
  *                   landed in my recv);
- *     add         - out[wave] = send[wave] + recv[wave] on the same stream.
+ *     add         - out[wave] = send[wave] + recv[wave] on the same stream;
+ *     ack         - signal 8B (imm = wave index) to the peer's ack slot
+ *                   after the add, consumed by the peer's next-wave gate.
  */
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
@@ -134,6 +139,11 @@ struct RuntimeState {
      * sequence base handed to every producer launch; identical on both
      * ranks because chunk counts are symmetric). */
     uint64_t posted_seqs = 0;
+    /* Completed-wave counter driving the ack/gate rendezvous: the ack for
+     * wave N carries imm = N, and the gate before wave N+1 expects it.
+     * Identical on both ranks by the same symmetry. */
+    uint64_t wave_count = 0;
+    bool ack_gate_warmed = false;
 
     ~RuntimeState()
     {
@@ -315,10 +325,21 @@ void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
             TORCH_CHECK(ret == 0,
                         "mf310p_warmup_add_async failed with ret=", ret);
         }
+        state.add_warmed = true;
+    }
+    if (!state.ack_gate_warmed) {
+        for (int i = 0; i < 2; ++i) {
+            const int ret = mf310p_warmup_ack_gate_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_warmup_ack_gate_async failed with ret=", ret);
+        }
+        state.ack_gate_warmed = true;
+    }
+    if (state.add_warmed || state.ack_gate_warmed) {
         const aclError sync_ret = aclrtSynchronizeStream(stream);
         TORCH_CHECK(sync_ret == ACL_SUCCESS,
-                    "add warmup sync failed, ret=", sync_ret);
-        state.add_warmed = true;
+                    "add/ack-gate warmup sync failed, ret=", sync_ret);
     }
     const aclError sync_ret = aclrtSynchronizeStream(stream);
     TORCH_CHECK(sync_ret == ACL_SUCCESS,
@@ -513,20 +534,33 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
 
             const int64_t t_join0 = trace_now_us();
             /*
-             * Wave-boundary rendezvous: synchronize this rank's stream (every
-             * previous arena access, including the reduced-output add, is
-             * complete) then control-barrier with the peer. Without it, a
-             * fast rank's next-wave signals could overwrite the slow rank's
-             * recv arena while its add still reads it. There is no host
-             * synchronization between chunks inside the wave.
+             * Wave-boundary rendezvous (P6 Fix C): the very first wave uses
+             * a stream sync + control barrier as the pool-creation
+             * rendezvous. Every later wave uses the device-side gate
+             * kernel, which waits for the peer's ack mail proving the
+             * peer's reduced-output add completed - only then may this
+             * rank's signals overwrite the peer's recv arena. This removes
+             * the per-wave host barrier (~150 us steady state, rare ~40 ms
+             * TCP spikes) and keeps waves fully pipelined on the stream.
              */
-            const aclError sync_ret = aclrtSynchronizeStream(stream);
-            TORCH_CHECK(sync_ret == ACL_SUCCESS,
-                        "wave-boundary stream join failed, ret=", sync_ret);
-            const int64_t t_join1 = trace_now_us();
-            int ret = mf310p_control_barrier(state.ctx);
-            TORCH_CHECK(ret == 0,
-                        "mf310p_control_barrier failed with ret=", ret);
+            int64_t t_join1 = t_join0;
+            int ret = 0;
+            if (state.wave_count == 0) {
+                const aclError sync_ret = aclrtSynchronizeStream(stream);
+                TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                            "first-wave stream join failed, ret=", sync_ret);
+                t_join1 = trace_now_us();
+                ret = mf310p_control_barrier(state.ctx);
+                TORCH_CHECK(ret == 0,
+                            "mf310p_control_barrier failed with ret=", ret);
+            } else {
+                ret = mf310p_gate_async(
+                    state.ctx,
+                    state.wave_count - 1,
+                    reinterpret_cast<void*>(stream));
+                TORCH_CHECK(ret == 0,
+                            "mf310p_gate_async failed with ret=", ret);
+            }
             const int64_t t_join2 = trace_now_us();
 
             /* Lazy per-symbol warmup before the wave is armed. */
@@ -651,6 +685,18 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                 static_cast<uint64_t>(wave_rows) * kOProjWidth,
                 reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_add_async failed with ret=", ret);
+
+            /* Wave acknowledgement: once the peer's gate consumes this
+             * mail, our next-wave signals may overwrite its recv arena.
+             * The ack also occupies a request-ring seq, so posted_seqs
+             * must track it (it is the quiet tail of the next waiter). */
+            ret = mf310p_ack_async(
+                state.ctx,
+                state.wave_count,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
+            state.posted_seqs += 1;
+            state.wave_count += 1;
 
             if (trace_enabled()) {
                 const int64_t t_enq = trace_now_us();

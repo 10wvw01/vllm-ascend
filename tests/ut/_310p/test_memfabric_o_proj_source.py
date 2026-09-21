@@ -165,13 +165,18 @@ def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
     assert "kSdmaReservedRegionSize = 48ULL * 1024ULL" in src
 
 
-def test_wave_join_is_stream_sync_then_control_barrier() -> None:
-    """Cross-wave arena-reuse race regression: both ranks must finish every
-    arena access (including the reduced-output add reading recv) before
-    either rank's next-wave signals may overwrite the peer's recv arena."""
+def test_wave_rendezvous_is_first_barrier_then_device_gate() -> None:
+    """Cross-wave arena-reuse race regression (P6 Fix C): the very first
+    wave uses a stream sync + control barrier as the pool-creation
+    rendezvous; every later wave waits on the peer's ack mail via the gate
+    kernel, proving the peer's reduced-output add (reading recv) completed
+    before this rank's signals may overwrite its recv arena."""
     runtime = RUNTIME.read_text()
     impl = runtime[runtime.index("memfabric_direct_o_proj_allreduce_impl") :]
+    assert "state.wave_count == 0" in impl
     assert impl.index("aclrtSynchronizeStream(stream)") < impl.index("mf310p_control_barrier")
+    assert impl.index("mf310p_control_barrier") < impl.index("mf310p_gate_async")
+    assert impl.index("mf310p_gate_async") < impl.index("mf310p_direct_producer_async")
     adapter = ADAPTER.read_text()
     assert "smem_shm_control_barrier(ctx->shm)" in adapter
 
@@ -204,10 +209,14 @@ def test_device_waiter_is_quiet_then_ordered_waits() -> None:
 
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
     src = ADAPTER_API.read_text()
-    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 3u" in src
+    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 4u" in src
     assert "mf310p_control_barrier" in src
     assert "mf310p_direct_producer_async" in src
     assert "mf310p_wait_mails_async" in src
+    assert "mf310p_ack_async" in src
+    assert "mf310p_gate_async" in src
+    assert "ack_slot" in src
+    assert "peer_ack_slot" in src
     assert "smem_shm_t" not in src
     assert "smem_shm_config_t" not in src
     assert "mf310p_context_t" in src
@@ -228,14 +237,19 @@ def test_adapter_abi_does_not_expose_memfabric_types() -> None:
 def test_fused_runtime_keeps_wave_protocol_and_producer_order() -> None:
     src = RUNTIME.read_text()
     impl = src[src.index("memfabric_direct_o_proj_allreduce_impl") :]
-    # Wave protocol: join (stream sync + control barrier) -> warmup ->
-    # producer(s) -> waiter -> add_out, all on the current stream with no
-    # host syncs between chunks.
-    assert impl.index("mf310p_control_barrier") < impl.index("mf310p_direct_producer_async")
+    # Wave protocol: gate/barrier -> warmup -> producer(s) -> waiter ->
+    # add -> ack, all on the current stream with no host syncs between
+    # chunks or waves.
+    assert impl.index("mf310p_gate_async") < impl.index("mf310p_direct_producer_async")
     assert impl.index("mf310p_direct_producer_async") < impl.index("mf310p_wait_mails_async")
     assert impl.index("mf310p_wait_mails_async") < impl.index("mf310p_add_async")
+    assert impl.index("mf310p_add_async") < impl.index("mf310p_ack_async")
+    # The ack consumes a request-ring seq like any signal (posted_seqs must
+    # track it) and carries imm = wave index for the peer's gate.
+    assert impl.index("mf310p_ack_async") < impl.index("state.wave_count += 1")
     # The add kernel is warmed with the same double-launch contract.
     assert "mf310p_warmup_add_async" in src
+    assert "mf310p_warmup_ack_gate_async" in src
     # The partial tail chunk never reads beyond x: it stages into a scratch
     # copy and the untouched slot rows are zeroed deterministically.
     assert "aclrtMemcpyAsync" in impl

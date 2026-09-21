@@ -29,7 +29,7 @@ extern "C" {
  * The bridge may change internally when the customized MemFabric changes;
  * vllm-ascend only depends on this small C ABI.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 3u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 4u
 #define VLLM_ASCEND_MF310P_MAX_CHUNKS 64u
 
 typedef struct mf310p_context mf310p_context_t;
@@ -50,6 +50,14 @@ typedef struct mf310p_layout {
     uint64_t send_arena;
     uint64_t recv_arena;
     uint64_t peer_recv_arena;
+
+    /* 8-byte wave-acknowledgement slots after the arenas (P6 Fix C): the
+     * peer's ack kernel signals into our slot after its reduced-output add
+     * completed; our gate kernel consumes that mail before the next wave's
+     * producer may overwrite the peer's recv arena. Content is never read -
+     * the arrival mail's imm/dst carry the protocol. */
+    uint64_t ack_slot;
+    uint64_t peer_ack_slot;
 
     /* Device-side SDMA mailbox rings owned by the MemFabric epoch kernel.
      * Host-side value is only a readiness marker (non-zero once the epoch
@@ -159,6 +167,40 @@ int mf310p_add_async(
 
 /* Same double-launch warmup contract for the add kernel (elems == 0). */
 int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
+
+/*
+ * P6 Fix C device-side wave rendezvous (replaces the per-wave host join /
+ * control barrier, which costs ~150 us steady state with rare ~40 ms TCP
+ * spikes):
+ *
+ *   ack  - after this rank's reduced-output add for wave `imm` completed
+ *          (stream-ordered), signal 8 bytes into the peer's ack slot with
+ *          imm = wave index.
+ *   gate - before this rank's next-wave producer, consume one arrival mail
+ *          and verify it is the peer's ack for the previous wave
+ *          (expected_imm) targeting our ack slot. Waiting for the ack means
+ *          the peer's add has completed, so our signals may safely
+ *          overwrite the peer's recv arena.
+ *
+ * The arrival-ring FIFO order [data x N, ack] per wave matches the
+ * [waiter, gate] consumption order on the receiving rank; wave indices and
+ * chunk counts are identical on both ranks by construction. The very first
+ * wave still uses mf310p_control_barrier once as the pool-creation
+ * rendezvous.
+ */
+int mf310p_ack_async(
+    mf310p_context_t* ctx,
+    uint64_t imm,
+    void* acl_stream);
+
+int mf310p_gate_async(
+    mf310p_context_t* ctx,
+    uint64_t expected_imm,
+    void* acl_stream);
+
+/* Same double-launch warmup contract for the ack/gate kernels (enable == 0
+ * side-effect-free shape). */
+int mf310p_warmup_ack_gate_async(mf310p_context_t* ctx, void* acl_stream);
 
 #ifdef __cplusplus
 }
