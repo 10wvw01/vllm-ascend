@@ -606,6 +606,22 @@ extern "C" int mf310p_gate_async(
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 
+extern "C" int mf310p_quiet_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || ctx->protocol_status == nullptr ||
+        acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_quiet_async(
+        ctx->layout.pool_base,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        1,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
 extern "C" int mf310p_warmup_protocol_async(
     mf310p_context_t* opaque,
     void* acl_stream)
