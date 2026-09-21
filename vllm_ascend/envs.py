@@ -73,31 +73,25 @@ env_variables: dict[str, Callable[[], Any]] = {
     ),
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
-
-    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention W8A8 o_proj
-    # plus TP=2 reduction using the wgm-dev-310p MemFabric build/install.
+    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention unquantized
+    # o_proj plus TP=2 reduction using the V5 wgm-dev-310p MemFabric
+    # (origin/wgm-dev-310p mailbox-ring epoch API) build/install.
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
     # Install prefix produced by building/installing wgm-dev-310p MemFabric.
     # vLLM-Ascend directly consumes headers/libraries from this installation;
     # the official/upstream MemFabric installation is not used for this path.
-    "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_ROOT", None
-    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_ROOT": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_ROOT", None),
     # Semicolon-separated libraries produced/required by the wgm-dev-310p
     # installation when linking vllm_ascend_C.
-    "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None
-    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES", None),
     # Optional prebuilt shared library for the repo-owned device cooperation
     # source csrc/memfabric_o_proj/external/memfabric310p_device.asc. When
     # unset, CMake compiles the .asc with the same 310P bisheng toolchain as
     # MemFabric example 08 (dav-2002 unified host+AICore build producing a
     # shared library that launches through the public ACL binary API).
-    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY", None
-    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY": lambda: os.getenv("VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY", None),
     # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
@@ -107,8 +101,9 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(32 * 1024 * 1024))
     ),
-    # M tile 32 => 32 * 2048 * BF16(2B) = 128 KiB per SDMA chunk, matching the
-    # supplied 310P overlap example.
+    # M tile 32 => 32 * 2048 * FP16(2B) = 128 KiB per SDMA chunk, matching the
+    # supplied 310P overlap example. Must be a power of two in [16, 4096]
+    # (the fused producer kernels are M-bucket specialized).
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
     ),

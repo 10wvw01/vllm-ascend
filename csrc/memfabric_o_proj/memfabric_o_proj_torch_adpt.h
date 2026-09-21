@@ -17,44 +17,29 @@
 
 namespace vllm_ascend {
 
-/* Phase-1 staged pipeline. These functions live in vllm_ascend_C, which links
- * the repo-owned adapter (compiled against the installed wgm-dev-310p
- * MemFabric) directly at build time. */
-std::tuple<at::Tensor, at::Tensor> memfabric_o_proj_begin(
+/* Fused MemFabric o_proj pipeline (o_proj matmul + TP=2 reduction) on the
+ * V5 customized wgm-dev-310p epoch API. The single opaque op below lives in
+ * vllm_ascend_C, which links the repo-owned adapter (compiled against the
+ * installed MemFabric) directly at build time. The former staged
+ * begin/publish/finish ops of the V4 workspace API are gone; the device-side
+ * signal/wait/quiet mailbox rings replaced them. */
+at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const at::Tensor& x,
+    const at::Tensor& weight,
     int64_t tp_rank,
-    int64_t tile_m,
-    int64_t chunks);
-
-void memfabric_o_proj_publish(
-    const at::Tensor& send,
-    int64_t chunk_idx);
-
-void memfabric_o_proj_finish(const at::Tensor& recv);
-
-/* Mark a partially started wave unusable. A failed device/AICPU/SDMA pipeline
- * cannot be safely reused because outstanding polling/SQE/flag state is not
- * recoverable without a rank-wide restart. */
-void memfabric_o_proj_mark_failed(
-    const at::Tensor& recv,
-    c10::string_view reason);
+    int64_t tile_m);
 
 /* Explicitly tear down the process-persistent MemFabric context while the ACL
  * runtime is still alive. Also registered via atexit on first use; workers
  * should call this on shutdown for deterministic teardown. */
 void memfabric_o_proj_shutdown();
 
-/* Reserved phase-2 direct-MM entry point (owner decision A, 2026-09-18: the
- * target o_proj is unquantized BF16). Once the AscendC BF16 tiled matmul
- * writes directly into the symmetric send arena, Python will switch from the
- * staged begin/publish/finish path to this single opaque op. */
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
-at::Tensor memfabric_direct_o_proj_allreduce_impl(
-    const at::Tensor& x,
-    const at::Tensor& weight,
-    int64_t tp_rank,
-    int64_t tile_m);
-#endif
+/* Debug-only live snapshot of both ranks' SDMA mailbox reserved regions
+ * (synchronous D2H through the copy engine, independent of the compute
+ * stream). Returns a CPU int64 tensor of protocol words for dissecting a
+ * hung wave (reqHead/reqTail, quiet/arrival stamps, mail images, arena
+ * words). Zero tensor when the MemFabric context does not exist. */
+at::Tensor memfabric_o_proj_debug_snapshot();
 
 inline at::Tensor memfabric_direct_o_proj_allreduce(
     const at::Tensor& x,
@@ -80,16 +65,7 @@ inline at::Tensor memfabric_direct_o_proj_allreduce(
                 "only TP rank 0/1 is supported, got ", tp_rank);
     TORCH_CHECK(tile_m > 0, "tile_m must be positive, got ", tile_m);
 
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
     return memfabric_direct_o_proj_allreduce_impl(x, weight, tp_rank, tile_m);
-#else
-    TORCH_CHECK(
-        false,
-        "Direct MemFabric BF16 o_proj producer is not built (feature off). "
-        "The phase-1 staged pipeline uses memfabric_o_proj_begin/publish/"
-        "finish instead.");
-    return at::Tensor(); /* unreachable; keeps non-void signature well-formed */
-#endif
 }
 
 } // namespace vllm_ascend

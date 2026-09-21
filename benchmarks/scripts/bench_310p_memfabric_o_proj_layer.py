@@ -1,23 +1,33 @@
 # SPDX-License-Identifier: Apache-2.0
-"""310P3 TP=2 unquantized-BF16 o_proj single-layer correctness benchmark.
+"""310P3 TP=2 unquantized FP16 o_proj single-layer correctness benchmark.
 
-Compares the Phase-1 MemFabric fused path against the stock unquantized
-reference on one dual-die 310P3 (owner decision A, 2026-09-18: the target
-checkpoint keeps full-attention o_proj as FLOAT/BF16):
+Compares the fused MemFabric V5 path against the stock unquantized reference
+on one dual-die 310P3 (owner decision A, 2026-09-18: the target checkpoint
+keeps full-attention o_proj as FLOAT; the model runs FP16 on 310P):
 
   reference = full-M F.linear(local, weight) + TP=2 allreduce (FP32 math)
-  fused     = tiled F.linear + MemFabric exchange + local reduce
+  fused     = one fused AscendC FP16 matmul per wave writing the symmetric
+              send arena directly (matmul -> line-clean -> mailbox signal),
+              AICPU/SDMA exchange, waiter kernel (quiet + wait), stream-
+              ordered add_out reduce
 
-The fused path is the production entry point used by
-``MemFabricOProjLinearMethod310.apply`` for target full-attention o_proj
-layers. Semantics under test: BF16 activation, 310P FRACTAL_NZ runtime weight
-layout (via the stock unquantized process_weights path), BF16 output, and the
-BF16 -> F32 add -> BF16 round reduce kernel.
+V5 integration constraints honored by this benchmark (see the development
+plan P5 notes):
+
+  1. While the MemFabric pool exists, a perpetual AICPU epoch kernel is
+     alive; any device-wide synchronize (torch.npu.synchronize) would wait
+     for it forever. All fused-phase waits therefore use
+     ``torch.npu.current_stream().synchronize()`` only.
+  2. Pool lifetime must stay well under the epoch launch-timeout window
+     (~25 s on this box). All HCCL reference work therefore happens in a
+     first pass *before* the pool is created (the pool is created lazily by
+     the first fused call).
 
 Run:
 
-  VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 \
   ASCEND_RT_VISIBLE_DEVICES=0,1 \
+  VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 \
+  MF_SDMA_ORCH_JSON=<prefix>/hybm/aicpu_kernel/libmf_sdma_orch_v6.json \
   torchrun --standalone --nproc-per-node=2 \
     benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py
 """
@@ -25,15 +35,17 @@ Run:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
+import time
 import types
 
 import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import torch_npu  # noqa: F401
-
 import vllm_ascend.vllm_ascend_C  # noqa: F401  (registers the _C_ascend ops)
+
 from vllm_ascend._310p.ops.memfabric_o_proj import memfabric_o_proj_allreduce
 from vllm_ascend.utils import maybe_trans_nz
 
@@ -66,14 +78,17 @@ def _reference(layer, x):
     return y.to(torch.float16)
 
 
+def _stream_sync() -> None:
+    # Never torch.npu.synchronize() here: the perpetual V5 epoch AICPU task
+    # would make a device-wide sync hang (see module docstring).
+    torch.npu.current_stream().synchronize()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rows", type=int, nargs="+",
-                        default=[1, 8, 32, 33, 64, 128, 512, 2048])
-    parser.add_argument("--tile-m", type=int,
-                        default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")))
-    parser.add_argument("--repeat", type=int, default=20,
-                        help="repeated fused calls per rows value")
+    parser.add_argument("--rows", type=int, nargs="+", default=[1, 8, 32, 33, 64, 128, 512, 2048])
+    parser.add_argument("--tile-m", type=int, default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")))
+    parser.add_argument("--repeat", type=int, default=20, help="repeated fused calls per rows value")
     parser.add_argument("--atol", type=float, default=1e-3)
     parser.add_argument("--rtol", type=float, default=1e-3)
     args = parser.parse_args()
@@ -93,20 +108,35 @@ def main() -> None:
 
     layer = _make_layer(rank, device)
 
+    # ---- Pass 1: inputs + references (HCCL phase, pool does not exist yet).
+    # Deterministic inputs per rows value; identical seeds on both ranks keep
+    # the exchanged partials reproducible.
+    inputs: dict[int, torch.Tensor] = {}
+    refs: dict[int, torch.Tensor] = {}
     for rows in args.rows:
         if rows <= 0:
             raise ValueError(f"rows must be positive, got {rows}")
         torch.manual_seed(42 + rows)
         x = torch.randn(rows, K_LOCAL, dtype=torch.float16, device=device)
+        inputs[rows] = x
+        refs[rows] = _reference(layer, x)
+    # Device-wide sync is safe here (no pool / no epoch yet) and makes sure
+    # every reference is materialized before the fused phase starts.
+    torch.npu.synchronize()
+    dist.barrier()
 
-        ref = _reference(layer, x)
-        torch.npu.synchronize()
+    # ---- Pass 2: fused calls. The first call lazily creates the MemFabric
+    # pool; from here on only stream-level syncs are allowed.
+    pool_alive = False
+    for rows in args.rows:
+        x = inputs[rows]
+        ref = refs[rows]
 
-        import time
         t0 = time.perf_counter()
         fused = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
-        torch.npu.synchronize()
+        _stream_sync()
         fused_ms = (time.perf_counter() - t0) * 1e3
+        pool_alive = True
 
         diff = (fused.float() - ref.float()).abs()
         max_diff = diff.max().item()
@@ -119,18 +149,27 @@ def main() -> None:
             if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
                 n_bad += (out.float() - ref.float()).abs().numel()
                 ok = False
-        torch.npu.synchronize()
+        _stream_sync()
 
         verdict = "PASS" if ok else "FAIL"
         if rank == 0:
             print(f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{fused_ms:.3f}")
         if not ok:
-            raise AssertionError(
-                f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
+            raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 
-    torch.ops._C_ascend.memfabric_o_proj_shutdown()
-    dist.barrier()
-    dist.destroy_process_group()
+    # Exit contract on V5 (see development plan P5 notes): while the pool is
+    # alive, torch_npu HCCL collectives (barrier/allreduce) internally do a
+    # device-wide synchronize, which waits for the perpetual epoch AICPU task
+    # and dies with 507901 once the epoch launch-timeout kills it. The
+    # compute results are already validated per rank above, so after a
+    # best-effort pool shutdown the benchmark exits without any further
+    # collectives or device work.
+    if rank == 0:
+        print("ALL PASS", flush=True)
+    if pool_alive:
+        with contextlib.suppress(Exception):
+            torch.ops._C_ascend.memfabric_o_proj_shutdown()
+    os._exit(0)
 
 
 if __name__ == "__main__":

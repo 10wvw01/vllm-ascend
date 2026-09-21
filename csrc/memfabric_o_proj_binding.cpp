@@ -15,32 +15,16 @@
 
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {
-    /* Phase-1 staged pipeline used for correctness/overlap validation. */
+    /* Fused o_proj matmul + TP=2 reduction on the customized V5 MemFabric
+     * (signal/wait/quiet mailbox rings). The op is always registered; on
+     * builds without the MemFabric feature it raises a clear error. */
     ops.def(
-        "memfabric_o_proj_begin("
-        "Tensor x, int tp_rank, int tile_m, int chunks) -> (Tensor send, Tensor recv)");
+        "memfabric_direct_o_proj_allreduce("
+        "Tensor x, Tensor weight, int tp_rank, int tile_m) -> Tensor");
     ops.impl(
-        "memfabric_o_proj_begin",
+        "memfabric_direct_o_proj_allreduce",
         torch::kPrivateUse1,
-        &vllm_ascend::memfabric_o_proj_begin);
-
-    ops.def("memfabric_o_proj_publish(Tensor send, int chunk_idx) -> ()");
-    ops.impl(
-        "memfabric_o_proj_publish",
-        torch::kPrivateUse1,
-        &vllm_ascend::memfabric_o_proj_publish);
-
-    ops.def("memfabric_o_proj_finish(Tensor recv) -> ()");
-    ops.impl(
-        "memfabric_o_proj_finish",
-        torch::kPrivateUse1,
-        &vllm_ascend::memfabric_o_proj_finish);
-
-    ops.def("memfabric_o_proj_mark_failed(Tensor recv, str reason) -> ()");
-    ops.impl(
-        "memfabric_o_proj_mark_failed",
-        torch::kPrivateUse1,
-        &vllm_ascend::memfabric_o_proj_mark_failed);
+        &vllm_ascend::memfabric_direct_o_proj_allreduce);
 
     /* Deterministic worker-lifetime teardown (also auto-registered via
      * atexit on first context creation). The schema is declared once and
@@ -56,14 +40,11 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         c10::DispatchKey::CompositeExplicitAutograd,
         &vllm_ascend::memfabric_o_proj_shutdown);
 
-    /* Reserved phase-2 single opaque op for the direct AscendC BF16
-     * matmul->SHM producer (owner decision A: unquantized BF16 o_proj). */
-    ops.def(
-        "memfabric_direct_o_proj_allreduce("
-        "Tensor x, Tensor weight, int tp_rank, int tile_m) -> Tensor");
+    /* Debug-only live mailbox snapshot (see torch_adpt.h). */
+    ops.def("memfabric_o_proj_debug_snapshot() -> Tensor");
     ops.impl(
-        "memfabric_direct_o_proj_allreduce",
-        torch::kPrivateUse1,
-        &vllm_ascend::memfabric_direct_o_proj_allreduce);
+        "memfabric_o_proj_debug_snapshot",
+        c10::DispatchKey::CompositeExplicitAutograd,
+        &vllm_ascend::memfabric_o_proj_debug_snapshot);
 }
 #endif

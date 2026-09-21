@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_o_proj.py"
+ENVS = ROOT / "vllm_ascend" / "envs.py"
 W8A8 = ROOT / "vllm_ascend" / "_310p" / "quantization" / "methods" / "w8a8_static.py"
 MODELSLIM = ROOT / "vllm_ascend" / "_310p" / "quantization" / "modelslim_config.py"
 BINDING = ROOT / "csrc" / "memfabric_o_proj_binding.cpp"
@@ -70,41 +71,49 @@ def test_modelslim_router_dispatches_eligible_float_layer() -> None:
     assert "return AscendUnquantizedLinearMethod()" in src
 
 
-def test_phase1_pipeline_is_mm_then_publish_then_single_join() -> None:
+def test_fused_op_is_the_single_python_route() -> None:
+    """V5: the staged begin/publish/finish pipeline is gone; the fused op is
+    the only route and the phase-2 opt-in env no longer exists."""
     src = _src(_func(HELPER, "memfabric_o_proj_allreduce"))
-    # Same op as the unquantized fallback, so numerics match exactly.
-    assert "F.linear(x_tile, layer.weight.data)" in src
-    assert "send_tile.narrow(0, 0, rows).copy_(y_tile)" in src
-    assert "publish(send, int(chunk_idx))" in src
-    assert "finish(recv)" in src
-    assert src.index("publish(send, int(chunk_idx))") < src.index("finish(recv)")
-    assert "mark_failed(recv, str(exc))" in src
-
-
-def test_cpp_binding_registers_staged_pipeline_and_failure_marker() -> None:
-    src = BINDING.read_text()
-    assert "TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)" in src
-    for name in (
+    assert "memfabric_direct_o_proj_allreduce" in src
+    assert "layer.weight.data" in src
+    assert "F.linear" not in src
+    module_src = HELPER.read_text()
+    for op in (
         "memfabric_o_proj_begin",
         "memfabric_o_proj_publish",
         "memfabric_o_proj_finish",
         "memfabric_o_proj_mark_failed",
     ):
-        assert name in src
+        assert op not in module_src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_DIRECT" not in ENVS.read_text()
+
+
+def test_cpp_binding_registers_fused_op_and_shutdown() -> None:
+    src = BINDING.read_text()
+    assert "TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)" in src
+    assert "memfabric_direct_o_proj_allreduce" in src
+    assert "memfabric_o_proj_shutdown" in src
     assert "torch::kPrivateUse1" in src
+    for op in (
+        "memfabric_o_proj_begin",
+        "memfabric_o_proj_publish",
+        "memfabric_o_proj_finish",
+        "memfabric_o_proj_mark_failed",
+    ):
+        assert op not in src
 
 
 def test_runtime_directly_calls_internal_adapter_without_dlopen() -> None:
     src = RUNTIME.read_text()
     assert "mf310p_create(" in src
-    assert "mf310p_prepare_wave(" in src
-    assert "mf310p_submit_wave(" in src
-    assert "mf310p_wait_wave(" in src
+    assert "mf310p_join_previous_call(" in src
+    assert "mf310p_direct_producer_async(" in src
+    assert "mf310p_wait_mails_async(" in src
     assert "dlopen" not in src
     assert "dlsym" not in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_ADAPTER_SO" not in src
     assert "poisoned" in src
-    assert "memfabric_o_proj_mark_failed" in src
 
 
 def test_custom_memfabric_headers_are_isolated_to_internal_adapter() -> None:
@@ -117,11 +126,12 @@ def test_custom_memfabric_headers_are_isolated_to_internal_adapter() -> None:
         assert f"#include <{header}>" in adapter
     # The device cooperation header pulls in AscendC (kernel_operator.h) and is
     # only compilable by the bisheng device toolchain, so it must never leak
-    # into host sources; the workspace constants it defines reach the adapter
-    # through smem_shm.h.
-    assert "#include <smem_shm_aicore_sdma.h>" not in runtime
-    assert "#include <smem_shm_aicore_sdma.h>" not in adapter
-    assert '#include "smem_shm_aicore_sdma.h"' in device
+    # into host sources. V5 renamed it to smem_shm_aicore_base_sdma.h.
+    assert "#include <smem_shm_aicore_base_sdma.h>" not in runtime
+    assert "#include <smem_shm_aicore_base_sdma.h>" not in adapter
+    assert '#include "smem_shm_aicore_base_sdma.h"' in device
+    # The V4 workspace header must not come back.
+    assert "smem_shm_aicore_sdma.h" not in device
 
 
 def test_build_links_only_explicit_wgm_dev_310p_install() -> None:
@@ -134,6 +144,14 @@ def test_build_links_only_explicit_wgm_dev_310p_install() -> None:
     assert "memfabric310p_adapter.cpp" in src
     assert "target_link_libraries" in src
     assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ" in src
+    # V5 split layout: host headers under smem/include/host, device headers
+    # under smem/include/device, epoch launch json under hybm/aicpu_kernel.
+    assert "smem/include/host" in src
+    assert "smem/include/device" in src
+    assert "libmf_sdma_orch_v6.json" in src
+    # MF_SDMA_ORCH_JSON must be provided explicitly (auto-discovery assumes a
+    # flat lib64 layout and the kfc fallback channel is dead on the target).
+    assert "MF_SDMA_ORCH_JSON" in src
 
 
 def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
@@ -141,36 +159,116 @@ def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
     assert "ctx->layout.send_arena = own_segment" in src
     assert "ctx->layout.recv_arena = own_segment + arena_bytes" in src
     assert "ctx->layout.peer_recv_arena = peer_segment + arena_bytes" in src
+    # V5: kernels need the pool base (gva), not a V4 workspace.
+    assert "ctx->layout.pool_base = reinterpret_cast<uint64_t>(gva)" in src
+    # V5 reserved tail is the 48 KiB mailbox-ring region.
+    assert "kSdmaReservedRegionSize = 48ULL * 1024ULL" in src
 
 
-def test_device_pipeline_uses_notify_poll_and_recv_inplace_reduce() -> None:
+def test_adapter_join_is_stream_sync_then_control_barrier() -> None:
+    """Cross-call arena-reuse race regression: both ranks must finish every
+    arena access (including the reduced-output add reading recv) before
+    either rank's next-wave signals may overwrite the peer's recv arena."""
+    src = ADAPTER.read_text()
+    impl = src[src.index("mf310p_join_previous_call") :]
+    assert impl.index("aclrtSynchronizeStream") < impl.index("smem_shm_control_barrier")
+
+
+def test_device_pipeline_uses_signal_wait_quiet_and_host_add() -> None:
     src = DEVICE.read_text()
-    assert "smem_shm_sdma_notify" in src
-    assert "smem_shm_sdma_poll_flag" in src
-    # Reduce is FP16 -> F32 add -> FP16 round via native conversion helpers.
-    assert "recv[i] = Mf310pFloatToFp16(lhs + rhs)" in src
-    assert "Mf310pCleanWords" in src
+    # V5 mailbox-ring epoch API replaces notify/poll_flag.
+    assert "smem_shm_sdma_signal_at" in src
+    assert "smem_shm_sdma_wait_at" in src
+    assert "smem_shm_sdma_quiet_at" in src
+    assert "smem_shm_sdma_reserved" in src
+    assert "smem_shm_sdma_notify" not in src
+    assert "smem_shm_sdma_poll_flag" not in src
+    # The reduction moved to the host stream (torch add_out), so the V4
+    # in-kernel FP16 reduce helpers are gone.
+    assert "Mf310pFp16ToFloat" not in src
+    assert "at::add_out" in RUNTIME.read_text()
 
 
-def test_device_reduce_is_gated_by_produced_and_arrival_flags() -> None:
-    """Real-machine race regression: the reduce must not read send[c] before
-    the local producer wrote it (produced gate on the mailbox slot words) and
-    must invalidate send on its own core across waves (arena reuse)."""
+def test_device_waiter_is_quiet_then_ordered_waits() -> None:
     src = DEVICE.read_text()
-    assert "produced gate" in src
-    assert "arrival gate" in src
-    # Polls the mailbox slot's words field (offset +8) as the produced gate.
-    assert "mailbox + static_cast<uint64_t>(c) * SMEM_SHM_SDMA_WS_MAILBOX_SLOT_SIZE +" in src
-    assert "sizeof(uint64_t)" in src
-    # Cross-wave cache invalidation of the send chunk before reading.
-    assert "Invalidate send on this core before reading" in src
+    waiter = src[src.index("mf310pWaitKernel") :]
+    assert waiter.index("smem_shm_sdma_quiet_at") < waiter.index("smem_shm_sdma_wait_at")
+    assert "SMEM_SHM_SDMA_MAIL_OK" in waiter
+    assert "chunks == 0" in waiter  # side-effect-free warmup shape
 
 
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
     src = ADAPTER_API.read_text()
-    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 2u" in src
-    assert "mf310p_prepare_wave" in src
+    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 3u" in src
+    assert "mf310p_join_previous_call" in src
+    assert "mf310p_direct_producer_async" in src
+    assert "mf310p_wait_mails_async" in src
     assert "smem_shm_t" not in src
     assert "smem_shm_config_t" not in src
     assert "mf310p_context_t" in src
     assert "mf310p_layout_t" in src
+    assert "pool_base" in src
+    # The V4 wave/workspace ABI is fully removed.
+    for gone in (
+        "mf310p_prepare_wave",
+        "mf310p_submit_wave",
+        "mf310p_wait_wave",
+        "mf310p_publish_chunk_async",
+        "mf310p_launch_reduce_consumer_async",
+        "arrival_flags",
+    ):
+        assert gone not in src
+
+
+def test_fused_runtime_keeps_wave_protocol_and_producer_order() -> None:
+    src = RUNTIME.read_text()
+    impl = src[src.index("memfabric_direct_o_proj_allreduce_impl") :]
+    # Wave protocol: join -> warmup -> producer(s) -> waiter -> add_out, all
+    # on the current stream with no host syncs between chunks.
+    assert impl.index("mf310p_join_previous_call") < impl.index("mf310p_direct_producer_async")
+    assert impl.index("mf310p_direct_producer_async") < impl.index("mf310p_wait_mails_async")
+    assert impl.index("mf310p_wait_mails_async") < impl.index("at::add_out")
+    # The partial tail chunk never reads beyond x: it stages into a scratch
+    # copy and the untouched slot rows are zeroed deterministically.
+    assert "aclrtMemcpyAsync" in impl
+    assert "producer_scratch" in impl
+    # First-launch warmup per M-bucket (dav-2002 silent binary-load quirk).
+    assert "warm_producer_bucket_locked" in impl
+    assert "mf310p_warmup_producer_async" in src
+    assert "warm_waiter_locked" in impl
+    assert "mf310p_warmup_waiter_async" in src
+    # A failed wave poisons the runtime (restart both TP workers).
+    assert "state.poisoned = true" in impl
+
+
+def test_fused_device_producer_fuses_matmul_clean_signal() -> None:
+    src = DEVICE.read_text()
+    producer = src[src.index("Mf310pDirectProducerKernel") :]
+    # The bit-exact dav-2002 matmul recipe (see probe evidence): explicit
+    # runtime B transpose, UB local workspace for vec ND2NZ, static tilings
+    # with the small-M l1Size override, and line-clean + signal per chunk.
+    assert "mm.SetTensorB(bGm, true)" in producer
+    assert "mm.SetLocalWorkspace" in producer
+    assert "REGIST_MATMUL_OBJ" in producer
+    assert "mm.IterateAll(cGm)" in producer
+    assert "GetMatmulApiTiling" in src
+    assert "128 * 1024" in src  # small-M l1Size override
+    assert "kMf310pFunc = {false, true" in src  # enVecND2NZ
+    assert "SINGLE_CACHE_LINE" in src  # 64B-line clean posture
+    assert "Mf310pCleanRegion(slot, chunkBytes)" in producer
+    assert "smem_shm_sdma_signal_at" in producer
+    assert "peerRecvArena" in producer
+    # chunk_count == 0 is the side-effect-free warmup shape.
+    assert "chunkCount == 0" in producer
+
+
+def test_fused_adapter_validates_bucket_and_slot_capacity() -> None:
+    api = ADAPTER_API.read_text()
+    adapter = ADAPTER.read_text()
+    assert "mf310p_direct_producer_async" in api
+    assert "mf310p_warmup_producer_async" in api
+    assert "mf310p_warmup_waiter_async" in api
+    assert "is_valid_producer_bucket" in adapter
+    # The kernel writes m_bucket rows into a tile_m-row slot.
+    assert "kOProjWidthElems * sizeof(uint16_t) >" in adapter
+    assert "a_advance_rows < m_bucket" in adapter

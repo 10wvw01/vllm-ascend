@@ -1,5 +1,6 @@
 /*
- * Bridge for the installed wgm-dev-310p MemFabric implementation.
+ * Bridge for the installed wgm-dev-310p MemFabric implementation (V5,
+ * origin/wgm-dev-310p mailbox-ring epoch API).
  * This file intentionally includes the customized MemFabric headers; the main
  * vllm_ascend_C extension does not.
  */
@@ -17,40 +18,52 @@
 namespace {
 
 /*
- * Workspace/mailbox layout constants mirrored from the device-side header
- * smem_shm_aicore_sdma.h (kSdmaWsMailboxRegionSize and
- * kSdmaFlagRegionSize). The device header pulls the AscendC
- * kernel environment (kernel_operator.h) and cannot be included from host
- * code compiled with the regular toolchain; the customized MemFabric host
- * implementation mirrors these constants the same way. CMake still verifies
- * that the header exists in the selected install as a build-input contract.
+ * V5 reserved tail of each rank's physical segment hosting the SDMA mailbox
+ * rings (request ring + arrival ring; see smem_shm_sdma_layout.h). The
+ * layout header is device-oriented but layout-only; mirror the constant the
+ * same way the customized MemFabric host implementation does. CMake verifies
+ * the header exists in the selected install as a build-input contract.
  */
-constexpr uint64_t kSdmaWsMailboxRegionSize = 1024;            /* 64 slots x 16B */
-constexpr uint64_t kSdmaFlagRegionSize = 2ULL * 1024ULL * 1024ULL; /* per-rank reserved tail */
+constexpr uint64_t kSdmaReservedRegionSize = 48ULL * 1024ULL;
 
 /* Implemented by memfabric310p_device.asc and compiled with the customized
  * MemFabric/AscendC toolchain. */
-extern "C" int mf310p_device_publish_chunk_async(
-    void* workspace,
+extern "C" int mf310p_device_launch_direct_producer_async(
+    uint64_t pool_base,
+    uint64_t x,
+    uint64_t w,
     uint64_t send_arena,
-    uint32_t chunk_idx,
+    uint64_t peer_recv_arena,
+    uint32_t m_bucket,
+    uint32_t first_chunk,
+    uint32_t chunk_count,
+    uint32_t a_advance_rows,
     uint64_t chunk_bytes,
-    uint64_t valid_bytes,
     aclrtStream stream);
 
-extern "C" int mf310p_device_launch_reduce_consumer_async(
-    uint64_t workspace,
-    uint64_t send_arena,
-    uint64_t recv_arena,
-    uint64_t arrival_flags,
+extern "C" int mf310p_device_wait_mails_async(
+    uint64_t pool_base,
     uint32_t chunks,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_producer_async(
+    uint64_t pool_base,
+    uint32_t m_bucket,
     uint64_t chunk_bytes,
     aclrtStream stream);
 
-constexpr uint64_t kFlagBytes =
-    static_cast<uint64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * sizeof(uint64_t);
+extern "C" int mf310p_device_warmup_waiter_async(
+    uint64_t pool_base,
+    aclrtStream stream);
 
-int clear_local_wave_state(mf310p_context_t* ctx);
+/* o_proj output width shared by the fused producer kernels (FP16 elements).
+ * The whole phase-2 path is deliberately o_proj-geometry-specific. */
+constexpr uint32_t kOProjWidthElems = 2048;
+
+bool is_valid_producer_bucket(uint32_t m_bucket)
+{
+    return m_bucket >= 16 && m_bucket <= 4096 && (m_bucket & (m_bucket - 1)) == 0;
+}
 
 } // namespace
 
@@ -61,30 +74,6 @@ struct mf310p_context {
     smem_shm_t shm = nullptr;
     mf310p_layout_t layout{};
 };
-
-namespace {
-
-int clear_local_wave_state(mf310p_context_t* ctx)
-{
-    void* workspace = reinterpret_cast<void*>(ctx->layout.sdma_workspace);
-    aclError acl_ret = aclrtMemset(
-        workspace,
-        kSdmaWsMailboxRegionSize,
-        0,
-        kSdmaWsMailboxRegionSize);
-    if (acl_ret != ACL_SUCCESS) {
-        return static_cast<int>(acl_ret);
-    }
-
-    acl_ret = aclrtMemset(
-        reinterpret_cast<void*>(ctx->layout.arrival_flags),
-        kFlagBytes,
-        0,
-        kFlagBytes);
-    return acl_ret == ACL_SUCCESS ? 0 : static_cast<int>(acl_ret);
-}
-
-} // namespace
 
 extern "C" uint32_t mf310p_adapter_abi_version(void)
 {
@@ -164,11 +153,10 @@ extern "C" int mf310p_create(
     const uint64_t peer_segment =
         reinterpret_cast<uint64_t>(gva) + symmetric_size * (1 - rank);
 
-    /* send + recv/final + MemFabric reserved flag region must fit in one
+    /* send + recv/final + the V5 SDMA mailbox reserved tail must fit in one
      * physical contribution. The two arenas use identical offsets on both
-     * ranks, which lets submit_wave point directly at peer recv_arena. */
-    if (2 * arena_bytes + kSdmaFlagRegionSize > local_size ||
-        kFlagBytes > kSdmaFlagRegionSize) {
+     * ranks, which lets the producer signal directly at peer recv_arena. */
+    if (2 * arena_bytes + kSdmaReservedRegionSize > local_size) {
         smem_shm_destroy(ctx->shm, 0);
         smem_shm_uninit(0);
         smem_uninit();
@@ -176,6 +164,9 @@ extern "C" int mf310p_create(
         return -4;
     }
 
+    /* V5 host-side readiness check: the only data-plane query left. NULL
+     * means the AICPU epoch kernel is not ready (e.g. the launch json was
+     * not found). */
     void* workspace = smem_shm_sdma_get_workspace(ctx->shm);
     if (workspace == nullptr) {
         smem_shm_destroy(ctx->shm, 0);
@@ -185,16 +176,14 @@ extern "C" int mf310p_create(
         return -5;
     }
 
+    ctx->layout.pool_base = reinterpret_cast<uint64_t>(gva);
     ctx->layout.own_segment = own_segment;
     ctx->layout.peer_segment = peer_segment;
     ctx->layout.symmetric_size = symmetric_size;
+    ctx->layout.local_size = local_size;
     ctx->layout.send_arena = own_segment;
     ctx->layout.recv_arena = own_segment + arena_bytes;
     ctx->layout.peer_recv_arena = peer_segment + arena_bytes;
-    ctx->layout.arrival_flags =
-        own_segment + local_size - kSdmaFlagRegionSize;
-    ctx->layout.peer_arrival_flags =
-        peer_segment + local_size - kSdmaFlagRegionSize;
     ctx->layout.sdma_workspace = reinterpret_cast<uint64_t>(workspace);
     ctx->layout.arena_bytes = arena_bytes;
     ctx->layout.chunk_bytes = chunk_bytes;
@@ -231,86 +220,53 @@ extern "C" int mf310p_get_layout(
     return 0;
 }
 
-extern "C" int mf310p_prepare_wave(mf310p_context_t* ctx)
+extern "C" int mf310p_join_previous_call(mf310p_context_t* ctx, void* acl_stream)
 {
-    if (ctx == nullptr) {
+    if (ctx == nullptr || acl_stream == nullptr) {
         return -1;
     }
-
-    /*
-     * Barrier #1 prevents one rank from clearing a flag while the peer is
-     * still finishing the previous wave.  This is a wave-boundary operation;
-     * there is no synchronization added to the tile pipeline itself.
-     */
-    int ret = smem_shm_control_barrier(ctx->shm);
-    if (ret != 0) {
-        return ret;
+    aclError ret = aclrtSynchronizeStream(
+        reinterpret_cast<aclrtStream>(acl_stream));
+    if (ret != ACL_SUCCESS) {
+        return static_cast<int>(ret);
     }
-
-    ret = clear_local_wave_state(ctx);
-    if (ret != 0) {
-        return ret;
-    }
-
-    /*
-     * Barrier #2 prevents a fast rank from submitting/publishing the new wave
-     * before the peer has cleared its local arrival flags.  Without this, a
-     * fresh peer notification could be erased by a late local memset.
-     */
     return smem_shm_control_barrier(ctx->shm);
 }
 
-extern "C" int mf310p_submit_wave(mf310p_context_t* ctx, uint32_t chunks)
-{
-    if (ctx == nullptr || chunks == 0 || chunks > ctx->layout.max_chunks) {
-        return -1;
-    }
-    return smem_shm_sdma_submit(
-        ctx->shm,
-        reinterpret_cast<void*>(ctx->layout.peer_recv_arena),
-        reinterpret_cast<void*>(ctx->layout.peer_arrival_flags),
-        chunks);
-}
-
-extern "C" int mf310p_wait_wave(mf310p_context_t* ctx)
-{
-    return ctx == nullptr ? -1 : smem_shm_sdma_wait(ctx->shm);
-}
-
-extern "C" int mf310p_get_result(
+extern "C" int mf310p_direct_producer_async(
     mf310p_context_t* ctx,
-    uint32_t* main_ret,
-    uint32_t* stage,
-    uint32_t* sq_head)
-{
-    if (ctx == nullptr || main_ret == nullptr || stage == nullptr ||
-        sq_head == nullptr) {
-        return -1;
-    }
-    return smem_shm_sdma_get_result(ctx->shm, main_ret, stage, sq_head);
-}
-
-extern "C" int mf310p_publish_chunk_async(
-    mf310p_context_t* ctx,
-    uint32_t chunk_idx,
-    uint64_t valid_bytes,
+    uint64_t x,
+    uint64_t w,
+    uint32_t m_bucket,
+    uint32_t first_chunk,
+    uint32_t chunk_count,
+    uint32_t a_advance_rows,
     void* acl_stream)
 {
-    if (ctx == nullptr || acl_stream == nullptr ||
-        chunk_idx >= ctx->layout.max_chunks || valid_bytes == 0 ||
-        valid_bytes > ctx->layout.chunk_bytes || (valid_bytes % 4) != 0) {
+    if (ctx == nullptr || acl_stream == nullptr || x == 0 || w == 0 ||
+        !is_valid_producer_bucket(m_bucket) || chunk_count == 0 ||
+        static_cast<uint64_t>(first_chunk) + chunk_count >
+            ctx->layout.max_chunks ||
+        static_cast<uint64_t>(m_bucket) * kOProjWidthElems * sizeof(uint16_t) >
+            ctx->layout.chunk_bytes ||
+        (chunk_count > 1 && a_advance_rows < m_bucket)) {
         return -1;
     }
-    return mf310p_device_publish_chunk_async(
-        reinterpret_cast<void*>(ctx->layout.sdma_workspace),
+    return mf310p_device_launch_direct_producer_async(
+        ctx->layout.pool_base,
+        x,
+        w,
         ctx->layout.send_arena,
-        chunk_idx,
+        ctx->layout.peer_recv_arena,
+        m_bucket,
+        first_chunk,
+        chunk_count,
+        a_advance_rows,
         ctx->layout.chunk_bytes,
-        valid_bytes,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 
-extern "C" int mf310p_launch_reduce_consumer_async(
+extern "C" int mf310p_wait_mails_async(
     mf310p_context_t* ctx,
     uint32_t chunks,
     void* acl_stream)
@@ -319,12 +275,36 @@ extern "C" int mf310p_launch_reduce_consumer_async(
         chunks > ctx->layout.max_chunks) {
         return -1;
     }
-    return mf310p_device_launch_reduce_consumer_async(
-        ctx->layout.sdma_workspace,
-        ctx->layout.send_arena,
-        ctx->layout.recv_arena,
-        ctx->layout.arrival_flags,
+    return mf310p_device_wait_mails_async(
+        ctx->layout.pool_base,
         chunks,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_producer_async(
+    mf310p_context_t* ctx,
+    uint32_t m_bucket,
+    void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr ||
+        !is_valid_producer_bucket(m_bucket) ||
+        static_cast<uint64_t>(m_bucket) * kOProjWidthElems * sizeof(uint16_t) >
+            ctx->layout.chunk_bytes) {
+        return -1;
+    }
+    return mf310p_device_warmup_producer_async(
+        ctx->layout.pool_base,
+        m_bucket,
         ctx->layout.chunk_bytes,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_waiter_async(mf310p_context_t* ctx, void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_warmup_waiter_async(
+        ctx->layout.pool_base,
         reinterpret_cast<aclrtStream>(acl_stream));
 }

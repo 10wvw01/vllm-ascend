@@ -21,29 +21,39 @@ extern "C" {
  * wgm-dev-310p MemFabric implementation. Nothing in this header depends on
  * MemFabric headers.
  *
+ * ABI v3 targets the V5 MemFabric (origin/wgm-dev-310p mailbox-ring epoch
+ * API): kernels drive the AICPU orchestrator themselves via
+ * smem_shm_sdma_signal_at/wait_at/quiet_at and only need the symmetric pool
+ * base (gva), so the V4 workspace/mailbox/arrival-flag plumbing is gone.
+ *
  * The bridge may change internally when the customized MemFabric changes;
  * vllm-ascend only depends on this small C ABI.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 2u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 3u
 #define VLLM_ASCEND_MF310P_MAX_CHUNKS 64u
 
 typedef struct mf310p_context mf310p_context_t;
 
 typedef struct mf310p_layout {
+    /* Symmetric pool base (gva). Kernels derive their own reserved-region
+     * handle from it via smem_shm_sdma_reserved(); host code must not. */
+    uint64_t pool_base;
+
     uint64_t own_segment;
     uint64_t peer_segment;
     uint64_t symmetric_size;
+    /* This rank's physical contribution (the reserved tail sits at
+     * own_segment + local_size - 48 KiB). Debug tooling uses it. */
+    uint64_t local_size;
 
     /* Two non-aliasing arenas in each rank's symmetric segment. */
     uint64_t send_arena;
     uint64_t recv_arena;
     uint64_t peer_recv_arena;
 
-    /* Arrival flags are local; peer_arrival_flags is the SDMA notify target. */
-    uint64_t arrival_flags;
-    uint64_t peer_arrival_flags;
-
-    /* Device-side AICore/AICPU cooperation workspace owned by MemFabric. */
+    /* Device-side SDMA mailbox rings owned by the MemFabric epoch kernel.
+     * Host-side value is only a readiness marker (non-zero once the epoch
+     * kernel is ready); there is no host data-plane access anymore. */
     uint64_t sdma_workspace;
 
     uint64_t arena_bytes;
@@ -71,51 +81,71 @@ int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
 /*
- * Prepare a reusable wave without racing peer notification:
+ * Join the previous call on both ranks before a new call may touch the
+ * arenas:
  *
- *   barrier #1  - both ranks have joined the previous wave;
- *   clear       - each rank clears its local mailbox and local arrival flags;
- *   barrier #2  - neither rank may submit/publish the new wave until both
- *                 ranks have completed the clear.
+ *   stream join - aclrtSynchronizeStream(acl_stream): every arena access the
+ *                 caller enqueued (including the reduced-output add that
+ *                 reads recv) has completed on this rank;
+ *   barrier     - smem_shm_control_barrier: both ranks reached that point.
  *
- * The barriers are only at wave boundaries; there is no barrier between tiles
- * inside a wave, so MM[t+1] remains independent of SDMA/reduce[t].
+ * Without the join, rank A's next-call signals could overwrite rank B's recv
+ * arena while B's host-side reduction still reads it (see the V5 migration
+ * notes in the development plan). The join is per call, never per chunk.
  */
-int mf310p_prepare_wave(mf310p_context_t* ctx);
+int mf310p_join_previous_call(mf310p_context_t* ctx, void* acl_stream);
 
 /*
- * Arm the AICPU/SDMA consumer for one wave. The bridge sends local send_arena
- * chunks to the peer's recv_arena and writes the peer arrival flags.
+ * Phase-2 direct producer. Enqueue the fused AscendC FP16 matmul
+ * (A ND [m_bucket, 2048] x B NZ [2048, 2048] transposed) that writes chunks
+ * [first_chunk, first_chunk + chunk_count) of the send arena directly.
+ * Per chunk: matmul -> line-clean -> smem_shm_sdma_signal_at toward the
+ * peer's recv arena, so the AICPU epoch kernel can move it while the kernel
+ * continues with the next chunk.
+ *
+ * m_bucket selects the static-tiling kernel instantiation (power of two in
+ * [16, 4096]) and must satisfy m_bucket * 2048 * 2 <= chunk_bytes (the slot
+ * capacity) and m_bucket >= valid rows of every chunk it covers. When
+ * chunk_count > 1, a_advance_rows (the x row stride between consecutive
+ * chunks, normally tile_m) must be >= m_bucket so chunk reads do not overlap.
  */
-int mf310p_submit_wave(mf310p_context_t* ctx, uint32_t chunks);
-int mf310p_wait_wave(mf310p_context_t* ctx);
-
-int mf310p_get_result(
+int mf310p_direct_producer_async(
     mf310p_context_t* ctx,
-    uint32_t* main_ret,
-    uint32_t* stage,
-    uint32_t* sq_head);
-
-/*
- * Enqueue a tiny AICore producer operation on the supplied ACL stream:
- *   clean(send chunk) -> smem_shm_sdma_notify(mailbox slot, src_gva, words)
- * The stream value is aclrtStream cast to void* to keep this ABI header-free.
- */
-int mf310p_publish_chunk_async(
-    mf310p_context_t* ctx,
-    uint32_t chunk_idx,
-    uint64_t valid_bytes,
+    uint64_t x,
+    uint64_t w,
+    uint32_t m_bucket,
+    uint32_t first_chunk,
+    uint32_t chunk_count,
+    uint32_t a_advance_rows,
     void* acl_stream);
 
 /*
- * Enqueue the local reduction consumer on a separate ACL stream. It polls each
- * local arrival flag and performs recv[chunk] += send[chunk] without modifying
- * send while the peer SDMA may still be reading it.
+ * Enqueue the waiter kernel on the supplied ACL stream:
+ *   smem_shm_sdma_quiet_at (all of this rank's signals landed at the peer)
+ *   -> smem_shm_sdma_wait_at x chunks (receive this rank's own mails).
+ *
+ * Everything enqueued after it on the same stream (e.g. the host-visible
+ * reduction of send + recv) may read both arenas safely.
  */
-int mf310p_launch_reduce_consumer_async(
+int mf310p_wait_mails_async(
     mf310p_context_t* ctx,
     uint32_t chunks,
     void* acl_stream);
+
+/*
+ * Side-effect-free warmup for one M-bucket producer instantiation: enqueues
+ * the chunk_count == 0 kernel shape (the kernel returns before touching any
+ * memory). On dav-2002 the first launch of each kernel symbol from a freshly
+ * loaded .so is a silent no-op, so callers must warm each bucket twice
+ * before its first real wave.
+ */
+int mf310p_warmup_producer_async(
+    mf310p_context_t* ctx,
+    uint32_t m_bucket,
+    void* acl_stream);
+
+/* Same warmup contract for the waiter kernel (chunks == 0 shape). */
+int mf310p_warmup_waiter_async(mf310p_context_t* ctx, void* acl_stream);
 
 #ifdef __cplusplus
 }

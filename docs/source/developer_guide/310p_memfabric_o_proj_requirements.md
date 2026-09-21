@@ -1,4 +1,4 @@
-# 310P3 Qwen3.6 BF16 o_proj + MemFabric 融合算子需求目标
+# 310P3 Qwen3.6 未量化 o_proj + MemFabric 融合算子需求目标
 
 > 本文是本功能的**需求基线和最终验收合同**。
 >
@@ -25,6 +25,15 @@
 > MemFabric SDMA、tile 级流水、ACL Graph、性能收益）不变。310P 实机已验证
 > BF16 matmul 可用。详见研发计划 4.11。
 
+> **修订记录二（2026-09-21，实机平台事实）**：本机 CANN 9.1.0 的 BF16
+> NZ linear 路径不可用（310P 上该 checkpoint 无 torch_dtype，vLLM 以 FP16
+> 运行；dav-2002 AICore 标量环境亦无 `bfloat16_t`），融合管线的
+> matmul/交换/规约**实际以 FP16 执行**。通信与数值语义目标（FP32 求和
+> 语义的单次 round、与 reference bit-exact、计算通信重叠、MemFabric
+> SDMA、tile 级流水、ACL Graph、性能收益）不变。同日 V5（epoch API）
+> 迁移完成：V4 kfc/workspace 协议相关条款由研发计划 §9.2 记录的实际
+> V5 契约取代。
+
 ## 1. 项目背景
 
 目标模型 `Eco-Tech/Qwen3.6-35B-A3B-w8a8` 在 Ascend 310P3 单卡双 die、Tensor Parallel=2 场景中，full-attention 的 `self_attn.o_proj` 为 RowParallel **未量化 BF16** 线性层（实机核查定论，见顶部修订记录）。
@@ -32,7 +41,7 @@
 正常路径可以抽象为：
 
 ```text
-local BF16 o_proj matmul
+local FP16 o_proj matmul
     -> materialize local partial output
     -> tensor-parallel allreduce
     -> final o_proj output
