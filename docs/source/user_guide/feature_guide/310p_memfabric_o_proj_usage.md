@@ -148,9 +148,9 @@ pytest -q tests/ut/_310p/test_memfabric_o_proj_source.py
 先跑这个，不要直接启动 35B：
 
 ```bash
-torchrun --standalone --nproc-per-node=2 \\
-  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \\
-  --rows 1 8 32 33 64 128 512 2048 4096 \\
+torchrun --standalone --nproc-per-node=2 \
+  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
+  --rows 1 8 32 33 64 128 512 2048 4096 \
   --repeat 20
 ```
 
@@ -163,11 +163,11 @@ torchrun --standalone --nproc-per-node=2 \\
 分析工具：
 
 ```bash
-python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \\
-  /path/to/task_time.csv \\
-  --rows 2048 \\
-  --tile-m 32 \\
-  --chunk-kib 128 \\
+python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \
+  /path/to/task_time.csv \
+  --rows 2048 \
+  --tile-m 32 \
+  --chunk-kib 128 \
   --bandwidth-gbps 20
 ```
 
