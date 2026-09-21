@@ -99,58 +99,43 @@ function(vllm_ascend_configure_310p_memfabric target)
         message(FATAL_ERROR "memfabric310p_device.asc not found: ${_mf_asc_src}")
     endif()
 
-    set(_mf_device_lib_override
-        "$ENV{VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY}")
-    if(NOT _mf_device_lib_override STREQUAL "")
-        if(NOT EXISTS "${_mf_device_lib_override}")
-            message(FATAL_ERROR
-                "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY does not exist: "
-                "${_mf_device_lib_override}")
-        endif()
-        set(_mf_device_lib "${_mf_device_lib_override}")
-    else()
-        find_program(BISHENG_COMPILER
-            NAMES bisheng
-            HINTS
-                "${ASCEND_HOME_PATH}/bin"
-                "${ASCEND_HOME_PATH}/compiler/aarch64-linux/bin"
-            NO_DEFAULT_PATH)
-        if(NOT BISHENG_COMPILER)
-            message(FATAL_ERROR
-                "bisheng compiler not found under ASCEND_HOME_PATH; it is "
-                "required for the dav-2002 fused device library.")
-        endif()
-
-        set(_mf_device_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_device.so")
-        add_custom_command(
-            OUTPUT "${_mf_device_lib}"
-            COMMAND ${BISHENG_COMPILER}
-                    --npu-arch=dav-2002 -O2 -std=c++17 -w
-                    -shared -fPIC
-                    -x asc "${_mf_asc_src}" -x none
-                    -o "${_mf_device_lib}"
-                    -I${ASCEND_HOME_PATH}/aarch64-linux/include
-                    -I${ASCEND_HOME_PATH}/aarch64-linux/ascendc/include
-                    -I${_mf_device_include}
-                    -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
-                    -lascendcl -lruntime -ldl -pthread -lm
-                    -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
-            DEPENDS "${_mf_asc_src}"
-            COMMENT
-                "Compiling 310P public-MemFabric fused device library (dav-2002)"
-            VERBATIM)
+    find_program(BISHENG_COMPILER
+        NAMES bisheng
+        HINTS
+            "${ASCEND_HOME_PATH}/bin"
+            "${ASCEND_HOME_PATH}/compiler/aarch64-linux/bin"
+        NO_DEFAULT_PATH)
+    if(NOT BISHENG_COMPILER)
+        message(FATAL_ERROR
+            "bisheng compiler not found under ASCEND_HOME_PATH; it is "
+            "required for the dav-2002 fused device library.")
     endif()
+
+    set(_mf_device_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_device.so")
+    add_custom_command(
+        OUTPUT "${_mf_device_lib}"
+        COMMAND ${BISHENG_COMPILER}
+                --npu-arch=dav-2002 -O2 -std=c++17 -w
+                -shared -fPIC
+                -x asc "${_mf_asc_src}" -x none
+                -o "${_mf_device_lib}"
+                -I${ASCEND_HOME_PATH}/aarch64-linux/include
+                -I${ASCEND_HOME_PATH}/aarch64-linux/ascendc/include
+                -I${_mf_device_include}
+                -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
+                -lascendcl -lruntime -ldl -pthread -lm
+                -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
+        DEPENDS "${_mf_asc_src}"
+        COMMENT
+            "Compiling 310P public-MemFabric fused device library (dav-2002)"
+        VERBATIM)
 
     target_sources(${target} PRIVATE
         "${_mf_custom_src_dir}/memfabric310p_adapter.cpp")
 
-    if(NOT _mf_device_lib_override STREQUAL "")
-        target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
-    else()
-        add_custom_target(mf310p_device_lib DEPENDS "${_mf_device_lib}")
-        add_dependencies(${target} mf310p_device_lib)
-        target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
-    endif()
+    add_custom_target(mf310p_device_lib DEPENDS "${_mf_device_lib}")
+    add_dependencies(${target} mf310p_device_lib)
+    target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
 
     target_include_directories(${target} PRIVATE
         "${_mf_custom_src_dir}"
