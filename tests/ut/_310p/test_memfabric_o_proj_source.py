@@ -119,21 +119,36 @@ def test_device_uses_only_public_memfabric_data_plane() -> None:
         assert private_variant not in src
 
 
-def test_phase_a_separates_multiblock_compute_from_single_publisher() -> None:
+def test_phase_b_uses_single_coordinator_with_mm_workers() -> None:
     src = DEVICE.read_text()
     producer = src[src.index("Mf310pDirectProducerKernel") :]
-    publisher = src[src.index("mf310pPublishKernel") :]
 
-    assert "GetBlockIdx()" in producer
+    assert "Block 0: single communication coordinator" in producer
+    assert "Blocks 1..workerCount" in producer
+    assert "Mf310pWaitReady(producerControl, i)" in producer
+    assert "smem_shm_sdma_signal(gva" in producer
     assert "mm.IterateAll(cGm)" in producer
     assert "Mf310pCleanRegion(slot, chunkBytes)" in producer
-    assert "smem_shm_sdma_signal(" not in producer[: producer.index("mf310pPublishKernel")]
+    assert "Mf310pWriteReady(producerControl, i)" in producer
+    assert "MF310P_PRODUCER_WORKERS = MF310P_PRODUCER_BLOCKS - 1" in src
+    assert "worker_count + 1" in src
+    assert "mf310pPublishKernel" not in src
 
-    assert "GetBlockIdx() != 0" in publisher
-    assert "smem_shm_sdma_signal(gva" in publisher
 
-    launch = src[src.index("#define MF310P_PRODUCER_LAUNCH_CASE") :]
-    assert launch.index("Mf310pDirectProducerKernel") < launch.index("mf310pPublishKernel")
+def test_coordinator_ready_flags_are_vllm_owned_and_cacheline_isolated() -> None:
+    device = DEVICE.read_text()
+    adapter = ADAPTER.read_text()
+
+    assert "MF310P_READY_STRIDE_BYTES = 64" in device
+    assert "kProducerReadyStrideBytes = 64ULL" in adapter
+    assert "kProducerControlBytes" in adapter
+    assert "aclrtMalloc(" in adapter
+    assert "ctx->producer_control" in adapter
+    assert "aclrtMemsetAsync(" in adapter
+    assert "reinterpret_cast<uint64_t>(ctx->producer_control)" in adapter
+    # Control memory is ordinary vLLM-owned device memory, not part of the
+    # MemFabric symmetric pool or adapter ABI.
+    assert "producer_control" not in ADAPTER_API.read_text()
 
 
 def test_waiter_and_wave_credit_use_public_mail_api() -> None:
