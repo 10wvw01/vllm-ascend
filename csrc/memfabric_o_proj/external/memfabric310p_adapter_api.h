@@ -125,6 +125,7 @@ int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
  */
 int mf310p_ack_async(mf310p_context_t* ctx, void* acl_stream);
 int mf310p_gate_async(mf310p_context_t* ctx, void* acl_stream);
+int mf310p_quiet_async(mf310p_context_t* ctx, void* acl_stream);
 
 int mf310p_warmup_protocol_async(mf310p_context_t* ctx, void* acl_stream);
 
