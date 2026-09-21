@@ -145,7 +145,7 @@ def test_device_uses_only_public_memfabric_data_plane() -> None:
         assert private_variant not in src
 
 
-def test_phase_b_uses_single_coordinator_with_mm_workers() -> None:
+def test_device_uses_single_coordinator_with_mm_workers() -> None:
     src = DEVICE.read_text()
     producer = src[src.index("Mf310pDirectProducerKernel") :]
 
@@ -281,8 +281,6 @@ def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
 
 def test_build_consumes_current_memfabric_public_package() -> None:
     src = MEMFABRIC_CMAKE.read_text()
-    envs_src = ENVS.read_text()
-
     assert "MEMFABRIC_HYBRID_HOME_PATH" in src
     assert "libmf_smem.so" in src
     assert "smem_shm_aicore_base_sdma.h" in src
@@ -292,8 +290,9 @@ def test_build_consumes_current_memfabric_public_package() -> None:
     assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ" in src
 
     # The current build always compiles the repository-owned .asc source.
-    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY" not in src
-    assert "VLLM_ASCEND_310P_MEMFABRIC_DEVICE_LIBRARY" not in envs_src
+    assert "find_program(BISHENG_COMPILER" in src
+    assert "add_custom_command(" in src
+    assert "mf310p_device_lib" in src
 
 
 def test_matmul_recipe_and_add_kernel_are_preserved() -> None:
