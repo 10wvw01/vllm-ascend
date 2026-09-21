@@ -135,20 +135,35 @@ def test_phase_b_uses_single_coordinator_with_mm_workers() -> None:
     assert "mf310pPublishKernel" not in src
 
 
-def test_coordinator_ready_flags_are_vllm_owned_and_cacheline_isolated() -> None:
+def test_coordinator_ready_flags_and_status_are_vllm_owned() -> None:
     device = DEVICE.read_text()
     adapter = ADAPTER.read_text()
 
     assert "MF310P_READY_STRIDE_BYTES = 64" in device
     assert "kProducerReadyStrideBytes = 64ULL" in adapter
     assert "kProducerControlBytes" in adapter
-    assert "aclrtMalloc(" in adapter
+    assert "kProtocolStatusBytes = 64ULL" in adapter
     assert "ctx->producer_control" in adapter
+    assert "ctx->protocol_status" in adapter
     assert "aclrtMemsetAsync(" in adapter
     assert "reinterpret_cast<uint64_t>(ctx->producer_control)" in adapter
-    # Control memory is ordinary vLLM-owned device memory, not part of the
-    # MemFabric symmetric pool or adapter ABI.
+    assert "reinterpret_cast<uint64_t>(ctx->protocol_status)" in adapter
+    # Both are ordinary vLLM-owned device memory and remain opaque to callers.
     assert "producer_control" not in ADAPTER_API.read_text()
+    assert "protocol_status" not in ADAPTER_API.read_text()
+
+
+def test_device_protocol_errors_fail_stop_instead_of_silent_return() -> None:
+    src = DEVICE.read_text()
+    assert "enum Mf310pProtocolStatus" in src
+    assert "MF310P_STATUS_READY_TIMEOUT" in src
+    assert "MF310P_STATUS_SIGNAL_FAILED" in src
+    assert "MF310P_STATUS_QUIET_FAILED" in src
+    assert "MF310P_STATUS_WAIT_FAILED" in src
+    assert "MF310P_STATUS_MAIL_MISMATCH" in src
+    assert "MF310P_STATUS_CREDIT_MISMATCH" in src
+    assert "MF310P_STATUS_ACK_FAILED" in src
+    assert "AscendC::Trap()" in src
 
 
 def test_waiter_and_wave_credit_use_public_mail_api() -> None:
@@ -157,15 +172,23 @@ def test_waiter_and_wave_credit_use_public_mail_api() -> None:
     waiter = src[src.index("mf310pWaitKernel") : src.index("mf310pAddKernel")]
     assert waiter.index("smem_shm_sdma_quiet(gva)") < waiter.index("smem_shm_sdma_wait(gva)")
     assert "SMEM_SHM_SDMA_MAIL_OK" in waiter
+    assert "m.dst != expectedDst" in waiter
+    assert "m.len != chunkBytes" in waiter
+    assert "m.imm != c" in waiter
+    assert "MF310P_STATUS_MAIL_MISMATCH" in waiter
 
-    ack = src[src.index("mf310pAckKernel") : src.index("#define MF310P_PRODUCER_LAUNCH_CASE")]
-    assert "smem_shm_sdma_signal(gva" in ack
-    assert "smem_shm_sdma_wait(gva)" in ack
+    protocol = src[src.index("mf310pAckKernel") : src.index("#define MF310P_PRODUCER_LAUNCH_CASE")]
+    assert "MF310P_CREDIT_TAG" in src
+    assert "smem_shm_sdma_signal(gva" in protocol
+    assert "smem_shm_sdma_wait(gva)" in protocol
+    assert "m.len != 8" in protocol
+    assert "m.imm != MF310P_CREDIT_TAG" in protocol
+    assert "MF310P_STATUS_CREDIT_MISMATCH" in protocol
 
 
-def test_adapter_abi_v5_is_application_only() -> None:
+def test_adapter_abi_v6_is_application_only() -> None:
     src = ADAPTER_API.read_text()
-    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 5u" in src
+    assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 6u" in src
     assert "mf310p_context_t" in src
     assert "mf310p_layout_t" in src
     assert "pool_base" in src
@@ -195,18 +218,32 @@ def test_adapter_uses_public_host_readiness_without_retaining_workspace() -> Non
     assert "ctx->layout.peer_recv_arena = peer_segment + arena_bytes" in src
 
 
-def test_runtime_has_no_memfabric_sequence_tracking_or_mailbox_dump() -> None:
+def test_adapter_uses_real_acl_device_id_and_prechecks_pool_layout() -> None:
+    src = ADAPTER.read_text()
+    assert "aclrtGetDevice(&device_id)" in src
+    assert "static_cast<uint16_t>(device_id)" in src
+    assert "static_cast<uint16_t>(rank)" not in src
+    assert src.index("if (app_bytes >= local_size)") < src.index("smem_shm_create(")
+
+
+def test_runtime_has_graph_safe_fixed_credit_and_single_stream_contract() -> None:
     src = RUNTIME.read_text()
     assert "posted_seqs" not in src
+    assert "wave_count" not in src
     assert "own_reserved" not in src
     assert "peer_reserved" not in src
     assert "kReqTail" not in src
     assert "kArrMail" not in src
 
-    assert "mf310p_direct_producer_async(" in src
-    assert "mf310p_wait_mails_async(" in src
-    assert "mf310p_add_async(" in src
+    assert "protocol_initialized" in src
+    assert "mf310p_init_credit_async(" in src
+    assert "mf310p_prepare_wave_async(" in src
+    assert "mf310p_gate_async(" in src
     assert "mf310p_ack_async(" in src
+    assert "bound_stream" in src
+    assert "single-stream by contract" in src
+    assert "aclrtSynchronizeStream(state.bound_stream)" in src
+    assert "resources intentionally leaked" in src
     assert "poisoned" in src
 
 
