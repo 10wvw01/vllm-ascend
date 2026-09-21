@@ -123,8 +123,8 @@ def test_phase_b_uses_single_coordinator_with_mm_workers() -> None:
     src = DEVICE.read_text()
     producer = src[src.index("Mf310pDirectProducerKernel") :]
 
-    assert "Block 0: single communication coordinator" in producer
-    assert "Blocks 1..workerCount" in producer
+    assert "if (block == 0)" in producer
+    assert "const uint32_t worker = block - 1" in producer
     assert "Mf310pWaitReady(producerControl, i)" in producer
     assert "smem_shm_sdma_signal(gva" in producer
     assert "mm.IterateAll(cGm)" in producer
@@ -265,6 +265,7 @@ def test_build_consumes_current_memfabric_public_package() -> None:
         "MF_SDMA_ORCH_JSON",
     ):
         assert legacy not in src
+        assert legacy not in ENVS.read_text()
 
 
 def test_matmul_recipe_and_add_kernel_are_preserved() -> None:
