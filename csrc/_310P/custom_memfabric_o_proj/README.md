@@ -64,7 +64,7 @@ chunk 的 SDMA 完成，目标是 `MM(later) || SDMA(earlier)`。
 4. 数据 `signal()` 只由 coordinator block 发起。
 5. data/credit mail 都必须校验 `status/dst/len/imm`。
 6. 协议异常写入 vLLM-owned status 并 `AscendC::Trap()`，不得继续 add/ack。
-7. correctness 不依赖 host `wave_count`；wave 复用由 fixed credit 保护。
+7. correctness 由 fixed credit 保证；wave 复用由 fixed credit 保护。
 8. eager context 只允许一个执行 stream；ACL Graph capture side stream 是
    framework-managed 例外。
 9. Graph capture 前必须完成 context、scratch、protocol 和需要的 bucket warmup。
