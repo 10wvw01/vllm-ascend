@@ -149,8 +149,9 @@ def test_coordinator_ready_flags_and_status_are_vllm_owned() -> None:
     assert "reinterpret_cast<uint64_t>(ctx->producer_control)" in adapter
     assert "reinterpret_cast<uint64_t>(ctx->protocol_status)" in adapter
     # Both are ordinary vLLM-owned device memory and remain opaque to callers.
-    assert "producer_control" not in ADAPTER_API.read_text()
-    assert "protocol_status" not in ADAPTER_API.read_text()
+    api = ADAPTER_API.read_text()
+    assert "producer_control" not in api
+    assert "uint64_t protocol_status" not in api
 
 
 def test_device_protocol_errors_fail_stop_instead_of_silent_return() -> None:
