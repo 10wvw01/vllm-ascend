@@ -115,8 +115,7 @@ reference = FP32 TP sum -> FP16
 fused = fused local MM + MemFabric exchange + local FP16 add
 ```
 
-当前 ABI v6 必须重新取得实机 correctness 证据；任何历史结果都不能替代当前
-commit 的验收。
+当前 ABI v6 必须在目标 310P3 上取得独立 correctness 证据。
 
 ## 7. 内存与复用安全
 
