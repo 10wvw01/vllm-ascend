@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Analyze MemFabric o_proj overlap from a CANN task_time CSV export (V5).
+"""Analyze public-API MemFabric o_proj overlap from a CANN task_time CSV export.
 
 Input: the ``task_time.csv`` produced offline from a torch_npu.profiler
 text export of a fused ``memfabric_o_proj_allreduce`` workload (see the
@@ -8,12 +8,12 @@ slices must be flushed by a normal process exit and the CSV is produced by
 ``torch_npu.profiler.profiler.analyse(<export_only_prof_dir>)`` in a
 separate process).
 
-Output: per-call V5 wave timeline and the steady-state overlap argument:
+Output: per-call fused wave timeline and the steady-state overlap argument:
 
   - producer (AICore matmul+clean+post, multi-block) window
   - waiter (quiet + wait x chunks) window: the proof point. Chunks are
     128 KiB each; a wave of N chunks has moved N*128 KiB by the time the
-    waiter's wait_at loop drains its mails. If the transfer had to happen
+    waiter's public wait loop drains its mails. If the transfer had to happen
     serially after the producer, the waiter window would imply an SDMA
     bandwidth far beyond the physical limit - i.e. the epoch kernel's SDMA
     engine moves the chunks while the producer's matmuls are still running
