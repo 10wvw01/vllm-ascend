@@ -61,7 +61,6 @@ extern "C" int mf310p_device_add_async(
     uint64_t out,
     uint64_t send_arena,
     uint64_t recv_arena,
-    uint64_t protocol_status,
     uint64_t elems,
     uint32_t block_count,
     aclrtStream stream);
@@ -536,7 +535,6 @@ extern "C" int mf310p_add_async(
         out,
         ctx->layout.send_arena,
         ctx->layout.recv_arena,
-        reinterpret_cast<uint64_t>(ctx->protocol_status),
         elems,
         block_count,
         reinterpret_cast<aclrtStream>(acl_stream));
