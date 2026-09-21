@@ -19,11 +19,11 @@ extern "C" {
  * Stable ABI between vLLM-Ascend and its internal bridge to the installed
  * wgm-dev-310p MemFabric package.
  *
- * ABI v5 treats MemFabric as a black box.  The bridge uses only public host
- * APIs and the AscendC device library uses only public signal/wait/quiet
- * primitives.  No mailbox/ring/reserved-region state is exposed here.
+ * ABI v6 treats MemFabric as an opaque transport. The bridge uses only public
+ * host APIs and the AscendC device library uses only public signal/wait/quiet
+ * primitives. No MemFabric mailbox/ring/reserved-region state is exposed.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 5u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 6u
 #define VLLM_ASCEND_MF310P_MAX_CHUNKS 64u
 
 typedef struct mf310p_context mf310p_context_t;
@@ -62,18 +62,24 @@ int mf310p_create(
 int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
-/*
- * Initialization rendezvous.  It is public-API only and is not part of the
- * per-chunk data plane.
- */
+/* One-time host rendezvous during protocol initialization only. */
 int mf310p_control_barrier(mf310p_context_t* ctx);
 
 /*
- * Phase-B fused producer. One AICore block is the communication coordinator
- * and is the only caller of public smem_shm_sdma_signal(); the remaining
+ * Clear vLLM-owned per-wave protocol status. Ready flags are cleared
+ * independently before each producer launch.
+ */
+int mf310p_prepare_wave_async(mf310p_context_t* ctx, void* acl_stream);
+
+/*
+ * Seed exactly one fixed application credit into the peer's arrival FIFO and
+ * quiet it. Called once after both ranks have created the same MemFabric pool.
+ */
+int mf310p_init_credit_async(mf310p_context_t* ctx, void* acl_stream);
+
+/*
+ * Fused producer: block 0 is the sole MemFabric signal() caller; remaining
  * blocks compute interleaved o_proj chunks and publish vLLM-owned ready flags.
- * This preserves chunk-level MM/SDMA overlap without depending on MemFabric
- * mailbox/ring internals or multi-producer behavior.
  */
 int mf310p_direct_producer_async(
     mf310p_context_t* ctx,
@@ -85,7 +91,10 @@ int mf310p_direct_producer_async(
     uint32_t a_advance_rows,
     void* acl_stream);
 
-/* Public quiet() followed by public wait() for each peer chunk. */
+/*
+ * Public quiet() followed by public wait() for every peer data chunk, with
+ * strict public-mail validation (dst/len/imm/status).
+ */
 int mf310p_wait_mails_async(
     mf310p_context_t* ctx,
     uint32_t chunks,
@@ -107,21 +116,14 @@ int mf310p_add_async(
 int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
 
 /*
- * Application-level cross-wave arena credit.  These wrappers are implemented
- * exclusively with public MemFabric signal()/wait() calls; they do not expose
- * or depend on MemFabric mailbox internals.
+ * Application-level arena credit. A fixed tag is sufficient because public
+ * wait() is FIFO: every wave consumes one credit before overwriting the peer
+ * recv arena and publishes one new credit after its local add.
  */
-int mf310p_ack_async(
-    mf310p_context_t* ctx,
-    uint64_t imm,
-    void* acl_stream);
+int mf310p_ack_async(mf310p_context_t* ctx, void* acl_stream);
+int mf310p_gate_async(mf310p_context_t* ctx, void* acl_stream);
 
-int mf310p_gate_async(
-    mf310p_context_t* ctx,
-    uint64_t expected_imm,
-    void* acl_stream);
-
-int mf310p_warmup_ack_gate_async(mf310p_context_t* ctx, void* acl_stream);
+int mf310p_warmup_protocol_async(mf310p_context_t* ctx, void* acl_stream);
 
 #ifdef __cplusplus
 }
