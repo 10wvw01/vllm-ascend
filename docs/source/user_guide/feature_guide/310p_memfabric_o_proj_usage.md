@@ -46,14 +46,6 @@ vLLM CMake 会在该安装根下寻找：
 - public `smem_shm_aicore_base_sdma.h`；
 - `libmf_smem.so`。
 
-本功能不使用这些旧配置：
-
-```text
-VLLM_ASCEND_310P_MEMFABRIC_ROOT
-VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES
-MF_SDMA_ORCH_JSON
-```
-
 ## 3. 编译 vLLM-Ascend
 
 ```bash
@@ -76,7 +68,7 @@ feature-on 时 CMake：
 4. 生成/链接 `libmf310p_device.so`；
 5. 编译 public API adapter 到 `vllm_ascend_C`。
 
-仓库不使用 `build_310p_artifacts/` 或预编译 `.o`。
+device library 始终由当前 `.asc` 源码构建。
 
 ## 4. Runtime 参数
 
