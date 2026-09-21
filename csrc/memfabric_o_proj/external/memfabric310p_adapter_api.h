@@ -81,19 +81,15 @@ int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
 /*
- * Join the previous call on both ranks before a new call may touch the
- * arenas:
- *
- *   stream join - aclrtSynchronizeStream(acl_stream): every arena access the
- *                 caller enqueued (including the reduced-output add that
- *                 reads recv) has completed on this rank;
- *   barrier     - smem_shm_control_barrier: both ranks reached that point.
- *
- * Without the join, rank A's next-call signals could overwrite rank B's recv
- * arena while B's host-side reduction still reads it (see the V5 migration
- * notes in the development plan). The join is per call, never per chunk.
+ * Control-network barrier on the pool (smem_shm_control_barrier). Used at
+ * wave boundaries together with a preceding host-side stream sync: both
+ * ranks must have finished every arena access of the previous wave
+ * (including the reduced-output add that reads recv) before either rank's
+ * next-wave signals may overwrite the peer's recv arena. The barrier is
+ * per wave, never per chunk. See the V5 migration notes in the
+ * development plan.
  */
-int mf310p_join_previous_call(mf310p_context_t* ctx, void* acl_stream);
+int mf310p_control_barrier(mf310p_context_t* ctx);
 
 /*
  * Phase-2 direct producer. Enqueue the fused AscendC FP16 matmul
@@ -117,6 +113,7 @@ int mf310p_direct_producer_async(
     uint32_t first_chunk,
     uint32_t chunk_count,
     uint32_t a_advance_rows,
+    uint64_t first_seq,
     void* acl_stream);
 
 /*
@@ -146,6 +143,22 @@ int mf310p_warmup_producer_async(
 
 /* Same warmup contract for the waiter kernel (chunks == 0 shape). */
 int mf310p_warmup_waiter_async(mf310p_context_t* ctx, void* acl_stream);
+
+/*
+ * Enqueue the multi-block vector reduce out[0, elems) = send + recv on the
+ * supplied ACL stream. Shape-agnostic replacement for at::add_out (which
+ * pays a per-output-shape GE compile on first use); correctly-rounded FP16
+ * add, bit-exact with the FP32-math reference. elems must be a multiple of
+ * 128 and fit one wave (max_chunks * tile_m * 2048).
+ */
+int mf310p_add_async(
+    mf310p_context_t* ctx,
+    uint64_t out,
+    uint64_t elems,
+    void* acl_stream);
+
+/* Same double-launch warmup contract for the add kernel (elems == 0). */
+int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
 
 #ifdef __cplusplus
 }

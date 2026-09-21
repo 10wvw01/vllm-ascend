@@ -39,6 +39,7 @@ extern "C" int mf310p_device_launch_direct_producer_async(
     uint32_t chunk_count,
     uint32_t a_advance_rows,
     uint64_t chunk_bytes,
+    uint64_t first_seq,
     aclrtStream stream);
 
 extern "C" int mf310p_device_wait_mails_async(
@@ -54,6 +55,18 @@ extern "C" int mf310p_device_warmup_producer_async(
 
 extern "C" int mf310p_device_warmup_waiter_async(
     uint64_t pool_base,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_add_async(
+    uint64_t out,
+    uint64_t send_arena,
+    uint64_t recv_arena,
+    uint64_t elems,
+    uint32_t block_count,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_add_async(
+    uint64_t arena,
     aclrtStream stream);
 
 /* o_proj output width shared by the fused producer kernels (FP16 elements).
@@ -220,15 +233,10 @@ extern "C" int mf310p_get_layout(
     return 0;
 }
 
-extern "C" int mf310p_join_previous_call(mf310p_context_t* ctx, void* acl_stream)
+extern "C" int mf310p_control_barrier(mf310p_context_t* ctx)
 {
-    if (ctx == nullptr || acl_stream == nullptr) {
+    if (ctx == nullptr) {
         return -1;
-    }
-    aclError ret = aclrtSynchronizeStream(
-        reinterpret_cast<aclrtStream>(acl_stream));
-    if (ret != ACL_SUCCESS) {
-        return static_cast<int>(ret);
     }
     return smem_shm_control_barrier(ctx->shm);
 }
@@ -241,6 +249,7 @@ extern "C" int mf310p_direct_producer_async(
     uint32_t first_chunk,
     uint32_t chunk_count,
     uint32_t a_advance_rows,
+    uint64_t first_seq,
     void* acl_stream)
 {
     if (ctx == nullptr || acl_stream == nullptr || x == 0 || w == 0 ||
@@ -263,6 +272,7 @@ extern "C" int mf310p_direct_producer_async(
         chunk_count,
         a_advance_rows,
         ctx->layout.chunk_bytes,
+        first_seq,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 
@@ -306,5 +316,44 @@ extern "C" int mf310p_warmup_waiter_async(mf310p_context_t* ctx, void* acl_strea
     }
     return mf310p_device_warmup_waiter_async(
         ctx->layout.pool_base,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_add_async(
+    mf310p_context_t* ctx,
+    uint64_t out,
+    uint64_t elems,
+    void* acl_stream)
+{
+    constexpr uint32_t kAddAlignElems = 128;
+    constexpr uint32_t kAddMaxBlocks = 8;
+    if (ctx == nullptr || acl_stream == nullptr || out == 0 ||
+        elems == 0 || (elems % kAddAlignElems) != 0 ||
+        elems > ctx->layout.max_chunks * ctx->layout.chunk_bytes /
+                    sizeof(uint16_t)) {
+        return -1;
+    }
+    /* 2048 elems = one o_proj row; each block should own at least one row. */
+    const uint64_t rows = elems / kOProjWidthElems;
+    uint32_t block_count = kAddMaxBlocks;
+    if (rows < kAddMaxBlocks) {
+        block_count = static_cast<uint32_t>(rows);
+    }
+    return mf310p_device_add_async(
+        out,
+        ctx->layout.send_arena,
+        ctx->layout.recv_arena,
+        elems,
+        block_count,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream)
+{
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_warmup_add_async(
+        ctx->layout.send_arena,
         reinterpret_cast<aclrtStream>(acl_stream));
 }

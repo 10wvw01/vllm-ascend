@@ -33,6 +33,8 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
+#include <cstdio>
 #include <cstdlib>
 #include <mutex>
 #include <string>
@@ -67,6 +69,53 @@ uint64_t parse_u64_env(const char* name, uint64_t fallback)
     return static_cast<uint64_t>(parsed);
 }
 
+/*
+ * P6 phase tracing (debug only): VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1
+ * prints per-wave host-side wall time of each protocol phase. Only the
+ * host-blocking phases (join sync/barrier, warmup sync) are accurate
+ * device-side waits; enqueue times measure host launch overhead.
+ */
+bool trace_enabled()
+{
+    static const bool enabled = [] {
+        const char* v = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE");
+        return v != nullptr && *v != '\0' && *v != '0';
+    }();
+    return enabled;
+}
+
+int64_t trace_now_us()
+{
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void trace_wave(
+    int rank,
+    int64_t rows,
+    uint32_t chunks,
+    int64_t join_sync_us,
+    int64_t join_barrier_us,
+    int64_t warmup_us,
+    int64_t enqueue_us,
+    int64_t prejoin_us)
+{
+    std::fprintf(
+        stderr,
+        "[mf310p-trace] rank=%d rows=%lld chunks=%u join_sync_us=%lld "
+        "join_barrier_us=%lld warmup_us=%lld enqueue_us=%lld prejoin_us=%lld "
+        "total_us=%lld\n",
+        rank, static_cast<long long>(rows), chunks,
+        static_cast<long long>(join_sync_us),
+        static_cast<long long>(join_barrier_us),
+        static_cast<long long>(warmup_us),
+        static_cast<long long>(enqueue_us),
+        static_cast<long long>(prejoin_us),
+        static_cast<long long>(join_sync_us + join_barrier_us + warmup_us +
+                               enqueue_us + prejoin_us));
+}
+
 struct RuntimeState {
     std::mutex mutex;
     mf310p_context_t* ctx = nullptr;
@@ -80,6 +129,11 @@ struct RuntimeState {
     uint64_t producer_scratch = 0;        /* device VA, tile_m*2048*2 bytes */
     uint32_t producer_warmed_buckets = 0; /* bit (log2(bucket)-4) per bucket */
     bool waiter_warmed = false;
+    bool add_warmed = false;
+    /* Global request-ring tail this rank has posted so far (data-plane
+     * sequence base handed to every producer launch; identical on both
+     * ranks because chunk counts are symmetric). */
+    uint64_t posted_seqs = 0;
 
     ~RuntimeState()
     {
@@ -185,22 +239,6 @@ void check_runtime_healthy(const RuntimeState& state)
         state.failure_reason);
 }
 
-at::Tensor wrap_pool_tensor(
-    uint64_t address,
-    int64_t tile_m,
-    const at::Tensor& x)
-{
-    const int64_t rows =
-        static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
-    const auto options = x.options().dtype(at::kHalf); /* FP16 payload */
-    return at_npu::native::from_blob(
-        reinterpret_cast<void*>(address),
-        {rows, kOProjWidth},
-        [](void*) {},
-        options,
-        x.device());
-}
-
 /* ---- Direct producer helpers ---- */
 
 constexpr uint32_t kProducerMinBucket = 16;
@@ -258,7 +296,7 @@ void warm_producer_bucket_locked(
     state.producer_warmed_buckets |= bit;
 }
 
-/* Same double-launch warmup contract for the single waiter kernel. */
+/* Same double-launch warmup contract for the waiter and add kernels. */
 void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.waiter_warmed) {
@@ -269,6 +307,18 @@ void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
             state.ctx, reinterpret_cast<void*>(stream));
         TORCH_CHECK(ret == 0,
                     "mf310p_warmup_waiter_async failed with ret=", ret);
+    }
+    if (!state.add_warmed) {
+        for (int i = 0; i < 2; ++i) {
+            const int ret = mf310p_warmup_add_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_warmup_add_async failed with ret=", ret);
+        }
+        const aclError sync_ret = aclrtSynchronizeStream(stream);
+        TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                    "add warmup sync failed, ret=", sync_ret);
+        state.add_warmed = true;
     }
     const aclError sync_ret = aclrtSynchronizeStream(stream);
     TORCH_CHECK(sync_ret == ACL_SUCCESS,
@@ -394,6 +444,9 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     int64_t tp_rank,
     int64_t tile_m)
 {
+    /* P6 tracing: entry timestamp covers validation + output allocation +
+     * scratch alloc + pool-tensor wrapping (first wave only reports it). */
+    const int64_t t_entry = trace_enabled() ? trace_now_us() : 0;
     /*
      * Fused direct producer on the V5 epoch API. The kernel instantiations
      * are M-bucket specialized (static tiling), so tile_m must be a power of
@@ -441,10 +494,6 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
         reinterpret_cast<uint64_t>(weight.const_data_ptr());
     const int64_t max_rows_per_wave =
         static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
-    const at::Tensor send_pool =
-        wrap_pool_tensor(state.layout.send_arena, tile_m, x);
-    const at::Tensor recv_pool =
-        wrap_pool_tensor(state.layout.recv_arena, tile_m, x);
 
     for (int64_t wave_start = 0; wave_start < num_tokens;
          wave_start += max_rows_per_wave) {
@@ -462,6 +511,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
         try {
             aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
 
+            const int64_t t_join0 = trace_now_us();
             /*
              * Wave-boundary rendezvous: synchronize this rank's stream (every
              * previous arena access, including the reduced-output add, is
@@ -470,10 +520,14 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
              * recv arena while its add still reads it. There is no host
              * synchronization between chunks inside the wave.
              */
-            int ret = mf310p_join_previous_call(
-                state.ctx, reinterpret_cast<void*>(stream));
+            const aclError sync_ret = aclrtSynchronizeStream(stream);
+            TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                        "wave-boundary stream join failed, ret=", sync_ret);
+            const int64_t t_join1 = trace_now_us();
+            int ret = mf310p_control_barrier(state.ctx);
             TORCH_CHECK(ret == 0,
-                        "mf310p_join_previous_call failed with ret=", ret);
+                        "mf310p_control_barrier failed with ret=", ret);
+            const int64_t t_join2 = trace_now_us();
 
             /* Lazy per-symbol warmup before the wave is armed. */
             if (full_count > 0) {
@@ -484,6 +538,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                 warm_producer_bucket_locked(state, tail_bucket, stream);
             }
             warm_waiter_locked(state, stream);
+            const int64_t t_warm = trace_now_us();
 
             const uint64_t x_wave = reinterpret_cast<uint64_t>(
                 x.const_data_ptr()) +
@@ -499,11 +554,13 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     0,
                     full_count,
                     static_cast<uint32_t>(tile_m),
+                    state.posted_seqs,
                     reinterpret_cast<void*>(stream));
                 TORCH_CHECK(ret == 0,
                             "full-chunk mf310p_direct_producer_async failed, "
                             "ret=",
                             ret);
+                state.posted_seqs += full_count;
             }
 
             if (has_tail) {
@@ -563,10 +620,12 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     chunks - 1,
                     1,
                     tail_bucket,
+                    state.posted_seqs,
                     reinterpret_cast<void*>(stream));
                 TORCH_CHECK(ret == 0,
                             "tail mf310p_direct_producer_async failed, ret=",
                             ret);
+                state.posted_seqs += 1;
             }
 
             /* Quiet (my signals landed) + wait x chunks (peer chunks landed
@@ -577,14 +636,34 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             TORCH_CHECK(ret == 0,
                         "mf310p_wait_mails_async failed with ret=", ret);
 
-            /* Reduced result into ordinary NPU storage so the symmetric
-             * arenas can be safely reused by later layers. Stream-ordered
-             * after the waiter, so both arenas are complete. */
-            at::Tensor out_narrow = output.narrow(0, wave_start, wave_rows);
-            at::add_out(
-                out_narrow,
-                send_pool.narrow(0, 0, wave_rows),
-                recv_pool.narrow(0, 0, wave_rows));
+            /*
+             * Reduced result into ordinary NPU storage via the repo-owned
+             * multi-block vector-add kernel (shape-agnostic; at::add_out
+             * would pay a per-output-shape GE compile on first use, ~90 ms
+             * measured). Stream-ordered after the waiter, so both arenas
+             * are complete.
+             */
+            ret = mf310p_add_async(
+                state.ctx,
+                reinterpret_cast<uint64_t>(
+                    output.const_data_ptr()) +
+                    wave_start * kOProjWidth * sizeof(at::Half),
+                static_cast<uint64_t>(wave_rows) * kOProjWidth,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0, "mf310p_add_async failed with ret=", ret);
+
+            if (trace_enabled()) {
+                const int64_t t_enq = trace_now_us();
+                trace_wave(
+                    state.tp_rank,
+                    wave_rows,
+                    chunks,
+                    t_join1 - t_join0,
+                    t_join2 - t_join1,
+                    t_warm - t_join2,
+                    t_enq - t_warm,
+                    wave_start == 0 ? t_join0 - t_entry : 0);
+            }
         } catch (const std::exception& exc) {
             /* A partially executed wave is unsafe to reuse (outstanding
              * mailbox/SDMA state is not recoverable without a rank-wide

@@ -471,10 +471,51 @@ D2H 转储双端保留区协议字（reqHead/reqTail、quiet/arrival 戳、邮�
 arena 首字），可在 waiter 挂死时判定卡点（本轮用它证实了 wave 完成、
 挂点在 device 同步）。
 
-## 10. P6：性能优化（进行中）
+## 10. P6：性能优化（Fix A/B 已落地，C 待做）
 
-V5 迁移后的实测基线（tile_m=32，首 call 计时）：小 M ~90ms、4096 行
-（2 wave / 128 chunk）~25ms。其中存在三个可分离的大头：
+### 10.1 实施记录（2026-09-21，dav-2002 双卡实测）
+
+分相测量（VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1 输出 join_sync/
+barrier/warmup/enqueue/prejoin 五相）定位了三个独立开销，逐一修复：
+
+**Fix A：自有向量 add kernel 替代 at::add_out**（生产关键）。
+实测 torch_npu 的 elementwise add 首次使用按输出 shape 付 ~90ms GE
+编译（M 每变一次就付一次，prefill 不可接受）。新增 `mf310pAddKernel`
+（.asc）：多 block 连续切片、TQue 双缓冲、shape 无关；正确舍入 FP16
+加与 FP32-math reference 数学等价（两个 FP16 输入在 FP32 中精确求和，
+任何正确舍入的 FP16 加都等于该单次舍入），实测 bit-exact。首 call
+罚金归零（rows=8 首call 1379ms -> 1.1ms）。
+
+**Fix B：multi-block producer（5.6x prefill）**。producer 由 <<<1>>>
+改为 <<<8>>>：block b 交错持有 chunk {b, b+B, ...}，每 chunk 仍是同一
+单核 GEMM 配方（bit-exact by construction）。请求环投递改为
+`Mf310pPostSlotOrdered`：host 确定性跟踪全局环计数 `posted_seqs` 并随
+launch 传 `first_seq`；block 投 seq 前自旋等待
+`REQ_TAIL == seq && tail-head < 64`（前驱已投 + 环容量），随后写槽并
+发布 tail=seq+1。不同 block 等不同 seq，发布天然串行，无原子操作。
+waiter/quiet 语义不变（quiet 等末封戳 FIFO）。
+
+**测量基线与结果**（tile_m=32，repeat=8~20 稳态 med）：
+
+| rows | P5 基线 | P6 后 | 提升 |
+| --- | --- | --- | --- |
+| 1 | 1.09ms | 1.16ms | ~1x（单 chunk 无并行深度） |
+| 32 | 0.63ms | 0.50ms | 1.3x |
+| 512 | 3.42ms | 0.95ms | 3.6x |
+| 2048 | 12.47ms | 2.24ms | 5.6x |
+| 4096 | 24.72ms | 4.42ms | 5.7x |
+| 首 call | ~90ms/shape | ~0 | 消除 |
+
+正确性：rows=1..4096 全集 bit-exact（含 64-chunk 单 wave、双 wave、
+tail bucket），repeat=20 stress 通过。
+
+**遗留（Fix C，设计已备未实施）**：wave 边界 join 的 TCP control
+barrier 典型 ~150µs 但概率性 ~40ms 尖峰（delayed-ACK 特征；bench max
+列可见）。方案：对端 add 后 ack kernel 回签 8B（imm=wave id），本端
+下一 wave 前由 gate kernel wait_at 收签；到达环 FIFO 序
+[data x N, ack] 保证双 kernel 交错消费自洽，可整体删除 host join
+（首 wave 除外）。收益：稳态 -0.2ms + p99 尖峰消除 + ACL graph
+友好（无 host barrier）。
 
 1. **per-wave host join（stream 同步 + control barrier）**：TCP rendezvous
    波动 ~0-70ms，decode 小 M 时是单项最大开销。
@@ -489,13 +530,11 @@ V5 迁移后的实测基线（tile_m=32，首 call 计时）：小 M ~90ms、409
 3. **clean 成本**：128 KiB/chunk 的 64B 行级 dcci 循环，评估批量行
    clean 或每 chunk 一次 ENTIRE_DATA_CACHE 的取舍。
 
-执行顺序：先给 bench 增加 per-repeat 计时与分相分解（区分 join/matmul/
-clean/wait/add），用数据定优先级；每步保留 9/9 rows bit-exact 回归；
-同时用 profiler timeline 重新量化 overlap（V5 下 R4 证据需重做）。
+后续顺序：Fix C（ack/gate 替代 join）；clean 成本（128KiB/chunk 的
+64B 行级 dcci 循环）评估；overlap timeline 在 V5 下用 msprof/task_time
+重新量化（torch profiler 自身 device-sync，与 9.3 约束 1 冲突）。
 
-硬约束（9.3）：调优运行必须把池寿命控制在 ~25s 内，profiler 场景
-尤其注意 device 级同步入口（torch profiler 自身会 device-sync！需要
-验证或改用 msprof/task_time 导出方式）。
+硬约束（9.3）：调优运行必须把池寿命控制在 ~25s 内。
 
 ## 11. P7：ACL graph
 

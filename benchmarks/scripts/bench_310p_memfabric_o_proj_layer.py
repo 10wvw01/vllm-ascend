@@ -104,7 +104,7 @@ def main() -> None:
 
     if rank == 0:
         print(f"tile_m={args.tile_m} repeat={args.repeat}")
-        print("rows\tverdict\tmax_abs_diff\tn_bad\tfused_ms")
+        print("rows\tverdict\tmax_abs_diff\tn_bad\tfirst_ms\tmin_ms\tmed_ms\tmax_ms")
 
     layer = _make_layer(rank, device)
 
@@ -143,17 +143,29 @@ def main() -> None:
         n_bad = (diff > (args.atol + args.rtol * ref.float().abs())).sum().item()
         ok = torch.allclose(fused, ref, rtol=args.rtol, atol=args.atol)
 
-        # Repeated calls: verify every call to catch wave-reuse issues.
+        # Repeated calls: verify every call to catch wave-reuse issues and
+        # collect steady-state latency (P6 evidence).
+        steady_ms = []
         for call_idx in range(args.repeat - 1):
+            t1 = time.perf_counter()
             out = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
+            _stream_sync()
+            steady_ms.append((time.perf_counter() - t1) * 1e3)
             if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
                 n_bad += (out.float() - ref.float()).abs().numel()
                 ok = False
         _stream_sync()
 
+        steady_ms.sort()
+        med = steady_ms[len(steady_ms) // 2] if steady_ms else float("nan")
         verdict = "PASS" if ok else "FAIL"
         if rank == 0:
-            print(f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{fused_ms:.3f}")
+            print(
+                f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{fused_ms:.3f}"
+                f"\t{steady_ms[0]:.3f}\t{med:.3f}\t{steady_ms[-1]:.3f}"
+                if steady_ms
+                else f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{fused_ms:.3f}"
+            )
         if not ok:
             raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 

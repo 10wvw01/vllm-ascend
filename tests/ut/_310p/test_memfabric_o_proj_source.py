@@ -107,7 +107,7 @@ def test_cpp_binding_registers_fused_op_and_shutdown() -> None:
 def test_runtime_directly_calls_internal_adapter_without_dlopen() -> None:
     src = RUNTIME.read_text()
     assert "mf310p_create(" in src
-    assert "mf310p_join_previous_call(" in src
+    assert "mf310p_control_barrier(" in src
     assert "mf310p_direct_producer_async(" in src
     assert "mf310p_wait_mails_async(" in src
     assert "dlopen" not in src
@@ -165,13 +165,15 @@ def test_adapter_layout_keeps_send_and_recv_non_aliasing() -> None:
     assert "kSdmaReservedRegionSize = 48ULL * 1024ULL" in src
 
 
-def test_adapter_join_is_stream_sync_then_control_barrier() -> None:
-    """Cross-call arena-reuse race regression: both ranks must finish every
+def test_wave_join_is_stream_sync_then_control_barrier() -> None:
+    """Cross-wave arena-reuse race regression: both ranks must finish every
     arena access (including the reduced-output add reading recv) before
     either rank's next-wave signals may overwrite the peer's recv arena."""
-    src = ADAPTER.read_text()
-    impl = src[src.index("mf310p_join_previous_call") :]
-    assert impl.index("aclrtSynchronizeStream") < impl.index("smem_shm_control_barrier")
+    runtime = RUNTIME.read_text()
+    impl = runtime[runtime.index("memfabric_direct_o_proj_allreduce_impl") :]
+    assert impl.index("aclrtSynchronizeStream(stream)") < impl.index("mf310p_control_barrier")
+    adapter = ADAPTER.read_text()
+    assert "smem_shm_control_barrier(ctx->shm)" in adapter
 
 
 def test_device_pipeline_uses_signal_wait_quiet_and_host_add() -> None:
@@ -183,10 +185,13 @@ def test_device_pipeline_uses_signal_wait_quiet_and_host_add() -> None:
     assert "smem_shm_sdma_reserved" in src
     assert "smem_shm_sdma_notify" not in src
     assert "smem_shm_sdma_poll_flag" not in src
-    # The reduction moved to the host stream (torch add_out), so the V4
-    # in-kernel FP16 reduce helpers are gone.
+    # The reduction is the repo-owned multi-block vector-add kernel
+    # (shape-agnostic; torch add_out pays a per-shape GE compile), so the V4
+    # in-kernel FP16 scalar reduce helpers are gone.
     assert "Mf310pFp16ToFloat" not in src
-    assert "at::add_out" in RUNTIME.read_text()
+    assert "mf310pAddKernel" in src
+    assert "Add(o, va, vb, n)" in src
+    assert "at::add_out(" not in RUNTIME.read_text()
 
 
 def test_device_waiter_is_quiet_then_ordered_waits() -> None:
@@ -200,7 +205,7 @@ def test_device_waiter_is_quiet_then_ordered_waits() -> None:
 def test_adapter_abi_does_not_expose_memfabric_types() -> None:
     src = ADAPTER_API.read_text()
     assert "VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 3u" in src
-    assert "mf310p_join_previous_call" in src
+    assert "mf310p_control_barrier" in src
     assert "mf310p_direct_producer_async" in src
     assert "mf310p_wait_mails_async" in src
     assert "smem_shm_t" not in src
@@ -223,11 +228,14 @@ def test_adapter_abi_does_not_expose_memfabric_types() -> None:
 def test_fused_runtime_keeps_wave_protocol_and_producer_order() -> None:
     src = RUNTIME.read_text()
     impl = src[src.index("memfabric_direct_o_proj_allreduce_impl") :]
-    # Wave protocol: join -> warmup -> producer(s) -> waiter -> add_out, all
-    # on the current stream with no host syncs between chunks.
-    assert impl.index("mf310p_join_previous_call") < impl.index("mf310p_direct_producer_async")
+    # Wave protocol: join (stream sync + control barrier) -> warmup ->
+    # producer(s) -> waiter -> add_out, all on the current stream with no
+    # host syncs between chunks.
+    assert impl.index("mf310p_control_barrier") < impl.index("mf310p_direct_producer_async")
     assert impl.index("mf310p_direct_producer_async") < impl.index("mf310p_wait_mails_async")
-    assert impl.index("mf310p_wait_mails_async") < impl.index("at::add_out")
+    assert impl.index("mf310p_wait_mails_async") < impl.index("mf310p_add_async")
+    # The add kernel is warmed with the same double-launch contract.
+    assert "mf310p_warmup_add_async" in src
     # The partial tail chunk never reads beyond x: it stages into a scratch
     # copy and the untouched slot rows are zeroed deterministically.
     assert "aclrtMemcpyAsync" in impl
@@ -256,8 +264,16 @@ def test_fused_device_producer_fuses_matmul_clean_signal() -> None:
     assert "kMf310pFunc = {false, true" in src  # enVecND2NZ
     assert "SINGLE_CACHE_LINE" in src  # 64B-line clean posture
     assert "Mf310pCleanRegion(slot, chunkBytes)" in producer
-    assert "smem_shm_sdma_signal_at" in producer
     assert "peerRecvArena" in producer
+    # P6 multi-block producer: interleaved chunk ownership plus ordered
+    # request-ring posting (global seq, capacity-checked spin) replaces the
+    # single-writer signal_at call inside the kernel.
+    assert "Mf310pPostSlotOrdered(" in producer
+    assert "firstSeq + i" in producer
+    # Ordered posting waits for both predecessor order and ring capacity.
+    assert "SMEM_SHM_SDMA_RS_REQ_SLOTS" in src
+    assert "SMEM_SHM_SDMA_RS_REQ_HEAD" in src
+    assert "GetBlockIdx() >= blockCount" in producer
     # chunk_count == 0 is the side-effect-free warmup shape.
     assert "chunkCount == 0" in producer
 
