@@ -11,15 +11,13 @@ RowParallelLinear implementation. The checkpoint carries no torch_dtype, so
 vLLM runs it as FP16 on 310P (BF16 NZ linear is unsupported by this CANN
 anyway); the fused path therefore exchanges FP16 partial results.
 
-The fused op runs on the V5 customized MemFabric (origin/wgm-dev-310p,
-mailbox-ring epoch API): one fused AscendC FP16 matmul kernel per wave
-writes each chunk straight into the symmetric send arena (matmul -> 64B-line
-clean -> signal), the AICPU epoch kernel moves it to the peer die while the
-producer continues, and a waiter kernel (quiet + wait x chunks) joins the
-wave before the host-side ``add_out`` reduces send + recv into the output.
-The M-bucket specialized kernel recipe was validated bit-exact against
-``F.linear`` for m = 1..4096 on dav-2002; see the development plan P5 notes
-for the details.
+The fused op treats wgm-dev-310p MemFabric as an opaque public transport.
+One AICore block coordinates public ``signal()`` calls while seven workers
+compute interleaved FP16 o_proj chunks. Per chunk the dataflow is
+MM -> cache clean -> ready -> signal, allowing MM of later chunks to overlap
+SDMA of earlier chunks. Public ``quiet()/wait()`` joins the peer payload,
+a repo-owned FP16 add reduces the two TP partials, and a fixed FIFO credit
+protects arena reuse across waves and graph replays.
 """
 
 from __future__ import annotations
@@ -183,11 +181,10 @@ def memfabric_o_proj_allreduce(
 ) -> torch.Tensor:
     """Run the fused MM/SDMA/reduce pipeline (unquantized, FP16).
 
-    One opaque custom op per call: per wave it launches the fused AscendC
-    producer (matmul tiles straight into the symmetric send arena, one
-    mailbox signal per chunk), the waiter kernel (quiet + wait x chunks),
-    and the stream-ordered ``add_out`` that reduces send + recv into ordinary
-    NPU storage so the arenas can be safely reused by later layers.
+    One opaque custom op per call: each wave consumes a fixed application
+    credit, runs the coordinator/MM-worker pipeline, validates peer mails via
+    public MemFabric quiet/wait, performs the repo-owned FP16 reduction, and
+    returns the fixed credit after local arena reads complete.
     """
 
     if tp_rank not in (0, 1):
