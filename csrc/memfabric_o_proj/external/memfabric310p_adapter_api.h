@@ -61,6 +61,9 @@ int mf310p_create(
 
 int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
+int mf310p_debug_protocol_status(
+    mf310p_context_t* ctx,
+    uint64_t* out_status);
 
 /* One-time host rendezvous during protocol initialization only. */
 int mf310p_control_barrier(mf310p_context_t* ctx);
