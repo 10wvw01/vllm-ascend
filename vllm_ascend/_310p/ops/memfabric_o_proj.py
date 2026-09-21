@@ -186,7 +186,7 @@ def memfabric_o_proj_allreduce(
     One opaque custom op per call: per wave it launches the fused AscendC
     producer (matmul tiles straight into the symmetric send arena, one
     mailbox signal per chunk), the waiter kernel (quiet + wait x chunks),
-    and the stream-ordered ``add_out`` that reduces send + recv into ordinary
+    and the stream-ordered repo-owned vector-add kernel that reduces send + recv into ordinary
     NPU storage so the arenas can be safely reused by later layers.
     """
 

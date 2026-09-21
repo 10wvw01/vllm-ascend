@@ -111,7 +111,7 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                 from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
                 # MemFabric o_proj dispatch (owner decision A, 2026-09-18):
-                # route the eligible unquantized BF16 full-attention o_proj
+                # route the eligible unquantized FP16-runtime full-attention o_proj
                 # to the fused matmul+TP-reduction method. The final
                 # eligibility check happens in configure_memfabric_o_proj
                 # after weights load; a rejected layer behaves stock.

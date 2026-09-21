@@ -21,7 +21,7 @@ extern "C" {
  * wgm-dev-310p MemFabric implementation. Nothing in this header depends on
  * MemFabric headers.
  *
- * ABI v3 targets the V5 MemFabric (origin/wgm-dev-310p mailbox-ring epoch
+ * ABI v4 targets the V5 MemFabric (origin/wgm-dev-310p mailbox-ring epoch
  * API): kernels drive the AICPU orchestrator themselves via
  * smem_shm_sdma_signal_at/wait_at/quiet_at and only need the symmetric pool
  * base (gva), so the V4 workspace/mailbox/arrival-flag plumbing is gone.
@@ -89,13 +89,10 @@ int mf310p_destroy(mf310p_context_t* ctx);
 int mf310p_get_layout(mf310p_context_t* ctx, mf310p_layout_t* out_layout);
 
 /*
- * Control-network barrier on the pool (smem_shm_control_barrier). Used at
- * wave boundaries together with a preceding host-side stream sync: both
- * ranks must have finished every arena access of the previous wave
- * (including the reduced-output add that reads recv) before either rank's
- * next-wave signals may overwrite the peer's recv arena. The barrier is
- * per wave, never per chunk. See the V5 migration notes in the
- * development plan.
+ * Control-network barrier on the pool (smem_shm_control_barrier). The
+ * current protocol uses it only once for the first-wave pool-creation
+ * rendezvous, together with a preceding stream sync. Later waves use the
+ * device-side ack/gate mail chain; there is no per-wave host barrier.
  */
 int mf310p_control_barrier(mf310p_context_t* ctx);
 

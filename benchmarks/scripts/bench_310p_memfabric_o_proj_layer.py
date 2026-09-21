@@ -9,10 +9,10 @@ keeps full-attention o_proj as FLOAT; the model runs FP16 on 310P):
   fused     = one fused AscendC FP16 matmul per wave writing the symmetric
               send arena directly (matmul -> line-clean -> mailbox signal),
               AICPU/SDMA exchange, waiter kernel (quiet + wait), stream-
-              ordered add_out reduce
+              ordered repo-owned FP16 add-kernel reduce
 
-V5 integration constraints honored by this benchmark (see the development
-plan P5 notes):
+V5 integration constraints honored by this benchmark (see the AI-native
+status/usage docs):
 
   1. While the MemFabric pool exists, a perpetual AICPU epoch kernel is
      alive; any device-wide synchronize (torch.npu.synchronize) would wait
