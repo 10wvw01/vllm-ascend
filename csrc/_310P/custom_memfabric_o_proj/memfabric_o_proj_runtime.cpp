@@ -46,7 +46,7 @@
 #include <string>
 #include <vector>
 
-#include "memfabric_o_proj/external/memfabric310p_adapter_api.h"
+#include "memfabric310p_adapter_api.h"
 
 namespace vllm_ascend {
 

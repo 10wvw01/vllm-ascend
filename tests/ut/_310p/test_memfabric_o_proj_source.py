@@ -11,11 +11,12 @@ HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_o_proj.py"
 ENVS = ROOT / "vllm_ascend" / "envs.py"
 W8A8 = ROOT / "vllm_ascend" / "_310p" / "quantization" / "methods" / "w8a8_static.py"
 MODELSLIM = ROOT / "vllm_ascend" / "_310p" / "quantization" / "modelslim_config.py"
-BINDING = ROOT / "csrc" / "memfabric_o_proj_binding.cpp"
-RUNTIME = ROOT / "csrc" / "memfabric_o_proj_runtime.cpp"
-ADAPTER_API = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter_api.h"
-ADAPTER = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_adapter.cpp"
-DEVICE = ROOT / "csrc" / "memfabric_o_proj" / "external" / "memfabric310p_device.asc"
+CUSTOM_CSRC = ROOT / "csrc" / "_310P" / "custom_memfabric_o_proj"
+BINDING = CUSTOM_CSRC / "memfabric_o_proj_binding.cpp"
+RUNTIME = CUSTOM_CSRC / "memfabric_o_proj_runtime.cpp"
+ADAPTER_API = CUSTOM_CSRC / "memfabric310p_adapter_api.h"
+ADAPTER = CUSTOM_CSRC / "memfabric310p_adapter.cpp"
+DEVICE = CUSTOM_CSRC / "memfabric310p_device.asc"
 MEMFABRIC_CMAKE = ROOT / "cmake" / "memfabric_310p.cmake"
 
 INTERNAL_MEMFABRIC_TOKENS = (
@@ -37,6 +38,29 @@ def _func(path: Path, name: str) -> ast.FunctionDef:
 
 def _src(node: ast.AST) -> str:
     return ast.unparse(node)
+
+
+def test_custom_310p_sources_are_isolated_under_marked_subproject() -> None:
+    assert CUSTOM_CSRC.name == "custom_memfabric_o_proj"
+    assert CUSTOM_CSRC.parent.name == "_310P"
+    assert (CUSTOM_CSRC / "README.md").is_file()
+
+    expected = {
+        "memfabric_o_proj_binding.cpp",
+        "memfabric_o_proj_runtime.cpp",
+        "memfabric_o_proj_torch_adpt.h",
+        "memfabric310p_adapter_api.h",
+        "memfabric310p_adapter.cpp",
+        "memfabric310p_device.asc",
+        "README.md",
+    }
+    assert expected.issubset({p.name for p in CUSTOM_CSRC.iterdir()})
+
+    # Do not regress back to mixing this customized implementation into the
+    # generic csrc root or the old csrc/memfabric_o_proj tree.
+    assert not (ROOT / "csrc" / "memfabric_o_proj_binding.cpp").exists()
+    assert not (ROOT / "csrc" / "memfabric_o_proj_runtime.cpp").exists()
+    assert not (ROOT / "csrc" / "memfabric_o_proj").exists()
 
 
 def test_eligibility_is_deliberately_narrow() -> None:

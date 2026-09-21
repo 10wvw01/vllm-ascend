@@ -11,7 +11,7 @@
 #include <torch/library.h>
 
 #ifdef ASCEND_PLATFORM_310P
-#include "memfabric_o_proj/memfabric_o_proj_torch_adpt.h"
+#include "memfabric_o_proj_torch_adpt.h"
 
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {

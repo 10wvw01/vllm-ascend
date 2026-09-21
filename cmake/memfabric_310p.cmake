@@ -14,6 +14,8 @@
 # layout is part of the vLLM-Ascend contract.
 
 function(vllm_ascend_configure_310p_memfabric target)
+    set(_mf_custom_src_dir
+        "${CMAKE_SOURCE_DIR}/csrc/_310P/custom_memfabric_o_proj")
     if(NOT TARGET ${target})
         message(FATAL_ERROR
             "Unknown target passed to vllm_ascend_configure_310p_memfabric: ${target}")
@@ -92,7 +94,7 @@ function(vllm_ascend_configure_310p_memfabric target)
 
     # ---- vLLM-owned AscendC fused-kernel library ----
     set(_mf_asc_src
-        "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external/memfabric310p_device.asc")
+        "${_mf_custom_src_dir}/memfabric310p_device.asc")
     if(NOT EXISTS "${_mf_asc_src}")
         message(FATAL_ERROR "memfabric310p_device.asc not found: ${_mf_asc_src}")
     endif()
@@ -140,7 +142,7 @@ function(vllm_ascend_configure_310p_memfabric target)
     endif()
 
     target_sources(${target} PRIVATE
-        "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external/memfabric310p_adapter.cpp")
+        "${_mf_custom_src_dir}/memfabric310p_adapter.cpp")
 
     if(NOT _mf_device_lib_override STREQUAL "")
         target_link_libraries(${target} PRIVATE "${_mf_device_lib}")
@@ -151,7 +153,7 @@ function(vllm_ascend_configure_310p_memfabric target)
     endif()
 
     target_include_directories(${target} PRIVATE
-        "${CMAKE_SOURCE_DIR}/csrc/memfabric_o_proj/external"
+        "${_mf_custom_src_dir}"
         "${_mf_host_include}")
 
     target_link_libraries(${target} PRIVATE

@@ -85,6 +85,13 @@ if(SOC_VERSION MATCHES "ascend310p.*")
     file(GLOB VLLM_ASCEND_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/aclnn_torch_adapter/*.cpp)
+
+    # CUSTOM 310P3: project-specific Qwen3.6 o_proj + MemFabric fusion.
+    # Keep these torch-facing sources compiled on every 310P build so the
+    # feature-off stub/registration behavior remains deterministic.
+    list(APPEND VLLM_ASCEND_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/csrc/_310P/custom_memfabric_o_proj/memfabric_o_proj_binding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/csrc/_310P/custom_memfabric_o_proj/memfabric_o_proj_runtime.cpp)
 else()
     file(GLOB VLLM_ASCEND_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp
@@ -110,10 +117,9 @@ set(
 
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
 
-# The fused 310P path consumes the MemFabric built/installed from wgm-dev-310p
-# directly. It must never silently pick an official/upstream MemFabric install.
-# Enabling the feature makes all customized build inputs mandatory at CMake
-# configure time, so a wheel cannot be produced with a latent runtime failure.
+# CUSTOM 310P3 fusion: csrc/_310P/custom_memfabric_o_proj.
+# The transport dependency is the installed wgm-dev-310p MemFabric public API.
+# Enabling the feature makes that public package mandatory at configure time.
 if(DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ} AND
    "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ}" STREQUAL "1")
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/memfabric_310p.cmake)
