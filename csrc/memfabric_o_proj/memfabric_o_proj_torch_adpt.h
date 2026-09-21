@@ -17,12 +17,9 @@
 
 namespace vllm_ascend {
 
-/* Fused MemFabric o_proj pipeline (o_proj matmul + TP=2 reduction) on the
- * V5 customized wgm-dev-310p epoch API. The single opaque op below lives in
- * vllm_ascend_C, which links the repo-owned adapter (compiled against the
- * installed MemFabric) directly at build time. The former staged
- * begin/publish/finish ops of the V4 workspace API are gone; the device-side
- * signal/wait/quiet mailbox rings replaced them. */
+/* Fused o_proj matmul + TP=2 reduction using only the installed
+ * wgm-dev-310p MemFabric public SHM/SDMA API. The single opaque op lives in
+ * vllm_ascend_C; MemFabric transport internals remain outside vLLM. */
 at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
@@ -34,11 +31,8 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
  * should call this on shutdown for deterministic teardown. */
 void memfabric_o_proj_shutdown();
 
-/* Debug-only live snapshot of both ranks' SDMA mailbox reserved regions
- * (synchronous D2H through the copy engine, independent of the compute
- * stream). Returns a CPU int64 tensor of protocol words for dissecting a
- * hung wave (reqHead/reqTail, quiet/arrival stamps, mail images, arena
- * words). Zero tensor when the MemFabric context does not exist. */
+/* Debug-only application snapshot of public pool geometry and vLLM-owned
+ * arena words. It deliberately exposes no MemFabric internal state. */
 at::Tensor memfabric_o_proj_debug_snapshot();
 
 inline at::Tensor memfabric_direct_o_proj_allreduce(
