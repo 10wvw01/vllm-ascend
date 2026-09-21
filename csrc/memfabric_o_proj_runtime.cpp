@@ -2,8 +2,8 @@
  * 310P3 TP=2 MemFabric runtime for the fused o_proj overlap pipeline.
  *
  * When VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ is enabled, vllm_ascend_C is
- * compiled and linked directly against the V5 MemFabric installation produced
- * by wgm-dev-310p (origin/wgm-dev-310p, mailbox-ring epoch API). Loading is
+ * compiled and linked directly against the wgm-dev-310p MemFabric public
+ * SHM/SDMA API. Loading is
  * by direct link time dependency only; no bridge shared object is ever opened
  * dynamically at runtime. The small mf310p_* C ABI remains only as an
  * internal source boundary between vLLM-Ascend and the customized MemFabric
@@ -17,9 +17,9 @@
  *                   wave, proving its reduced-output add that reads recv
  *                   completed - only then may our signals overwrite its
  *                   recv arena);
- *     producer    - fused AscendC FP16 matmul kernel(s): per chunk
- *                   matmul -> 64B-line clean -> signal toward peer recv;
- *     waiter      - quiet (my signals landed) + wait x chunks (peer chunks
+ *     producer    - multi-block AscendC FP16 matmul followed by a
+ *                   single-block public MemFabric signal publisher;
+ *     waiter      - public quiet + public wait x chunks (peer chunks
  *                   landed in my recv);
  *     add         - out[wave] = send[wave] + recv[wave] on the same stream;
  *     ack         - signal 8B (imm = wave index) to the peer's ack slot
@@ -135,10 +135,6 @@ struct RuntimeState {
     uint32_t producer_warmed_buckets = 0; /* bit (log2(bucket)-4) per bucket */
     bool waiter_warmed = false;
     bool add_warmed = false;
-    /* Global request-ring tail this rank has posted so far (data-plane
-     * sequence base handed to every producer launch; identical on both
-     * ranks because chunk counts are symmetric). */
-    uint64_t posted_seqs = 0;
     /* Completed-wave counter driving the ack/gate rendezvous: the ack for
      * wave N carries imm = N, and the gate before wave N+1 expects it.
      * Identical on both ranks by the same symmetry. */
@@ -358,7 +354,7 @@ void memfabric_o_proj_shutdown()
         return;
     }
     /*
-     * An in-flight wave is unsafe to destroy (outstanding mailbox state);
+     * An in-flight wave is unsafe to destroy (outstanding communication state);
      * leak instead of tearing down mid-flight in a dying process. The
      * wave-boundary join inside the fused op means a healthy shutdown between
      * calls is always safe.
@@ -373,13 +369,8 @@ void memfabric_o_proj_shutdown()
 }
 
 /*
- * Debug-only observability for the V5 mailbox rings. Synchronously copies
- * both ranks' reserved regions (48 KiB each, D2H via the copy engine - it
- * does not depend on the possibly-stuck compute stream) and returns the
- * protocol-relevant words so a hung wave can be dissected live:
- * does the epoch consume (reqHead), did the doorbell ring and the SQE trio
- * execute (quiet stamps / arrival stamps), did the data land (arena words),
- * and the same for the peer side (its region is mapped in our VA space).
+ * Debug-only application snapshot. MemFabric internals are intentionally
+ * opaque: report only public pool geometry, vLLM-owned arenas and data words.
  */
 at::Tensor memfabric_o_proj_debug_snapshot()
 {
@@ -394,67 +385,38 @@ at::Tensor memfabric_o_proj_debug_snapshot()
         return out;
     }
     const mf310p_layout_t& layout = state.layout;
-    constexpr uint64_t kReserved = 48ULL * 1024ULL;
-    /* Mirrors smem_shm_sdma_layout.h offsets. */
-    constexpr uint64_t kReqTail = 0x800 / 8;
-    constexpr uint64_t kReqHead = 0x808 / 8;
-    constexpr uint64_t kQuiet = 0x810 / 8;
-    constexpr uint64_t kArrStamp = 0xA20 / 8;
-    constexpr uint64_t kArrMail = 0x2A20 / 8;
-    constexpr uint64_t kArrHead = 0xAA20 / 8;
-    const uint64_t words_per_region = kReserved / 8;
-
-    std::vector<uint64_t> own(words_per_region, 0);
-    std::vector<uint64_t> peer(words_per_region, 0);
-    const uint64_t own_reserved = layout.own_segment + layout.local_size - kReserved;
-    const uint64_t peer_reserved = layout.peer_segment + layout.local_size - kReserved;
-    bool own_ok = aclrtMemcpy(own.data(), kReserved,
-                              reinterpret_cast<void*>(own_reserved), kReserved,
-                              ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
-    bool peer_ok = aclrtMemcpy(peer.data(), kReserved,
-                               reinterpret_cast<void*>(peer_reserved), kReserved,
-                               ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
 
     auto arena_word = [](uint64_t addr, bool* ok) -> uint64_t {
         uint64_t v = 0;
-        if (ok != nullptr && !*ok) {
-            return 0;
-        }
-        const aclError ret = aclrtMemcpy(&v, sizeof(v),
-                                         reinterpret_cast<void*>(addr), sizeof(v),
-                                         ACL_MEMCPY_DEVICE_TO_HOST);
+        const aclError ret = aclrtMemcpy(
+            &v, sizeof(v), reinterpret_cast<void*>(addr), sizeof(v),
+            ACL_MEMCPY_DEVICE_TO_HOST);
         if (ret != ACL_SUCCESS && ok != nullptr) {
             *ok = false;
         }
         return v;
     };
 
-    const int64_t magic = 0x4D463135  /* "MF15" marker: dump is live */
-                          + (own_ok ? 1 << 8 : 0) + (peer_ok ? 1 << 16 : 0);
-    w[0] = magic;
+    bool own_ok = true;
+    bool peer_ok = true;
+    w[0] = 0x4D465035; /* MFP5 */
     w[1] = state.tp_rank;
-    w[2] = static_cast<int64_t>(own[kReqTail]);
-    w[3] = static_cast<int64_t>(own[kReqHead]);
-    w[4] = static_cast<int64_t>(own[kQuiet]);
-    w[5] = static_cast<int64_t>(own[kQuiet + 1]);
-    w[6] = static_cast<int64_t>(own[kArrStamp]);
-    w[7] = static_cast<int64_t>(own[kArrHead]);
-    w[8] = static_cast<int64_t>(own[kArrMail]);
-    w[9] = static_cast<int64_t>(own[kArrMail + 1]);
-    w[10] = static_cast<int64_t>(own[kArrMail + 2]);
-    w[11] = static_cast<int64_t>(own[kArrMail + 3]);
-    w[12] = static_cast<int64_t>(arena_word(layout.send_arena, &own_ok));
-    w[13] = static_cast<int64_t>(arena_word(layout.recv_arena, &own_ok));
-    w[14] = static_cast<int64_t>(peer[kReqTail]);
-    w[15] = static_cast<int64_t>(peer[kReqHead]);
-    w[16] = static_cast<int64_t>(peer[kQuiet]);
-    w[17] = static_cast<int64_t>(peer[kArrStamp]);
-    w[18] = static_cast<int64_t>(peer[kArrHead]);
-    w[19] = static_cast<int64_t>(peer[kArrMail]);
-    w[20] = static_cast<int64_t>(peer[kArrMail + 3]);
-    w[21] = static_cast<int64_t>(arena_word(layout.peer_recv_arena, &peer_ok));
-    w[22] = static_cast<int64_t>(arena_word(layout.peer_segment, &peer_ok));
-    w[23] = 0;
+    w[2] = static_cast<int64_t>(layout.pool_base);
+    w[3] = static_cast<int64_t>(layout.symmetric_size);
+    w[4] = static_cast<int64_t>(layout.local_size);
+    w[5] = static_cast<int64_t>(layout.send_arena);
+    w[6] = static_cast<int64_t>(layout.recv_arena);
+    w[7] = static_cast<int64_t>(layout.peer_recv_arena);
+    w[8] = static_cast<int64_t>(layout.ack_slot);
+    w[9] = static_cast<int64_t>(layout.peer_ack_slot);
+    w[10] = static_cast<int64_t>(layout.arena_bytes);
+    w[11] = static_cast<int64_t>(layout.chunk_bytes);
+    w[12] = static_cast<int64_t>(state.wave_count);
+    w[13] = static_cast<int64_t>(arena_word(layout.send_arena, &own_ok));
+    w[14] = static_cast<int64_t>(arena_word(layout.recv_arena, &own_ok));
+    w[15] = static_cast<int64_t>(arena_word(layout.peer_recv_arena, &peer_ok));
+    w[16] = own_ok ? 1 : 0;
+    w[17] = peer_ok ? 1 : 0;
 #endif
     return out;
 }
@@ -469,7 +431,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
      * scratch alloc + pool-tensor wrapping (first wave only reports it). */
     const int64_t t_entry = trace_enabled() ? trace_now_us() : 0;
     /*
-     * Fused direct producer on the V5 epoch API. The kernel instantiations
+     * Public-API producer path. The kernel instantiations
      * are M-bucket specialized (static tiling), so tile_m must be a power of
      * two in [16, 4096]: a chunk slot holds tile_m rows, and every kernel
      * writes m_bucket <= tile_m rows into it.
@@ -588,13 +550,11 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     0,
                     full_count,
                     static_cast<uint32_t>(tile_m),
-                    state.posted_seqs,
                     reinterpret_cast<void*>(stream));
                 TORCH_CHECK(ret == 0,
                             "full-chunk mf310p_direct_producer_async failed, "
                             "ret=",
                             ret);
-                state.posted_seqs += full_count;
             }
 
             if (has_tail) {
@@ -654,12 +614,10 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     chunks - 1,
                     1,
                     tail_bucket,
-                    state.posted_seqs,
                     reinterpret_cast<void*>(stream));
                 TORCH_CHECK(ret == 0,
                             "tail mf310p_direct_producer_async failed, ret=",
                             ret);
-                state.posted_seqs += 1;
             }
 
             /* Quiet (my signals landed) + wait x chunks (peer chunks landed
@@ -686,16 +644,14 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                 reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_add_async failed with ret=", ret);
 
-            /* Wave acknowledgement: once the peer's gate consumes this
-             * mail, our next-wave signals may overwrite its recv arena.
-             * The ack also occupies a request-ring seq, so posted_seqs
-             * must track it (it is the quiet tail of the next waiter). */
+            /* Application-level wave acknowledgement. Once the peer consumes
+             * this public MemFabric mail, our next wave may overwrite its recv
+             * arena. MemFabric's internal sequencing is opaque to vLLM. */
             ret = mf310p_ack_async(
                 state.ctx,
                 state.wave_count,
                 reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
-            state.posted_seqs += 1;
             state.wave_count += 1;
 
             if (trace_enabled()) {
