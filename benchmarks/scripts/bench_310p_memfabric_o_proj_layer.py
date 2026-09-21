@@ -91,6 +91,9 @@ def main() -> None:
     torch.npu.set_device(local_rank)
     device = torch.device(f"npu:{local_rank}")
     dist.init_process_group(backend="hccl")
+    # Host-only rendezvous used after MemFabric starts. This avoids turning
+    # the correctness benchmark into an HCCL/MemFabric coexistence test.
+    cpu_group = dist.new_group(backend="gloo")
 
     if rank == 0:
         print(f"tile_m={args.tile_m} repeat={args.repeat}")
@@ -112,7 +115,7 @@ def main() -> None:
         inputs[rows] = x
         refs[rows] = _reference(layer, x)
     torch.npu.synchronize()
-    dist.barrier()
+    dist.barrier(group=cpu_group)
 
     for rows in args.rows:
         x = inputs[rows]
@@ -168,9 +171,11 @@ def main() -> None:
     if rank == 0:
         print("ALL PASS", flush=True)
 
-    # Eager benchmark owns the context and can exercise the current teardown
-    # contract explicitly. Do not suppress teardown errors.
+    # Both ranks must finish their last wave before either destroys the
+    # symmetric pool. Use host-only Gloo, not HCCL, for this rendezvous.
+    dist.barrier(group=cpu_group)
     torch.ops._C_ascend.memfabric_o_proj_shutdown()
+    dist.barrier(group=cpu_group)
 
 
 if __name__ == "__main__":
