@@ -1,728 +1,384 @@
-# 310P3 TP=2 未量化 o_proj + MemFabric AllReduce 研发计划
+# 310P3 o_proj + MemFabric：AI-native 开发状态与执行计划
 
-> 本文用于项目推进和服务器交接，记录整体研发计划、当前已完成事项、待办事项、实机验证顺序和验收门槛。
+> 这是本融合需求的**唯一当前状态面和后续开发入口**。  
+> 不在这里保留逐日 bring-up 流水账；每个验收维度只保留“当前最新有效证据”。  
+> Reviewed implementation baseline: `1058cd87bb5fd92d92c96d920df4afafd093eadc`
+> (2026-09-21).
 >
-> 设计文档：[310p_memfabric_o_proj.md](310p_memfabric_o_proj.md)
->
-> 使用说明：[310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
+> 读文档顺序：
+> 1. [需求与验收合同](310p_memfabric_o_proj_requirements.md)
+> 2. [当前架构](310p_memfabric_o_proj.md)
+> 3. 本文
+> 4. [构建/运行手册](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
 
-## 1. 最终目标
+## 1. Machine-readable 项目快照
 
-在 Ascend 310P3 单卡双 die、TP=2 条件下，对 `Eco-Tech/Qwen3.6-35B-A3B-w8a8` 的 full-attention `self_attn.o_proj` 实现：
-
-```text
-未量化 FP16 o_proj matmul + TP=2 reduction
+```yaml
+project: 310p-qwen36-full-attention-o-proj-memfabric
+target:
+  hardware: Ascend 310P3 single-card dual-die
+  tp: 2
+  model: Eco-Tech/Qwen3.6-35B-A3B-w8a8
+  layer: full_attention self_attn.o_proj only
+  runtime_dtype: fp16
+  geometry: "x[M,2048] * w[2048,2048] -> y[M,2048]"
+  communication: custom wgm-dev-310p MemFabric V5
+implementation:
+  model_dispatch: done
+  direct_producer: done
+  producer_blocks: 8
+  local_reduce_kernel: done
+  wave_ack_gate: done
+  adapter_abi: 4
+  single_layer_correctness: done
+  v5_overlap_evidence: done
+productionization:
+  epoch_lifetime_root_fix: blocked_external
+  current_head_eager_e2e: todo
+  acl_graph: todo
+  long_run: todo
+  final_e2e_performance: todo
+current_phase: productionization
+highest_priority: MF-001
 ```
 
-融合为一条计算/通信 overlap 流水：
+## 2. 当前源码开发状态
 
-```text
-MM[t] -> publish[t] -> SDMA[t] -> peer arrival[t] -> local reduce[t]
-  |
-  +--------------------------------------------------> MM[t+1]
-```
-
-目标是让 `MM[t+1]` 不等待 `SDMA[t]`，最终以定制 `wgm-dev-310p` MemFabric 实现双 die 数据搬运。
-
-## 2. 研发阶段总览
-
-| 阶段 | 目标 | 当前状态 |
-| --- | --- | --- |
-| M0 | 明确模型、硬件、TP、量化和通信契约 | 已完成 |
-| M1 | vLLM model-side 精确挂接和 feature gate | 已完成 |
-| M2 | 定制 MemFabric build/link + persistent runtime 骨架 | 已完成(实机编译+加载验证, 2026-09-18) |
-| M3 | TP=2 bilateral SDMA + repeated-wave correctness | 已完成(M=1~2048 全 PASS; 1000 wave 逐次校验 PASS) |
-| M4 | Phase-1 staged 管线 overlap 验证（V4，已废弃） | 已完成（P4 验收：overlap 真实但性能为负） |
-| M5 | Phase-2 direct AscendC producer + V5 epoch API | 已完成（2026-09-21 单层 bit-exact 9/9 rows） |
-| M6 | P6 性能优化 + ACL graph + 端到端验收 | P6 进行中 |
-
-## 3. 当前已完成事项
-
-### 3.1 模型侧挂接
-
-已完成：
-
-- 仅允许 `qwen3_5_moe_text`；
-- 仅允许 `*.layers.N.self_attn.o_proj`；
-- 额外要求 `config.layer_types[N] == "full_attention"`；
-- TP 必须为 2；
-- local K 必须为 2048；
-- output N 必须为 2048；
-- 310P 未量化路由（owner decision A，原 W8A8 契约废弃）；
-- FP16 output；
-- 命中后 `RowParallelLinear.reduce_results=False`，避免 generic TP allreduce 再执行一次。
-
-### 3.2 Build/feature gate
-
-已完成：
-
-- feature 默认关闭；
-- `wgm-dev-310p` 独立编译安装；
-- vLLM-Ascend 直接 include/link 定制 MemFabric；
-- 不使用运行时 `dlopen`；
-- 不部署第二个 adapter `.so`；
-- CMake 只从显式指定的 custom install prefix 找头文件；
-- feature 打开但 MemFabric root/libs/device object 缺失时 configure 直接失败；
-- `.asc` device object 当前作为外部 build input 传入。
-
-### 3.3 Runtime/内存所有权
-
-已完成代码骨架：
-
-- process-persistent MemFabric context；
-- symmetric send arena；
-- symmetric recv/final arena；
-- V5 mailbox 保留区（48 KiB，memfabric 托管）；
-- producer scratch + per-bucket/waiter warmup bitmap；
-- send/recv 不 alias；
-- failed wave poison runtime，防止残留 polling/SQE/flag 被继续复用。
-
-### 3.4 融合管线（V5，phase-1 staged 管线已删除）
-
-```text
-fused AscendC producer kernel（matmul -> 行级 clean -> signal_at，逐 chunk）
-    -> AICPU epoch kernel 代投 SDMA（与下一 chunk matmul 重叠）
-waiter kernel（quiet + wait x N）
-at::add_out(final = send + recv)
-```
-
-单条 torch stream，chunk 之间零 host 同步；wave 边界 join（stream 同步 +
-control barrier）防跨 wave recv 覆写。
-
-### 3.5 测试基础设施
-
-已完成：
-
-- import-free source regression；
-- eligibility/fallback regression；
-- no-dlopen/direct-link regression；
-- non-aliasing arena regression；
-- failure poison regression；
-- TP=2 单层 bit-exact/latency benchmark：
-  `benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py`；
-- mailbox 现场诊断 op：`memfabric_o_proj_debug_snapshot`。
-
-## 4. P0-P4 实机 bring-up 与验收记录（历史，2026-09-17~20）
-
-服务器 bring-up 首先只解决“能正确编译和链接”，不要同时优化性能。
-
-### 4.9 实机 bring-up 状态（2026-09-17，服务器首轮）
-
-环境与工具链（已就绪并实测）：
-
-- Python 栈：`torch 2.10.0+cpu` / `torch-npu 2.10.0.post4` / `vllm 0.27.1+empty`
-  （源码装于 `/vllm-workspace/vllm` @ v0.27.1，`VLLM_TARGET_DEVICE=empty`，对齐
-  `Dockerfile.310p`）；ray 2.48.0 / modelscope / MPI（openmpi 4.1.2 发行版）。
-- `wgm-dev-310p` @ `e07ef883`（本地为 `d177bfaf`，含 orchestrator json 模式自判别
-  与失败面包屑诊断两处实机验证改动）：主构建（libmf_smem/libmf_hybm_core/
-  libacc_tcp_net 静态库+so）与 AICPU kernel standalone 构建
-  （`cmake -S src/hybm/ops -B <dir> -DASCEND_HOME_PATH=...`，产出
-  `libmf_sdma_orch.so` + CUST/launch 双 json）均通过。
-- example 08 用 `bisheng --npu-arch=dav-2002` 统一编译通过（host+AICore 可执行）；
-  实机双 rank 建池/`smem_shm_sdma_submit` 成功。
-- `smem_shm_control_barrier` 在 wgm-dev-310p 真实存在（smem_shm.h:123），仓库
-  adapter 的用法与实机 ABI 一致。
-
-**当前唯一阻塞（外部条件）**：AICPU 编排 kernel 必须部署到设备
-`/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/`（CP1 搜索路径）才能以
-AICPUKernel 模式执行；原部署工具 `deployer`/`mini_kfc` 在本容器缺失（全盘无
-残留）。deployer 功能已用 `aclrtBinaryLoadFromFile`(CUST json, mode=1) 自研
-复现（可把 ELF 迁移落盘到设备 `/home/CustAiCpuUser/lib/`），但设备内跨目录
-复制（原 mini_kfc 经 KFC 通道的 shell）无法复现。六条免部署替代通道已系统性
-实测排除（详见 memfabric 仓库 `docs/310p/部署档案.md` 第 6 节），其中
-CUST 直接 launch 的结构性根因是：CUST aicpusd 为独立进程，查不到 host CP 流
-注册的 SQ（mainRet=1300）。310P host 编排路径（HostDataOpAclMemcpy）为
-"async 降级 sync"，无 overlap 能力，不可作为替代。
-
-### 4.10 实机 bring-up 状态（2026-09-18，服务器第二轮：P0/P1 全部打通）
-
-**P0 编译（已完成）**：
-
-- `wgm-dev-310p` 合并远程后为 `d7f11c6d`（含 823697d5 部署链工具入库 +
-  075856a9 初始化自动部署 + 44e3c4e3 三件套接入主构建），主构建
-  `cmake -B build -DXPU_TYPE=NPU -DBUILD_PYTHON=OFF && cmake --build build -j`
-  通过；安装前缀组装于 `/opt/memfabric-wgm-dev-310p`（include/ + lib64/ +
-  hybm/aicpu_kernel/ 三件套，与运行时安装前缀发现路径一致）。
-- `.asc` 实机编译命令（必须 `-fPIC`，产物为可链接 ELF relocatable）：
-  `bisheng --npu-arch=dav-2002 -O2 -std=c++17 -w -fPIC -x asc
-  csrc/memfabric_o_proj/external/memfabric310p_device.asc -x none -c -o
-  build_310p_artifacts/memfabric310p_device.o -I$ASCEND_HOME_PATH/include
-  -I$MF_ROOT/include`。链接额外需要 CANN 静态库 `libascendc_runtime.a`
-  （AscendC launch stubs，已写入 cmake/memfabric_310p.cmake）。
-- 首轮记录的"AICPU kernel 部署阻塞"由远程三笔提交解决：初始化内嵌自动
-  部署（CUST 迁移落盘 + KFC 就位 + 完整性校验），example 08 与本管线均
-  零手工部署通过。
-- feature-on build `pip install -e . --no-build-isolation --no-deps` 通过，
-  extension 加载、`memfabric_o_proj_*` 四个 op 注册齐全，RUNPATH 指向
-  定制安装前缀。运行时需 `LD_LIBRARY_PATH=$MF_ROOT/lib64:$LD_LIBRARY_PATH`
-  （RUNPATH 不传递到 libmf_smem.so 的间接依赖）。
-
-**P1 通信 correctness + repeated-wave（已完成）**：
-
-- M = 1/8/32/64/128/512/2048 双 rank 结果与 HCCL reference 全部 allclose。
-- 1000 连续 wave × M∈{1,32,128,512,2048} 逐 wave 校验（`--stress-check`）
-  全部通过：无 hang、无 mismatch、无 stale flag，进程干净退出。
-- **发现并修复的实机 race（重要）**：reduce consumer 读本地 send arena
-  原先没有任何门控（arrival flag 只门控对端数据），对端 SDMA 先到时读
-  到未初始化内存（表现为间歇性、rank 不对称的 mismatch，常数模式冒烟
-  测试测不出）。修复：reduce 逐 chunk 双门控自旋（邮箱槽 words =
-  本地已产出 + arrival flag = 对端已到达）+ 读 send 前按 chunk 失效
-  （跨 wave 陈旧缓存行）。
-- **退出崩溃**：静态析构晚于 NPU runtime 终结导致双 rank SIGSEGV；修复
-  为 LIFO atexit 自动拆卸 + 显式 `memfabric_o_proj_shutdown()` op。
-
-**实机新事实（已登记，防止回退）**：
-
-- 本机 4 张 310P3 卡中，设备 0,1 卡全功能可用；设备 4,5 所在卡
-  `AclrtMemSetAccess` 返回 507899（跨 die VMM 授权失败），不可用于本
-  管线；设备 2,3 卡 npu-smi 显示 Alarm。**bring-up 一律用 0,1**。
-- 310P HCCL（CANN 9.1.0）不支持 BF16 allreduce（HcclAllreduce 直接拒
-  绝）；reference 路径用 FP32 allreduce 后转回 BF16。生产路径不受影响。
-- dav-2002 AICore 标量环境无 `bfloat16_t`（仅 float16_t）；BF16 reduce
-  用位级转换（round-to-nearest-even）。
-- KFC 通道（KFCKernel/system dlsym 回退）在本机可用：`test -f` 缺失
-  文件按设计回传 507018，退出码 0 命令 sync=0；同流非零退出后可继续
-  launch（流不毒化）。
-- `libascendc_runtime.a` 为设备对象链接必需（AscendLaunchKernelWithHostArgs
-  / AscendGetFuncFromBinary / AscendProf* 桩）。
-- 性能基线（Phase-1 标量 reduce + 每 wave 双 barrier）：M=1 约 3.9ms vs
-  HCCL 0.6ms；M=2048 约 161ms vs 5.3ms。**正确性已达标，性能差距为
-  Phase-2/reduce 优化的明确目标**（研发计划 §9/§10）。
-
-### 4.11 目标模型 o_proj 实为 FLOAT（已裁决：方案 A 重定基线为 BF16）
-
-2026-09-18 实机/仓库核查（P2 W8A8 单层验证启动时发现）：
-
-- **目标检查点的 full-attention `self_attn.o_proj` 未量化**：本地
-  `/home/models/Qwen/Qwen3.6-35B-A3B-w8a8` 与 modelscope 上游
-  `Eco-Tech/Qwen3.6-35B-A3B-w8a8`（仅下载 quant_model_description.json
-  核对）完全一致：11 个 o_proj 条目全部 FLOAT；仅 routed MoE experts 为
-  W8A8_DYNAMIC（92251 条目）。需求基线"310P static W8A8 o_proj"的
-  eligibility（AscendW8A8LinearMethod310 + input_size 4096 → 2048 → N 2048
-  + BF16）在真实目标模型上**永不命中**，E2E 验收"full-attention o_proj
-  确实走融合路径"无法按当前需求达成。
-- **310P npu_quant_matmul 不支持 BF16 输出**：CANN 9.1.0
-  `aclnnQuantMatmulWeightNz` 仅接受 INT8/FLOAT16 输出（实机报错
-  EZ1001 DT_BFLOAT16 拒绝）；plain 布局权重在 310P 上不可用（必须
-  FRACTAL_NZ + transpose）。需求"output dtype = BF16"在 W8A8 语义下
-  本机不可实现；现有 W8A8 生产路径只可能以 FP16 输出运行。
-- 本地 `Qwen3-30B-A3B-w8a8`（qwen3_moe，48 层 dense attention，
-  torch_dtype bfloat16）的 o_proj 为完整 W8A8 static（weight/scale/
-  offset/input_scale/quant_bias/deq_scale 齐备）——是唯一满足 W8A8
-  语义的本地检查点，但模型与需求指定的 Qwen3.6 不同（且同样受
-  BF16 输出限制）。
-
-**裁决结果（2026-09-18，项目负责人）：方案 A** —— 按真实检查点重定基线：
-
-- 融合目标改为 Qwen3.6 未量化 BF16 full-attention o_proj（per-tile BF16
-  matmul + MemFabric exchange），W8A8 机制（deq_scale/quant_bias/NZ）整体
-  移除；BF16 payload 语义保留。
-- requirements/设计文档已同步修订（标题、范围、eligibility、数值语义、
-  Phase-2 producer、验收 C）。
-- 310P 实机已验证 BF16 matmul（torch.mm）可用。
-- 代码改造点：eligibility 改查 `AscendUnquantizedLinearMethod`；Python
-  编排 MM 改 `torch.mm`；dispatch 挂接点从 w8a8_static 迁移到未量化
-  linear 路径；单层验收 harness 改 BF16 字面比较。
-- 曾评估的 B（换 Qwen3-30B）/C（重新量化）不再采用。
-
-> **后续修正（2026-09-20，见 9.1/9.2）**：本节裁决时的 BF16 假设随后被实机
-> 推翻——本机 CANN 的 BF16 NZ linear 不支持，模型整体以 FP16 运行，融合
-> 管线交换/规约均为 FP16。当前契约以设计文档 §2 为准。
-
-### 4.12 P3 验收记录：Qwen3.6 TP=2 eager 端到端通过（2026-09-20）
-
-环境事实（本轮新增）：
-
-- `wgm-dev-310p` 上游已更新（本地 `d7f11c6d`）：编排 kernel 三件套接入主构建，
-  并内置 **KFC 通道自部署**（`SdmaOrchestrator::KfcExec`/`MigrateViaCustChannel`
-  /`DeployOrchestratorKernel`，`KFCKernel` json + `system` 函数 dlsym 回退）——
-  设备侧 kernel 缺失时按"验证门 → CUST 迁移 → 设备内 cat → 加载"自动部署，
-  ex08 实测部署成功（加速比 2.31x）。
-- vllm worker 场景注意事项：multiproc 默认 fork 与 MemFabric 库链的多线程
-  状态组合会导致 dlopen 重定位极慢（10min+），须 `VLLM_WORKER_MULTIPROC_METHOD=spawn`。
-- KFC 自动部署在已初始化 HCCL 的 torch worker 中曾报 launch 507018（当时的直接
-  原因是设备 kernel 缺失走到自动部署分支）；设备 kernel 经 ex08 自动部署就位后，
-  bench/torchrun/vllm 的 gate 直接命中已部署路径，全链正常。
-
-P3 验收结果（TP=2 eager，die0/1，FP16）：
-
-- 模型加载 18.85 GB，KV cache 7.9 GiB，warmup 正常；
-- **full-attention `o_proj` 命中融合路径**（worker 日志 "Enable 310P3 TP=2
-  MemFabric unquantized full-attention o_proj pipeline (tile_m=32,
-  chunk_bytes=131072, FP16 exchange)"）；linear-attention 层因 prefix/
-  layer_types 检查结构性不命中；
-- 3 轮 × 4 prompt 共 12 次 generate 全部成功，同 prompt 跨轮输出逐字一致；
-- feature-off baseline 对比：12 输出中 10 个逐字一致，2 个存在 token 级细微
-  分歧（如"和助手"vs"与助手"）——根因是 HCCL allreduce 内部累加精度与融合
-  路径 FP32-math reduce 不同（P2 单层验收已证融合与 FP32-math 语义 bit 级
-  一致），属预期数值行为而非正确性错误。
-
-### 4.13 P4 验收记录：profiler 证明 MM 与通信/规约真实重叠（2026-09-20）
-
-采集方法：`torch_npu.profiler`（`_ExperimentalConfig(export_type=Text,
-profiler_level=Level1)`）包裹融合调用，其 `export_only_prof_dir` 产出 CANN
-kernel 级时间线（`task_time_*.csv`：kernel_name/AI_CORE|AI_CPU/MEMCPY_ASYNC、
-stream_id、task_start/stop）。分析工具已固化为
-`benchmarks/scripts/analyze_310p_memfabric_overlap.py`。
-
-代表性 workload（rows=2048，tile_m=32，单 wave 64 tiles，FP16，TP=2）：
-
-```text
-waves detected: [64, 64]
-== wave: 64 matmul tiles, compute span 8.859 ms, tile avg 32.6 us ==
-reduce consumer: active window overlaps compute span by 8.859 ms (dur 84.158 ms, stream 49)
-AICPU orchestrator: active window overlaps compute span by 8.859 ms (dur 9.219 ms, stream 2)
-matmul tiles (t>=1) overlapping reduce/AICPU activity: 63/63
-OVERLAP PROVEN
-```
-
-结论：compute stream（stream 24，te_matmul + mf310pPublishKernel 交错）的
-**每一个后续 MM tile（63/63）**都与独立流上的 reduce consumer（stream 49）
-和 AICPU SDMA 编排 kernel（stream 2，窗口覆盖全 wave）存在真实设备侧时间
-重叠 —— R4/验收 E 的 timeline 证据达成（非"无显式 wait"推断）。wave 内
-还可见 63 条 MEMCPY_ASYNC（mailbox/flag 清理与数据通路）与计算并行。
-
-证据文件：`/tmp/opencode/p4_evidence/task_time_rank0.csv`（随 PR 归档路径
-见 usage 文档）。
-
-### P0.1 确认定制 MemFabric install 产物
-
-在 `wgm-dev-310p` 编译安装后记录：
-
-- install prefix；
-- `smem.h` 路径；
-- `smem_shm.h` 路径；
-- `smem_shm_aicore_sdma.h` 路径；
-- 真实生成的 `.so/.a`；
-- transitive link dependencies；
-- runtime `LD_LIBRARY_PATH` / RPATH 要求。
-
-将实际 library list 写入：
-
-```bash
-VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES
-```
-
-不要猜官方 MemFabric library 名。
-
-### P0.2 确认 `.asc` 编译规则
-
-找到 `wgm-dev-310p` example 08 实际使用的 device build 规则，用同一套 310P toolchain 编译：
-
-```text
-csrc/memfabric_o_proj/external/memfabric310p_device.asc
-```
-
-得到可被 `vllm_ascend_C` 链接的 object，并设置：
-
-```bash
-VLLM_ASCEND_310P_MEMFABRIC_DEVICE_OBJECT=/abs/path/memfabric310p_device.o
-```
-
-如果当前 `.asc` 语法、launch stub 或 object 形式不兼容，应优先按 example 08 的实际编译方式修改，不要引入另一套猜测工具链。
-
-### P0.3 修复所有编译错误
-
-优先级：
-
-1. header/API signature；
-2. namespace/type；
-3. device launch stub；
-4. linker symbol；
-5. RPATH/runtime loader。
-
-每解决一个错误，记录原始错误信息和修复 commit。
-
-## 5. P0-P4 历史记录（V4 时代，已验收，规划文本已废弃）
-
-P0-P4 在 V4（kfc/workspace API）形态下完成并验收，其过程规划文本（V4
-host API 核对、phase-1 staged 管线、wave flag 协议等）已随 V5 迁移整体
-废弃并删除。验收结论存档：
-
-- **P0 编译打通**（2026-09-17）：cmake/adapter/.asc/bisheng 工具链全链路
-  打通；CUST 迁移通道与 CP1 部署模式实测定论。
-- **P1 通信协议正确性**：bilateral SDMA + local reduce 与 HCCL reference
-  对齐；1000-wave stress 无 stale/丢件；wave boundary 双 barrier 协议
-  （sync + clear + barrier）定型。
-- **P2 单层 correctness**：staged 管线（per-tile F.linear + publish）对
-  `F.linear + FP32 allreduce` bit-exact。
-- **P3 端到端 bring-up**：Qwen3.6-35B-A3B TP=2 eager 生成正确。
-- **P4 profiler overlap 验证**：profiler timeline 证明 MM[t+1] 与
-  SDMA[t] 实际重叠；phase-1 性能为负（per-tile launch + staging copy
-  开销主导）——这是 P5 direct producer 的直接动机。
-
-V4 链路在该服务器的失效记录（2026-09-20）：设备侧 v4 kernel 消失、
-kfc_min.so 缺失导致 kfc 通道不可用、CUST 直跑必 0x2a。全部证据与迁移动机
-见 §9.2。
-
-V4 时代的旧 benchmark `bench_310p_memfabric_o_proj.py` 与 phase-1
-begin/publish/finish op 面已随迁移删除（git 历史可查）。
-
-
-## 9. P5：direct producer（已完成）
-
-研发目标（均已达成）：
-
-- 310P Cube matmul primitive（AscendC Matmul API）直写 symmetric send
-  arena，保持未量化 FP16 语义；
-- tile 完成后立即 clean+signal，一个 producer kernel 内继续下一 tile；
-- 移除 local copy 与 per-tile launch（phase-1 的两大负开销）。
-
-### 9.1 实现记录（2026-09-20，dav-2002 / CANN 9.1.0 / bisheng）
-
-P5 producer 已按上述目标实现（FP16 未量化路径，owner decision A）：
-`Mf310pDirectProducerKernel`（csrc/memfabric_o_proj/external/
-memfabric310p_device.asc），`memfabric_direct_o_proj_allreduce` 唯一入口
-op（V5 迁移后 phase-1 staged 管线已整体删除，见 9.2）。
-
-AscendC Matmul 在 dav-2002 上的位级正确配方（对照 `F.linear(x, w_nz)`，
-m=1..4096 全 bucket bit-exact，探针 /tmp/opencode/p5_matmul_probe/probe9）：
-
-- A `MatmulType<GM, ND, fp16, false>`，B `<GM, NZ, fp16, true>`，C
-  `<GM, ND, fp16>`，`CONFIG_MDL`，base tile 128^3；
-- 静态 tiling `GetMatmulApiTiling`，M 按 2 的幂 bucket 特化
-  （16/32/64/128/256/512/1024/2048/4096）；bucket < 256 时必须传
-  `l1Size=128KB` 抑制 A-full-load 调度（默认调度的 UB 中转需求超过
-  2002 的 256KB UB，触发 aicore 异常 0x26 MTE 越界）；
-- `enVecND2NZ=true`：OnTheFly ND2NZ 路径在 2002 上有 M 行广播 bug，必须走
-  向量路径；
-- `pipe.InitBuffer(ubBuf, TOTAL_UB_SIZE); mm.SetLocalWorkspace(ubBuf)` 为
-  生产必选（mat_mul_base_kernel.h:82-85 同款）；
-- `SetTensorB(bGm, true)` 必须显式运行时转置 flag；
-- `REGIST_MATMUL_OBJ` + 零初始化 `TCubeTiling`；
-- 宿主侧：每个 kernel symbol 首次 launch 是静默哑弹（binary eager-load
-  no-op），必须 warmup 两次（chunk_count==0 零副作用 shape）。
-
-producer 形态（probe10 验证）：单 kernel 循环
-`SetTensorA/B -> SetOrgShape -> IterateAll -> clean slot -> notify slot ->
-下一 chunk`，一个 Matmul/TPipe/UB 复用多次 IterateAll，bit-exact。partial
-tail chunk 用 `bucket_of(rows_last)` 的第二实例，从 host 准备的 scratch
-（memset+memcpy）读取避免 x 越界读，slot 未覆盖行由 host memset 归零保持
-确定性。
-
-wave 协议（V5 定稿，见 9.2）：join -> warmup -> producer(s) -> waiter ->
-add_out；multi-wave 由 op 内循环处理（max_rows_per_wave = 64 * tile_m）。
-tile_m 必须为 [16,4096] 内 2 的幂。
-
-已知问题/后续优化：M<16 仍按 bucket 16 计算（decode M=1 粒度下限）；
-单 core（usedCoreNum=1, <<<1>>>）为 correctness baseline，多 core/N-panel
-为 P6+ 优化项。
-
-### 9.2 V5 epoch API 迁移（2026-09-21，dav-2002 双卡实测）
-
-V4 链路在该服务器失效（设备侧 v4 kernel 被移除、kfc 通道因 kfc_min.so
-缺失不可用、CUST 直跑必 0x2a），整体迁移到 V5
-（memfabric_hybrid origin/wgm-dev-310p，24de19cb，安装于
-/opt/memfabric-wgm-dev-310p-v5）。厂商示例 08（ex08）双卡 PASS 证明
-AICPU/epoch/SDMA 数据面健康，v6 kernel 已由同事部署在 CP1 路径。
-
-V5 契约与代码变化：
-
-- 设备 API：`smem_shm_sdma_reserved(gva)` 预计算 + `signal_at/wait_at/
-  quiet_at`（32B 请求邮件环 64 槽、到达环 1024、段尾保留区 48KB）；
-  kernel 入口 `HybmSdmaOrchEpoch`（MF_SDMA_ORCH_KVER=6，json 须显式
-  MF_SDMA_ORCH_JSON 指定——split 布局下自动发现失效且 kfc 回退不可用）；
-- producer kernel：matmul -> 64B 行级 clean（ex08 姿势，替代
-  ENTIRE_DATA_CACHE）-> `signal_at`（dst=对端 recv arena 槽，imm=chunk）；
-- 新增 waiter kernel：`quiet_at`（本端信号全落地，send 可复用）->
-  `wait_at` x chunks（按序收件，status != OK 早退）；
-- host 数据面全部废止：op 协议变为 per-wave
-  `join（stream 同步 + control barrier，防跨 wave recv 覆写竞态）->
-  warmup（每 bucket 2 次 + waiter 2 次，哑弹规避）-> producer(s) ->
-  waiter -> at::add_out(out, send, recv)`，全程单流无 chunk 间 host 同步；
-- ABI v3：layout 增 `pool_base`（kernel 侧保留区推导）与 `local_size`，
-  删 arrival flags/2MB 保留区/mailbox 常量；删 phase-1 全套
-  begin/publish/finish/mark_failed op 与
-  `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_DIRECT` env（direct 成为唯一路径）；
-- cmake：V5 split 布局（smem/include/{host,device}、四目录 lib64、
-  rpath 覆盖全部、json 必须显式指定）。
-
-E2E 验证（bench_310p_memfabric_o_proj_layer.py，tile_m=32，repeat=5）：
-rows = 1/8/32/33/64/128/512/2048/4096 全部 bit-exact PASS
-（max_abs_diff=0.000000），含单 wave 64-chunk、4096 双 wave、tail
-bucket。热路径 4096 行 ~25ms（未调优，P6 目标）。
-
-### 9.3 V5 平台约束（本机实测，集成必读）
-
-V5 的"常驻 epoch kernel"设计（~22s 自限 + 监督线程立即续投 = 设备上
-永远有活着的 AICPU 任务）在本机引出三个硬约束，bench 已逐一绕开，
-生产化需 memfabric 侧跟进：
-
-1. **device 级同步死锁**：`torch.npu.synchronize()`
-   （aclrtSynchronizeDevice）等待所有设备任务，包括常驻 epoch →
-   永久挂死；约 25-28s 后 epoch 被 launch-timeout 击杀 → tsdaemon 杀
-   aicpu-sd → HDC 断连（507901）→ 设备 AICPU 报废直至自愈。实测
-   torch_npu 的 **HCCL 集合通信（barrier/allreduce）内部同样做
-   device 级同步**——池存活期间两者都不可用。对策（已实现）：池存活
-   期间只用 stream 级同步；reference HCCL 全部前置到建池之前。
-2. **epoch 25s launch-timeout 击杀窗口**：本机 usleep(100µs) 实际
-   ~127µs+，epoch 自限实际 ~28s > 25s launch attr → 任何池寿命
-   超过 ~25s 必然被击杀并砖化 AICPU。对策（已实现）：单进程内将
-   池生命周期控制在 ~20s 内。**根治需要 kernel 侧缩短
-   HYBM_SDMA_ORCH_EPOCH_MAX_LOOPS（220000 -> ~120000）并 bump KVER
-   重部署设备侧 .so——kfc 已死无法自动部署，需同事/厂商操作。**
-3. **teardown HDC 静默断连**：`smem_shm_destroy` 期间段 unmap 与
-   epoch 停止存在窗口，epoch 可被无日志 fault-kill → HDC 断连 →
-   destroy 之后任何设备操作（含 HCCL）失败。对策（已实现）：bench
-   在 shutdown 后不再做任何设备/集合操作，直接退出。
-
-诊断工具：`torch.ops._C_ascend.memfabric_o_proj_debug_snapshot()` 同步
-D2H 转储双端保留区协议字（reqHead/reqTail、quiet/arrival 戳、邮件像、
-arena 首字），可在 waiter 挂死时判定卡点（本轮用它证实了 wave 完成、
-挂点在 device 同步）。
-
-### 9.4 R3：V5 下 overlap 证据（2026-09-21，dav-2002 双卡实测）
-
-**采集配方（V5 约束下唯一可行链路，多轮排障定型）**：
-
-1. torch_npu.profiler（Level1 + Text 导出）进程内包裹融合调用段；
-   burn（建池+暖机）必须在窗口外（窗口内建池会让 stop() 的
-   device-sync 等待把池龄拉过 25s 击杀窗）；
-2. rank 间用 **gloo** rendezvous（全程无 HCCL：窗口内 HCCL 集合
-   通信会 device-sync 挂死在常驻 epoch 上）；
-3. **正常进程退出是必须的**：设备侧 timeline slices 由退出链 flush
-   （os._exit/kill 全丢）；post-shutdown 静态析构会在 HDC 断连上
-   SIGSEGV，但发生在 flush 之后，无妨；
-4. task_time CSV 由**独立健康进程**跑
-   `torch_npu.profiler.profiler.analyse(<export_only_prof_dir>)` 离线
-   生成（分析器不依赖 HDC，但依赖设备数据已 flush）；
-5. 双进程手动启动（非 torchrun）：rank 退出链崩溃不能连坐对端
-   finalize；两进程 import vllm_ascend_C 需错峰（MemFabric 静态
-   初始化互锁风险）。
-
-msprof CLI 不可用：task-based 采集在某 AICPU task 窗口收尾
-（DYNAMIC_DISABLE）后静默关闭设备侧事件采集——连无池的纯 GE matmul
-对照也丢失（本机 CANN 9.1.0 实测）。
-
-**稳态证据（rows=2048，tile_m=32，64 chunks = 8 MiB/rank，5 calls）**：
-
-```text
- #  gate_us producer_us waiter_us  add_us ack_us  cycle_us
- 1      1.6      1681.6     192.5   130.7    1.8    2085.8
- 2      1.6      1657.4     191.7   130.2    1.8    2063.0
- 3      1.6      1658.3      79.0   131.0    1.7    1944.5
- 4      1.6      1680.4     194.3   129.5    1.8    2077.8
-steady medians: producer=1680us waiter=193us cycle=2078us
-```
-
-**Overlap 论证（双条独立证据）**：
-
-1. waiter 的 wait_at 队列在该窗口内确认全部 64 封到达邮件，即 8 MiB
-   已跨越 fabric。若传输串行发生在 producer 之后，waiter 窗口隐含
-   带宽 8MiB/193us ≈ **44 GB/s**，远超 SDMA 物理带宽（~20 GB/s 量级）
-   ——传输必然大部分与 producer 的 1.66ms matmul 重叠；
-2. 串行下界（matmul 1680µs + 8MiB@20GB/s=419µs SDMA + 规约尾部
-   ~400µs）= **2305µs > 实测 cycle 2078µs**。
-
-**与 HCCL 对比（同 shape，独立采集）**：HCCL 路径通信段
-REDUCE_ASYNC_V2 938µs + FP16/FB32 双 cast 224µs ≈ 1.16ms（不含
-matmul，wall 1.6ms）；融合路径"通信+规约"（waiter+add）仅 323µs 且
-全链 2.08ms **含** 1.68ms matmul——对比"matmul + HCCL 通信"串行
-~3.3ms 节省约 **37%**。
-
-与 V4 证据形态的差异：V4 有 AICPU orchestrator 的直接时间线窗口
-（P4 §4.13）；V5 的常驻 epoch 在 profiler 窗口外 launch，不产生窗口
-内任务记录（拉进窗口会踩 25s 击杀窗，见配方第 1 条）。上述稳态
-周期/带宽数值论证为替代证据，强度等价（不依赖"无显式 wait"推断）。
-
-分析工具：`benchmarks/scripts/analyze_310p_memfabric_overlap.py`
-（V5 kernel 名 + 数值论证；证据 CSV 归档于采集机
-`/tmp/opencode/r3_evidence_task_time_rank0.csv`）。
-
-## 10. P6：性能优化（Fix A/B/C 全部落地）
-
-### 10.1 实施记录（2026-09-21，dav-2002 双卡实测）
-
-分相测量（VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1 输出 join_sync/
-barrier/warmup/enqueue/prejoin 五相）定位了三个独立开销，逐一修复：
-
-**Fix A：自有向量 add kernel 替代 at::add_out**（生产关键）。
-实测 torch_npu 的 elementwise add 首次使用按输出 shape 付 ~90ms GE
-编译（M 每变一次就付一次，prefill 不可接受）。新增 `mf310pAddKernel`
-（.asc）：多 block 连续切片、TQue 双缓冲、shape 无关；正确舍入 FP16
-加与 FP32-math reference 数学等价（两个 FP16 输入在 FP32 中精确求和，
-任何正确舍入的 FP16 加都等于该单次舍入），实测 bit-exact。首 call
-罚金归零（rows=8 首call 1379ms -> 1.1ms）。
-
-**Fix B：multi-block producer（5.6x prefill）**。producer 由 <<<1>>>
-改为 <<<8>>>：block b 交错持有 chunk {b, b+B, ...}，每 chunk 仍是同一
-单核 GEMM 配方（bit-exact by construction）。请求环投递改为
-`Mf310pPostSlotOrdered`：host 确定性跟踪全局环计数 `posted_seqs` 并随
-launch 传 `first_seq`；block 投 seq 前自旋等待
-`REQ_TAIL == seq && tail-head < 64`（前驱已投 + 环容量），随后写槽并
-发布 tail=seq+1。不同 block 等不同 seq，发布天然串行，无原子操作。
-waiter/quiet 语义不变（quiet 等末封戳 FIFO）。
-
-**测量基线与结果**（tile_m=32，repeat=8~20 稳态 med）：
-
-**Fix C：ack/gate 设备侧 wave 会合（替代 host join）**。join 的
-TCP control barrier 典型 ~150µs 且概率性 ~40ms 尖峰（delayed-ACK），
-bench max 列可见、p99 杀手。改为纯设备侧邮件链：本 rank add 完成后
-ack kernel 向对端 ack 槽 signal 8B（imm=wave 序号，占用一个请求环
-seq，posted_seqs 随之推进）；下一 wave 前本 rank gate kernel
-wait_at 消费一封到达邮件并校验 imm/dst——等到它即证明对端 add 已
-完成，本 rank 的 signal 才可覆写对端 recv。到达环 FIFO 序
-[data x N, ack] 与接收端 [waiter, gate] 消费序严格一致；跨 wave 无
-循环等待（归纳：wave N 的 gate 依赖的 ack 在 wave N-1 数据全部落地
-之后才产生）。首 wave 保留一次 stream sync + barrier 作建池会合。
-协议违例（对端死亡/FIFO 失步）时 gate 把观测到的 status|imm 暂存
-进协议永不读取的 ack 槽供 debug_snapshot 事后取证，随后放行（与
-waiter 同等失败姿态）。
-
-**最终测量**（tile_m=32，repeat=8~25 稳态 med / max）：
-
-| rows | P5 基线 | Fix B 后 | Fix C 后（med/max） | 总提升 |
+| Area | 状态 | 当前源码事实 | 最新有效证据 | 下一步 |
 | --- | --- | --- | --- | --- |
-| 1 | 1.09ms | 1.16ms | 0.95 / 1.43ms | 1.1x |
-| 32 | 0.63ms | 0.50ms | 0.49 / 1.83ms | 1.3x |
-| 128 | 1.09ms | 0.59ms | 0.47 / 0.65ms | 2.3x |
-| 512 | 3.42ms | 0.95ms | 0.74 / 1.04ms | 4.6x |
-| 2048 | 12.47ms | 2.24ms | 2.09 / 2.25ms | 6.0x |
-| 4096 | 24.72ms | 4.42ms | 4.11 / 4.42ms | 6.0x |
-| 首 call | ~90ms/shape | ~0 | ~0 | 消除 |
-| max 尖峰 | 13~22ms | 依旂数十 ms | **全部 <1.9ms** | 消除 |
+| 精确 model hook | DONE | full-attention o_proj + TP2 + 4096/2048/2048 + FP16；关闭 generic reduce | source UT + modelslim 路由 | 仅防回归 |
+| Build/link | DONE | 定制 MemFabric V5 direct link；CMake 自动 bisheng 编译 .asc | 真实 310P3 build/load 已通过 | 仅防回归 |
+| Persistent runtime | DONE | process context、send/recv arena、scratch、warmup、poison | 单层 repeated calls | Graph/长稳继续验证 |
+| Direct matmul producer | DONE | FP16 Cube matmul 直写 send arena；8-block interleaved producer | rows 1..4096 bit-exact | 仅按数据优化 |
+| Mailbox/SDMA | DONE | V5 request/arrival rings + epoch SDMA | V5 overlap evidence | 等 epoch 生命周期根治 |
+| Local reduce | DONE | repo-owned multi-block `mf310pAddKernel` | bit-exact；消除 per-shape GE compile | 仅防回归 |
+| Cross-wave rendezvous | DONE | first-wave barrier；later wave ack/gate | repeat stress + tail spike 消除 | Graph 中验证 |
+| 单层 correctness | DONE | 1/8/32/33/64/128/512/2048/4096 | max_abs_diff=0 记录 | HEAD 改功能后重跑 |
+| V5 overlap | DONE | producer / waiter / add / ack task-time 数值闭环 | commit `1058cd87bb` | 功能变化后重采 |
+| 单层性能 | DONE_FOR_CURRENT_KERNEL | 2048 ~2.09 ms；4096 ~4.11 ms steady median | P6 实机结果 | 不替代 E2E 性能 |
+| Qwen3.6 eager E2E | STALE | 旧实现曾跑通，但早于 V5/P6 最终 HEAD | commit `c5fd1c46f7` | MF-003 重跑当前 HEAD |
+| Epoch 生命周期 | BLOCKED | 当前 V5 常驻 epoch 约 25s timeout 风险 | 实机稳定复现 | MF-001 根治 |
+| Host sync audit | TODO | pool 存活后不能碰 device-wide sync/HCCL | bench 仅规避 | MF-002 |
+| ACL Graph | TODO | 没有当前 fused op capture/replay 验收 | 无 | MF-004/MF-005 |
+| 长稳 | TODO | benchmark 通过缩短 pool lifetime 绕开 | 无生产证据 | MF-006 |
+| E2E 性能 | TODO | 缺当前 HEAD TTFT/TPOT/tokens/s | 无最终数据 | MF-007 |
 
-Fix C 的核心价值在尾延迟：TCP barrier 的 40ms 概率尖峰彻底消失，
-且所有 wave（含同 call 内多 wave）完全流水化，无任何 host 同步。
+状态定义：
 
-正确性：rows=1..4096 全集 bit-exact（含 64-chunk 单 wave、双 wave、
-tail bucket），repeat=20 stress 通过。
+- **DONE**：当前 HEAD 有源码 + 可复核证据；
+- **DONE_FOR_CURRENT_KERNEL**：局部指标完成，但不能替代最终验收；
+- **STALE**：曾有证据，但不覆盖当前关键实现；
+- **TODO**：本仓库可推进；
+- **BLOCKED**：依赖外部 MemFabric/kernel 部署或平台动作；
+- **DEFERRED**：只有数据证明需要时才做。
 
-**遗留（Fix C，设计已备未实施）**：wave 边界 join 的 TCP control
-barrier 典型 ~150µs 但概率性 ~40ms 尖峰（delayed-ACK 特征；bench max
-列可见）。方案：对端 add 后 ack kernel 回签 8B（imm=wave id），本端
-下一 wave 前由 gate kernel wait_at 收签；到达环 FIFO 序
-[data x N, ack] 保证双 kernel 交错消费自洽，可整体删除 host join
-（首 wave 除外）。收益：稳态 -0.2ms + p99 尖峰消除 + ACL graph
-友好（无 host barrier）。
+## 3. 当前最新证据
 
-1. **per-wave host join（stream 同步 + control barrier）**：TCP rendezvous
-   波动 ~0-70ms，decode 小 M 时是单项最大开销。
-   优化方向：以设备侧 ack/gate 替代——对端 add_out 后由 ack kernel 回签
-   8B（imm=wave id），本端下一 wave 前由 gate kernel wait_at 收签；
-   到达环 FIFO 序 [data x N, ack] 保证双 kernel 交错消费自洽。join 可
-   整体删除（首 wave 除外）。
-2. **单 core matmul**：producer 用 usedCoreNum=1 / <<<1>>>（correctness
-   baseline），128 chunk 串行。优化方向：多 block 每 block 独立 chunk
-   的 GEMM（配方不变保 bit-exact），signal 以"块序自旋 + 顺序递增
-   REQ_TAIL"保持 FIFO，避免并发环写。
-3. **clean 成本**：128 KiB/chunk 的 64B 行级 dcci 循环，评估批量行
-   clean 或每 chunk 一次 ENTIRE_DATA_CACHE 的取舍。
+只保留每个维度的最新有效结果，不追加历史流水账。
 
-后续顺序：Fix C（ack/gate 替代 join）；clean 成本（128KiB/chunk 的
-64B 行级 dcci 循环）评估；overlap timeline 在 V5 下用 msprof/task_time
-重新量化（torch profiler 自身 device-sync，与 9.3 约束 1 冲突）。
-
-硬约束（9.3）：调优运行必须把池寿命控制在 ~25s 内。
-
-## 11. P7：ACL graph
-
-Eager 路径通过后：
-
-1. 去掉 `--enforce-eager`；
-2. capture；
-3. replay 多轮；
-4. 检查 persistent GVA；
-5. 检查 wave flag generation/reset；
-6. 检查 graph replay 是否重复执行 host-only barrier；
-7. 检查不同 M bucket/graph 的资源复用。
-
-如果 graph 失败，不要先修改算法；先最小化复现为一个融合 op graph capture case。
-
-## 12. 性能验收指标
-
-至少保存以下 baseline/fused 数据：
-
-- 单层 `o_proj + allreduce` latency；
-- prefill latency；
-- TTFT；
-- decode TPOT；
-- output tokens/s；
-- prompt tokens/s；
-- peak memory；
-- SDMA bandwidth；
-- overlap ratio/timeline；
-- CPU/AICPU overhead。
-
-测试至少覆盖：
-
-- decode 小 M；
-- 中等 batch；
-- 大 prefill M；
-- 长时间稳定运行。
-
-## 13. 当前风险清单
-
-### R1：V5 平台约束对宿主进程的侵入（最高风险）
-
-常驻 epoch 使池存活期间 device 级同步/HCCL 集合通信不可用、池寿命
-<25s、teardown 后 HDC 不可靠（见 9.3）。当前 bench 已绕开，但 vLLM
-model runner 内的 synchronize 调用点、graph capture 路径、worker 生命
-周期管理都需逐点排查。根治依赖 memfabric 侧改造（epoch 常驻策略 /
-暂停 API），需厂商跟进。
-
-### R2：epoch 25s 击杀窗口未根治
-
-kernel 侧缩短自限 + KVER bump 重部署尚未执行（kfc 不可用，需同事/
-厂商）。根治前，任何 >25s 的池存活场景（包括未来 vLLM 长稳测试）都会
-砖化 AICPU。
-
-### R3：overlap 证据需在 V5 下重做（已完成，见 9.4）
-
-### R4：小 M 没有足够流水深度
-
-decode M=1 单 chunk 无流水可言，收益主要靠去除 join（P6 第 1 项）；
-若仍不达标需评估 N-panel。
-
-### R5：ACL graph（P7）
-
-host join 若保留在 wave 协议中则不 graph-safe；P6 的 ack/gate 设备化
-顺带改善 graph 兼容性，但 capture/replay 边界仍需单独设计。
-
-### R6：generic `memfabric_hybrid` Python dependency
-
-仓库 `requirements.txt` 仍存在通用 `memfabric_hybrid`。服务器 bring-up 必须确保使用的是定制 `wgm-dev-310p` 安装，不要让 pip 自动下载一个上游版本后误以为已经满足本项目依赖。
-
-## 14. 每次服务器迭代建议记录
-
-每轮提交至少记录：
+### 3.1 单层 correctness
 
 ```text
-Date:
-Commit:
-CANN:
-Driver/Firmware:
-SOC_VERSION:
-PyTorch:
-torch-npu:
-vLLM:
-vLLM-Ascend branch:
-MemFabric commit:
-MemFabric install prefix:
-MemFabric libraries:
-Device .asc compile command:
-Feature env:
-Test command:
-Result:
-Profiler artifact:
-Known issue:
-Next action:
+tile_m=32
+rows = 1, 8, 32, 33, 64, 128, 512, 2048, 4096
+verdict = all PASS
+max_abs_diff = 0
+multi-wave / tail / repeated calls covered
 ```
 
-建议把关键日志、编译命令和性能结果持续回填到本文或 PR #1，避免后续交接重复踩坑。
+硬件脚本：
+`benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py`
 
-## 15. 完成定义
+### 3.2 P6 steady latency
 
-该项目可以从“WIP”转为“完成”时，应至少满足（括号为当前状态）：
+```text
+rows     median
+1        ~0.95 ms
+32       ~0.49 ms
+128      ~0.47 ms
+512      ~0.74 ms
+2048     ~2.09 ms
+4096     ~4.11 ms
+```
 
-- custom MemFabric（V5）从源码可重复编译安装（已达成）；
-- vLLM-Ascend 可一条明确流程编译（已达成）；
-- TP=2 repeated-wave correctness（已达成，repeat 逐次校验）；
-- 融合 op 单层 correctness bit-exact（已达成，9/9 rows）；
-- 端到端 Qwen3.6 generation 通过（待 P6 后执行；受 R1/R2 约束，
-  需先完成 vLLM 进程内 device-sync 排查与 epoch 击杀根治）；
-- ACL graph replay 稳定（P7）；
-- profiler 证明 V5 下 overlap（P6，R3）；
-- 性能相对 baseline 有明确收益或至少能解释瓶颈（P6）；
-- 文档中的编译、部署和启动命令经过服务器实测并更新为最终命令
-  （usage guide 已按 V5 实测更新）。
+这组数据只说明当前 fused kernel microbenchmark，不是 Qwen3.6 E2E 结论。
+
+### 3.3 V5 overlap
+
+代表 workload：
+
+```text
+rows=2048, tile_m=32, 64 chunks, 8 MiB/rank
+producer median ~1680 us
+waiter median   ~193 us
+add             ~130 us
+cycle median    ~2078 us
+```
+
+若 8 MiB 传输全部串行落在 waiter 窗口，需要约 44 GB/s；高于当前分析采用的
+约 20 GB/s sustainable SDMA 假设。串行下界也高于实测 cycle，因此当前 V5
+实现已满足 overlap 验收。
+
+分析脚本：
+`benchmarks/scripts/analyze_310p_memfabric_overlap.py`
+
+### 3.4 E2E
+
+旧 eager E2E 在 `c5fd1c46f7` 跑通过，但它早于 V5 epoch migration、
+multi-block producer、自有 add、ack/gate。**状态只能记为 STALE。**
+
+## 4. 有序任务队列
+
+后续 AI/工程师每次只领取一个 Task ID。不要同时改算法、Graph、E2E 和文档。
+
+### MF-001 — 根治 MemFabric epoch 生命周期（P0 / BLOCKER）
+
+**目标**：删除“pool 必须在约 25 秒内结束”的生产限制。
+
+**依赖**：定制 MemFabric 仓库与设备侧 AICPU kernel 部署权限。
+
+**已知方向**：缩短 epoch 自限循环并 bump KVER，然后重新部署设备侧 kernel；
+具体值必须以 MemFabric source 和实机验证为准，不在 vLLM-Ascend 中硬编码猜测。
+
+**验收**：
+
+- pool 生命周期明显跨过当前 timeout 窗口；
+- 不出现 507901 / AICPU 被 kill；
+- shutdown 语义重新验证；
+- 结论回填本状态文档和 usage 的平台限制。
+
+**Stop condition**：没有设备侧 kernel 部署权限时停止在“可复现 + patch proposal”，
+不要用缩短测试时长假装完成。
+
+### MF-002 — vLLM host device-sync 路径审计（P0）
+
+**目标**：建池后完整 vLLM 请求路径不得触发会等待常驻 epoch 的 device-wide sync。
+
+**方法**：
+
+- 从首次 target o_proj forward 之后开始审计；
+- 搜索/trace `torch.npu.synchronize`、`aclrtSynchronizeDevice`、会隐式
+  device-sync 的 HCCL/error/finalize 路径；
+- 区分当前 stream sync 与 device sync。
+
+**验收**：当前 HEAD eager 服务多轮请求不依赖 benchmark 专用规避逻辑。
+
+### MF-003 — 当前 HEAD Qwen3.6 eager E2E（P0）
+
+**前置**：MF-001 至少有可用于服务生命周期的修复版本；MF-002 完成关键路径审计。
+
+**验收**：
+
+- TP=2 模型加载；
+- 目标 full-attention o_proj 全部命中；
+- linear-attention/GDN 不命中；
+- 多轮 short prompt / prefill / decode 正常；
+- feature-off baseline 正常；
+- 保存 commit、MemFabric commit、启动命令、日志摘要。
+
+### MF-004 — 最小 fused-op ACL Graph（P1）
+
+先做单 op graph capture/replay，不要直接从 35B 模型开始排查。
+
+覆盖：
+
+- M=1；
+- M=32；
+- tail M=33；
+- M=2048；
+- multi-wave M=4096；
+- repeated replay；
+- stable GVA / wave generation。
+
+失败时只最小化 graph 边界，不改计算算法。
+
+### MF-005 — 完整 Qwen3.6 ACL Graph（P1）
+
+前置：MF-004 PASS。
+
+验收：移除 `--enforce-eager` 后完整模型 capture/replay、多轮请求稳定。
+
+### MF-006 — 长稳与生命周期（P1）
+
+前置：MF-001、MF-003、MF-005。
+
+目标不是固定某个漂亮时长，而是证明不再依赖 25 秒 workaround，并覆盖：
+
+- repeated requests；
+- multiple M buckets；
+- process lifetime；
+- graceful shutdown；
+- failure poison 行为。
+
+### MF-007 — 最终 E2E 性能包（P1）
+
+保存同机器、同参数 baseline/fused：
+
+- single-layer latency；
+- prefill / TTFT；
+- decode / TPOT；
+- prompt tokens/s；
+- output tokens/s；
+- peak memory；
+- 必要时 profiler/task-time。
+
+### MF-008 — Decode 小 M 优化（DEFERRED）
+
+只有 MF-007 证明 decode 是主要瓶颈时才启动。
+
+候选：N-panel 或其它小 M tiling。禁止因为“理论上可能更快”提前扩大 kernel 复杂度。
+
+### MF-009 — Cache clean 优化（DEFERRED）
+
+只有 profiler 显示 64B line clean 是显著瓶颈时评估。没有数据不改。
+
+## 5. AI-native 单次迭代协议
+
+每一轮开发必须按以下顺序：
+
+### Step 0 — 锁定任务
+
+先写一个 task packet：
+
+```text
+Task ID:
+Goal:
+Why now:
+Implementation baseline:
+MemFabric baseline:
+Allowed files:
+Do-not-touch:
+Expected evidence:
+Stop condition:
+```
+
+没有 Task ID 不开始改代码。
+
+### Step 1 — 读 source，不读历史猜实现
+
+至少打开与任务直接相关的当前源码。优先级：
+
+```text
+source > hardware behavior > current architecture doc > commit history
+```
+
+如果文档与 source 冲突，先以 source 为准，并在同一迭代修正文档。
+
+### Step 2 — 只改最小边界
+
+本项目禁止顺手泛化 TP>2、其它模型、其它 dtype。一个迭代最多解决一个主要假设。
+
+### Step 3 — 分层验证
+
+**L0 / source regression**
+
+```bash
+pytest -q tests/ut/_310p/test_memfabric_o_proj_source.py
+```
+
+**L1 / build-load**
+
+- feature-on build；
+- op registration；
+- ldd/RUNPATH/ABI 检查。
+
+**L2 / hardware single-layer**
+
+```bash
+torchrun --standalone --nproc-per-node=2   benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py   --rows 1 8 32 33 64 128 512 2048 4096
+```
+
+**L3 / device evidence**
+
+需要 overlap/性能结论时采 profiler，并用 committed analyzer 复核。
+
+**L4 / model E2E**
+
+eager -> minimal graph -> full graph -> performance/long-run，禁止倒序。
+
+### Step 4 — 只用证据更新状态
+
+提交前必须记录：
+
+```text
+Task ID:
+Code commit:
+MemFabric commit:
+Hardware:
+Commands:
+Correctness:
+Latency/perf:
+Profiler artifact:
+Failure observed:
+Conclusion:
+Next task:
+```
+
+没有实际运行的数据，不把 TODO 改成 DONE。
+
+### Step 5 — 文档只维护“当前事实”
+
+功能变更后最多更新：
+
+- requirements：只有需求真的改变；
+- design：实现结构改变；
+- 本文：状态/最新证据/下一任务改变；
+- usage：命令或平台限制改变。
+
+不要把 debug 日记追加到主文档。历史由 Git 自己保存。
+
+## 6. AI guardrails
+
+任何 AI agent 都必须遵守：
+
+- 不把分支名 `w8a8` 当成当前数据通路事实；
+- 不重新引入 BF16/W8A8 代码，除非需求合同被显式修改；
+- 不恢复 V4 begin/publish/finish staged API；
+- 不用 HCCL fallback 冒充 fused path；
+- 不把 `at::add_out` 写回热路径，除非新实机数据证明收益；
+- 不把 ack/gate 退回 per-wave TCP barrier；
+- 不通过放宽 atol/rtol 解决 correctness；
+- 不在 pool 存活期随意加入 device-wide sync；
+- 不在没有 profiler/数值证据时宣称 overlap；
+- 不用旧 commit 的 E2E 结果给当前 HEAD 签字；
+- 不在没有数据时做 N-panel、TP>2、通用 collective 等范围扩张。
+
+## 7. 代码修改边界
+
+常见 Task 对应文件：
+
+```text
+model routing:
+  vllm_ascend/_310p/ops/memfabric_o_proj.py
+  vllm_ascend/_310p/quantization/modelslim_config.py
+
+runtime / protocol:
+  csrc/memfabric_o_proj_runtime.cpp
+  csrc/memfabric_o_proj/external/memfabric310p_adapter*.{h,cpp}
+
+device kernel:
+  csrc/memfabric_o_proj/external/memfabric310p_device.asc
+
+build:
+  cmake/memfabric_310p.cmake
+
+source invariants:
+  tests/ut/_310p/test_memfabric_o_proj_source.py
+
+hardware evidence:
+  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py
+  benchmarks/scripts/analyze_310p_memfabric_overlap.py
+```
+
+修改协议/ABI 时必须同步 source regression。
+
+## 8. 交接规则
+
+新的 AI/工程师只需要回答四个问题即可继续：
+
+1. 当前最高优先级 Task ID 是什么？
+2. 它的 blocker/前置条件是什么？
+3. 哪些文件允许改？
+4. 什么证据才允许标记 DONE？
+
+如果这四个问题无法从本文回答，说明状态文档需要先修，而不是继续堆新代码。

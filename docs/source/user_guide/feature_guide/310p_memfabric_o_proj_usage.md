@@ -1,101 +1,55 @@
-# 310P3 TP=2 未量化 o_proj + MemFabric AllReduce 使用说明
+# 310P3 TP=2 FP16 o_proj + MemFabric 构建与运行手册
 
-> 适用目标：Ascend 310P3 单卡双 die、TP=2、`Eco-Tech/Qwen3.6-35B-A3B-w8a8` 的
-> **未量化 full-attention `o_proj`**（负责人裁决 A，2026-09-18：该 checkpoint 的
-> o_proj 为 FLOAT；模型在 310P 上以 FP16 运行，融合管线交换 FP16 partial）。
->
-> 当前状态：P5 完成（V5 epoch API + direct producer，单层 bit-exact 9/9 rows
-> 验收通过，2026-09-21）；P6 性能优化进行中。定制 MemFabric 为
-> `origin/wgm-dev-310p`（V5），epoch kernel（libmf_sdma_orch_v6.so）已部署在
-> 设备 CP1 路径。
->
-> 设计说明：[310p_memfabric_o_proj.md](../../developer_guide/310p_memfabric_o_proj.md)
->
-> 研发计划：[310p_memfabric_o_proj_development_plan.md](../../developer_guide/310p_memfabric_o_proj_development_plan.md)
+> 这是当前融合需求的**操作手册**，只保留可执行步骤和当前平台限制。  
+> 当前状态/下一步任务见
+> [AI-native 开发状态与执行计划](../../developer_guide/310p_memfabric_o_proj_development_plan.md)。
 
-## 1. 你最终要部署什么
+## 1. 支持范围
 
-依赖关系如下：
+当前只支持：
 
 ```text
-CANN + Driver/Firmware
-        |
-        +--> PyTorch 2.10.0 + torch-npu 2.10.0.post4
-        |
-        +--> matching vLLM
-        |
-        +--> customized MemFabric wgm-dev-310p (V5, origin/wgm-dev-310p)
-        |       + smem host/device headers
-        |       + libmf_smem / libmf_hybm_core / libacc_tcp_net
-        |       + AICPU epoch kernel (libmf_sdma_orch_v6, 已部署设备侧 CP1 路径)
-        |
-        +--> this vLLM-Ascend feature branch
-                + memfabric310p_adapter.cpp (编入 vllm_ascend_C)
-                + memfabric310p_device.asc (CMake 自动 bisheng 编译)
-                + Qwen3.6 未量化 o_proj 集成
+Ascend 310P3 single-card dual-die
+TP=2
+Eco-Tech/Qwen3.6-35B-A3B-w8a8
+full_attention self_attn.o_proj only
+unquantized FP16 runtime path
+local K=2048, N=2048
+custom wgm-dev-310p MemFabric V5
 ```
 
-不要把官方/上游 MemFabric 当成本功能依赖。需要先独立编译安装 `wgm-dev-310p`
-V5，然后再编译本分支的 vLLM-Ascend。
+分支名中的 `w8a8` 是历史遗留，不代表当前 fused kernel 是 INT8/W8A8。
 
-## 2. 推荐环境
+## 2. 依赖
 
-- Linux；
-- Python >=3.10,<3.13；
+已验证开发栈：
+
 - CANN 9.1.0；
 - PyTorch 2.10.0；
 - torch-npu 2.10.0.post4；
-- vLLM 与当前 vLLM-Ascend 分支兼容；
-- cmake >=3.26；
-- pybind11；
+- compatible vLLM；
+- cmake >= 3.26；
 - Ascend 310P3 driver/firmware；
-- 定制 `wgm-dev-310p` MemFabric（V5）。
+- customized `wgm-dev-310p` MemFabric V5。
 
-先确认服务器：
+使用属于同一物理 310P3 卡的两个健康 die。设备号以当前服务器
+`npu-smi info` 为准，不在文档中硬编码。
 
-```bash
-npu-smi info
-python3 --version
-cmake --version
-```
-
-## 3. 设备选择（实机要点）
-
-以 `npu-smi` 实测为准。本服务器 4 张 310P3 卡中只有设备 0,1 所在卡全功能
-可用（设备 4,5 所在卡 `AclrtMemSetAccess` 交叉 die 授权失败 507899，设备
-2,3 卡有 Alarm）。**bring-up 固定用 0,1**。
+## 3. 安装定制 MemFabric V5
 
 ```bash
-export ASCEND_RT_VISIBLE_DEVICES=0,1
-```
-
-## 4. 编译安装定制 MemFabric（V5）
-
-V5 = `origin/wgm-dev-310p` 分支（mailbox-ring epoch API，入口
-`HybmSdmaOrchEpoch`，`MF_SDMA_ORCH_KVER=6`）。旧 V4（kfc/workspace API）
-链路已废弃：该服务器设备侧 kfc_min.so 缺失、kfc 通道不可用。
-
-```bash
-git clone <内部镜像> memfabric_hybrid && cd memfabric_hybrid
-git checkout origin/wgm-dev-310p   # V5
+git clone <your-memfabric-repo> memfabric_hybrid
+cd memfabric_hybrid
+git checkout <validated-wgm-dev-310p-commit>
 
 cmake -B build -DXPU_TYPE=NPU -DBUILD_PYTHON=OFF
 cmake --build build -j
-```
 
-注意该分支 CMake 的一个坑：configure 时 `CMAKE_INSTALL_PREFIX` 目录若不
-存在，`cmake --install` 会装到 `build` 旁的 `output/` 树。两种安装方式任选：
-
-```bash
-# 方式 A：先建 prefix 再 install
 mkdir -p /opt/memfabric-wgm-dev-310p-v5
 cmake --install build --prefix /opt/memfabric-wgm-dev-310p-v5
-
-# 方式 B：直接拷贝 output 树
-cp -a output/. /opt/memfabric-wgm-dev-310p-v5/
 ```
 
-安装后必须能找到（V5 split 布局）：
+安装后至少应存在：
 
 ```text
 $MF_ROOT/smem/include/host/smem.h
@@ -107,22 +61,11 @@ $MF_ROOT/acc_links/lib64/libacc_tcp_net.so
 $MF_ROOT/hybm/aicpu_kernel/libmf_sdma_orch_v6.json
 ```
 
-epoch kernel 的设备侧部署：`libmf_sdma_orch_v6.so` 需位于设备
-`/usr/lib64/aicpu_kernels/<id>/aicpu_kernels_device/`（CP1 搜索路径）。当前
-两卡均已由同事部署；V5 的自动部署通道依赖 kfc（本机不可用），**kernel 侧
-任何改动（如缩短 epoch 自限）后的重部署需要同事/厂商手动操作**。
+目标服务器当前 V5 自动部署通道不可依赖；AICPU epoch kernel 修改后需要按平台
+实际部署方式重新安装到设备 CP1 可搜索路径。任何 KVER 改动都要重新验证 json 与
+设备侧 so 一致。
 
-## 5. 防止误用上游 Python 包
-
-当前仓库 `requirements.txt` 仍包含通用 `memfabric_hybrid`。bring-up 时建议：
-
-1. 编译本项目时使用 `--no-deps`，避免 pip 临时从公共源拉取另一个 MemFabric 实现；
-2. 本融合路径的 C++ 链接最终以 `VLLM_ASCEND_310P_MEMFABRIC_ROOT` 和显式
-   library list 为准，不依赖某个官方 soname。
-
-## 6. 配置 vLLM-Ascend 编译环境
-
-310P3 建议明确指定：
+## 4. 构建 vLLM-Ascend
 
 ```bash
 export SOC_VERSION=ascend310p3
@@ -131,137 +74,128 @@ export COMPILE_CUSTOM_KERNELS=1
 export MAX_JOBS=8
 
 export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+
 export MF_ROOT=/opt/memfabric-wgm-dev-310p-v5
 export VLLM_ASCEND_310P_MEMFABRIC_ROOT="$MF_ROOT"
 export VLLM_ASCEND_310P_MEMFABRIC_LIBRARIES="$MF_ROOT/smem/lib64/libmf_smem.so;$MF_ROOT/hybm/lib64/libmf_hybm_core.so;$MF_ROOT/acc_links/lib64/libacc_tcp_net.so"
 
-# 运行时参数（编译期无关）
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32     # [16,4096] 内 2 的幂
-export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
-export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((32 * 1024 * 1024))
-```
-
-`memfabric310p_device.asc` 由 `cmake/memfabric_310p.cmake` 自动用 bisheng
-（dav-2002）编译成共享库并链接，无需手动编译。CMake 在 feature 开启时会
-fail-fast 检查：
-
-- SOC 必须是 `ascend310p*`；
-- V5 host/device 头文件与 epoch launch json 存在；
-- library list 非空且文件存在。
-
-## 7. 安装 Python/vLLM 环境
-
-先保证 compatible vLLM 已经安装，再编译安装本分支：
-
-```bash
-cd /path/to/vllm-ascend
 python3 -m pip install -v -e . --no-build-isolation --no-deps
 ```
 
-缺的普通 Python 依赖请显式按仓库版本安装。
+`cmake/memfabric_310p.cmake` 会自动使用
+`bisheng --npu-arch=dav-2002` 编译
+`csrc/memfabric_o_proj/external/memfabric310p_device.asc`。
 
-## 8. 编译后快速检查
+feature-on 配置缺少指定 MemFabric root/libs/json 时应 fail fast。
 
-### 8.1 op 面是否注册
+## 5. 运行时环境
+
+```bash
+export ASCEND_RT_VISIBLE_DEVICES=<die0>,<die1>
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32
+export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
+export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((32 * 1024 * 1024))
+export MF_SDMA_ORCH_JSON=$MF_ROOT/hybm/aicpu_kernel/libmf_sdma_orch_v6.json
+```
+
+`tile_m` 必须是 [16,4096] 内 2 的幂。当前实机优化基线是 32。
+
+## 6. Build 后 smoke check
+
+### 6.1 op registration
 
 ```bash
 python3 - <<'PY'
 import torch
 import vllm_ascend.vllm_ascend_C  # noqa
 
-ns = torch.ops._C_ascend
 for op in [
     "memfabric_direct_o_proj_allreduce",
     "memfabric_o_proj_shutdown",
     "memfabric_o_proj_debug_snapshot",
 ]:
-    print(op, hasattr(ns, op))
+    print(op, hasattr(torch.ops._C_ascend, op))
 PY
 ```
 
-预期均为 `True`。旧 phase-1 的 `memfabric_o_proj_begin/publish/finish/
-mark_failed` 已随 V5 迁移删除。
+三项都应为 `True`。
 
-### 8.2 检查最终 extension 动态依赖
+### 6.2 dynamic link
 
 ```bash
 python3 -c "import vllm_ascend.vllm_ascend_C as C; print(C.__file__)"
 ldd /path/to/vllm_ascend_C*.so | sort
 ```
 
-确认 DT_NEEDED 含 `libmf_smem.so / libmf_hybm_core.so / libacc_tcp_net.so /
-libmf310p_device.so`，RUNPATH 覆盖 V5 四个 lib64 目录（无需再手工设置
-LD_LIBRARY_PATH）。
+确认能解析：
 
-## 9. 先运行单层 benchmark
+- `libmf_smem.so`
+- `libmf_hybm_core.so`
+- `libacc_tcp_net.so`
+- `libmf310p_device.so`
 
-不要第一步就启动 35B 模型。
-
-**运行前必须设置**（split 布局下 json 自动发现失效，kfc 回退不可用）：
+## 7. L0：source regression
 
 ```bash
-export MF_SDMA_ORCH_JSON=$MF_ROOT/hybm/aicpu_kernel/libmf_sdma_orch_v6.json
+pytest -q tests/ut/_310p/test_memfabric_o_proj_source.py
 ```
 
-```bash
-export ASCEND_RT_VISIBLE_DEVICES=0,1
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32
+这是结构性回归，不替代 310P 实机测试。
 
+## 8. L2：单层 310P correctness + latency
+
+先跑这个，不要直接启动 35B：
+
+```bash
 torchrun --standalone --nproc-per-node=2 \
   benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
   --rows 1 8 32 33 64 128 512 2048 4096 \
-  --repeat 5
+  --repeat 20
 ```
 
-预期输出：每个 rows 一行 `PASS`（bit-exact，max_abs_diff=0.000000），
-最后一行 `ALL PASS`。
+当前基线应全部 PASS，并覆盖 tail、64-chunk 单 wave 和 4096 multi-wave。
 
-该 bench 的结构内建了 V5 平台约束（见下节）：reference HCCL 全部前置到
-建池之前；fused 阶段只用 stream 级同步；池寿命控制在 ~20s 内；shutdown
-后不再触碰设备。
+注意 benchmark 的 HCCL reference 全部发生在 MemFabric pool 创建之前。
 
-## 10. V5 平台硬约束（务必阅读）
+## 9. L3：V5 overlap 证据
 
-以下三条在当前服务器实测定论，任何基于本融合路径的宿主程序都必须遵守
-（详细证据见研发计划 §9.3）：
-
-1. **池存活期间禁止 device 级同步**：`torch.npu.synchronize()` 以及
-   torch_npu 的 HCCL 集合通信（barrier/allreduce，内部同样 device-sync）
-   会等待永续 epoch AICPU 任务而永久挂死；随后 epoch 被 25s
-   launch-timeout 击杀并砖化设备 AICPU（507901）。只能用
-   `torch.npu.current_stream().synchronize()`。
-2. **单进程池寿命 < ~25s**：超过后 epoch 必然被击杀（本机 usleep 粒度
-   导致 epoch 自限 ~28s > 25s）。bench 以"reference 前置 + 快速 fused
-   循环"满足。生产化前需要 memfabric kernel 侧修复（缩短
-   `HYBM_SDMA_ORCH_EPOCH_MAX_LOOPS` + KVER bump 重部署，厂商跟进）。
-3. **shutdown 之后禁止任何设备操作**：`smem_shm_destroy` 可能静默断开
-   HDC 会话，之后的 HCCL/launch 都会 507901。
-
-诊断工具：`torch.ops._C_ascend.memfabric_o_proj_debug_snapshot()` 返回
-CPU int64 张量，含双端 mailbox 环协议字（reqHead/Tail、quiet/arrival 戳、
-邮件像、arena 首字），用于 waiter 挂死时的现场判定。
-
-## 11. 下载目标模型
+分析工具：
 
 ```bash
-python3 -m pip install modelscope
-mkdir -p /models/Qwen3.6-35B-A3B-w8a8
-
-modelscope download \
-  --model Eco-Tech/Qwen3.6-35B-A3B-w8a8 \
-  --local_dir /models/Qwen3.6-35B-A3B-w8a8
+python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \
+  /path/to/task_time.csv \
+  --rows 2048 \
+  --tile-m 32 \
+  --chunk-kib 128 \
+  --bandwidth-gbps 20
 ```
 
-## 12. 第一次启动模型：Eager correctness 模式
+当前平台上采集 profiler 时必须遵守常驻 epoch 限制。推荐流程：
+
+1. burn/建池在 profiler window 外；
+2. profiler window 只包 steady fused calls；
+3. rank rendezvous 不使用 HCCL；
+4. 设备 timeline 先完整 flush；
+5. `task_time.csv` 在独立健康进程离线 analyse。
+
+只有当 analyzer 与原始 task-time 都可复核时，才记录 overlap DONE。
+
+## 10. 当前 V5 平台限制
+
+在 epoch 生命周期根治前必须牢记：
+
+- pool 存活后禁止随意执行 device-wide sync；
+- torch_npu HCCL collective 可能隐式等待 device；
+- 当前服务器存在约 25 秒 epoch launch-timeout 风险；
+- shutdown 后不要继续执行设备工作。
+
+因此这些限制当前属于**生产 blocker**，不是“使用技巧”。后续应完成
+AI-native 状态文档中的 MF-001/MF-002，而不是永久依赖 benchmark workaround。
+
+## 11. Qwen3.6 eager 验收
 
 ```bash
-export ASCEND_RT_VISIBLE_DEVICES=0,1
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M=32
-export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
-export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((32 * 1024 * 1024))
-export MF_SDMA_ORCH_JSON=/opt/memfabric-wgm-dev-310p-v5/hybm/aicpu_kernel/libmf_sdma_orch_v6.json
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 MODEL=/models/Qwen3.6-35B-A3B-w8a8
@@ -277,73 +211,95 @@ vllm serve "$MODEL" \
   --enforce-eager \
   --max-model-len 4096 \
   --max-num-seqs 1 \
-  --gpu-memory-utilization 0.90 2>&1 | tee /tmp/qwen36-mf-bringup.log
+  --gpu-memory-utilization 0.90
 ```
 
-说明：
+当前最终 HEAD 仍需要重新做这项 E2E；旧 commit 的成功结果不算当前验收。
 
-- TP 必须为 2；`--dtype float16`（checkpoint 无 torch_dtype，本机 BF16 NZ
-  linear 不支持）；
-- 第一次不要额外开启 EP/sequence-parallel MoE，减少排查变量；
-- `--enforce-eager` 是为了先验证算子，不代表最终部署必须 eager；
-- **注意 §10 约束同样适用于 vLLM 进程**：在池创建（首个目标层 forward）
-  之后，vLLM 代码路径中任何 device 级同步或 HCCL 之外的异常路径都可能
-  触发挂死——P6/P7 需要逐点排查 model runner 中的 synchronize 调用。
+检查：
 
-## 13. 发一个最小请求
+- 日志出现 MemFabric o_proj enable；
+- full-attention o_proj 命中；
+- linear-attention/GDN 不命中；
+- 不发生第二次 generic allreduce；
+- 多轮生成结果稳定。
 
-```bash
-curl http://127.0.0.1:8000/v1/chat/completions \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "model": "qwen3.6-35b-a3b-w8a8",
-    "messages": [{"role": "user", "content": "你好，请用一句话介绍你自己。"}],
-    "temperature": 0,
-    "max_tokens": 32
-  }'
+## 12. ACL Graph
+
+单层/当前 HEAD eager 通过后才移除 `--enforce-eager`。
+
+推荐顺序：
+
+```text
+minimal fused-op capture/replay
+-> M=1/32/33/2048/4096
+-> repeated replay
+-> full Qwen3.6 graph
 ```
 
-先检查：server 不 hang、两个 TP worker 都存活、输出非空、没有重复
-allreduce、日志中出现融合路径 enable 信息、多次请求结果稳定。
+Graph 失败时先最小化为单 fused op case，不要立刻改 producer 算法。
 
-## 14. Baseline 对比
+## 13. Baseline
 
-关闭融合（需重新编译 extension）：
+feature-off baseline 使用同一模型、TP、dtype、输入和服务参数。
 
-```bash
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=0
+关闭融合后需要使用对应 feature-off build，避免当前进程误加载上一版 extension。
+
+必须保存 baseline/fused 的具体 commit/build 信息。
+
+## 14. 故障定位
+
+### fused call 卡住
+
+先调用：
+
+```text
+torch.ops._C_ascend.memfabric_o_proj_debug_snapshot()
 ```
 
-保留同样模型/TP/dtype/输入/eager 模式，比较 generation correctness 和
-单层/端到端性能。baseline/fused 最好分别保存 build，避免反复覆盖后无法
-确认当前加载的是哪一版。
+判断：
 
-## 15. ACL Graph 验证（P7）
+- req head/tail 是否推进；
+- quiet/arrival stamp 是否推进；
+- data 是否落到 recv；
+- ack/gate mail 是否符合 wave generation。
 
-Eager 稳定后移除 `--enforce-eager`，重点观察：capture 是否成功、replay
-是否 hang、repeated request 是否 stale、symmetric GVA 是否稳定。如果
-graph 模式失败但 eager 正常，先做最小化 fusion-op graph capture 复现。
+如果 mailbox 已完成而宿主仍卡住，优先检查 device-wide synchronize。
 
-## 16. 常见失败排查
+### 没有命中融合
 
-### CMake 找不到 V5 头文件/json
+逐项检查：
 
-`VLLM_ASCEND_310P_MEMFABRIC_ROOT` 不是实际 install prefix，或装的是
-V4 布局（`<root>/include` 扁平布局已废弃，需要 V5 split 布局）。
+```text
+feature gate
+model_type
+prefix
+layer_types[N]
+TP=2
+FP16
+unquantized route
+4096 -> local 2048 -> output 2048
+```
 
-### 运行报 "sdma orchestration not ready" / orchestrator json not accessible
+### sdma orchestration not ready
 
-`MF_SDMA_ORCH_JSON` 未设置或路径错误（必须指向 v6 json）。
+检查 `MF_SDMA_ORCH_JSON`、设备侧 epoch kernel 部署和 KVER/json 是否匹配。
 
-### fused call 挂死 + ~28s 后 507901
+## 15. 每次硬件迭代必须记录
 
-基本必为 §10 约束 1/2：宿主程序在池存活期间做了 device 级同步，或池寿命
-超过 25s。用 `memfabric_o_proj_debug_snapshot()` 判定 wave 是否完成：
-若 reqHead/quiet/arrival 戳均已推进而流不返回，则挂点在宿主的
-device-sync，而非数据面。
+```text
+Task ID:
+vLLM-Ascend commit:
+MemFabric commit:
+AICPU kernel KVER:
+CANN:
+torch-npu:
+device pair:
+command:
+result:
+latency/perf:
+profiler artifact:
+known blocker:
+```
 
-### 模型启动后没有命中融合
-
-检查：feature gate、model type、`*.self_attn.o_proj` prefix、
-`layer_types[N]`、TP=2、FP16、未量化路由、shape 4096 -> local 2048 ->
-output 2048。
+状态只回填到 AI-native 开发状态文档，不再创建新的临时 handoff 文档。

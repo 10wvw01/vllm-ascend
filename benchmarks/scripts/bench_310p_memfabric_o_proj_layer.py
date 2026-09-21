@@ -9,10 +9,10 @@ keeps full-attention o_proj as FLOAT; the model runs FP16 on 310P):
   fused     = one fused AscendC FP16 matmul per wave writing the symmetric
               send arena directly (matmul -> line-clean -> mailbox signal),
               AICPU/SDMA exchange, waiter kernel (quiet + wait), stream-
-              ordered add_out reduce
+              ordered repo-owned FP16 add-kernel reduce
 
-V5 integration constraints honored by this benchmark (see the development
-plan P5 notes):
+V5 integration constraints honored by this benchmark (see the AI-native
+status/usage docs):
 
   1. While the MemFabric pool exists, a perpetual AICPU epoch kernel is
      alive; any device-wide synchronize (torch.npu.synchronize) would wait
@@ -169,7 +169,7 @@ def main() -> None:
         if not ok:
             raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 
-    # Exit contract on V5 (see development plan P5 notes): while the pool is
+    # Exit contract on the current V5 platform (see AI-native status/usage): while the pool is
     # alive, torch_npu HCCL collectives (barrier/allreduce) internally do a
     # device-wide synchronize, which waits for the perpetual epoch AICPU task
     # and dies with 507901 once the epoch launch-timeout kills it. The
