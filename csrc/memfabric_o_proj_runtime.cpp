@@ -546,13 +546,24 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             has_tail ? producer_bucket_for_rows(rows_last) : 0;
 
         try {
-            const int64_t t_join0 = trace_now_us();
+            /* Finish one-time local kernel preparation before consuming the
+             * peer credit. A warmup failure must not spend a credit token. */
+            const int64_t t_warm0 = trace_now_us();
+            if (full_count > 0) {
+                warm_producer_bucket_locked(
+                    state, static_cast<uint32_t>(tile_m), stream);
+            }
+            if (has_tail) {
+                warm_producer_bucket_locked(state, tail_bucket, stream);
+            }
+            const int64_t t_warm = trace_now_us();
+
+            const int64_t t_join0 = t_warm;
             /*
              * Graph-safe fixed application credit. Every wave consumes one
              * token before reusing peer recv; the previous wave publishes the
              * next token after its local add.
              */
-            int64_t t_join1 = t_join0;
             int ret = mf310p_prepare_wave_async(
                 state.ctx, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0,
@@ -562,16 +573,6 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             TORCH_CHECK(ret == 0,
                         "mf310p_gate_async failed with ret=", ret);
             const int64_t t_join2 = trace_now_us();
-
-            /* Lazy per-symbol warmup before the wave is armed. */
-            if (full_count > 0) {
-                warm_producer_bucket_locked(
-                    state, static_cast<uint32_t>(tile_m), stream);
-            }
-            if (has_tail) {
-                warm_producer_bucket_locked(state, tail_bucket, stream);
-            }
-            const int64_t t_warm = trace_now_us();
 
             const uint64_t x_wave = reinterpret_cast<uint64_t>(
                 x.const_data_ptr()) +
@@ -697,9 +698,9 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     chunks,
                     0,
                     t_join2 - t_join0,
-                    t_warm - t_join2,
-                    t_enq - t_warm,
-                    wave_start == 0 ? t_join0 - t_entry : 0);
+                    t_warm - t_warm0,
+                    t_enq - t_join2,
+                    wave_start == 0 ? t_warm0 - t_entry : 0);
             }
         } catch (const std::exception& exc) {
             /* A partially executed wave is unsafe to reuse. Treat the
