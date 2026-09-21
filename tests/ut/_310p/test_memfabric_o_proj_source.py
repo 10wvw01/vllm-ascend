@@ -226,7 +226,7 @@ def test_adapter_uses_real_acl_device_id_and_prechecks_pool_layout() -> None:
     assert src.index("if (app_bytes >= local_size)") < src.index("smem_shm_create(")
 
 
-def test_runtime_has_graph_safe_fixed_credit_and_single_stream_contract() -> None:
+def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
     src = RUNTIME.read_text()
     assert "posted_seqs" not in src
     assert "wave_count" not in src
@@ -240,9 +240,20 @@ def test_runtime_has_graph_safe_fixed_credit_and_single_stream_contract() -> Non
     assert "mf310p_prepare_wave_async(" in src
     assert "mf310p_gate_async(" in src
     assert "mf310p_ack_async(" in src
-    assert "bound_stream" in src
-    assert "single-stream by contract" in src
-    assert "aclrtSynchronizeStream(state.bound_stream)" in src
+
+    # Eager execution is strictly one stream, while torch.npu.graph's
+    # framework-managed capture side stream is explicitly recognized.
+    assert "eager_stream" in src
+    assert "eager execution is single-stream by contract" in src
+    assert "currentStreamCaptureStatusMayInitCtx" in src
+    assert "graph_capture_seen" in src
+    assert "require_capture_ready_locked" in src
+    assert "context must be created by eager warmup" in src
+
+    # Eager teardown synchronizes its known stream. Graph-used contexts remain
+    # process-lifetime because NPUGraph replay may run on an unseen stream.
+    assert "aclrtSynchronizeStream(state.eager_stream)" in src
+    assert "graph-used context kept process-lifetime" in src
     assert "resources intentionally leaked" in src
     assert "poisoned" in src
 
