@@ -78,7 +78,31 @@ export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
 export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((32 * 1024 * 1024))
 ```
 
-`tile_m` 必须是 [16,4096] 内 2 的幂。
+`tile_m` 必须是 [16,4096] 内 2 的幂。arena 定容为
+`64 * tile_m * 4 KiB`，要求 `2 * arena + 8 KiB < LOCAL_BYTES`：
+
+| tile_m | arena | 建议 LOCAL_BYTES |
+|---|---|---|
+| 32 | 8 MiB | 32 MiB（默认） |
+| 64 | 16 MiB | 64 MiB |
+| 128 | 32 MiB | 96 MiB |
+
+批路由与调试：
+
+```bash
+# 小于该行数的批次走 stock NZ matmul + HCCL all-reduce（decode 不经过
+# 融合路径）。实测 tile_m=128 下 M=4096 与 stock 持平，M>=6144 融合约
+# +15%，M<=2048 stock 占优。
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M=4096
+
+# 引擎 warmup/profile 期间 dummy-run 走 stock，池创建推迟到首个真实
+# 请求（服务部署推荐开启）。
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK=1
+
+# 每次融合调用打印 host 阶段 trace，并对设备耗时超过 500ms 的调用
+# 打印 [mf310p-slow] 告警（诊断用，默认关闭）。
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1
+```
 
 ## 5. 编译后检查
 
