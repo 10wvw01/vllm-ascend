@@ -7,10 +7,11 @@ layer; this 310P3 path runs FP16.
 Reference:
     local F.linear -> FP32 TP sum -> FP16
 
-Fused:
-    7 MM workers + 1 communication coordinator
-    -> MemFabric public signal/wait/quiet
-    -> local FP16 add
+Fused ABI v7:
+    8-core cooperative MM; core0 is the sole signal owner
+    -> per-batch MemFabric public wait
+    -> per-batch local FP16 add
+    -> one public quiet + wave credit at drain
 
 This benchmark intentionally computes the HCCL reference before the first fused
 call so correctness measurement does not depend on HCCL/MemFabric coexistence.
@@ -22,7 +23,7 @@ Run:
   VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 \
   torchrun --standalone --nproc-per-node=2 \
     benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
-    --rows 1 8 32 33 64 128 512 2048 4096 --repeat 20
+    --rows 255 256 257 511 512 513 1024 2048 4096 6144 8192 --repeat 20
 """
 
 from __future__ import annotations
@@ -69,12 +70,19 @@ def main() -> None:
         "--rows",
         type=int,
         nargs="+",
-        default=[1, 8, 32, 33, 64, 128, 512, 2048, 4096],
+        default=[255, 256, 257, 511, 512, 513, 1024, 2048, 4096, 6144, 8192],
     )
     parser.add_argument(
-        "--tile-m",
+        "--batch-basem-count",
         type=int,
-        default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")),
+        choices=(1, 2, 4),
+        default=int(
+            os.getenv(
+                "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT",
+                "2",
+            )
+        ),
+        help="ABI v7 communication batch multiplier q over baseM=256.",
     )
     parser.add_argument("--repeat", type=int, default=20)
     parser.add_argument("--atol", type=float, default=0.0)
@@ -106,7 +114,13 @@ def main() -> None:
     cpu_group = dist.new_group(backend="gloo")
 
     if rank == 0:
-        print(f"tile_m={args.tile_m} repeat={args.repeat}")
+        os.environ["VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT"] = str(
+            args.batch_basem_count
+        )
+        print(
+            f"base_m=256 batch_basem_count={args.batch_basem_count} "
+            f"batch_m={256 * args.batch_basem_count} repeat={args.repeat}"
+        )
         print("rows\tverdict\tmax_abs_diff\tn_bad\tfirst_ms\tmin_ms\tmed_ms\tmax_ms")
 
     layer = _make_layer(rank, device)
