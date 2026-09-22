@@ -10,6 +10,30 @@
 >
 > 使用：[310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
 
+## 0. 当前实施状态（2026-09-22）
+
+本轮按“先计划、后编码”执行：
+
+- 开发计划先行提交：`c60f493e`；
+- ABI v7 编码已完成：8-core cooperative MM、core0 sole signal owner、
+  baseM batch、per-batch wait/reduce、wave quiet/credit、tail full-batch pad；
+- Python/env/custom-op/test/benchmark 已同步到
+  `BATCH_BASEM_COUNT`，旧 `TILE_M` 已退出当前运行路径；
+- MemFabric private ring 固定偏移调试探针已删除；
+- README / design / requirements / usage 已同步到 ABI v7；
+- 静态审视 Round 1（协议/正确性）通过：未发现未修复 P0/P1；
+- 静态审视 Round 2（ABI/签名/build/resource/Graph/集成）通过：未发现
+  文本级断链或结构错误。
+
+**边界说明**：以上结论是静态代码审视，不替代目标 310P3 的 bisheng/CMake
+编译和真实运行。本轮没有把任何 v7 性能数据标记为已实测。下一 Gate 必须从
+feature-off/on build 开始，再进入 correctness、profiler、long-run、Qwen
+eager/Graph。
+
+当前 correctness-first 实现对 cooperative MM 输出采用保守 per-core
+full-batch cache clean；它用于首轮实机正确性 bring-up，待 dav-2002 profiler
+确认 core->C ownership 后再缩小 clean 范围。
+
 ## 1. 本期目标
 
 把当前 ABI v6：
