@@ -40,40 +40,43 @@ _EXPECTED_INPUT_SIZE = 4096
 _EXPECTED_INPUT_SIZE_PER_PARTITION = 2048
 _EXPECTED_OUTPUT_SIZE = 2048
 _EXPECTED_TP_SIZE = 2
-_MAX_CHUNKS_PER_WAVE = 64
+_BASE_M = 256
 _LAYER_INDEX_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
 
 @dataclass(frozen=True)
 class MemFabricOProjPlan:
-    """Static contract for the first 310P3 fused implementation."""
+    """Static ABI v7 contract for the 310P3 fused implementation."""
 
-    tile_m: int
+    batch_basem_count: int
+    base_m: int = _BASE_M
     input_size_per_partition: int = _EXPECTED_INPUT_SIZE_PER_PARTITION
     output_size: int = _EXPECTED_OUTPUT_SIZE
     tp_size: int = _EXPECTED_TP_SIZE
-    max_chunks_per_wave: int = _MAX_CHUNKS_PER_WAVE
 
     @property
-    def max_rows_per_wave(self) -> int:
-        return self.tile_m * self.max_chunks_per_wave
+    def batch_m(self) -> int:
+        return self.base_m * self.batch_basem_count
 
     @property
-    def chunk_bytes(self) -> int:
-        # Communication payload is FP16 [tile_m, 2048].
-        return self.tile_m * self.output_size * 2
+    def batch_bytes(self) -> int:
+        # FP16 [batch_m, 2048]; 2 MiB at the default q=2 is derived.
+        return self.batch_m * self.output_size * 2
 
-    def chunks_for_tokens(self, num_tokens: int) -> int:
+    def batches_for_tokens(self, num_tokens: int) -> int:
         if num_tokens < 0:
             raise ValueError(f"num_tokens must be non-negative, got {num_tokens}")
-        return (num_tokens + self.tile_m - 1) // self.tile_m
+        return (num_tokens + self.batch_m - 1) // self.batch_m
 
 
 def get_memfabric_o_proj_plan() -> MemFabricOProjPlan:
-    tile_m = int(envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M)
-    if tile_m <= 0:
-        raise ValueError(f"VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M must be positive, got {tile_m}")
-    return MemFabricOProjPlan(tile_m=tile_m)
+    q = int(envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT)
+    if q not in (1, 2, 4):
+        raise ValueError(
+            "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT "
+            f"must be one of 1/2/4, got {q}"
+        )
+    return MemFabricOProjPlan(batch_basem_count=q)
 
 
 def _target_text_config():
@@ -166,10 +169,12 @@ def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     layer.reduce_results = False
     plan = get_memfabric_o_proj_plan()
     logger.info_once(
-        "Enable 310P3 TP=2 MemFabric unquantized full-attention o_proj pipeline "
-        "(tile_m=%d, chunk_bytes=%d, FP16 exchange).",
-        plan.tile_m,
-        plan.chunk_bytes,
+        "Enable 310P3 TP=2 MemFabric unquantized full-attention o_proj ABI v7 "
+        "(base_m=%d, batch_basem_count=%d, batch_m=%d, batch_bytes=%d).",
+        plan.base_m,
+        plan.batch_basem_count,
+        plan.batch_m,
+        plan.batch_bytes,
     )
     return True
 
@@ -227,9 +232,9 @@ def memfabric_o_proj_allreduce(
     """Run the fused MM/SDMA/reduce pipeline (unquantized, FP16).
 
     One opaque custom op per call: each wave consumes a fixed application
-    credit, runs the coordinator/MM-worker pipeline, validates peer mails via
-    public MemFabric quiet/wait, performs the repo-owned FP16 reduction, and
-    returns the fixed credit after local arena reads complete.
+    credit, runs 8-core cooperative batch MM, pipelines public MemFabric
+    wait/reduce per batch, drains outbound transfers with one quiet(), and
+    returns the wave credit after local arena reads complete.
     """
     global _pool_protocol_started
 
@@ -249,10 +254,20 @@ def memfabric_o_proj_allreduce(
         raise RuntimeError("vllm_ascend_C was built without the fused 310P MemFabric o_proj op")
     if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE:
         ev0, ev1 = _record_fused_call_events()
-        out = direct(x, layer.weight.data, int(tp_rank), int(plan.tile_m))
+        out = direct(
+            x,
+            layer.weight.data,
+            int(tp_rank),
+            int(plan.batch_basem_count),
+        )
         _finish_fused_call_events(ev0, ev1, x.shape[0])
     else:
-        out = direct(x, layer.weight.data, int(tp_rank), int(plan.tile_m))
+        out = direct(
+            x,
+            layer.weight.data,
+            int(tp_rank),
+            int(plan.batch_basem_count),
+        )
     _pool_protocol_started = True
     return out
 
