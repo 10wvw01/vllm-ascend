@@ -13,7 +13,9 @@
 #include <smem_shm.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <new>
+#include <vector>
 
 namespace {
 
@@ -37,6 +39,7 @@ extern "C" int mf310p_device_launch_direct_producer_async(
     uint64_t chunk_bytes,
     uint64_t producer_control,
     uint64_t protocol_status,
+    uint64_t debug_flags,
     aclrtStream stream);
 
 extern "C" int mf310p_device_wait_mails_async(
@@ -275,7 +278,18 @@ extern "C" int mf310p_create(
     ctx->layout.peer_ack_slot = peer_segment + 2 * arena_bytes;
     ctx->layout.arena_bytes = arena_bytes;
     ctx->layout.chunk_bytes = chunk_bytes;
+    ctx->layout.producer_control =
+        reinterpret_cast<uint64_t>(ctx->producer_control);
     ctx->layout.max_chunks = VLLM_ASCEND_MF310P_MAX_CHUNKS;
+    /* Debug-only per-worker heartbeats inside the uncached segment tail of
+     * the application prefix (DMA-visible, unlike cached aclrtMalloc).
+     * Disabled (null) unless VLLM_ASCEND_310P_MF_RING_DUMP is set so the
+     * producer hot path stays untouched. */
+    const char* ring_dump = std::getenv("VLLM_ASCEND_310P_MF_RING_DUMP");
+    const bool heartbeats =
+        ring_dump != nullptr && *ring_dump != '\0' && *ring_dump != '0';
+    ctx->layout.debug_flags =
+        heartbeats ? own_segment + 2 * arena_bytes + kAckSlotBytes + 128 : 0;
 
     /* vLLM-private cross-AICore ready flags. One cache line per chunk avoids
      * false sharing between MM workers and the single communication
@@ -380,6 +394,48 @@ extern "C" int mf310p_control_barrier(mf310p_context_t* opaque)
     return smem_shm_control_barrier(ctx->shm);
 }
 
+extern "C" int mf310p_exchange_geometry(mf310p_context_t* opaque)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || ctx->shm == nullptr || ctx->world_size != 2) {
+        return -1;
+    }
+    struct Geometry {
+        uint64_t pool_base;
+        uint64_t symmetric_size;
+    };
+    const Geometry mine{ctx->layout.pool_base, ctx->layout.symmetric_size};
+    std::vector<char> recv(sizeof(Geometry) * ctx->world_size);
+    const int32_t ret = smem_shm_control_allgather(
+        ctx->shm,
+        reinterpret_cast<const char*>(&mine),
+        static_cast<uint32_t>(sizeof(mine)),
+        recv.data(),
+        static_cast<uint32_t>(recv.size()));
+    if (ret != 0) {
+        return ret;
+    }
+    const auto* peers = reinterpret_cast<const Geometry*>(recv.data());
+    if (peers[ctx->rank].pool_base != mine.pool_base ||
+        peers[ctx->rank].symmetric_size != mine.symmetric_size) {
+        return -2;
+    }
+    const uint32_t peer_rank = 1 - static_cast<uint32_t>(ctx->rank);
+    if (peers[peer_rank].symmetric_size != mine.symmetric_size) {
+        return -3;
+    }
+    /* The peer addresses our ack slot / recv arena through its own mapping,
+     * so its mails carry peer-space dst GVAs that we must validate against. */
+    const uint64_t my_segment_in_peer_space =
+        peers[peer_rank].pool_base +
+        mine.symmetric_size * static_cast<uint64_t>(ctx->rank);
+    ctx->layout.expected_credit_dst =
+        my_segment_in_peer_space + 2 * ctx->layout.arena_bytes;
+    ctx->layout.expected_recv_base =
+        my_segment_in_peer_space + ctx->layout.arena_bytes;
+    return 0;
+}
+
 extern "C" int mf310p_prepare_wave_async(
     mf310p_context_t* opaque,
     void* acl_stream)
@@ -471,6 +527,7 @@ extern "C" int mf310p_direct_producer_async(
         ctx->layout.chunk_bytes,
         reinterpret_cast<uint64_t>(ctx->producer_control),
         reinterpret_cast<uint64_t>(ctx->protocol_status),
+        ctx->layout.debug_flags,
         stream);
 }
 
@@ -486,7 +543,7 @@ extern "C" int mf310p_wait_mails_async(
     }
     return mf310p_device_wait_mails_async(
         ctx->layout.pool_base,
-        ctx->layout.recv_arena,
+        ctx->layout.expected_recv_base,
         ctx->layout.chunk_bytes,
         reinterpret_cast<uint64_t>(ctx->protocol_status),
         chunks,
@@ -600,7 +657,7 @@ extern "C" int mf310p_gate_async(
     }
     return mf310p_device_gate_async(
         ctx->layout.pool_base,
-        ctx->layout.ack_slot,
+        ctx->layout.expected_credit_dst,
         reinterpret_cast<uint64_t>(ctx->protocol_status),
         1,
         reinterpret_cast<aclrtStream>(acl_stream));

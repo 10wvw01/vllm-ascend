@@ -108,8 +108,6 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
         if isinstance(layer, LinearBase):
             packed = getattr(self, "packed_modules_mapping", {})
             if self.is_layer_skipped_ascend(prefix, packed):
-                from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
-
                 # MemFabric o_proj dispatch (owner decision A, 2026-09-18):
                 # route the eligible unquantized BF16 full-attention o_proj
                 # to the fused matmul+TP-reduction method. The final
@@ -118,6 +116,7 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                 from vllm_ascend._310p.ops.memfabric_o_proj import (
                     should_enable_memfabric_o_proj,
                 )
+                from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
                 try:
                     eligible = should_enable_memfabric_o_proj(layer)

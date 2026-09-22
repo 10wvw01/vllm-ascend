@@ -44,6 +44,10 @@ typedef struct mf310p_layout {
 
     uint64_t arena_bytes;
     uint64_t chunk_bytes;
+    uint64_t producer_control;
+    uint64_t debug_flags;
+    uint64_t expected_credit_dst;
+    uint64_t expected_recv_base;
     uint32_t max_chunks;
     uint32_t reserved;
 } mf310p_layout_t;
@@ -67,6 +71,14 @@ int mf310p_debug_protocol_status(
 
 /* One-time host rendezvous during protocol initialization only. */
 int mf310p_control_barrier(mf310p_context_t* ctx);
+
+/*
+ * One-time per-process GVA geometry exchange over the MemFabric control
+ * network. The smem mapping base is chosen per process, so mail dst fields
+ * carry peer-space GVAs; receivers must validate against them. Fills
+ * layout.expected_credit_dst / layout.expected_recv_base.
+ */
+int mf310p_exchange_geometry(mf310p_context_t* ctx);
 
 /*
  * Clear vLLM-owned per-wave protocol status. Ready flags are cleared

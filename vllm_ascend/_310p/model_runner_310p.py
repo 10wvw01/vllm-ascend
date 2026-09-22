@@ -594,22 +594,27 @@ class NPUModelRunner310(NPUModelRunner):
         )
         with temporary_context:
             self._spec_dummy_capture = is_spec_graph_capture
+            from vllm_ascend._310p.ops.memfabric_o_proj import (
+                memfabric_o_proj_warmup_fallback,
+            )
+
             try:
-                return super()._dummy_run(
-                    num_tokens=num_tokens,
-                    with_prefill=with_prefill,
-                    cudagraph_runtime_mode=cudagraph_runtime_mode,
-                    force_attention=force_attention,
-                    uniform_decode=uniform_decode,
-                    is_profile=is_profile,
-                    create_mixed_batch=create_mixed_batch,
-                    allow_microbatching=allow_microbatching,
-                    skip_eplb=skip_eplb,
-                    remove_lora=remove_lora,
-                    is_graph_capturing=is_graph_capturing,
-                    num_active_loras=num_active_loras,
-                    profile_seq_lens=profile_seq_lens,
-                )
+                with memfabric_o_proj_warmup_fallback():
+                    return super()._dummy_run(
+                        num_tokens=num_tokens,
+                        with_prefill=with_prefill,
+                        cudagraph_runtime_mode=cudagraph_runtime_mode,
+                        force_attention=force_attention,
+                        uniform_decode=uniform_decode,
+                        is_profile=is_profile,
+                        create_mixed_batch=create_mixed_batch,
+                        allow_microbatching=allow_microbatching,
+                        skip_eplb=skip_eplb,
+                        remove_lora=remove_lora,
+                        is_graph_capturing=is_graph_capturing,
+                        num_active_loras=num_active_loras,
+                        profile_seq_lens=profile_seq_lens,
+                    )
             finally:
                 self._spec_dummy_capture = False
 
@@ -665,6 +670,21 @@ class NPUModelRunner310(NPUModelRunner):
         if forward_context.flash_comm_v1_enabled and not isinstance(hidden_states, IntermediateTensors):
             hidden_states = self._all_gather_hidden_states_and_aux(hidden_states)
         return hidden_states
+
+    def _sync_device(self) -> None:
+        # The 310P MemFabric SDMA orchestrator runs a supervised epoch kernel
+        # on its own launch stream for the whole pool lifetime. A device-wide
+        # synchronize() would block on that stream (and the AICPU watchdog
+        # kills the epoch task at 28s, failing the sync with 507901), so
+        # while the pool is alive only the model's compute stream is synced.
+        from vllm_ascend._310p.ops.memfabric_o_proj import (
+            memfabric_o_proj_pool_started,
+        )
+
+        if memfabric_o_proj_pool_started():
+            torch.npu.current_stream().synchronize()
+            return
+        torch.npu.synchronize()
 
     def _check_and_update_cudagraph_mode(
         self,

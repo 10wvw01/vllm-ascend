@@ -74,13 +74,23 @@ def main() -> None:
     parser.add_argument(
         "--tile-m",
         type=int,
-        default=int(
-            os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
-        ),
+        default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")),
     )
     parser.add_argument("--repeat", type=int, default=20)
     parser.add_argument("--atol", type=float, default=0.0)
     parser.add_argument("--rtol", type=float, default=0.0)
+    parser.add_argument(
+        "--diverge-va",
+        action="store_true",
+        help=(
+            "Rank 1 allocates 4GB of device memory before the pool is "
+            "created so the per-process smem GVA bases diverge. Regression "
+            "guard for the peer-space mail dst validation: mail dst fields "
+            "carry sender-space GVAs, which only coincide with receiver-"
+            "space addresses when both processes were assigned the same "
+            "mapping base."
+        ),
+    )
     args = parser.parse_args()
 
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -97,12 +107,16 @@ def main() -> None:
 
     if rank == 0:
         print(f"tile_m={args.tile_m} repeat={args.repeat}")
-        print(
-            "rows\tverdict\tmax_abs_diff\tn_bad\tfirst_ms"
-            "\tmin_ms\tmed_ms\tmax_ms"
-        )
+        print("rows\tverdict\tmax_abs_diff\tn_bad\tfirst_ms\tmin_ms\tmed_ms\tmax_ms")
 
     layer = _make_layer(rank, device)
+
+    # Diverge the per-process device-VA state before MemFabric pool creation.
+    va_junk: list[torch.Tensor] = []
+    if args.diverge_va and rank == 1:
+        for _ in range(8):
+            va_junk.append(torch.empty(256 * 1024 * 1024, dtype=torch.float16, device=device))
+            va_junk[-1].fill_(1.0)
 
     # Materialize all HCCL references before MemFabric context creation.
     inputs: dict[int, torch.Tensor] = {}
@@ -128,9 +142,7 @@ def main() -> None:
 
         diff = (fused.float() - ref.float()).abs()
         max_diff = diff.max().item()
-        n_bad = (
-            diff > (args.atol + args.rtol * ref.float().abs())
-        ).sum().item()
+        n_bad = (diff > (args.atol + args.rtol * ref.float().abs())).sum().item()
         ok = torch.allclose(fused, ref, rtol=args.rtol, atol=args.atol)
 
         steady_ms = []
@@ -141,10 +153,7 @@ def main() -> None:
             steady_ms.append((time.perf_counter() - t1) * 1e3)
             if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
                 ok = False
-                n_bad += (
-                    (out.float() - ref.float()).abs()
-                    > (args.atol + args.rtol * ref.float().abs())
-                ).sum().item()
+                n_bad += ((out.float() - ref.float()).abs() > (args.atol + args.rtol * ref.float().abs())).sum().item()
 
         steady_ms.sort()
         verdict = "PASS" if ok else "FAIL"
@@ -157,16 +166,10 @@ def main() -> None:
                     f"\t{med:.3f}\t{steady_ms[-1]:.3f}"
                 )
             else:
-                print(
-                    f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}"
-                    f"\t{first_ms:.3f}"
-                )
+                print(f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{first_ms:.3f}")
 
         if not ok:
-            raise AssertionError(
-                f"FP16 o_proj fused mismatch rows={rows} "
-                f"max_abs_diff={max_diff}"
-            )
+            raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
 
     if rank == 0:
         print("ALL PASS", flush=True)

@@ -120,6 +120,8 @@ void trace_wave(
                                enqueue_us + prejoin_us));
 }
 
+struct RuntimeState;
+
 struct RuntimeState {
     std::mutex mutex;
     mf310p_context_t* ctx = nullptr;
@@ -128,7 +130,6 @@ struct RuntimeState {
     int64_t tile_m = 0;
     bool poisoned = false;
     std::string failure_reason;
-
     /* Direct producer state (allocated lazily, tile_m-sized). */
     uint64_t producer_scratch = 0;        /* device VA, tile_m*2048*2 bytes */
     uint32_t producer_warmed_buckets = 0; /* bit (log2(bucket)-4) per bucket */
@@ -142,6 +143,129 @@ struct RuntimeState {
     /* Teardown is owned by the atexit hook while ACL is still alive. */
     ~RuntimeState() = default;
 };
+
+/*
+ * Debug-only SDMA ring health probe (VLLM_ASCEND_310P_MF_RING_DUMP).
+ * Layout constants mirror the public smem_shm_sdma_layout.h (single source
+ * of truth); the ring tail lives at own_segment + local_size - 48 KiB.
+ * Reads are plain aclrtMemcpy D2H on vLLM-owned segment memory.
+ */
+constexpr uint64_t kMfRsReservedBytes = 48UL * 1024UL;
+constexpr uint64_t kMfRsReqTailOff = 0x0800;
+constexpr uint64_t kMfRsReqHeadOff = 0x0808;
+constexpr uint64_t kMfRsQuietOff = 0x0810;
+constexpr uint64_t kMfRsQuietSlots = 64;
+constexpr uint64_t kMfRsArrStampOff = 0x0A20;
+constexpr uint64_t kMfRsArrSlots = 1024;
+constexpr uint64_t kMfRsArrHeadOff = 0xAA20;
+
+bool ring_dump_enabled()
+{
+    static const bool enabled = [] {
+        const char* v = std::getenv("VLLM_ASCEND_310P_MF_RING_DUMP");
+        return v != nullptr && *v != '\0' && *v != '0';
+    }();
+    return enabled;
+}
+
+void debug_dump_sdma_rings_locked(const RuntimeState& state)
+{
+    static int64_t call_counter = 0;
+    const int64_t call_idx = call_counter++;
+    const uint64_t ring_base =
+        state.layout.own_segment + state.layout.local_size -
+        kMfRsReservedBytes;
+    auto read_dev = [&](uint64_t addr, void* dst, uint64_t bytes) {
+        return aclrtMemcpy(
+                   dst, bytes, reinterpret_cast<const void*>(addr), bytes,
+                   ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
+    };
+    uint64_t cursors[3] = {0, 0, 0};
+    const bool ok_cursors =
+        read_dev(ring_base + kMfRsReqTailOff, &cursors[0], 8) &&
+        read_dev(ring_base + kMfRsReqHeadOff, &cursors[1], 8) &&
+        read_dev(ring_base + kMfRsArrHeadOff, &cursors[2], 8);
+    std::vector<uint64_t> stamps(kMfRsArrSlots, 0);
+    const bool ok_stamps = read_dev(
+        ring_base + kMfRsArrStampOff, stamps.data(),
+        kMfRsArrSlots * sizeof(uint64_t));
+    std::vector<uint64_t> quiet(kMfRsQuietSlots, 0);
+    const bool ok_quiet = read_dev(
+        ring_base + kMfRsQuietOff, quiet.data(),
+        kMfRsQuietSlots * sizeof(uint64_t));
+    uint64_t max_stamp = 0;
+    uint64_t min_nonzero = ~0ULL;
+    for (const uint64_t s : stamps) {
+        max_stamp = std::max(max_stamp, s);
+        if (s != 0) min_nonzero = std::min(min_nonzero, s);
+    }
+    uint64_t max_quiet = 0;
+    for (const uint64_t s : quiet) max_quiet = std::max(max_quiet, s);
+    const uint64_t arr_head = cursors[2];
+    const uint64_t stamp_at_head =
+        ok_stamps ? stamps[arr_head % kMfRsArrSlots] : 0;
+    const int64_t now_us = trace_now_us();
+    std::fprintf(
+        stderr,
+        "[mf310p-addr] rank=%d pool_base=0x%llx own_seg=0x%llx sym=0x%llx "
+        "local=0x%llx ack=0x%llx peer_ack=0x%llx exp_credit=0x%llx "
+        "exp_recv=0x%llx\n",
+        state.tp_rank,
+        static_cast<unsigned long long>(state.layout.pool_base),
+        static_cast<unsigned long long>(state.layout.own_segment),
+        static_cast<unsigned long long>(state.layout.symmetric_size),
+        static_cast<unsigned long long>(state.layout.local_size),
+        static_cast<unsigned long long>(state.layout.ack_slot),
+        static_cast<unsigned long long>(state.layout.peer_ack_slot),
+        static_cast<unsigned long long>(state.layout.expected_credit_dst),
+        static_cast<unsigned long long>(state.layout.expected_recv_base));
+    uint32_t pc_started = 0;
+    uint32_t pc_done = 0;
+    uint32_t pc_readied = 0;
+    int64_t pc_first_unstarted = -1;
+    int64_t pc_first_started_not_done = -1;
+    if (state.layout.debug_flags != 0) {
+        std::vector<uint64_t> cells(
+            static_cast<size_t>(state.layout.max_chunks) * 2, 0);
+        if (read_dev(state.layout.debug_flags, cells.data(),
+                     cells.size() * sizeof(uint64_t))) {
+            for (uint32_t c = 0; c < state.layout.max_chunks; ++c) {
+                const uint64_t started = cells[static_cast<size_t>(c) * 2];
+                const uint64_t done = cells[static_cast<size_t>(c) * 2 + 1];
+                pc_started += started == 0x5354415254ULL ? 1 : 0;
+                pc_done += done == 0x4d4d444f4e45ULL ? 1 : 0;
+                if (started != 0x5354415254ULL && pc_first_unstarted < 0) {
+                    pc_first_unstarted = static_cast<int64_t>(c);
+                }
+                if (started == 0x5354415254ULL &&
+                    done != 0x4d4d444f4e45ULL &&
+                    pc_first_started_not_done < 0) {
+                    pc_first_started_not_done = static_cast<int64_t>(c);
+                }
+            }
+            pc_readied = pc_done;
+        }
+    }
+    std::fprintf(
+        stderr,
+        "[mf310p-ring] rank=%d call=%lld t=%lld ok=%d%d%d reqTail=%llu "
+        "reqHead=%llu arrHead=%llu stamp@head=%llu expect=%llu "
+        "maxStamp=%llu minNz=%llu maxQuiet=%llu pc=%u/%u/%u "
+        "unstarted@%lld stuck@%lld\n",
+        state.tp_rank, static_cast<long long>(call_idx),
+        static_cast<long long>(now_us),
+        ok_cursors ? 1 : 0, ok_stamps ? 1 : 0, ok_quiet ? 1 : 0,
+        static_cast<unsigned long long>(cursors[0]),
+        static_cast<unsigned long long>(cursors[1]),
+        static_cast<unsigned long long>(arr_head),
+        static_cast<unsigned long long>(stamp_at_head),
+        static_cast<unsigned long long>(arr_head + 1),
+        static_cast<unsigned long long>(max_stamp),
+        static_cast<unsigned long long>(min_nonzero),
+        static_cast<unsigned long long>(max_quiet),
+        pc_started, pc_done, pc_readied,
+        pc_first_unstarted, pc_first_started_not_done);
+}
 
 RuntimeState& runtime_state()
 {
@@ -405,6 +529,17 @@ void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.protocol_initialized) return;
 
+    /* Zero the debug heartbeat region once (segment memory is DMA-visible). */
+    if (ring_dump_enabled() && state.layout.debug_flags != 0) {
+        const std::vector<uint8_t> zeros(
+            static_cast<size_t>(state.layout.max_chunks) * 16, 0);
+        TORCH_CHECK(
+            aclrtMemcpy(reinterpret_cast<void*>(state.layout.debug_flags),
+                        zeros.size(), zeros.data(), zeros.size(),
+                        ACL_MEMCPY_HOST_TO_DEVICE) == ACL_SUCCESS,
+            "mf310p debug flag zeroing failed");
+    }
+
     warm_waiter_locked(state, stream);
 
     int ret = mf310p_prepare_wave_async(
@@ -415,6 +550,14 @@ void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
     ret = mf310p_control_barrier(state.ctx);
     TORCH_CHECK(ret == 0,
                 "mf310p_control_barrier(init) failed with ret=", ret);
+
+    ret = mf310p_exchange_geometry(state.ctx);
+    TORCH_CHECK(ret == 0,
+                "mf310p_exchange_geometry failed with ret=", ret);
+    const int geo_ret = mf310p_get_layout(state.ctx, &state.layout);
+    TORCH_CHECK(geo_ret == 0,
+                "mf310p_get_layout(geometry refresh) failed with ret=",
+                geo_ret);
 
     ret = mf310p_init_credit_async(
         state.ctx, reinterpret_cast<void*>(stream));
@@ -562,6 +705,8 @@ at::Tensor memfabric_o_proj_debug_snapshot()
         mf310p_debug_protocol_status(state.ctx, &protocol_status);
     w[18] = static_cast<int64_t>(protocol_status);
     w[19] = status_ret == 0 ? 1 : 0;
+    w[20] = static_cast<int64_t>(layout.expected_credit_dst);
+    w[21] = static_cast<int64_t>(layout.expected_recv_base);
 #endif
     return out;
 }
@@ -650,6 +795,9 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
 
     for (int64_t wave_start = 0; wave_start < num_tokens;
          wave_start += max_rows_per_wave) {
+        if (ring_dump_enabled()) {
+            debug_dump_sdma_rings_locked(state);
+        }
         const int64_t wave_rows =
             std::min<int64_t>(max_rows_per_wave, num_tokens - wave_start);
         const uint32_t chunks =
@@ -835,8 +983,20 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             if (state.failure_reason.empty()) {
                 state.failure_reason = exc.what();
             }
+            if (ring_dump_enabled()) {
+                std::fprintf(
+                    stderr,
+                    "[mf310p-ring] rank=%d FAILURE: %s\n",
+                    state.tp_rank,
+                    exc.what());
+                debug_dump_sdma_rings_locked(state);
+            }
             throw;
         }
+    }
+
+    if (ring_dump_enabled()) {
+        debug_dump_sdma_rings_locked(state);
     }
 
     return output;

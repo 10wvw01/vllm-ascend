@@ -93,6 +93,33 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
     ),
+    # D2 workaround (validation aid, default off): during profile/warmup
+    # dummy runs the routed o_proj falls back to stock matmul + HCCL
+    # all-reduce, deferring MemFabric pool creation to the first real
+    # request. The 310P AICPU watchdog kills the SDMA orchestrator epoch
+    # task 28s after pool creation (MemFabric self-limit arithmetic
+    # assumes 22s), so eager-mode init must not create the pool.
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK", "0"))
+    ),
+    # Minimum M (token rows) routed to the fused MemFabric o_proj path.
+    # Below this the layer uses the stock NZ matmul + HCCL all-reduce: the
+    # fused path pays a fixed per-wave protocol cost (~0.3 ms) plus chunked
+    # GEMM inefficiency that only amortizes on large prefills. Measured
+    # crossover on Ascend 310P TP=2 (TILE_M=128): parity at M=4096, fused
+    # wins ~15% at M>=6144. Range: 1 (always fused) to unlimited.
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M", "4096")
+    ),
+    # Wave-level host-phase trace + device-duration outlier monitor (debug
+    # aid, default off). C++ runtime prints one "[mf310p-trace]" line per
+    # fused call; the Python wrapper additionally records NPU event pairs
+    # and a daemon thread logs "[mf310p-slow]" lines for calls whose device
+    # duration exceeds 500 ms (e.g. delayed SDMA mail relay at an epoch
+    # relaunch boundary).
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE", "0"))
+    ),
 }
 
 # end-env-vars-definition

@@ -23,6 +23,10 @@ protects arena reuse across waves and graph replays.
 from __future__ import annotations
 
 import re
+import threading
+import time
+from collections import deque
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 import torch
@@ -174,6 +178,47 @@ def is_memfabric_o_proj_configured(layer: torch.nn.Module) -> bool:
     return bool(getattr(layer, "_ascend_310p_memfabric_o_proj", False))
 
 
+_pool_protocol_started = False
+
+
+def memfabric_o_proj_pool_started() -> bool:
+    """Whether the MemFabric SDMA pool exists in this process.
+
+    The pool (and its supervised epoch kernel on the orchestrator's own
+    launch stream) is created inside the first fused call and lives until
+    worker shutdown.
+    """
+    return _pool_protocol_started
+
+
+_warmup_fallback_depth = 0
+
+
+@contextmanager
+def memfabric_o_proj_warmup_fallback():
+    """Opt-in D2 workaround: defer pool creation past profile/warmup runs.
+
+    While active (and only when
+    ``VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK`` is set), routed
+    o_proj layers fall back to stock matmul + HCCL all-reduce so the first
+    fused call - and with it the MemFabric pool - happens at the first real
+    request instead of during engine-init dummy runs.
+    """
+    global _warmup_fallback_depth
+    if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK:
+        _warmup_fallback_depth += 1
+        try:
+            yield
+        finally:
+            _warmup_fallback_depth -= 1
+    else:
+        yield
+
+
+def memfabric_o_proj_warmup_fallback_active() -> bool:
+    return _warmup_fallback_depth > 0
+
+
 def memfabric_o_proj_allreduce(
     layer: torch.nn.Module,
     x: torch.Tensor,
@@ -186,6 +231,7 @@ def memfabric_o_proj_allreduce(
     public MemFabric quiet/wait, performs the repo-owned FP16 reduction, and
     returns the fixed credit after local arena reads complete.
     """
+    global _pool_protocol_started
 
     if tp_rank not in (0, 1):
         raise RuntimeError(f"MemFabric o_proj fusion only supports TP rank 0/1, got {tp_rank}")
@@ -201,7 +247,71 @@ def memfabric_o_proj_allreduce(
     direct = getattr(torch.ops._C_ascend, "memfabric_direct_o_proj_allreduce", None)
     if direct is None:
         raise RuntimeError("vllm_ascend_C was built without the fused 310P MemFabric o_proj op")
-    return direct(x, layer.weight.data, int(tp_rank), int(plan.tile_m))
+    if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE:
+        ev0, ev1 = _record_fused_call_events()
+        out = direct(x, layer.weight.data, int(tp_rank), int(plan.tile_m))
+        _finish_fused_call_events(ev0, ev1, x.shape[0])
+    else:
+        out = direct(x, layer.weight.data, int(tp_rank), int(plan.tile_m))
+    _pool_protocol_started = True
+    return out
+
+
+_DEVICE_MONITOR_LOCK = threading.Lock()
+_DEVICE_MONITOR_EVENTS: deque = deque(maxlen=128)
+_DEVICE_MONITOR_SEQ = 0
+_DEVICE_MONITOR_STARTED = False
+
+
+def _record_fused_call_events():
+    global _DEVICE_MONITOR_SEQ
+    ev0 = torch.npu.Event(enable_timing=True)
+    ev0.record()
+    return ev0, torch.npu.Event(enable_timing=True)
+
+
+def _finish_fused_call_events(ev0, ev1, rows):
+    global _DEVICE_MONITOR_SEQ
+    ev1.record()
+    with _DEVICE_MONITOR_LOCK:
+        _DEVICE_MONITOR_EVENTS.append((_DEVICE_MONITOR_SEQ, ev0, ev1, rows, time.time()))
+        if _DEVICE_MONITOR_SEQ == 0:
+            logger.info("[mf310p-monitor] first fused call wall=%.3f", time.time())
+        _DEVICE_MONITOR_SEQ += 1
+        _maybe_start_device_monitor_locked()
+
+
+def _maybe_start_device_monitor_locked():
+    global _DEVICE_MONITOR_STARTED
+    if _DEVICE_MONITOR_STARTED:
+        return
+    _DEVICE_MONITOR_STARTED = True
+    threading.Thread(target=_device_monitor_loop, daemon=True).start()
+
+
+def _device_monitor_loop():
+    while True:
+        time.sleep(0.5)
+        while True:
+            with _DEVICE_MONITOR_LOCK:
+                if not _DEVICE_MONITOR_EVENTS:
+                    break
+                seq, ev0, ev1, rows, t_enq = _DEVICE_MONITOR_EVENTS[0]
+                if not ev1.query():
+                    break
+                _DEVICE_MONITOR_EVENTS.popleft()
+            try:
+                elapsed_ms = ev0.elapsed_time(ev1)
+            except Exception:
+                elapsed_ms = -1.0
+            if elapsed_ms > 500.0:
+                logger.warning(
+                    "[mf310p-slow] seq=%d rows=%d device_ms=%.1f enq_wall=%.3f",
+                    seq,
+                    rows,
+                    elapsed_ms,
+                    t_enq,
+                )
 
 
 def make_memfabric_o_proj_linear_method():
@@ -237,6 +347,23 @@ def make_memfabric_o_proj_linear_method():
                     # Qwen o_proj is bias-free; a biased RowParallel o_proj
                     # would need explicit rank0-only handling before fusion.
                     raise RuntimeError("MemFabric o_proj fusion does not support biased o_proj")
+                if (
+                    memfabric_o_proj_warmup_fallback_active()
+                    or x.shape[0] < envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M
+                ):
+                    # Stock path (warmup dummy runs and small batches): the
+                    # fused path pays a fixed per-wave protocol cost plus
+                    # chunked-GEMM inefficiency that only amortizes on large
+                    # prefills, so rows below MIN_M take NZ matmul + HCCL
+                    # all-reduce. reduce_results was disabled by the routing,
+                    # so the stock path must be followed by the TP reduction
+                    # the fused op would have provided.
+                    from vllm.distributed import (
+                        tensor_model_parallel_all_reduce,
+                    )
+
+                    out = super().apply(layer, x, bias)
+                    return tensor_model_parallel_all_reduce(out)
                 from vllm.distributed import get_tensor_model_parallel_rank
 
                 return memfabric_o_proj_allreduce(
