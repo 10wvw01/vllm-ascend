@@ -20,7 +20,7 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
      * raise a clear error. */
     ops.def(
         "memfabric_direct_o_proj_allreduce("
-        "Tensor x, Tensor weight, int tp_rank, int tile_m) -> Tensor");
+        "Tensor x, Tensor weight, int tp_rank, int batch_basem_count) -> Tensor");
     ops.impl(
         "memfabric_direct_o_proj_allreduce",
         torch::kPrivateUse1,
