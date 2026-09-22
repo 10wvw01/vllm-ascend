@@ -1,29 +1,11 @@
 /*
- * 310P3 TP=2 MemFabric runtime for the fused o_proj overlap pipeline.
+ * 310P3 TP=2 MemFabric runtime for the ABI v7 o_proj batch pipeline.
  *
- * When VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ is enabled, vllm_ascend_C is
- * compiled and linked directly against the wgm-dev-310p MemFabric public
- * SHM/SDMA API. Loading is
- * by direct link time dependency only; no bridge shared object is ever opened
- * dynamically at runtime. The small mf310p_* C ABI remains only as an
- * internal source boundary between vLLM-Ascend and the customized MemFabric
- * APIs.
- *
- * Per call (single fused op, no host-side staging anymore):
- *   for each wave (capacity batching, no host syncs between chunks):
- *     join        - first wave only: stream sync + control barrier as the
- *                   pool-creation rendezvous; later waves use the gate
- *                   kernel (waits for the peer's ack mail of the previous
- *                   wave, proving its reduced-output add that reads recv
- *                   completed - only then may our signals overwrite its
- *                   recv arena);
- *     producer    - one communication coordinator overlaps public MemFabric
- *                   signal() with seven interleaved AscendC MM workers;
- *     waiter      - public quiet + public wait x chunks (peer chunks
- *                   landed in my recv);
- *     add         - out[wave] = send[wave] + recv[wave] on the same stream;
- *     ack         - signal 8B (imm = wave index) to the peer's ack slot
- *                   after the add, consumed by the peer's next-wave gate.
+ * One wave owns a bounded send/recv arena. Each batch is a baseM-aligned
+ * 8-core cooperative MM. Core0 sends the completed batch, then later batches
+ * are enqueued before wait/reduce of earlier batches so SDMA can overlap both
+ * subsequent MM and earlier reduction. Wave credit remains the arena reuse
+ * guard; MemFabric transport internals stay opaque.
  */
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
@@ -57,7 +39,12 @@ void memfabric_o_proj_shutdown();
 namespace {
 
 constexpr int64_t kOProjWidth = 2048;
-constexpr uint64_t kDefaultLocalPoolBytes = 32ULL * 1024ULL * 1024ULL;
+constexpr uint32_t kBaseM = 256;
+constexpr uint32_t kMaxArenaRows = 8192;
+constexpr uint64_t kOProjRowBytes =
+    static_cast<uint64_t>(kOProjWidth) * sizeof(at::Half);
+constexpr uint64_t kDefaultLocalPoolBytes = 96ULL * 1024ULL * 1024ULL;
+constexpr uint64_t kPoolHeadroomBytes = 1ULL * 1024ULL * 1024ULL;
 constexpr const char* kDefaultStoreUrl = "tcp://127.0.0.1:8581";
 
 uint64_t parse_u64_env(const char* name, uint64_t fallback)
@@ -98,7 +85,7 @@ int64_t trace_now_us()
 void trace_wave(
     int rank,
     int64_t rows,
-    uint32_t chunks,
+    uint32_t batches,
     int64_t join_sync_us,
     int64_t join_barrier_us,
     int64_t warmup_us,
@@ -107,10 +94,10 @@ void trace_wave(
 {
     std::fprintf(
         stderr,
-        "[mf310p-trace] rank=%d rows=%lld chunks=%u join_sync_us=%lld "
+        "[mf310p-trace] rank=%d rows=%lld batches=%u join_sync_us=%lld "
         "join_barrier_us=%lld warmup_us=%lld enqueue_us=%lld prejoin_us=%lld "
         "total_us=%lld\n",
-        rank, static_cast<long long>(rows), chunks,
+        rank, static_cast<long long>(rows), batches,
         static_cast<long long>(join_sync_us),
         static_cast<long long>(join_barrier_us),
         static_cast<long long>(warmup_us),
@@ -127,12 +114,12 @@ struct RuntimeState {
     mf310p_context_t* ctx = nullptr;
     mf310p_layout_t layout{};
     int tp_rank = -1;
-    int64_t tile_m = 0;
+    int64_t batch_basem_count = 0;
+    uint32_t batch_m = 0;
     bool poisoned = false;
     std::string failure_reason;
-    /* Direct producer state (allocated lazily, tile_m-sized). */
-    uint64_t producer_scratch = 0;        /* device VA, tile_m*2048*2 bytes */
-    uint32_t producer_warmed_buckets = 0; /* bit (log2(bucket)-4) per bucket */
+    uint64_t producer_scratch = 0; /* device VA, batch_m*2048*2 bytes */
+    bool producer_warmed = false;
     bool waiter_warmed = false;
     bool add_warmed = false;
     bool protocol_warmed = false;
@@ -140,132 +127,8 @@ struct RuntimeState {
     aclrtStream eager_stream = nullptr;
     bool graph_capture_seen = false;
 
-    /* Teardown is owned by the atexit hook while ACL is still alive. */
     ~RuntimeState() = default;
 };
-
-/*
- * Debug-only SDMA ring health probe (VLLM_ASCEND_310P_MF_RING_DUMP).
- * Layout constants mirror the public smem_shm_sdma_layout.h (single source
- * of truth); the ring tail lives at own_segment + local_size - 48 KiB.
- * Reads are plain aclrtMemcpy D2H on vLLM-owned segment memory.
- */
-constexpr uint64_t kMfRsReservedBytes = 48UL * 1024UL;
-constexpr uint64_t kMfRsReqTailOff = 0x0800;
-constexpr uint64_t kMfRsReqHeadOff = 0x0808;
-constexpr uint64_t kMfRsQuietOff = 0x0810;
-constexpr uint64_t kMfRsQuietSlots = 64;
-constexpr uint64_t kMfRsArrStampOff = 0x0A20;
-constexpr uint64_t kMfRsArrSlots = 1024;
-constexpr uint64_t kMfRsArrHeadOff = 0xAA20;
-
-bool ring_dump_enabled()
-{
-    static const bool enabled = [] {
-        const char* v = std::getenv("VLLM_ASCEND_310P_MF_RING_DUMP");
-        return v != nullptr && *v != '\0' && *v != '0';
-    }();
-    return enabled;
-}
-
-void debug_dump_sdma_rings_locked(const RuntimeState& state)
-{
-    static int64_t call_counter = 0;
-    const int64_t call_idx = call_counter++;
-    const uint64_t ring_base =
-        state.layout.own_segment + state.layout.local_size -
-        kMfRsReservedBytes;
-    auto read_dev = [&](uint64_t addr, void* dst, uint64_t bytes) {
-        return aclrtMemcpy(
-                   dst, bytes, reinterpret_cast<const void*>(addr), bytes,
-                   ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
-    };
-    uint64_t cursors[3] = {0, 0, 0};
-    const bool ok_cursors =
-        read_dev(ring_base + kMfRsReqTailOff, &cursors[0], 8) &&
-        read_dev(ring_base + kMfRsReqHeadOff, &cursors[1], 8) &&
-        read_dev(ring_base + kMfRsArrHeadOff, &cursors[2], 8);
-    std::vector<uint64_t> stamps(kMfRsArrSlots, 0);
-    const bool ok_stamps = read_dev(
-        ring_base + kMfRsArrStampOff, stamps.data(),
-        kMfRsArrSlots * sizeof(uint64_t));
-    std::vector<uint64_t> quiet(kMfRsQuietSlots, 0);
-    const bool ok_quiet = read_dev(
-        ring_base + kMfRsQuietOff, quiet.data(),
-        kMfRsQuietSlots * sizeof(uint64_t));
-    uint64_t max_stamp = 0;
-    uint64_t min_nonzero = ~0ULL;
-    for (const uint64_t s : stamps) {
-        max_stamp = std::max(max_stamp, s);
-        if (s != 0) min_nonzero = std::min(min_nonzero, s);
-    }
-    uint64_t max_quiet = 0;
-    for (const uint64_t s : quiet) max_quiet = std::max(max_quiet, s);
-    const uint64_t arr_head = cursors[2];
-    const uint64_t stamp_at_head =
-        ok_stamps ? stamps[arr_head % kMfRsArrSlots] : 0;
-    const int64_t now_us = trace_now_us();
-    std::fprintf(
-        stderr,
-        "[mf310p-addr] rank=%d pool_base=0x%llx own_seg=0x%llx sym=0x%llx "
-        "local=0x%llx ack=0x%llx peer_ack=0x%llx exp_credit=0x%llx "
-        "exp_recv=0x%llx\n",
-        state.tp_rank,
-        static_cast<unsigned long long>(state.layout.pool_base),
-        static_cast<unsigned long long>(state.layout.own_segment),
-        static_cast<unsigned long long>(state.layout.symmetric_size),
-        static_cast<unsigned long long>(state.layout.local_size),
-        static_cast<unsigned long long>(state.layout.ack_slot),
-        static_cast<unsigned long long>(state.layout.peer_ack_slot),
-        static_cast<unsigned long long>(state.layout.expected_credit_dst),
-        static_cast<unsigned long long>(state.layout.expected_recv_base));
-    uint32_t pc_started = 0;
-    uint32_t pc_done = 0;
-    uint32_t pc_readied = 0;
-    int64_t pc_first_unstarted = -1;
-    int64_t pc_first_started_not_done = -1;
-    if (state.layout.debug_flags != 0) {
-        std::vector<uint64_t> cells(
-            static_cast<size_t>(state.layout.max_chunks) * 2, 0);
-        if (read_dev(state.layout.debug_flags, cells.data(),
-                     cells.size() * sizeof(uint64_t))) {
-            for (uint32_t c = 0; c < state.layout.max_chunks; ++c) {
-                const uint64_t started = cells[static_cast<size_t>(c) * 2];
-                const uint64_t done = cells[static_cast<size_t>(c) * 2 + 1];
-                pc_started += started == 0x5354415254ULL ? 1 : 0;
-                pc_done += done == 0x4d4d444f4e45ULL ? 1 : 0;
-                if (started != 0x5354415254ULL && pc_first_unstarted < 0) {
-                    pc_first_unstarted = static_cast<int64_t>(c);
-                }
-                if (started == 0x5354415254ULL &&
-                    done != 0x4d4d444f4e45ULL &&
-                    pc_first_started_not_done < 0) {
-                    pc_first_started_not_done = static_cast<int64_t>(c);
-                }
-            }
-            pc_readied = pc_done;
-        }
-    }
-    std::fprintf(
-        stderr,
-        "[mf310p-ring] rank=%d call=%lld t=%lld ok=%d%d%d reqTail=%llu "
-        "reqHead=%llu arrHead=%llu stamp@head=%llu expect=%llu "
-        "maxStamp=%llu minNz=%llu maxQuiet=%llu pc=%u/%u/%u "
-        "unstarted@%lld stuck@%lld\n",
-        state.tp_rank, static_cast<long long>(call_idx),
-        static_cast<long long>(now_us),
-        ok_cursors ? 1 : 0, ok_stamps ? 1 : 0, ok_quiet ? 1 : 0,
-        static_cast<unsigned long long>(cursors[0]),
-        static_cast<unsigned long long>(cursors[1]),
-        static_cast<unsigned long long>(arr_head),
-        static_cast<unsigned long long>(stamp_at_head),
-        static_cast<unsigned long long>(arr_head + 1),
-        static_cast<unsigned long long>(max_stamp),
-        static_cast<unsigned long long>(min_nonzero),
-        static_cast<unsigned long long>(max_quiet),
-        pc_started, pc_done, pc_readied,
-        pc_first_unstarted, pc_first_started_not_done);
-}
 
 RuntimeState& runtime_state()
 {
@@ -277,7 +140,7 @@ void init_context_locked(
     RuntimeState& state,
     const at::Tensor& x,
     int64_t tp_rank,
-    int64_t tile_m)
+    int64_t batch_basem_count)
 {
     TORCH_CHECK(
         mf310p_adapter_abi_version() == VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
@@ -285,27 +148,51 @@ void init_context_locked(
         VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION,
         ", got ", mf310p_adapter_abi_version());
 
+    TORCH_CHECK(
+        batch_basem_count == 1 || batch_basem_count == 2 ||
+            batch_basem_count == 4,
+        "batch_basem_count must be one of {1,2,4}, got ",
+        batch_basem_count);
+    const uint32_t batch_m =
+        kBaseM * static_cast<uint32_t>(batch_basem_count);
+
     if (state.ctx != nullptr) {
         TORCH_CHECK(state.tp_rank == tp_rank,
                     "MemFabric runtime rank changed from ", state.tp_rank,
                     " to ", tp_rank);
-        TORCH_CHECK(state.tile_m == tile_m,
-                    "MemFabric runtime tile_m changed from ", state.tile_m,
-                    " to ", tile_m,
-                    ". Restart the worker when changing tile size.");
+        TORCH_CHECK(
+            state.batch_basem_count == batch_basem_count,
+            "MemFabric runtime batch_basem_count changed from ",
+            state.batch_basem_count, " to ", batch_basem_count,
+            ". Restart the worker when changing communication batch size.");
         return;
     }
 
     TORCH_CHECK(tp_rank == 0 || tp_rank == 1,
                 "MemFabric runtime only supports TP=2 rank 0/1, got ", tp_rank);
-    TORCH_CHECK(tile_m > 0, "tile_m must be positive");
 
-    const uint64_t chunk_bytes =
-        static_cast<uint64_t>(tile_m) * kOProjWidth * sizeof(at::Half); /* FP16 payload */
-    const uint64_t arena_bytes =
-        static_cast<uint64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * chunk_bytes;
     const uint64_t local_pool_bytes = parse_u64_env(
         "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", kDefaultLocalPoolBytes);
+    const uint64_t min_bytes =
+        kPoolHeadroomBytes +
+        2 * static_cast<uint64_t>(batch_m) * kOProjRowBytes + 8;
+    TORCH_CHECK(
+        local_pool_bytes > min_bytes,
+        "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=", local_pool_bytes,
+        " is too small for one send/recv batch plus pool headroom; need > ",
+        min_bytes);
+
+    const uint64_t rows_by_budget =
+        (local_pool_bytes - kPoolHeadroomBytes - 8) /
+        (2 * kOProjRowBytes);
+    uint32_t arena_rows = static_cast<uint32_t>(
+        std::min<uint64_t>(rows_by_budget, kMaxArenaRows));
+    arena_rows = (arena_rows / batch_m) * batch_m;
+    TORCH_CHECK(
+        arena_rows >= batch_m,
+        "MemFabric arena budget produced arena_rows=", arena_rows,
+        " < batch_m=", batch_m);
+
     const char* store_url = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL");
     if (store_url == nullptr || *store_url == '\0') {
         store_url = kDefaultStoreUrl;
@@ -316,8 +203,8 @@ void init_context_locked(
         2,
         store_url,
         local_pool_bytes,
-        arena_bytes,
-        chunk_bytes,
+        arena_rows,
+        batch_m,
         &state.ctx);
     TORCH_CHECK(ret == 0 && state.ctx != nullptr,
                 "mf310p_create failed with ret=", ret);
@@ -325,25 +212,26 @@ void init_context_locked(
     const int layout_ret = mf310p_get_layout(state.ctx, &state.layout);
     TORCH_CHECK(layout_ret == 0,
                 "mf310p_get_layout failed with ret=", layout_ret);
-    TORCH_CHECK(state.layout.chunk_bytes == chunk_bytes,
-                "MemFabric returned unexpected chunk_bytes");
-    TORCH_CHECK(state.layout.max_chunks == VLLM_ASCEND_MF310P_MAX_CHUNKS,
-                "MemFabric returned unexpected max_chunks");
+    TORCH_CHECK(state.layout.batch_m == batch_m,
+                "MemFabric returned unexpected batch_m");
+    TORCH_CHECK(state.layout.arena_rows == arena_rows,
+                "MemFabric returned unexpected arena_rows");
+    TORCH_CHECK(
+        state.layout.batch_bytes ==
+            static_cast<uint64_t>(batch_m) * kOProjRowBytes,
+        "MemFabric returned unexpected batch_bytes");
+    TORCH_CHECK(
+        state.layout.max_batches == arena_rows / batch_m &&
+            state.layout.max_batches > 0,
+        "MemFabric returned invalid max_batches");
     TORCH_CHECK(state.layout.pool_base != 0,
                 "MemFabric returned an invalid pool base");
 
     state.tp_rank = static_cast<int>(tp_rank);
-    state.tile_m = tile_m;
+    state.batch_basem_count = batch_basem_count;
+    state.batch_m = batch_m;
     (void)x;
 
-    /*
-     * LIFO atexit teardown: the process-persistent MemFabric context must be
-     * destroyed while the ACL runtime is still alive. Registering here (after
-     * torch_npu's import-time registrations) makes this handler run first, so
-     * the RuntimeState static destructor - which may otherwise run after the
-     * NPU runtime was finalized and segfault - becomes a no-op. Verified on
-     * the real 310P3 server: without this, both ranks SIGSEGV at exit.
-     */
     static bool atexit_registered = false;
     if (!atexit_registered) {
         const int atexit_ret =
@@ -363,64 +251,23 @@ void check_runtime_healthy(const RuntimeState& state)
         state.failure_reason);
 }
 
-/* ---- Direct producer helpers ---- */
+/* ---- ABI v7 kernel warmup helpers ---- */
 
-constexpr uint32_t kProducerMinBucket = 16;
-constexpr uint32_t kProducerMaxBucket = 4096;
-
-bool is_producer_bucket(uint32_t value)
+void warm_producer_locked(RuntimeState& state, aclrtStream stream)
 {
-    return value >= kProducerMinBucket && value <= kProducerMaxBucket &&
-           (value & (value - 1)) == 0;
-}
-
-/* Smallest producer bucket covering `rows`; callers guarantee
- * rows <= tile_m <= kProducerMaxBucket so this cannot overflow. */
-uint32_t producer_bucket_for_rows(uint32_t rows)
-{
-    uint32_t bucket = kProducerMinBucket;
-    while (bucket < rows) {
-        bucket <<= 1;
-    }
-    return bucket;
-}
-
-uint32_t producer_bucket_bit(uint32_t bucket)
-{
-    return 1u << (__builtin_ctz(bucket) - 4);
-}
-
-/*
- * The first launch of each kernel instantiation from a freshly loaded .so is
- * a silent binary-eager-load no-op on dav-2002, so every M-bucket must be
- * warmed twice before its first real wave. Both warmup launches use the
- * chunk_count == 0 shape, which returns before touching any memory.
- */
-void warm_producer_bucket_locked(
-    RuntimeState& state,
-    uint32_t bucket,
-    aclrtStream stream)
-{
-    const uint32_t bit = producer_bucket_bit(bucket);
-    if (state.producer_warmed_buckets & bit) {
-        return;
-    }
+    if (state.producer_warmed) return;
     for (int i = 0; i < 2; ++i) {
         const int ret = mf310p_warmup_producer_async(
-            state.ctx,
-            bucket,
-            reinterpret_cast<void*>(stream));
+            state.ctx, reinterpret_cast<void*>(stream));
         TORCH_CHECK(ret == 0,
-                    "mf310p_warmup_producer_async failed for bucket ",
-                    bucket, " with ret=", ret);
+                    "mf310p_warmup_producer_async failed with ret=", ret);
     }
     const aclError sync_ret = aclrtSynchronizeStream(stream);
     TORCH_CHECK(sync_ret == ACL_SUCCESS,
                 "producer warmup sync failed, ret=", sync_ret);
-    state.producer_warmed_buckets |= bit;
+    state.producer_warmed = true;
 }
 
-/* Same double-launch warmup contract for waiter/add/protocol kernels. */
 void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.waiter_warmed) return;
@@ -494,51 +341,21 @@ void validate_execution_stream_locked(
         ". ACL Graph capture side streams are handled separately.");
 }
 
-void require_capture_ready_locked(
-    const RuntimeState& state,
-    uint32_t full_bucket,
-    bool has_full,
-    uint32_t tail_bucket,
-    bool has_tail)
+void require_capture_ready_locked(const RuntimeState& state)
 {
     TORCH_CHECK(
         state.ctx != nullptr && state.protocol_initialized &&
-            state.producer_scratch != 0 && state.waiter_warmed &&
-            state.add_warmed && state.protocol_warmed,
+            state.producer_scratch != 0 && state.producer_warmed &&
+            state.waiter_warmed && state.add_warmed &&
+            state.protocol_warmed,
         "310P MemFabric o_proj entered ACL Graph capture before runtime "
         "initialization/warmup completed. Run the normal eager warmup/profile "
         "path before graph capture.");
-
-    if (has_full) {
-        const uint32_t bit = producer_bucket_bit(full_bucket);
-        TORCH_CHECK(
-            state.producer_warmed_buckets & bit,
-            "310P MemFabric producer bucket ", full_bucket,
-            " was not warmed before ACL Graph capture.");
-    }
-    if (has_tail) {
-        const uint32_t bit = producer_bucket_bit(tail_bucket);
-        TORCH_CHECK(
-            state.producer_warmed_buckets & bit,
-            "310P MemFabric tail bucket ", tail_bucket,
-            " was not warmed before ACL Graph capture.");
-    }
 }
 
 void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.protocol_initialized) return;
-
-    /* Zero the debug heartbeat region once (segment memory is DMA-visible). */
-    if (ring_dump_enabled() && state.layout.debug_flags != 0) {
-        const std::vector<uint8_t> zeros(
-            static_cast<size_t>(state.layout.max_chunks) * 16, 0);
-        TORCH_CHECK(
-            aclrtMemcpy(reinterpret_cast<void*>(state.layout.debug_flags),
-                        zeros.size(), zeros.data(), zeros.size(),
-                        ACL_MEMCPY_HOST_TO_DEVICE) == ACL_SUCCESS,
-            "mf310p debug flag zeroing failed");
-    }
 
     warm_waiter_locked(state, stream);
 
@@ -647,7 +464,9 @@ void memfabric_o_proj_shutdown()
     state.protocol_warmed = false;
     state.waiter_warmed = false;
     state.add_warmed = false;
-    state.producer_warmed_buckets = 0;
+    state.producer_warmed = false;
+    state.batch_basem_count = 0;
+    state.batch_m = 0;
 #endif
 }
 
@@ -682,7 +501,7 @@ at::Tensor memfabric_o_proj_debug_snapshot()
 
     bool own_ok = true;
     bool peer_ok = true;
-    w[0] = 0x4D465036; /* MFP6 */
+    w[0] = 0x4D465037; /* MFP7 */
     w[1] = state.tp_rank;
     w[2] = static_cast<int64_t>(layout.pool_base);
     w[3] = static_cast<int64_t>(layout.symmetric_size);
@@ -693,7 +512,7 @@ at::Tensor memfabric_o_proj_debug_snapshot()
     w[8] = static_cast<int64_t>(layout.ack_slot);
     w[9] = static_cast<int64_t>(layout.peer_ack_slot);
     w[10] = static_cast<int64_t>(layout.arena_bytes);
-    w[11] = static_cast<int64_t>(layout.chunk_bytes);
+    w[11] = static_cast<int64_t>(layout.batch_bytes);
     w[12] = state.protocol_initialized ? 1 : 0;
     w[13] = static_cast<int64_t>(arena_word(layout.send_arena, &own_ok));
     w[14] = static_cast<int64_t>(arena_word(layout.recv_arena, &own_ok));
@@ -707,6 +526,8 @@ at::Tensor memfabric_o_proj_debug_snapshot()
     w[19] = status_ret == 0 ? 1 : 0;
     w[20] = static_cast<int64_t>(layout.expected_credit_dst);
     w[21] = static_cast<int64_t>(layout.expected_recv_base);
+    w[22] = layout.arena_rows;
+    w[23] = layout.batch_m;
 #endif
     return out;
 }
@@ -715,22 +536,14 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
     int64_t tp_rank,
-    int64_t tile_m)
+    int64_t batch_basem_count)
 {
-    /* P6 tracing: entry timestamp covers validation + output allocation +
-     * scratch alloc + pool-tensor wrapping (first wave only reports it). */
     const int64_t t_entry = trace_enabled() ? trace_now_us() : 0;
-    /*
-     * Public-API producer path. The kernel instantiations
-     * are M-bucket specialized (static tiling), so tile_m must be a power of
-     * two in [16, 4096]: a chunk slot holds tile_m rows, and every kernel
-     * writes m_bucket <= tile_m rows into it.
-     */
-    TORCH_CHECK(tile_m >= kProducerMinBucket && tile_m <= kProducerMaxBucket &&
-                    (tile_m & (tile_m - 1)) == 0,
-                "direct MemFabric o_proj requires tile_m to be a power of two "
-                "in [16, 4096], got ",
-                tile_m);
+    TORCH_CHECK(
+        batch_basem_count == 1 || batch_basem_count == 2 ||
+            batch_basem_count == 4,
+        "direct MemFabric o_proj requires batch_basem_count in {1,2,4}, got ",
+        batch_basem_count);
     TORCH_CHECK(x.is_contiguous(),
                 "direct MemFabric o_proj requires contiguous x, got strides ",
                 x.strides());
@@ -756,14 +569,11 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             "310P MemFabric context must be created by eager warmup before "
             "ACL Graph capture.");
     }
-    init_context_locked(state, x, tp_rank, tile_m);
+    init_context_locked(state, x, tp_rank, batch_basem_count);
     validate_execution_stream_locked(state, stream, capturing);
 
-    /* Tail staging buffer: the partial last chunk reads bucket-padded rows,
-     * which may exceed x's valid rows, so it reads from this scratch copy
-     * instead. */
     const uint64_t scratch_bytes =
-        static_cast<uint64_t>(tile_m) * kOProjWidth * sizeof(at::Half);
+        static_cast<uint64_t>(state.batch_m) * kOProjRowBytes;
     if (state.producer_scratch == 0) {
         TORCH_CHECK(
             !capturing,
@@ -781,62 +591,34 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
         at::empty({num_tokens, kOProjWidth}, x.options());
     const uint64_t weight_ptr =
         reinterpret_cast<uint64_t>(weight.const_data_ptr());
-    const int64_t max_rows_per_wave =
-        static_cast<int64_t>(VLLM_ASCEND_MF310P_MAX_CHUNKS) * tile_m;
 
     if (capturing) {
-        TORCH_CHECK(
-            state.protocol_initialized,
-            "310P MemFabric fixed-credit protocol must be initialized before "
-            "ACL Graph capture.");
+        require_capture_ready_locked(state);
     } else {
+        warm_producer_locked(state, stream);
         initialize_protocol_locked(state, stream);
     }
 
+    const int64_t max_rows_per_wave = state.layout.arena_rows;
     for (int64_t wave_start = 0; wave_start < num_tokens;
          wave_start += max_rows_per_wave) {
-        if (ring_dump_enabled()) {
-            debug_dump_sdma_rings_locked(state);
-        }
         const int64_t wave_rows =
             std::min<int64_t>(max_rows_per_wave, num_tokens - wave_start);
-        const uint32_t chunks =
-            static_cast<uint32_t>((wave_rows + tile_m - 1) / tile_m);
-        const uint32_t rows_last =
-            static_cast<uint32_t>(wave_rows - (chunks - 1) * tile_m);
-        const bool has_tail = rows_last != static_cast<uint32_t>(tile_m);
-        const uint32_t full_count = has_tail ? chunks - 1 : chunks;
-        const uint32_t tail_bucket =
-            has_tail ? producer_bucket_for_rows(rows_last) : 0;
+        const uint32_t batches = static_cast<uint32_t>(
+            (wave_rows + state.batch_m - 1) / state.batch_m);
+        TORCH_CHECK(
+            batches > 0 && batches <= state.layout.max_batches,
+            "invalid batch count ", batches, " for max_batches=",
+            state.layout.max_batches);
 
         try {
-            /* Finish one-time local kernel preparation before consuming the
-             * peer credit. A warmup failure must not spend a credit token. */
             const int64_t t_warm0 = trace_now_us();
             if (capturing) {
-                require_capture_ready_locked(
-                    state,
-                    static_cast<uint32_t>(tile_m),
-                    full_count > 0,
-                    tail_bucket,
-                    has_tail);
-            } else {
-                if (full_count > 0) {
-                    warm_producer_bucket_locked(
-                        state, static_cast<uint32_t>(tile_m), stream);
-                }
-                if (has_tail) {
-                    warm_producer_bucket_locked(state, tail_bucket, stream);
-                }
+                require_capture_ready_locked(state);
             }
             const int64_t t_warm = trace_now_us();
 
             const int64_t t_join0 = t_warm;
-            /*
-             * Graph-safe fixed application credit. Every wave consumes one
-             * token before reusing peer recv; the previous wave publishes the
-             * next token after its local add.
-             */
             int ret = mf310p_prepare_wave_async(
                 state.ctx, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0,
@@ -847,120 +629,107 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                         "mf310p_gate_async failed with ret=", ret);
             const int64_t t_join2 = trace_now_us();
 
-            const uint64_t x_wave = reinterpret_cast<uint64_t>(
-                x.const_data_ptr()) +
-                static_cast<uint64_t>(wave_start) * kOProjWidth *
-                    sizeof(at::Half);
+            const uint64_t x_wave =
+                reinterpret_cast<uint64_t>(x.const_data_ptr()) +
+                static_cast<uint64_t>(wave_start) * kOProjRowBytes;
 
-            if (full_count > 0) {
-                ret = mf310p_direct_producer_async(
-                    state.ctx,
-                    x_wave,
-                    weight_ptr,
-                    static_cast<uint32_t>(tile_m),
-                    0,
-                    full_count,
-                    static_cast<uint32_t>(tile_m),
-                    reinterpret_cast<void*>(stream));
-                TORCH_CHECK(ret == 0,
-                            "full-chunk mf310p_direct_producer_async failed, "
-                            "ret=",
-                            ret);
-            }
+            auto valid_rows_for = [&](uint32_t batch) -> uint32_t {
+                const int64_t batch_begin =
+                    static_cast<int64_t>(batch) * state.batch_m;
+                return static_cast<uint32_t>(
+                    std::min<int64_t>(
+                        state.batch_m, wave_rows - batch_begin));
+            };
 
-            if (has_tail) {
-                /* Deterministic tail slot: zero the whole scratch, copy the
-                 * valid tail rows into it, and zero the slot rows the
-                 * bucket kernel does not write (rows beyond the valid tail
-                 * are never read downstream, but the peer reduces the full
-                 * fixed-size chunk). */
-                const aclError mem_ret = aclrtMemsetAsync(
-                    reinterpret_cast<void*>(state.producer_scratch),
-                    scratch_bytes,
-                    0,
-                    scratch_bytes,
-                    stream);
-                TORCH_CHECK(mem_ret == ACL_SUCCESS,
-                            "tail scratch memset failed, ret=", mem_ret);
-                const aclError copy_ret = aclrtMemcpyAsync(
-                    reinterpret_cast<void*>(state.producer_scratch),
-                    scratch_bytes,
-                    reinterpret_cast<const void*>(
-                        x_wave +
-                        static_cast<uint64_t>(full_count) * tile_m *
-                            kOProjWidth * sizeof(at::Half)),
-                    static_cast<uint64_t>(rows_last) * kOProjWidth *
-                        sizeof(at::Half),
-                    ACL_MEMCPY_DEVICE_TO_DEVICE,
-                    stream);
-                TORCH_CHECK(copy_ret == ACL_SUCCESS,
-                            "tail scratch copy failed, ret=", copy_ret);
-
-                const uint64_t tail_slot =
-                    state.layout.send_arena +
-                    static_cast<uint64_t>(chunks - 1) *
-                        state.layout.chunk_bytes;
-                const uint64_t pad_bytes = static_cast<uint64_t>(
-                    tile_m - tail_bucket) *
-                    kOProjWidth * sizeof(at::Half);
-                if (pad_bytes > 0) {
-                    const aclError pad_ret = aclrtMemsetAsync(
-                        reinterpret_cast<void*>(
-                            tail_slot +
-                            static_cast<uint64_t>(tail_bucket) * kOProjWidth *
-                                sizeof(at::Half)),
-                        pad_bytes,
+            auto enqueue_producer = [&](uint32_t batch) {
+                const uint32_t valid_rows = valid_rows_for(batch);
+                uint64_t x_batch =
+                    x_wave + static_cast<uint64_t>(batch) *
+                                 state.batch_m * kOProjRowBytes;
+                if (valid_rows != state.batch_m) {
+                    const aclError memset_ret = aclrtMemsetAsync(
+                        reinterpret_cast<void*>(state.producer_scratch),
+                        scratch_bytes,
                         0,
-                        pad_bytes,
+                        scratch_bytes,
                         stream);
-                    TORCH_CHECK(pad_ret == ACL_SUCCESS,
-                                "tail slot pad memset failed, ret=", pad_ret);
+                    TORCH_CHECK(
+                        memset_ret == ACL_SUCCESS,
+                        "tail scratch memset failed, ret=", memset_ret);
+                    const aclError copy_ret = aclrtMemcpyAsync(
+                        reinterpret_cast<void*>(state.producer_scratch),
+                        scratch_bytes,
+                        reinterpret_cast<const void*>(x_batch),
+                        static_cast<uint64_t>(valid_rows) * kOProjRowBytes,
+                        ACL_MEMCPY_DEVICE_TO_DEVICE,
+                        stream);
+                    TORCH_CHECK(
+                        copy_ret == ACL_SUCCESS,
+                        "tail scratch copy failed, ret=", copy_ret);
+                    x_batch = state.producer_scratch;
                 }
 
-                ret = mf310p_direct_producer_async(
+                const int producer_ret = mf310p_direct_producer_async(
                     state.ctx,
-                    state.producer_scratch,
+                    x_batch,
                     weight_ptr,
-                    tail_bucket,
-                    chunks - 1,
-                    1,
-                    tail_bucket,
+                    batch,
+                    batch + 1,
                     reinterpret_cast<void*>(stream));
-                TORCH_CHECK(ret == 0,
-                            "tail mf310p_direct_producer_async failed, ret=",
-                            ret);
-            }
+                TORCH_CHECK(
+                    producer_ret == 0,
+                    "batch ", batch,
+                    " mf310p_direct_producer_async failed, ret=",
+                    producer_ret);
+            };
 
-            /* Quiet (my signals landed) + wait x chunks (peer chunks landed
-             * in my recv). Everything after this on the stream may read both
-             * arenas. */
-            ret = mf310p_wait_mails_async(
-                state.ctx, chunks, reinterpret_cast<void*>(stream));
-            TORCH_CHECK(ret == 0,
-                        "mf310p_wait_mails_async failed with ret=", ret);
+            auto enqueue_wait_add = [&](uint32_t batch) {
+                const uint32_t valid_rows = valid_rows_for(batch);
+                int batch_ret = mf310p_wait_batch_async(
+                    state.ctx, batch, reinterpret_cast<void*>(stream));
+                TORCH_CHECK(
+                    batch_ret == 0,
+                    "mf310p_wait_batch_async failed for batch ", batch,
+                    " with ret=", batch_ret);
+
+                const uint64_t out_batch =
+                    reinterpret_cast<uint64_t>(output.mutable_data_ptr()) +
+                    static_cast<uint64_t>(
+                        wave_start +
+                        static_cast<int64_t>(batch) * state.batch_m) *
+                        kOProjRowBytes;
+                batch_ret = mf310p_add_batch_async(
+                    state.ctx,
+                    out_batch,
+                    batch,
+                    valid_rows,
+                    reinterpret_cast<void*>(stream));
+                TORCH_CHECK(
+                    batch_ret == 0,
+                    "mf310p_add_batch_async failed for batch ", batch,
+                    " with ret=", batch_ret);
+            };
 
             /*
-             * Reduced result into ordinary NPU storage via the repo-owned
-             * multi-block vector-add kernel (shape-agnostic; at::add_out
-             * would pay a per-output-shape GE compile on first use, ~90 ms
-             * measured). Stream-ordered after the waiter, so both arenas
-             * are complete.
+             * Lookahead=1. P(n+1) is queued before W/A(n), so SDMA(n) can
+             * overlap the next cooperative MM. After P(n+1) signals, W/A(n)
+             * can run while SDMA(n+1) progresses.
              */
-            ret = mf310p_add_async(
-                state.ctx,
-                reinterpret_cast<uint64_t>(
-                    output.const_data_ptr()) +
-                    wave_start * kOProjWidth * sizeof(at::Half),
-                static_cast<uint64_t>(wave_rows) * kOProjWidth,
-                reinterpret_cast<void*>(stream));
-            TORCH_CHECK(ret == 0, "mf310p_add_async failed with ret=", ret);
+            enqueue_producer(0);
+            for (uint32_t batch = 1; batch < batches; ++batch) {
+                enqueue_producer(batch);
+                enqueue_wait_add(batch - 1);
+            }
+            enqueue_wait_add(batches - 1);
 
-            /* Application-level wave acknowledgement. Once the peer consumes
-             * this public MemFabric mail, our next wave may overwrite its recv
-             * arena. MemFabric's internal sequencing is opaque to vLLM. */
+            /* Drain all local outbound SDMA only once per wave, then publish
+             * the wave credit after every local recv read has been enqueued. */
+            ret = mf310p_quiet_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_quiet_async failed with ret=", ret);
             ret = mf310p_ack_async(
-                state.ctx,
-                reinterpret_cast<void*>(stream));
+                state.ctx, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
 
             if (trace_enabled()) {
@@ -968,7 +737,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                 trace_wave(
                     state.tp_rank,
                     wave_rows,
-                    chunks,
+                    batches,
                     0,
                     t_join2 - t_join0,
                     t_warm - t_warm0,
@@ -976,27 +745,12 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     wave_start == 0 ? t_warm0 - t_entry : 0);
             }
         } catch (const std::exception& exc) {
-            /* A partially executed wave is unsafe to reuse. Treat the
-             * external communication subsystem as opaque, poison this
-             * process-local context, and restart both TP workers. */
             state.poisoned = true;
             if (state.failure_reason.empty()) {
                 state.failure_reason = exc.what();
             }
-            if (ring_dump_enabled()) {
-                std::fprintf(
-                    stderr,
-                    "[mf310p-ring] rank=%d FAILURE: %s\n",
-                    state.tp_rank,
-                    exc.what());
-                debug_dump_sdma_rings_locked(state);
-            }
             throw;
         }
-    }
-
-    if (ring_dump_enabled()) {
-        debug_dump_sdma_rings_locked(state);
     }
 
     return output;
