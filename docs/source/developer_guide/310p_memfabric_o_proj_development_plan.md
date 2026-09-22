@@ -1,330 +1,433 @@
-# 310P3 TP=2 FP16 o_proj + MemFabric 当前实机验证计划
+# 310P3 TP=2 FP16 o_proj + MemFabric ABI v7 开发与实机验证计划
 
-> 本文只记录**当前代码下一步需要完成的 Gate、风险和完成定义**，不记录已经
-> 废弃的历史实现阶段。
+> 本文记录 `feat/310p-memfabric-public-api` 下一阶段**实际实施顺序、代码 Gate、
+> 静态审视要求与实机完成定义**。历史 v6（7 MM worker + 1 coordinator）仅作为
+> 对照基线，不再作为目标实现。
 >
-> 设计：[310p_memfabric_o_proj.md](310p_memfabric_o_proj.md)
+> 目标设计：[计算通信协作优化方案.md](计算通信协作优化方案.md)
 >
 > 需求：[310p_memfabric_o_proj_requirements.md](310p_memfabric_o_proj_requirements.md)
 >
 > 使用：[310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
 
-## 1. 当前代码状态
+## 1. 本期目标
 
-当前源码已完成：
+把当前 ABI v6：
 
-- MemFabric 只读黑盒化，只使用 public API；
-- 定制 C++/AscendC 代码隔离到
-  `csrc/_310P/custom_memfabric_o_proj/`；
-- adapter ABI v6；
-- 7 MM workers + 1 communication coordinator；
-- `MM -> clean -> ready -> signal` chunk pipeline；
+```text
+block0 coordinator
+block1..7 single-core MM
+tile_m chunk
+all producer -> quiet/wait all -> add whole wave
+```
+
+迁移为 ABI v7：
+
+```text
+8 AI Core cooperative MM
++ core0 兼任唯一 signal owner
++ batch = q * baseM
++ per-batch wait / reduce
++ wave-level fixed credit
+```
+
+固定设计约束：
+
+- `baseM/baseN/baseK = 256/256/64`；
+- `blockDim = 8`，8 个 AI Core 全部参加 MM；
+- `TCubeTiling.usedCoreNum = 8`；
+- core0 参加 MM，同时是唯一 `smem_shm_sdma_signal()` producer；
+- 通信/规约 batch 只允许为整数个 `baseM` stripe；
+- 默认 `BATCH_BASEM_COUNT=2`，即当前 N=2048/FP16 时派生为 2 MiB；
+- 2 MiB 不是协议常量；
+- batch n signal 后允许 batch n+1 MM 继续，不能等待前一批 SDMA；
+- peer batch 到达后立即 reduce 本 batch；
+- credit 第一版仍保持 wave 级；
+- MemFabric 继续只使用 public `signal/wait/quiet`，不读写私有 ring/SQE/orchestrator。
+
+## 2. 当前已验证基线
+
+ABI v6 已验证能力继续作为 v7 回归底座：
+
+- public API 黑盒边界；
 - strict data/credit mail validation；
-- fixed credit wave protocol；
-- protocol status + `AscendC::Trap()` fail-stop；
+- fixed-credit wave protocol；
+- fail-stop + protocol status；
 - real `aclrtGetDevice()` device id；
-- eager single-stream 与 ACL Graph capture-side-stream 合同；
-- eager destroy 前 final public quiet；
-- feature build 只消费当前 MemFabric public package；
-- 无仓库内预编译 device object；
-- source regression 与目录结构门禁；
-- peer-space 地址校验：`mf310p_exchange_geometry` 经控制网 allgather 交换
-  pool base，gate/waiter 按期望发送方地址校验（替代仅在同基址巧合下成立
-  的接收方等值断言）；
-- M 阈值路由：小于 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M`（默认
-  4096）的批次走 stock NZ matmul + HCCL all-reduce，decode 不经过融合
-  路径；
-- warmup fallback：dummy-run 走 stock，池创建推迟到首个真实请求；
-- 池存活期间 `_sync_device` 收敛为流级同步，profile/step 同步不再等
-  待 epoch kernel；
-- env 门控的设备级慢 op 监测（`[mf310p-slow]`，500ms 阈值）与段内
-  worker 心跳；
-- layer bench `--diverge-va` 回归守卫（rank1 建池前 4GB 预分配，覆盖
-  跨进程 GVA 基址分叉场景）。
+- peer-space GVA geometry exchange；
+- eager single-stream / ACL Graph capture-side-stream 合同；
+- warmup fallback；
+- `MIN_M=4096` 小 M stock fallback；
+- feature on/off build；
+- 双 rank correctness、tail、multiple waves；
+- minimal ACL Graph capture/replay；
+- Qwen eager；
+- v6 profiler 已证明 MM/SDMA 可 overlap。
 
-### 实机验收进度（2026-09-22，MemFabric v9 = 2026-09-21 19:12 构建）
+已知外部阻塞项继续保留：
 
-MemFabric v9 修复了 epoch 28s 自退缺陷（墙钟自限 18s），数据面行为不变。
+- R6：MemFabric/运行时偶发约 20s engine freeze，未解除前不能判生产可用；
+- R7：逻辑 deviceId 授权限制，当前实机仍要求
+  `ASCEND_RT_VISIBLE_DEVICES=0,1`。
 
-| Gate | 状态 | 结果 / 剩余 |
-|---|---|---|
-| 0 环境 | PASS | 版本记录齐备；融合仅支持 `ASCEND_RT_VISIBLE_DEVICES=0,1`（R7） |
-| 1 build | PASS | feature on/off 双构建稳定可重复 |
-| 2 M=1 bring-up | PASS | bare + diverge-va 全 PASS，bit-exact |
-| 3 correctness 矩阵 | PASS | M=1/33/512/2048/4096，含 tail 与多波 |
-| 4 repeated/long-run | 部分 | repeat 与 >60s 通过；10min 稳态未跑（R6 + 设备占用） |
-| 5 平台共存 | PASS | stream/device 同步、HCCL 共存、destroy/recreate |
-| 6 profiler overlap | PASS | M=2048：producer 1967µs，waiter 暴露 161µs，周期 2406µs < 串行下界 2661µs |
-| 7 Qwen eager | PASS | TP=2 serve 正确推理；M 路由下 TTFT 与 stock 持平 |
-| 8 ACL Graph | 部分 | minimal capture/replay bit-exact；Qwen 级 graph 未测 |
-| 9 性能验收 | 部分 | 见下 |
+## 3. 实施阶段
 
-### Gate 9 当前数据
+### P0：恢复原生 MM 计算效率
 
-- 单层（tile_m=128）：M=4096 与 stock 持手（3.241 vs 3.294 ms）；M>=6144
-  融合约 +15%（6144：4.603 vs 5.318；8192：6.022 vs 6.934）；M<=2048
-  stock 占优。
-- serve 级（Qwen3.6-35B-A3B-w8a8，32 请求 × 8192-token，并发 4）：无
-  D3 冻结时 E2E 与 stock 持平（o_proj 融合收益 ~0.1% E2E，被 10/40 全
-  注意力层与 MoE 前向稀释）。
-- **未满足完成定义中的「相对 stock 有明确正收益」（E2E 级）**；R6 未
-  解除前融合路径不可上生产。
-
-## 2. 实机 Gate 0：固定环境
-
-每轮测试记录：
+先完成：
 
 ```text
-Date
-vLLM-Ascend SHA
-MemFabric SHA
-CANN
-Driver/Firmware
-PyTorch
-torch-npu
-vLLM
-SOC_VERSION
-MEMFABRIC_HYBRID_HOME_PATH
-model path
-feature env
-test command
-result
-profiler artifact
+ABI v7
+8-core cooperative MM
+core0 sole signal owner
+baseM = 256
+batch = q * baseM
+arena 与 batch 解耦
+tail pad 到完整 batch
 ```
 
-所有 BUG、性能结论和回归比较都必须绑定这些版本信息。
+P0 不以 overlap 深度为第一目标，先保证 MM 形态正确。
 
-## 3. Gate 1：Build
+代码 Gate：
 
-依次确认：
+- 不再存在 `block1..7 + usedCoreNum=1`；
+- producer launch blockDim 固定 8；
+- `usedCoreNum=8`；
+- static tiling 与目标 `256/256/64` 对齐；
+- 每个 batch 只有一次 data signal；
+- core0 在 signal 前必须确认 8 core 完成且数据 cache 可见；
+- tail 不允许退回 16/32/64/128-row 单核 MM；
+- send/recv arena 容量不随 batch bytes 成比例放大。
 
-- feature-off build 成功；
-- feature-on CMake 成功；
-- bisheng dav-2002 编译 `.asc` 成功；
-- `vllm_ascend_C` link/load 成功；
-- custom ops 注册成功；
-- public `libmf_smem.so` 正确解析；
-- build 不引用旧目录或预编译 object。
+实机 Gate：
 
-Build 未通过时不进入 correctness。
+- M=4096/6144/8192 的纯 MM 时间与 stock `F.linear/aclnnMm` 比较；
+- 目标：median 不劣于 stock 约 5%；
+- 若不满足，停止进入 P1，先修 MM tiling/ownership/cache clean。
 
-## 4. Gate 2：最小双 rank bring-up
+### P1：per-batch wait + reduce 流水
 
-配置 TP=2，先跑：
+runtime enqueue 顺序改为：
 
 ```text
-M=1
-single fused call
+gate(wave)
+P0
+P1
+W0
+A0
+P2
+W1
+A1
+...
+drain W/A(last)
+quiet
+ack
 ```
 
-确认：
+其中：
 
-- pool create；
-- SDMA readiness；
-- initial fixed credit；
-- producer / waiter / add / ack 完成；
-- 两 rank 无 trap；
-- protocol status = OK；
-- output 与 reference 一致。
+- `Wb` 只消费 batch b 的一封 data mail；
+- mail 严格校验 `status/dst/len/imm`；
+- `Ab` 只 reduce batch b，并写入对应 output offset；
+- `quiet()` 不得重新塞回每个 batch 热路径；
+- wave drain 后只执行一次 quiet，再 ack wave credit；
+- batch 之间禁止 host synchronize。
 
-## 5. Gate 3：单层 correctness
-
-覆盖：
+Profiler 必须证明：
 
 ```text
-M = 1, 8, 32, 33, 64, 128, 512, 2048, 4096
+SDMA(batch n) overlaps MM(batch n+1)
+SDMA(batch n+1) overlaps Reduce(batch n)
 ```
 
-重点：
+### P2：实机调优
 
-- M=33 tail；
-- 64-chunk 边界；
-- >64 chunks multiple waves；
-- 两 rank output；
-- repeated calls；
-- feature-on/off。
+只允许调：
 
-出现数值差异时先定位 MM、exchange、wait、add 或 tail，不通过放宽 tolerance
-掩盖问题。
+- `BATCH_BASEM_COUNT = 1/2/4`；
+- lookahead = 1/2；
+- `arena_rows`；
+- per-core clean 范围。
 
-## 6. Gate 4：Repeated / long-run
+不允许重新通过缩小 MM tile 或恢复专职 communication core 制造 overlap。
+
+## 4. ABI v7 迁移计划
+
+`memfabric310p_adapter_api.h`：
+
+- ABI version 6 -> 7；
+- chunk 语义替换为 batch 语义；
+- layout 输出 `batch_bytes / arena_rows / max_batches`；
+- producer API 输入 `batch_index / valid_rows / generation`；
+- waiter API 改为 wait-one-batch；
+- add API 增加 send/recv/output batch offset 与 valid rows；
+- 保留 public quiet / ack / gate。
+
+`memfabric310p_adapter.cpp`：
+
+- local pool 只按 `arena_rows` 定容；
+- ready control 改为每 batch 8 个独立 64B core-ready cell；
+- launch 参数只传 public protocol 所需 GVA；
+- 保持 geometry exchange、deviceId、生命周期和错误传播。
+
+兼容策略：
+
+- v7 为内部定制 ABI，不维持 v6 二进制兼容；
+- Python/C++/device 必须同 commit 升级；
+- 旧 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M` 退出核心设计；
+- 新增
+  `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT`，
+  默认 2，合法值 1/2/4。
+
+## 5. Device kernel 计划
+
+### 5.1 cooperative producer
+
+一个 producer launch 只处理一个 batch：
+
+```text
+A [BATCH_M, 2048]
+B [2048, 2048]
+8-core cooperative MM
+C [BATCH_M, 2048] -> send_arena[batch]
+```
+
+每个 core：
+
+```text
+MM fragment complete
+-> clean 自己写出的 C 区域
+-> ready[batch][core] = generation
+```
+
+core0：
+
+```text
+完成自身 MM fragment
+-> ready[batch][0]
+-> 等待 ready[batch][0..7] == generation
+-> signal(send_batch, peer_recv_batch, batch_bytes, batch_id)
+```
+
+bring-up 阶段如果暂时无法可靠取得 Matmul core->C tile ownership，可使用保守
+cache flush correctness fallback；静态代码必须显式标注其为待 profiler 收敛项，
+不能把未证明的 ownership 当作事实。
+
+### 5.2 wait-one
+
+每次只 wait 一封 mail：
+
+```text
+mail.status == OK
+mail.dst == expected_recv_base + batch_offset
+mail.len == batch_bytes
+mail.imm == batch_id
+```
+
+wait-one 不执行 quiet。
+
+### 5.3 batch add
+
+保持现有多 block FP16 add 结构，但参数化：
+
+- send batch offset；
+- recv batch offset；
+- output row offset；
+- valid rows。
+
+对 tail：transport/reduce 可以覆盖 pad 后完整 batch，output 只能写 valid rows。
+
+## 6. Runtime / tail / arena 计划
+
+固定：
+
+```text
+BASE_M = 256
+batch_m = BASE_M * q
+row_bytes = 2048 * sizeof(FP16)
+batch_bytes = batch_m * row_bytes
+```
+
+arena：
+
+```text
+arena_rows = floor(configured_arena_bytes / row_bytes)
+arena_rows = floor(arena_rows / batch_m) * batch_m
+max_batches = arena_rows / batch_m
+```
+
+要求：
+
+- `arena_rows >= batch_m`；
+- batch 变化不得改变 local pool 的目标内存预算；
+- 默认保持与旧 8192-row arena 量级相当；
+- `VLLM_ASCEND_MF310P_MAX_CHUNKS=64` 不再承担计算切块语义。
+
+tail：
+
+```text
+valid_rows
+-> pad 到完整 batch_m
+-> cooperative MM
+-> signal full batch_bytes
+-> reduce full batch payload
+-> output copy/write valid_rows
+```
+
+Graph capture 内禁止 malloc/create/barrier/host sync/lazy warmup。
+
+## 7. Python / benchmark 计划
+
+`vllm_ascend/_310p/ops/memfabric_o_proj.py`：
+
+- Plan 改为 `base_m / batch_basem_count / batch_m / batch_bytes / arena_rows`；
+- 删除 tile/chunk 核心语义；
+- 调用 custom op 时传 `batch_basem_count`；
+- 保留模型、TP、dtype、full-attention、MIN_M、warmup fallback 约束。
+
+`envs.py`：
+
+- 新增 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT=2`；
+- TILE_M 标为 deprecated/不再参与 v7 路径，后续清理。
+
+benchmark：
+
+- correctness 增加 255/256/257、511/512/513；
+- 重点性能 M=4096/6144/8192；
+- overlap analyzer 以 batch 为 token，不再以 chunk 为 token；
+- A/B/C：stock、ABI v6、ABI v7。
+
+## 8. 静态代码审视 Gate
+
+编码后至少执行两轮独立静态审视。
+
+### Round 1：协议与正确性
+
+逐项检查：
+
+- producer 单 signal owner；
+- 8-core rendezvous 无越界/复用 race；
+- generation 不会被旧 wave stale ready 误命中；
+- peer GVA 校验方向正确；
+- mail id/batch offset/len 一致；
+- tail scratch/pad/output 边界；
+- arena 多波复用只发生在 credit 之后；
+- quiet/ack 顺序；
+- error 后 poison/fail-stop；
+- eager/Graph 生命周期；
+- 所有 size/offset 乘法的 64-bit 溢出与合法性校验。
+
+发现 P0/P1 缺陷必须编码修复后才能进入 Round 2。
+
+### Round 2：可编译性、资源与集成
+
+逐项检查：
+
+- C/C++ 声明与 device launcher 签名完全一致；
+- ABI version/layout/API 全链路一致；
+- AscendC static tiling 与 runtime shape 参数一致；
+- `usedCoreNum=8` 与 launch blockDim=8；
+- UB/L1/workspace 使用没有显见超限；
+- Python custom op schema/调用参数一致；
+- env 默认值和合法值检查；
+- feature-off build 不引用 MemFabric；
+- CMake/public-package 边界无回退；
+- source regression 测试同步更新；
+- benchmark/文档没有残留误导性的 v6 chunk 调优指令。
+
+Round 2 结束后再复查 diff，保证没有 debug 临时代码、旧 ABI 死分支、历史产物。
+
+## 9. 实机验证矩阵
+
+### Build
+
+- feature-off；
+- feature-on CMake；
+- bisheng dav-2002 编译 `.asc`；
+- link/load；
+- custom op 注册；
+- public `libmf_smem.so` 解析。
+
+### Correctness
 
 至少：
 
-- representative M repeat >=1000；
-- mixed-M loop；
-- >60s；
-- 10min。
-
-监控：
-
-- READY_TIMEOUT；
-- SIGNAL_FAILED；
-- QUIET_FAILED；
-- WAIT_FAILED；
-- MAIL_MISMATCH；
-- CREDIT_MISMATCH；
-- ACK_FAILED；
-- stale arena；
-- deadlock；
-- shutdown。
-
-## 7. Gate 5：平台共存行为
-
-在 MemFabric context 存活时单独验证当前 CANN/当前 MemFabric：
-
-- `aclrtSynchronizeStream`；
-- `torch.npu.synchronize()`；
-- `aclrtSynchronizeDevice()`；
-- HCCL barrier；
-- HCCL all_reduce；
-- destroy/recreate。
-
-这里只记录**当前实机结果**。不得把旧 bring-up 的 device-sync、生命周期或
-orchestrator 现象直接当作当前依赖事实。
-
-## 8. Gate 6：Profiler overlap
-
-对 512 / 2048 / 4096 等代表性 M 采 CANN timeline。
-
-必须看到或通过时间下界证明：
-
 ```text
-MM worker execution
-       overlaps
-SDMA of earlier chunks
+M = 255, 256, 257,
+    511, 512, 513,
+    1024, 2048, 4096, 6144, 8192
 ```
 
-同时记录：
+覆盖：
 
-- gate；
-- producer；
-- waiter；
-- add；
-- ack；
-- fused cycle；
-- p50 / p95 / p99。
+- q=1/2/4；
+- tail；
+- multiple waves；
+- repeated calls；
+- diverge-va；
+- 两 rank bit-exact；
+- feature-off stock baseline。
 
-如果 overlap 或总时延不理想，优先调：
+### Stability
 
-1. `tile_m`；
-2. worker 数；
-3. wave/chunk granularity；
-4. MM tiling；
-5. cache clean 成本。
+- representative M repeat >=1000；
+- mixed-M；
+- >60s；
+- 10min；
+- destroy/recreate；
+- HCCL 共存；
+- protocol status 全程 OK。
 
-不得为了性能重新耦合 MemFabric private ring。
+### Graph
 
-## 9. Gate 7：Qwen eager
+- eager warmup；
+- minimal capture/replay；
+- 多 replay；
+- 不同 bucket；
+- Qwen ACL Graph；
+- repeated requests。
 
-模型：
+### Performance
 
-`Eco-Tech/Qwen3.6-35B-A3B-w8a8`
-
-确认：
-
-- 只有 full-attention o_proj 命中；
-- linear-attention/GDN 不命中；
-- 无 duplicate generic allreduce；
-- prefill/decode correctness；
-- repeated requests；
-- feature-off baseline 正常。
-
-## 10. Gate 8：ACL Graph
-
-顺序：
-
-1. eager/profile 预先完成 context/protocol/bucket warmup；
-2. minimal fused-op capture/replay；
-3. 多次 replay；
-4. 不同 graph bucket；
-5. Qwen ACL Graph；
-6. repeated requests。
-
-检查 capture 内没有 create/malloc/lazy warmup/sync/barrier。
-
-## 11. Gate 9：性能验收
-
-A/B：
+比较：
 
 ```text
-A: stock o_proj + HCCL
-B: fused ABI v6 coordinator + MemFabric
+A: stock F.linear + HCCL
+B: ABI v6 7+1 chunk pipeline
+C: ABI v7 8-core batch pipeline
 ```
 
 记录：
 
-- 单层 latency；
-- TTFT；
-- prefill latency / tokens/s；
-- decode TPOT / ITL；
-- output tokens/s；
-- peak memory；
-- CANN overlap timeline。
+- MM duration；
+- signal-to-arrival 暴露时间；
+- batch reduce；
+- fused total；
+- stock total；
+- eager TTFT；
+- prefill tokens/s；
+- profiler timeline。
 
-只有 correctness、Graph、long-run 全通过且存在可重复、可解释的正向收益，
-项目才进入完成状态。
+## 10. 本期完成定义
 
-## 12. 当前风险
+代码进入“可上实机测验”必须满足：
 
-### R1：ready flag 跨 AICore cache 可见性（已验证）
+- ABI v7 全链路一致；
+- 8-core cooperative MM 代码形态完成；
+- batch wait/reduce pipeline 完成；
+- baseM/batch/arena/tail 语义统一；
+- source regression 更新；
+- 两轮静态审视完成且 P0/P1 问题已修；
+- feature-off 路径无回归；
+- 未声称任何未经 310P 实机验证的性能结论。
 
-diverge-va、多波、serve 1041 邮件压力下未出现 stale visibility；
-clean/invalidate 轮询方案维持。
+项目进入“可生产化”仍需额外满足：
 
-### R2：public signal 单 producer（已验证）
-
-64-chunk、multiple-wave、serve 长负载下零错序。
-
-### R3：Trap 错误传播（部分验证）
-
-实机观察到 Trap 生效（缺陷定位期间复现过全部校验状态码）；错误后
-poison + 进程级重启路径已实现，未做专项演练。
-
-### R4：ACL Graph replay（部分验证）
-
-minimal capture/replay bit-exact。graph-used context 退出时保守跳过
-destroy，进程退出有 SIGABRT 噪声（依赖 MemFabric 提供「只停线程不
-销毁池」的关停 API）。Qwen 级 graph 待测。
-
-### R5：小 M 性能（已裁决）
-
-M 阈值路由（MIN_M=4096）落地：decode/小批走 stock，无需 small-M
-专门路径。
-
-### R6：D3——fused serve 随机 ~20s 引擎整体冻结（新，阻塞生产化）
-
-约 0.75 次/5min；同批并发请求 e2e 齐平 +20s，输出仍正确。已证明冻结
-不在融合 op 内（设备级事件监测零慢 op、host trace 干净）；嫌疑 epoch
-18s 自退后重launch 与 aicpu 调度器/运行时锁的偶发交互（MemFabric
-内部）。等上游定位；最小复现（剥离 vLLM 的 pool+epoch+普通负载）待
-设备空闲后执行。
-
-### R7：MetaSetDeviceAccess 逻辑 deviceId 授权（新，部署约束）
-
-MemFabric meta 区的设备侧授权使用逻辑 device 号，仅
-`ASCEND_RT_VISIBLE_DEVICES=0,1`（逻辑==物理）时成立；2,3/4,5 上必现
-507899。等上游修复或确认语义后放开设备对选择。
-
-另：设备侧内核部署有 `test -f` 即不重部署的缓存语义，launch json 的
-版本号递增（v6→v9）是唯一击穿手段；升级 MemFabric 内核后必须换用新
-版本号 json，且注意 `/usr/local` 安装件可能滞后于 repo 构建。
-
-## 13. 完成定义
-
-必须全部满足：
-
-- 当前 public-API build 可重复：**已满足**；
-- correctness matrix 全通过：**已满足**（含 diverge-va）；
-- repeated/10min 稳定：**部分**（repeat/60s 已过，10min 待 R6 解除后补）；
-- protocol 无异常：**已满足**；
-- Qwen eager 正确：**已满足**；
-- ACL Graph 正确：**部分**（minimal 已过，Qwen 级待测）；
-- profiler 证明 MM/SDMA overlap：**已满足**；
-- 相对 stock 有明确正收益：**部分**（op 级 M>=6144 约 +15%；E2E 级持平，
-  受模型结构稀释，且 R6 未解除）；
-- 文档中的命令与最终实机环境一致：**已满足**（usage 已同步 tile 定容、
-  MIN_M/WARMUP_FALLBACK/TRACE）。
-
-剩余关键路径：R6（上游 D3 定位）→ 10min 稳态 + D3 最小复现 → Qwen 级
-ACL Graph → （可选）M 自适应 tile 选择与 8-worker 自签名 producer 重设计。
+- feature-on 310P build；
+- correctness matrix；
+- >=1000 repeat + 10min；
+- Qwen eager + ACL Graph；
+- profiler overlap；
+- MM 效率恢复；
+- 相对 stock 可重复正收益；
+- R6/R7 外部阻塞项解除或有明确、可接受的部署约束。
