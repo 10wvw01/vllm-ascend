@@ -16,15 +16,13 @@ extern "C" {
 #endif
 
 /*
- * Stable ABI between vLLM-Ascend and its internal bridge to the installed
- * wgm-dev-310p MemFabric package.
- *
- * ABI v6 treats MemFabric as an opaque transport. The bridge uses only public
- * host APIs and the AscendC device library uses only public signal/wait/quiet
- * primitives. No MemFabric mailbox/ring/reserved-region state is exposed.
+ * Stable internal ABI between vLLM-Ascend and the installed 310P MemFabric
+ * package. ABI v7 is batch based: MemFabric remains an opaque transport and
+ * only public host APIs plus public device signal/wait/quiet are used.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 6u
-#define VLLM_ASCEND_MF310P_MAX_CHUNKS 64u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 7u
+#define VLLM_ASCEND_MF310P_MAX_BATCHES 64u
+#define VLLM_ASCEND_MF310P_COOPERATIVE_CORES 8u
 
 typedef struct mf310p_context mf310p_context_t;
 
@@ -43,12 +41,13 @@ typedef struct mf310p_layout {
     uint64_t peer_ack_slot;
 
     uint64_t arena_bytes;
-    uint64_t chunk_bytes;
-    uint64_t producer_control;
-    uint64_t debug_flags;
+    uint64_t batch_bytes;
     uint64_t expected_credit_dst;
     uint64_t expected_recv_base;
-    uint32_t max_chunks;
+
+    uint32_t arena_rows;
+    uint32_t batch_m;
+    uint32_t max_batches;
     uint32_t reserved;
 } mf310p_layout_t;
 
@@ -59,8 +58,8 @@ int mf310p_create(
     int world_size,
     const char* store_url,
     uint64_t local_size,
-    uint64_t arena_bytes,
-    uint64_t chunk_bytes,
+    uint32_t arena_rows,
+    uint32_t batch_m,
     mf310p_context_t** out_ctx);
 
 int mf310p_destroy(mf310p_context_t* ctx);
@@ -73,68 +72,63 @@ int mf310p_debug_protocol_status(
 int mf310p_control_barrier(mf310p_context_t* ctx);
 
 /*
- * One-time per-process GVA geometry exchange over the MemFabric control
- * network. The smem mapping base is chosen per process, so mail dst fields
- * carry peer-space GVAs; receivers must validate against them. Fills
- * layout.expected_credit_dst / layout.expected_recv_base.
+ * One-time per-process GVA geometry exchange over the public control network.
+ * Mail dst fields carry sender-space GVAs, so receiver validation uses the
+ * peer mapping learned here.
  */
 int mf310p_exchange_geometry(mf310p_context_t* ctx);
 
 /*
- * Clear vLLM-owned per-wave protocol status. Ready flags are cleared
- * independently before each producer launch.
+ * Clear vLLM-owned per-wave protocol state. This also clears all batch/core
+ * ready cells before a wave is allowed to reuse its arena slots.
  */
 int mf310p_prepare_wave_async(mf310p_context_t* ctx, void* acl_stream);
 
-/*
- * Seed exactly one fixed application credit into the peer's arrival FIFO and
- * quiet it. Called once after both ranks have created the same MemFabric pool.
- */
+/* Seed exactly one fixed wave credit and quiet it. */
 int mf310p_init_credit_async(mf310p_context_t* ctx, void* acl_stream);
 
 /*
- * Fused producer: block 0 is the sole MemFabric signal() caller; remaining
- * blocks compute interleaved o_proj chunks and publish vLLM-owned ready flags.
+ * One batch producer launch. All eight AI cores participate in the same
+ * cooperative MM. Core0 is also the sole data signal owner after every core
+ * publishes ready == generation.
  */
 int mf310p_direct_producer_async(
     mf310p_context_t* ctx,
     uint64_t x,
     uint64_t w,
-    uint32_t m_bucket,
-    uint32_t first_chunk,
-    uint32_t chunk_count,
-    uint32_t a_advance_rows,
+    uint32_t batch_index,
+    uint32_t generation,
     void* acl_stream);
 
 /*
- * Public quiet() followed by public wait() for every peer data chunk, with
- * strict public-mail validation (dst/len/imm/status).
+ * Consume and strictly validate exactly one peer data mail for batch_index.
+ * quiet() is deliberately not part of this hot-path call.
  */
-int mf310p_wait_mails_async(
+int mf310p_wait_batch_async(
     mf310p_context_t* ctx,
-    uint32_t chunks,
+    uint32_t batch_index,
     void* acl_stream);
 
 int mf310p_warmup_producer_async(
     mf310p_context_t* ctx,
-    uint32_t m_bucket,
     void* acl_stream);
 
 int mf310p_warmup_waiter_async(mf310p_context_t* ctx, void* acl_stream);
 
-int mf310p_add_async(
+/*
+ * Reduce one batch from send/recv arenas into out. valid_rows may be smaller
+ * than batch_m only for the final padded batch.
+ */
+int mf310p_add_batch_async(
     mf310p_context_t* ctx,
     uint64_t out,
-    uint64_t elems,
+    uint32_t batch_index,
+    uint32_t valid_rows,
     void* acl_stream);
 
 int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
 
-/*
- * Application-level arena credit. A fixed tag is sufficient because public
- * wait() is FIFO: every wave consumes one credit before overwriting the peer
- * recv arena and publishes one new credit after its local add.
- */
+/* Wave-level fixed credit. */
 int mf310p_ack_async(mf310p_context_t* ctx, void* acl_stream);
 int mf310p_gate_async(mf310p_context_t* ctx, void* acl_stream);
 int mf310p_quiet_async(mf310p_context_t* ctx, void* acl_stream);
