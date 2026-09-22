@@ -72,10 +72,7 @@ class MemFabricOProjPlan:
 def get_memfabric_o_proj_plan() -> MemFabricOProjPlan:
     q = int(envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT)
     if q not in (1, 2, 4):
-        raise ValueError(
-            "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT "
-            f"must be one of 1/2/4, got {q}"
-        )
+        raise ValueError(f"VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT must be one of 1/2/4, got {q}")
     return MemFabricOProjPlan(batch_basem_count=q)
 
 

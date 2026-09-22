@@ -785,6 +785,13 @@ void memfabric_o_proj_shutdown()
     /* Feature-off builds never create the context; nothing to tear down. */
 }
 
+at::Tensor memfabric_o_proj_debug_snapshot()
+{
+    /* Feature-off builds have no pool; mirror the feature-on no-context
+     * result (all-zero words) so the always-registered debug op resolves. */
+    return at::zeros({24}, at::TensorOptions().dtype(at::kLong));
+}
+
 #endif // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
 
 } // namespace vllm_ascend

@@ -125,18 +125,27 @@ def test_device_uses_only_public_memfabric_data_plane() -> None:
 
 def test_device_uses_eight_core_cooperative_mm_with_core0_signal_owner() -> None:
     src = DEVICE.read_text()
-    producer = src[
-        src.index("Mf310pDirectProducerKernel") :
-        src.index("mf310pWaitBatchKernel")
-    ]
+    producer = src[src.index("Mf310pDirectProducerKernel") : src.index("mf310pWaitBatchKernel")]
 
-    assert "MF310P_MATMUL_BASE_M = 256" in src
     assert "MF310P_MATMUL_BASE_N = 256" in src
     assert "MF310P_MATMUL_BASE_K = 64" in src
     assert "MF310P_COOPERATIVE_CORES = 8" in src
     assert "rt.usedCoreNum = MF310P_COOPERATIVE_CORES" in producer
     assert "mm.IterateAll(cGm)" in producer
-    assert "Mf310pCleanRegion(slot, batchBytes)" in producer
+    # Classic Matmul is single-core semantics: cooperation must be expressed
+    # through explicit per-block M-partitions over dense row-sliced A/C views.
+    assert "kRowsPerCore = BATCH_M / MF310P_COOPERATIVE_CORES" in producer
+    assert "rowOff * MF310P_O_PROJ_K" in producer
+    assert "rowOff * MF310P_O_PROJ_N" in producer
+    # CONFIG_MDL measurably faults (on-chip MTE overrun) at these per-block
+    # M sizes; the tiling must stay on the measured-valid CONFIG_NORM.
+    assert "GetMMConfig<MatmulConfigMode::CONFIG_NORM>" in src
+    assert "GetMMConfig<MatmulConfigMode::CONFIG_MDL>" not in src
+    # Ownership-scoped cache visibility: each block cleans only the
+    # contiguous C rows it wrote (not the whole batch).
+    clean = producer[producer.index("mm.IterateAll(cGm)") : producer.index("Mf310pWriteReady(")]
+    assert "Mf310pCleanRegion(" in clean
+    assert "rowOff * MF310P_O_PROJ_N * sizeof(float16_t)" in clean
     assert "Mf310pWriteReady(" in producer
     assert "if (block != 0)" in producer
     assert "smem_shm_sdma_signal(" in producer
@@ -200,12 +209,10 @@ def test_adapter_decouples_arena_from_batch_and_clears_ready_per_wave() -> None:
     src = ADAPTER.read_text()
     create = src[src.index('extern "C" int mf310p_create') : src.index('extern "C" int mf310p_destroy')]
     prepare = src[
-        src.index('extern "C" int mf310p_prepare_wave_async') :
-        src.index('extern "C" int mf310p_init_credit_async')
+        src.index('extern "C" int mf310p_prepare_wave_async') : src.index('extern "C" int mf310p_init_credit_async')
     ]
     producer = src[
-        src.index('extern "C" int mf310p_direct_producer_async') :
-        src.index('extern "C" int mf310p_wait_batch_async')
+        src.index('extern "C" int mf310p_direct_producer_async') : src.index('extern "C" int mf310p_wait_batch_async')
     ]
     assert "arena_rows" in create
     assert "arena_bytes =" in create

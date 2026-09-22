@@ -14,7 +14,9 @@
 - Compute / exchange / output: FP16
 - Transport: installed `wgm-dev-310p` MemFabric public SHM/SDMA API
 - Adapter ABI: **v7**
-- Native MM base tiling: **256 / 256 / 64**
+- Cooperative MM: 8 blocks × explicit M-partition (`batch_m/8` rows each,
+  classic AscendC Matmul is single-core semantics), per-block tiling
+  `{batch_m/8, 2048, 2048}` basic `{batch_m/8, 256, 64}`, `CONFIG_NORM`
 - Producer blockDim: **8**
 - Communication batch: `batch_m = 256 * q`, `q in {1,2,4}`, default 2
 

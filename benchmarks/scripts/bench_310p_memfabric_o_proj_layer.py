@@ -106,6 +106,12 @@ def main() -> None:
     if int(os.environ["WORLD_SIZE"]) != 2:
         raise RuntimeError("This benchmark requires exactly TP=2")
 
+    # The CLI flag must reach every rank: the plan (and with it batch_m /
+    # batch_bytes / mail imm-len expectations) is read per process, and a
+    # rank-0-only override silently desynchronizes the two sides when the
+    # ambient env var differs from --batch-basem-count.
+    os.environ["VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT"] = str(args.batch_basem_count)
+
     torch.npu.set_device(local_rank)
     device = torch.device(f"npu:{local_rank}")
     dist.init_process_group(backend="hccl")
@@ -114,9 +120,6 @@ def main() -> None:
     cpu_group = dist.new_group(backend="gloo")
 
     if rank == 0:
-        os.environ["VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT"] = str(
-            args.batch_basem_count
-        )
         print(
             f"base_m=256 batch_basem_count={args.batch_basem_count} "
             f"batch_m={256 * args.batch_basem_count} repeat={args.repeat}"
