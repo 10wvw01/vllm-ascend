@@ -24,7 +24,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
     int64_t tp_rank,
-    int64_t tile_m);
+    int64_t batch_basem_count);
 
 /* Explicitly tear down the process-persistent MemFabric context while the ACL
  * runtime is still alive. Also registered via atexit on first use; workers
@@ -39,7 +39,7 @@ inline at::Tensor memfabric_direct_o_proj_allreduce(
     const at::Tensor& x,
     const at::Tensor& weight,
     int64_t tp_rank,
-    int64_t tile_m)
+    int64_t batch_basem_count)
 {
     TORCH_CHECK(x.is_privateuseone(), "x must be an NPU tensor");
     TORCH_CHECK(weight.is_privateuseone(), "weight must be an NPU tensor");
@@ -57,9 +57,14 @@ inline at::Tensor memfabric_direct_o_proj_allreduce(
                 weight.sizes());
     TORCH_CHECK(tp_rank == 0 || tp_rank == 1,
                 "only TP rank 0/1 is supported, got ", tp_rank);
-    TORCH_CHECK(tile_m > 0, "tile_m must be positive, got ", tile_m);
+    TORCH_CHECK(
+        batch_basem_count == 1 || batch_basem_count == 2 ||
+            batch_basem_count == 4,
+        "batch_basem_count must be one of {1,2,4}, got ",
+        batch_basem_count);
 
-    return memfabric_direct_o_proj_allreduce_impl(x, weight, tp_rank, tile_m);
+    return memfabric_direct_o_proj_allreduce_impl(
+        x, weight, tp_rank, batch_basem_count);
 }
 
 } // namespace vllm_ascend
