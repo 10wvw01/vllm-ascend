@@ -83,15 +83,18 @@ env_variables: dict[str, Callable[[], Any]] = {
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
     ),
-    # Per-rank physical contribution to the symmetric pool.
+    # Per-rank physical contribution to the symmetric pool. ABI v7 derives
+    # arena_rows from this budget instead of multiplying it by communication
+    # batch size. 96 MiB keeps the default arena at up to 8192 rows while
+    # leaving transport headroom.
     "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(32 * 1024 * 1024))
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(96 * 1024 * 1024))
     ),
-    # M tile. 32 rows => 128 KiB per FP16 [32, 2048] chunk. Must be a
-    # power of two in [16, 4096] because producer kernels are M-bucket
-    # specialized.
-    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M", "32")
+    # Communication/reduction batch is an integer multiple of native
+    # baseM=256. Legal values are 1/2/4; q=2 derives batch_m=512 and a 2 MiB
+    # FP16 payload for N=2048. 2 MiB is not a protocol constant.
+    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT", "2")
     ),
     # D2 workaround (validation aid, default off): during profile/warmup
     # dummy runs the routed o_proj falls back to stock matmul + HCCL
@@ -104,10 +107,9 @@ env_variables: dict[str, Callable[[], Any]] = {
     ),
     # Minimum M (token rows) routed to the fused MemFabric o_proj path.
     # Below this the layer uses the stock NZ matmul + HCCL all-reduce: the
-    # fused path pays a fixed per-wave protocol cost (~0.3 ms) plus chunked
-    # GEMM inefficiency that only amortizes on large prefills. Measured
-    # crossover on Ascend 310P TP=2 (TILE_M=128): parity at M=4096, fused
-    # wins ~15% at M>=6144. Range: 1 (always fused) to unlimited.
+    # v7 keeps the conservative M=4096 route threshold inherited from the
+    # validated v6 baseline until cooperative-MM hardware measurements are
+    # collected. Range: 1 (always fused) to unlimited.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M", "4096")
     ),
