@@ -65,15 +65,19 @@ data `signal()` owner。wait/reduce 以 batch 为单位，credit 仍以 wave 为
 3. data `signal()` 只有 core0 调用。
 4. data/credit mail 严格校验 `status/dst/len/imm`。
 5. 协议异常写 status + `AscendC::Trap()`，失败 context 不继续复用。
-6. ready 为 vLLM-owned `[batch][8 cores]` 独立 64B cache line，使用 generation。
-7. arena 按 rows/内存预算定容，不随 batch payload 成比例放大。
+6. ready 为 vLLM-owned `[batch][8 cores]` 独立 64B cache line，使用 generation：
+   eager 波使用单调递增 generation（`0x40000000` 起，与 graph 捕获烘焙的
+   `batch + 1` 小值域不相交），陈旧 cell 值永不等于当前波，**无需每波清零
+   32 KiB ready 区**——该清零在 GVA 池内存上走慢速引擎路径，实测每波
+   ~260µs 串行开销（dav-2002 profiler 时间线）；graph 捕获路径保持
+   wave-invariant generation + 图内清零。
+7. arena 按 rows/内存预算定容，不随 batch payload 成正比放大。
 8. tail zero-pad 到完整 `batch_m` 后仍走 8-core cooperative MM。
 9. eager 单 stream；Graph capture 前完成 context/scratch/protocol/kernel warmup。
 10. feature-off 不要求安装 MemFabric。
 
-当前 cache visibility 使用 correctness-first 保守实现：每个 core 在 cooperative MM
-结束后 clean 自己的 cache view；后续只有在 dav-2002 profiler/ownership 证据充分
-时才能缩小 clean 范围。
+cache visibility 为 ownership-scoped：每个 core 在 cooperative MM 结束后只
+clean 自己写入的连续 C 行（dav-2002 实测）。
 
 ## 构建
 

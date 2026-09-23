@@ -41,6 +41,12 @@ namespace {
 constexpr int64_t kOProjWidth = 2048;
 constexpr uint32_t kBaseM = 256;
 constexpr uint32_t kMaxArenaRows = 8192;
+/*
+ * Eager ready-cell generations start here: every graph capture bakes the
+ * small wave-invariant `batch + 1` (1..VLLM_ASCEND_MF310P_MAX_BATCHES) into
+ * the captured launch, so eager values must live in a disjoint range.
+ */
+constexpr uint32_t kEagerGenerationBase = 0x40000000u;
 constexpr uint64_t kOProjRowBytes =
     static_cast<uint64_t>(kOProjWidth) * sizeof(at::Half);
 constexpr uint64_t kDefaultLocalPoolBytes = 96ULL * 1024ULL * 1024ULL;
@@ -126,6 +132,13 @@ struct RuntimeState {
     bool protocol_initialized = false;
     aclrtStream eager_stream = nullptr;
     bool graph_capture_seen = false;
+    /*
+     * Eager ready-cell generation. Eager waves must never reuse a value a
+     * previous wave (or a graph capture, which bakes the small constant
+     * `batch + 1` into the captured launch) left in a cell, so eager
+     * generations live in a disjoint high range and simply increase.
+     */
+    uint32_t wave_seq = 0;
 
     ~RuntimeState() = default;
 };
@@ -360,7 +373,7 @@ void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
     warm_waiter_locked(state, stream);
 
     int ret = mf310p_prepare_wave_async(
-        state.ctx, reinterpret_cast<void*>(stream));
+        state.ctx, 1u, reinterpret_cast<void*>(stream));
     TORCH_CHECK(ret == 0,
                 "mf310p_prepare_wave_async(init) failed with ret=", ret);
 
@@ -619,8 +632,14 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
             const int64_t t_warm = trace_now_us();
 
             const int64_t t_join0 = t_warm;
+            /*
+             * Eager waves skip the 32 KiB ready-cell clear: their monotonic
+             * generation cannot match a stale cell. Graph captures keep the
+             * clear (their generation is the wave-invariant batch + 1) and
+             * bake it into the captured stream.
+             */
             int ret = mf310p_prepare_wave_async(
-                state.ctx, reinterpret_cast<void*>(stream));
+                state.ctx, capturing ? 1u : 0u, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0,
                         "mf310p_prepare_wave_async failed with ret=", ret);
             ret = mf310p_gate_async(
@@ -640,6 +659,23 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     std::min<int64_t>(
                         state.batch_m, wave_rows - batch_begin));
             };
+
+            /*
+             * Ready-cell generation for this wave: graph captures bake the
+             * wave-invariant `batch + 1` (cleared inside the captured
+             * stream); eager waves use a monotonic counter from a high
+             * range disjoint from every captured value, which makes the
+             * 32 KiB cell clear unnecessary (see prepare_wave above).
+             */
+            uint32_t wave_generation = 0;
+            if (!capturing) {
+                ++state.wave_seq;
+                if (state.wave_seq < kEagerGenerationBase ||
+                    state.wave_seq == 0u) {
+                    state.wave_seq = kEagerGenerationBase;
+                }
+                wave_generation = state.wave_seq;
+            }
 
             auto enqueue_producer = [&](uint32_t batch) {
                 const uint32_t valid_rows = valid_rows_for(batch);
@@ -674,7 +710,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     x_batch,
                     weight_ptr,
                     batch,
-                    batch + 1,
+                    capturing ? (batch + 1) : wave_generation,
                     reinterpret_cast<void*>(stream));
                 TORCH_CHECK(
                     producer_ret == 0,

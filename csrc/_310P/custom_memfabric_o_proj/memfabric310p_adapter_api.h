@@ -79,10 +79,15 @@ int mf310p_control_barrier(mf310p_context_t* ctx);
 int mf310p_exchange_geometry(mf310p_context_t* ctx);
 
 /*
- * Clear vLLM-owned per-wave protocol state. This also clears all batch/core
- * ready cells before a wave is allowed to reuse its arena slots.
+ * Clear vLLM-owned per-wave protocol state (the 64 B error channel is always
+ * cleared). The 32 KiB ready-cell region is only cleared when the producer
+ * generation is wave-invariant (graph capture); eager waves use a monotonic
+ * generation that cannot equal a stale cell value and pass 0 here.
  */
-int mf310p_prepare_wave_async(mf310p_context_t* ctx, void* acl_stream);
+int mf310p_prepare_wave_async(
+    mf310p_context_t* ctx,
+    uint32_t clear_wave_control,
+    void* acl_stream);
 
 /* Seed exactly one fixed wave credit and quiet it. */
 int mf310p_init_credit_async(mf310p_context_t* ctx, void* acl_stream);

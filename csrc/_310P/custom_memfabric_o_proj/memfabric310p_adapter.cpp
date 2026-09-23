@@ -426,6 +426,7 @@ extern "C" int mf310p_exchange_geometry(mf310p_context_t* opaque)
 
 extern "C" int mf310p_prepare_wave_async(
     mf310p_context_t* opaque,
+    uint32_t clear_wave_control,
     void* acl_stream)
 {
     auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
@@ -442,6 +443,17 @@ extern "C" int mf310p_prepare_wave_async(
         stream);
     if (ret != ACL_SUCCESS) {
         return static_cast<int>(ret);
+    }
+    /*
+     * The ready cells only need clearing when the producer generation is
+     * wave-invariant (graph captures bake `batch + 1` in and clear inside
+     * the captured stream). Eager waves use a monotonic generation that
+     * never equals a stale cell value, so the 32 KiB clear is skippable:
+     * on the GVA pool it costs a measured ~260us of serialized copy-engine
+     * time per wave (the dominant fixed protocol overhead).
+     */
+    if (clear_wave_control == 0) {
+        return 0;
     }
     ret = aclrtMemsetAsync(
         ctx->producer_control,
