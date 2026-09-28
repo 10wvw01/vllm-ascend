@@ -1,23 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Huawei Technologies Co., Ltd. All Rights Reserved.
 
-"""310P3 TP=2 MemFabric fused full-attention o_proj helpers.
+"""310P3 TP=2 routing for the independently installed MemFabric MC2 operator.
 
-The fused path is intentionally narrow. It is only enabled for Qwen3.5/3.6
-MoE full-attention ``self_attn.o_proj`` layers that are *unquantized*
-(the real Qwen3.6-35B-A3B-w8a8 checkpoint keeps them FLOAT; owner decision A,
-2026-09-18) running with TP=2. All other layers keep the existing
-RowParallelLinear implementation. The checkpoint carries no torch_dtype, so
-vLLM runs it as FP16 on 310P (BF16 NZ linear is unsupported by this CANN
-anyway); the fused path therefore exchanges FP16 partial results.
-
-The fused op treats wgm-dev-310p MemFabric as an opaque public transport.
-One AICore block coordinates public ``signal()`` calls while seven workers
-compute interleaved FP16 o_proj chunks. Per chunk the dataflow is
-MM -> cache clean -> ready -> signal, allowing MM of later chunks to overlap
-SDMA of earlier chunks. Public ``quiet()/wait()`` joins the peer payload,
-a repo-owned FP16 add reduces the two TP partials, and a fixed FIFO credit
-protects arena reuse across waves and graph replays.
+vLLM owns only eligibility/routing/fallback policy. The actual 8-core FP16
+matmul, MemFabric transport, SUM reduction, arena/protocol lifecycle and graph
+capture contract live in the ``memfabric_matmul_allreduce`` CANN custom OPP.
 """
 
 from __future__ import annotations
@@ -46,7 +34,7 @@ _LAYER_INDEX_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
 @dataclass(frozen=True)
 class MemFabricOProjPlan:
-    """Static ABI v7 contract for the 310P3 fused implementation."""
+    """Static routing contract for the external 310P3 MC2 operator."""
 
     batch_basem_count: int
     base_m: int = _BASE_M
@@ -60,7 +48,6 @@ class MemFabricOProjPlan:
 
     @property
     def batch_bytes(self) -> int:
-        # FP16 [batch_m, 2048]; 2 MiB at the default q=2 is derived.
         return self.batch_m * self.output_size * 2
 
     def batches_for_tokens(self, num_tokens: int) -> int:
@@ -72,8 +59,25 @@ class MemFabricOProjPlan:
 def get_memfabric_o_proj_plan() -> MemFabricOProjPlan:
     q = int(envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT)
     if q not in (1, 2, 4):
-        raise ValueError(f"VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT must be one of 1/2/4, got {q}")
+        raise ValueError(
+            "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT "
+            f"must be one of 1/2/4, got {q}"
+        )
     return MemFabricOProjPlan(batch_basem_count=q)
+
+
+def _external_op_available() -> bool:
+    """Whether the installed custom OPP is visible and ABI-compatible."""
+
+    availability = getattr(
+        torch.ops._C_ascend, "memfabric_matmul_allreduce_available", None
+    )
+    if availability is None:
+        return False
+    try:
+        return bool(availability())
+    except Exception:
+        return False
 
 
 def _target_text_config():
@@ -88,8 +92,6 @@ def _target_text_config():
 
 
 def _is_full_attention_prefix(prefix: str, text_config) -> bool:
-    """Cross-check prefix against Qwen3.5/3.6's configured hybrid layer type."""
-
     if not prefix.endswith(".self_attn.o_proj"):
         return False
 
@@ -105,9 +107,18 @@ def _is_full_attention_prefix(prefix: str, text_config) -> bool:
 
 
 def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
-    """Return whether ``layer`` matches the deliberately narrow fused contract."""
+    """Return whether the layer may be routed to the external MC2 operator."""
 
     if not envs.VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ:
+        return False
+    # Never disable generic HCCL reduction unless the independently installed
+    # operator is already discoverable through CANN's custom-op API loader.
+    if not _external_op_available():
+        logger.warning_once(
+            "310P MemFabric o_proj was requested but the memfabric_mc2 custom "
+            "OPP is not installed/visible or has an incompatible runtime ABI; "
+            "falling back to stock matmul + HCCL all-reduce."
+        )
         return False
 
     text_config = _target_text_config()
@@ -126,19 +137,16 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
         return False
     if getattr(layer, "output_size", None) != _EXPECTED_OUTPUT_SIZE:
         return False
-    # The model runs FP16 on 310P (checkpoint has no torch_dtype and BF16 NZ
-    # linear is unsupported here); the exchange/reduce kernel is FP16-only.
     if getattr(layer, "params_dtype", None) != torch.float16:
         return False
 
-    # Owner decision A (2026-09-18): the target checkpoint's full-attention
-    # o_proj is unquantized BF16, routed through the 310P unquantized linear
-    # method. Accept either that method or the MemFabric dispatch subclass of
-    # it (during quant-method routing quant_method may still be None).
     quant_method = getattr(layer, "quant_method", None)
     if quant_method is not None:
         method_name = type(quant_method).__name__
-        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricOProjLinearMethod310"):
+        if method_name not in (
+            "AscendUnquantizedLinearMethod",
+            "MemFabricOProjLinearMethod310",
+        ):
             return False
         nested = getattr(quant_method, "quant_method", None)
         if nested is not None and type(nested).__name__ != "AscendUnquantizedLinearMethod":
@@ -148,7 +156,7 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
 
 
 def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
-    """Mark a target RowParallelLinear so the fused op owns the TP reduction."""
+    """Mark a target RowParallelLinear so the external MC2 op owns TP SUM."""
 
     enabled = should_enable_memfabric_o_proj(layer)
     layer._ascend_310p_memfabric_o_proj = enabled
@@ -161,13 +169,12 @@ def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
             f"before patching, got {getattr(layer, 'prefix', '<unknown>')}"
         )
 
-    # The fused path returns an already-reduced TP=2 result, so the generic
-    # RowParallelLinear must not launch its HCCL all-reduce afterwards.
     layer.reduce_results = False
     plan = get_memfabric_o_proj_plan()
     logger.info_once(
-        "Enable 310P3 TP=2 MemFabric unquantized full-attention o_proj ABI v7 "
-        "(base_m=%d, batch_basem_count=%d, batch_m=%d, batch_bytes=%d).",
+        "Enable external 310P3 TP=2 MemFabricMatmulAllReduce "
+        "(runtime ABI=1, base_m=%d, batch_basem_count=%d, batch_m=%d, "
+        "batch_bytes=%d).",
         plan.base_m,
         plan.batch_basem_count,
         plan.batch_m,
@@ -184,12 +191,8 @@ _pool_protocol_started = False
 
 
 def memfabric_o_proj_pool_started() -> bool:
-    """Whether the MemFabric SDMA pool exists in this process.
+    """Whether this worker has issued at least one external fused call."""
 
-    The pool (and its supervised epoch kernel on the orchestrator's own
-    launch stream) is created inside the first fused call and lives until
-    worker shutdown.
-    """
     return _pool_protocol_started
 
 
@@ -198,14 +201,8 @@ _warmup_fallback_depth = 0
 
 @contextmanager
 def memfabric_o_proj_warmup_fallback():
-    """Opt-in D2 workaround: defer pool creation past profile/warmup runs.
+    """Optionally keep engine dummy/profile runs on stock matmul + HCCL."""
 
-    While active (and only when
-    ``VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK`` is set), routed
-    o_proj layers fall back to stock matmul + HCCL all-reduce so the first
-    fused call - and with it the MemFabric pool - happens at the first real
-    request instead of during engine-init dummy runs.
-    """
     global _warmup_fallback_depth
     if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK:
         _warmup_fallback_depth += 1
@@ -226,29 +223,34 @@ def memfabric_o_proj_allreduce(
     x: torch.Tensor,
     tp_rank: int,
 ) -> torch.Tensor:
-    """Run the fused MM/SDMA/reduce pipeline (unquantized, FP16).
+    """Call the independently installed MatMul+MemFabric-AllReduce operator."""
 
-    One opaque custom op per call: each wave consumes a fixed application
-    credit, runs 8-core cooperative batch MM, pipelines public MemFabric
-    wait/reduce per batch, drains outbound transfers with one quiet(), and
-    returns the wave credit after local arena reads complete.
-    """
     global _pool_protocol_started
 
     if tp_rank not in (0, 1):
-        raise RuntimeError(f"MemFabric o_proj fusion only supports TP rank 0/1, got {tp_rank}")
+        raise RuntimeError(
+            f"MemFabric o_proj fusion only supports TP rank 0/1, got {tp_rank}"
+        )
     if x.dtype != torch.float16:
         raise TypeError(f"MemFabric o_proj expects FP16 activation, got {x.dtype}")
     if x.dim() != 2 or x.shape[1] != _EXPECTED_INPUT_SIZE_PER_PARTITION:
-        raise ValueError(f"MemFabric o_proj expects x=[M, 2048], got {tuple(x.shape)}")
+        raise ValueError(
+            f"MemFabric o_proj expects x=[M, 2048], got {tuple(x.shape)}"
+        )
     if layer.params_dtype != torch.float16:
-        raise TypeError(f"MemFabric o_proj reduction currently requires FP16 output, got {layer.params_dtype}")
+        raise TypeError(
+            "MemFabric o_proj reduction currently requires FP16 output, "
+            f"got {layer.params_dtype}"
+        )
+
+    direct = getattr(torch.ops._C_ascend, "memfabric_matmul_allreduce", None)
+    if direct is None or not _external_op_available():
+        raise RuntimeError(
+            "memfabric_mc2 custom OPP is not installed/visible or its runtime "
+            "ABI is incompatible"
+        )
 
     plan = get_memfabric_o_proj_plan()
-
-    direct = getattr(torch.ops._C_ascend, "memfabric_direct_o_proj_allreduce", None)
-    if direct is None:
-        raise RuntimeError("vllm_ascend_C was built without the fused 310P MemFabric o_proj op")
     if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE:
         ev0, ev1 = _record_fused_call_events()
         out = direct(
@@ -286,7 +288,9 @@ def _finish_fused_call_events(ev0, ev1, rows):
     global _DEVICE_MONITOR_SEQ
     ev1.record()
     with _DEVICE_MONITOR_LOCK:
-        _DEVICE_MONITOR_EVENTS.append((_DEVICE_MONITOR_SEQ, ev0, ev1, rows, time.time()))
+        _DEVICE_MONITOR_EVENTS.append(
+            (_DEVICE_MONITOR_SEQ, ev0, ev1, rows, time.time())
+        )
         if _DEVICE_MONITOR_SEQ == 0:
             logger.info("[mf310p-monitor] first fused call wall=%.3f", time.time())
         _DEVICE_MONITOR_SEQ += 1
@@ -327,24 +331,14 @@ def _device_monitor_loop():
 
 
 def make_memfabric_o_proj_linear_method():
-    """Build the MemFabric dispatch linear method (lazy import, no cycles).
+    """Build the Qwen routing method around the generic external operator."""
 
-    The returned class subclasses the 310P unquantized linear method so the
-    FLOAT-routed o_proj keeps its exact weight handling (NZ cast) while its
-    apply() takes over matmul+TP-reduction for eligible layers.
-    """
     from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
     class MemFabricOProjLinearMethod310(AscendUnquantizedLinearMethod):
-        """Unquantized linear method that owns o_proj matmul + TP reduction.
-
-        Selected by the 310P modelslim router for layers matching the
-        MemFabric o_proj prefix/geometry contract; configure-time checks in
-        ``configure_memfabric_o_proj`` remain the single eligibility source
-        and can still reject this layer (leaving the stock behavior).
-        """
-
         def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+            # Preserve the existing 310P unquantized path, including NZ weight
+            # conversion, before deciding whether to route the layer.
             super().process_weights_after_loading(layer)
             configure_memfabric_o_proj(layer)
 
@@ -356,26 +350,18 @@ def make_memfabric_o_proj_linear_method():
         ) -> torch.Tensor:
             if is_memfabric_o_proj_configured(layer):
                 if bias is not None:
-                    # Qwen o_proj is bias-free; a biased RowParallel o_proj
-                    # would need explicit rank0-only handling before fusion.
-                    raise RuntimeError("MemFabric o_proj fusion does not support biased o_proj")
+                    raise RuntimeError(
+                        "MemFabric o_proj fusion does not support biased o_proj"
+                    )
                 if (
                     memfabric_o_proj_warmup_fallback_active()
                     or x.shape[0] < envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M
                 ):
-                    # Stock path (warmup dummy runs and small batches): the
-                    # fused path pays a fixed per-wave protocol cost plus
-                    # chunked-GEMM inefficiency that only amortizes on large
-                    # prefills, so rows below MIN_M take NZ matmul + HCCL
-                    # all-reduce. reduce_results was disabled by the routing,
-                    # so the stock path must be followed by the TP reduction
-                    # the fused op would have provided.
-                    from vllm.distributed import (
-                        tensor_model_parallel_all_reduce,
-                    )
+                    from vllm.distributed import tensor_model_parallel_all_reduce
 
                     out = super().apply(layer, x, bias)
                     return tensor_model_parallel_all_reduce(out)
+
                 from vllm.distributed import get_tensor_model_parallel_rank
 
                 return memfabric_o_proj_allreduce(
