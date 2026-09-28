@@ -1,192 +1,140 @@
-# 310P3 TP=2 FP16 o_proj + MemFabric ABI v7 实现设计
+# 310P3 TP=2 Qwen o_proj + 独立 MemFabric MC² 算子
 
-> 最终计算通信方案：
-> [计算通信协作优化方案.md](计算通信协作优化方案.md)
->
-> 开发/实机 Gate：
-> [310p_memfabric_o_proj_development_plan.md](310p_memfabric_o_proj_development_plan.md)
->
-> 使用：
-> [310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
+使用与实机 Gate：
+[310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
 
-## 1. 目标路径
+独立算子仓：`10wvw01/memfabric_matmul_allreduce`。
+
+## 1. 最终边界
 
 ```text
-eligible Qwen full-attention o_proj
-  -> one custom op
-  -> 8-core cooperative local MM
-  -> per-batch MemFabric exchange
-  -> per-batch FP16 local reduce
-  -> already TP-reduced output
+vllm-ascend
+  ├─ 判断模型/层/shape/TP/阈值
+  ├─ 检查外部 OPP + runtime ABI
+  ├─ torch thin adapter
+  └─ ACLNN call
+          |
+          v
+memfabric_matmul_allreduce custom OPP (.run)
+  ├─ ACLNN two-phase API
+  ├─ persistent runtime / arena / graph lifecycle
+  ├─ 8-core cooperative FP16 MatMul
+  ├─ MemFabric public signal/wait/quiet
+  └─ FP16 TP=2 SUM
 ```
 
-命中目标层后 `reduce_results=False`，不得再执行 generic HCCL all-reduce。
+vLLM 不再编译 AscendC MemFabric kernel，不包含 MemFabric lifecycle/arena/protocol，也不直接链接 `libmf_smem.so`。
 
-## 2. 固定计算形态
+只有外部算子可见且 runtime ABI 匹配时，目标 `RowParallelLinear` 才允许 `reduce_results=False`；否则完整回退 stock matmul + HCCL。
+
+## 2. V1 算子合同
 
 ```text
+hardware = Ascend 310P3 / dav-2002
+tp = 2
+reduce = SUM
+dtype = FP16
+K_global = 4096
+K_local = 2048
+N = 2048
 baseM = 256
 baseN = 256
 baseK = 64
 blockDim = 8
-TCubeTiling.usedCoreNum = 8
+batch_m = 256*q, q in {1,2,4}
 ```
 
-`batch_m = 256 * q`，其中 `q in {1,2,4}`，默认 q=2。
+8 个 AI Core 均参与 MM，显式按 M 分区；core0 完成自己的计算并确认所有 ready generation 后，是唯一 data `signal()` owner。
 
-每个 producer launch 只处理一个 batch。8 个 AI Core 对同一 A/B/C 逻辑矩阵做
-cooperative MM。每个 core MM 完成后 clean cache，并写：
+## 3. 已迁移且保持不变的数据面
 
-```text
-ready[batch][core] = generation
-```
-
-每个 ready cell 独占 64B。core0 同样参加 MM；它确认 8 个 ready 后，作为唯一
-producer 执行：
-
-```cpp
-smem_shm_sdma_signal(gva, send_batch, peer_recv_batch, batch_bytes, batch_id)
-```
-
-## 3. Batch pipeline
-
-runtime 使用 lookahead=1：
+runtime 保留 pre-migration v8 的 lookahead=1：
 
 ```text
 gate(wave)
 P0
-P1
-W0
-A0
-P2
-W1
-A1
+P1 -> W0 -> A0
+P2 -> W1 -> A1
 ...
-drain W/A(last)
+Wlast -> Alast
 quiet()
-ack(wave credit)
+ack()
 ```
 
-因此目标 overlap 是：
+目标 overlap：
 
 ```text
 SDMA(n)   || MM(n+1)
 SDMA(n+1) || wait/reduce(n)
 ```
 
-`wait_batch` 每次只消费一封 data mail，严格校验：
+每封 data mail 严格校验 `status/dst/len/imm`。尾批仍使用 full `batch_m` scratch zero+valid-row copy，最后只 reduce valid rows。
 
-```text
-status == OK
-dst == expected_recv_base + batch_index * batch_bytes
-len == batch_bytes
-imm == batch_index
-```
+Eager ready generation 从 `0x40000000` 单调递增，避免每波 32 KiB ready-cell memset；Graph 使用稳定的 `batch+1` generation 并保持图内控制状态清理。
 
-wait 热路径不做 quiet。所有 batch drain 后一波只调用一次 public `quiet()`。
+## 4. Graph / lifecycle
 
-## 4. Arena / wave
+外部算子拥有进程级 MemFabric context。Graph capture 前必须已经完成：context、scratch、protocol/credit、producer/wait/add/protocol binary warmup。
 
-FP16 N=2048 时：
+capture 内不得 create/malloc/host barrier/lazy warmup。普通 eager 固定一个 execution stream；Graph-used context 保守保持 process lifetime。
 
-```text
-row_bytes = 4096
-arena_bytes = arena_rows * row_bytes
-max_batches = arena_rows / batch_m
-```
-
-`arena_rows` 从 `VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES` 的固定预算推导，
-上限 8192 rows，并向下对齐到 `batch_m`。默认 local pool 为 96 MiB。
-
-send/recv arena 大小不因 q=1/2/4 直接成倍扩张；batch 大小只改变一波可容纳的
-batch 数。
-
-wave 复用仍由 fixed credit 保护：
-
-```text
-prepare -> gate(credit) -> batch pipeline -> quiet -> ack(credit)
-```
-
-## 5. Tail
-
-最后一个不满 `batch_m` 的 batch：
-
-```text
-scratch zero
-copy valid rows
-8-core cooperative MM on full batch_m
-signal full batch payload
-wait full batch mail
-add only valid rows into output
-```
-
-不再选择 16/32/64/128-row 单核 bucket。
-
-## 6. MemFabric public boundary
-
-Host 只使用 public lifecycle/readiness/control API；device 只使用：
-
-```cpp
-smem_shm_sdma_signal(...)
-smem_shm_sdma_wait(...)
-smem_shm_sdma_quiet(...)
-```
-
-peer-space mail dst 通过 public control allgather 交换 GVA geometry 后校验。
-
-vLLM 不读取 MemFabric private ring/mailbox/reserved/SQE/orchestrator 布局。
-
-## 7. Fail-stop
-
-状态码：
-
-- READY_TIMEOUT
-- SIGNAL_FAILED
-- QUIET_FAILED
-- WAIT_FAILED
-- MAIL_MISMATCH
-- CREDIT_MISMATCH
-- ACK_FAILED
-
-device 记录状态、clean status cache line 后 `AscendC::Trap()`。host 对已发生
-异常的 runtime 标记 poisoned；不得把部分 recv 数据当成正常结果继续推进。
-
-## 8. Graph / lifecycle
-
-capture 前必须完成：
-
-- context create；
-- producer scratch allocation；
-- fixed credit/protocol init；
-- producer/wait/add/protocol kernel binary warmup。
-
-capture 内禁止 malloc/create/host barrier/warmup sync。
-
-普通 eager context 固定一个 execution stream。Graph-used context 当前保守保持
-process lifetime，避免无法证明 replay stream quiescent 时销毁 pool。
-
-## 9. 代码地图
+## 5. vLLM 代码地图
 
 ```text
 vllm_ascend/_310p/ops/memfabric_o_proj.py
+  模型/层 eligibility、MIN_M、fallback、调用 external op
+
 vllm_ascend/_310p/quantization/modelslim_config.py
+  eligible FLOAT o_proj 的 linear-method routing
 
-csrc/_310P/custom_memfabric_o_proj/
-  memfabric_o_proj_binding.cpp
-  memfabric_o_proj_runtime.cpp
-  memfabric_o_proj_torch_adpt.h
-  memfabric310p_adapter_api.h
-  memfabric310p_adapter.cpp
-  memfabric310p_device.asc
-
-cmake/memfabric_310p.cmake
-tests/ut/_310p/test_memfabric_o_proj_source.py
-benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py
-benchmarks/scripts/analyze_310p_memfabric_overlap.py
+csrc/_310P/memfabric_matmul_allreduce_adapter.cpp
+  torch -> dynamic ACLNN thin adapter
 ```
 
-## 10. 当前状态
+以下内容已从 vLLM 移出：
 
-代码已迁移到 ABI v7 并完成两轮静态代码审视；性能、正确性和稳定性结论必须
-绑定当前 commit 在目标 310P3 上重新验证。尤其不能把 v6 的 +15% 单层数据直接
-当成 v7 实测结果。
+```text
+custom_memfabric_o_proj/*.asc
+MemFabric host adapter/runtime
+cmake/memfabric_310p.cmake
+libmf_smem direct link
+```
+
+## 6. 独立算子 API
+
+外部 OPP 暴露：
+
+```text
+aclnnMemFabricMatmulAllReduceGetWorkspaceSize(...)
+aclnnMemFabricMatmulAllReduce(...)
+mfmc2RuntimeAbiVersion()
+mfmc2RuntimeShutdown()
+mfmc2RuntimeDebugSnapshot(...)
+```
+
+vLLM 通过已有 `GetOpApiFuncAddr`/`EXEC_NPU_CMD` 动态调用，不增加单独 wheel，也不修改 torch_npu/op-plugin。
+
+## 7. 配置所有权
+
+vLLM 只保留 routing 配置：
+
+```text
+VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ
+VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT
+VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M
+VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK
+VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE
+```
+
+MemFabric runtime 配置属于独立算子：
+
+```text
+MFMC2_STORE_URL
+MFMC2_LOCAL_BYTES
+```
+
+## 8. 验收原则
+
+迁移完成不等于性能结论已经重测。独立仓保存 pre-migration v8 基线：q=1/2/4 correctness bit-exact；ACL Graph bit-exact；q=2 层级 crossover 约 M=2048；M=8192 fused 5.258ms vs stock 6.760ms（-22.2%）。
+
+新结构必须在目标 310P3 上重新通过：安装检查 → 独立 correctness → 1000 次稳定性 → 独立性能/Profiler → vLLM fallback → Qwen eager → ACL Graph → 10min，才能宣布迁移验收完成。
