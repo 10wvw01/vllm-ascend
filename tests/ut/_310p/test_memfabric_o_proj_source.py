@@ -12,6 +12,14 @@ ENVS = ROOT / "vllm_ascend" / "envs.py"
 MODELSLIM = ROOT / "vllm_ascend" / "_310p" / "quantization" / "modelslim_config.py"
 ADAPTER = ROOT / "csrc" / "_310P" / "memfabric_matmul_allreduce_adapter.cpp"
 CMAKE = ROOT / "CMakeLists.txt"
+USAGE = (
+    ROOT
+    / "docs"
+    / "source"
+    / "user_guide"
+    / "feature_guide"
+    / "310p_memfabric_o_proj_usage.md"
+)
 OLD_CUSTOM_CSRC = ROOT / "csrc" / "_310P" / "custom_memfabric_o_proj"
 OLD_MEMFABRIC_CMAKE = ROOT / "cmake" / "memfabric_310p.cmake"
 
@@ -134,5 +142,22 @@ def test_vllm_env_owns_routing_not_memfabric_transport() -> None:
     assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT" in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M" in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK" in src
+    assert 'VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK", "0"' in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE" in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M" not in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL" not in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES" not in src
+
+
+def test_graph_validation_uses_eager_runtime_warmup() -> None:
+    usage = USAGE.read_text()
+    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK=0" in usage
+    assert "至少一次真实 fused eager 调用" in usage
+    assert "capture 内不允许 external runtime 首次 create/malloc/host barrier/lazy warmup" in usage
+
+
+def test_usage_requires_external_opp_before_vllm_start() -> None:
+    usage = USAGE.read_text()
+    assert "source /opt/memfabric_mc2/vendors/memfabric_mc2/bin/set_env.bash" in usage
+    assert "source 独立 OPP" in usage
+    assert "启动 worker" in usage
