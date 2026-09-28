@@ -73,52 +73,32 @@ env_variables: dict[str, Callable[[], Any]] = {
     ),
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
-    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention unquantized
-    # o_proj plus TP=2 reduction through the installed wgm-dev-310p
-    # MemFabric public SHM/SDMA API.
+    # Experimental 310P3-only route: eligible Qwen3.5/3.6 full-attention
+    # o_proj is dispatched to the independently installed memfabric_mc2 CANN
+    # custom OPP. If the OPP/ABI is unavailable the stock path is retained.
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
     ),
-    # Config-store rendezvous used by customized MemFabric SHM.
-    "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
-        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
-    ),
-    # Per-rank physical contribution to the symmetric pool. ABI v7 derives
-    # arena_rows from this budget instead of multiplying it by communication
-    # batch size. 96 MiB keeps the default arena at up to 8192 rows while
-    # leaving transport headroom.
-    "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(96 * 1024 * 1024))
-    ),
     # Communication/reduction batch is an integer multiple of native
     # baseM=256. Legal values are 1/2/4; q=2 derives batch_m=512 and a 2 MiB
-    # FP16 payload for N=2048. 2 MiB is not a protocol constant.
+    # FP16 payload for N=2048. The value is routing/API policy; MemFabric pool
+    # configuration itself belongs to the external operator (`MFMC2_*`).
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT", "2")
     ),
-    # D2 workaround (validation aid, default off): during profile/warmup
-    # dummy runs the routed o_proj falls back to stock matmul + HCCL
-    # all-reduce, deferring MemFabric pool creation to the first real
-    # request. The 310P AICPU watchdog kills the SDMA orchestrator epoch
-    # task 28s after pool creation (MemFabric self-limit arithmetic
-    # assumes 22s), so eager-mode init must not create the pool.
+    # During profile/warmup dummy runs the routed o_proj may fall back to stock
+    # matmul + HCCL, deferring external MemFabric runtime initialization to the
+    # first real fused request. Default off.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK", "0"))
     ),
-    # Minimum M (token rows) routed to the fused MemFabric o_proj path.
-    # Below this the layer uses the stock NZ matmul + HCCL all-reduce: the
-    # v7 keeps the conservative M=4096 route threshold inherited from the
-    # validated v6 baseline until cooperative-MM hardware measurements are
-    # collected. Range: 1 (always fused) to unlimited.
+    # Minimum M (token rows) routed to the external fused path. The migrated
+    # v8 baseline crosses over around M=2048; retain 4096 as conservative
+    # production routing until migration performance is reproduced on target.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M": lambda: int(
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M", "4096")
     ),
-    # Wave-level host-phase trace + device-duration outlier monitor (debug
-    # aid, default off). C++ runtime prints one "[mf310p-trace]" line per
-    # fused call; the Python wrapper additionally records NPU event pairs
-    # and a daemon thread logs "[mf310p-slow]" lines for calls whose device
-    # duration exceeds 500 ms (e.g. delayed SDMA mail relay at an epoch
-    # relaunch boundary).
+    # Python-side device-duration outlier monitor for fused calls.
     "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE", "0"))
     ),
