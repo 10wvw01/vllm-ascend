@@ -1,70 +1,82 @@
-# 310P3 Qwen3.6 o_proj + MemFabric ABI v7 使用与实机验证
+# 310P3 Qwen3.6 o_proj + 独立 MemFabric MC² 算子实机验证
 
-> 适用：Ascend 310P3 单卡双 die、TP=2、
-> `Eco-Tech/Qwen3.6-35B-A3B-w8a8` full-attention `self_attn.o_proj`。
+适用：Ascend 310P3 单卡双 die、TP=2、`Eco-Tech/Qwen3.6-35B-A3B-w8a8` full-attention `self_attn.o_proj`。
 
-设计：[310p_memfabric_o_proj.md](../../developer_guide/310p_memfabric_o_proj.md)
+## 1. 先构建/安装独立算子
 
-Gate：[310p_memfabric_o_proj_development_plan.md](../../developer_guide/310p_memfabric_o_proj_development_plan.md)
-
-## 1. 编译
-
-先按 `memfabric_hybrid:wgm-dev-310p` 当前说明安装，并确认：
+独立仓：`10wvw01/memfabric_matmul_allreduce`。
 
 ```bash
-echo "$MEMFABRIC_HYBRID_HOME_PATH"
-test -n "$MEMFABRIC_HYBRID_HOME_PATH"
-```
-
-然后：
-
-```bash
-export SOC_VERSION=ascend310p3
-export ASCEND_HOME_PATH=/usr/local/Ascend/ascend-toolkit/latest
-export COMPILE_CUSTOM_KERNELS=1
+cd /path/to/memfabric_matmul_allreduce
+source /usr/local/Ascend/cann/set_env.sh
+export MEMFABRIC_HYBRID_HOME_PATH=/path/to/installed/memfabric_hybrid
 export MAX_JOBS=8
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+./build.sh
 
-python3 -m pip install -v -e . --no-build-isolation --no-deps
+./build_out/custom_opp_*.run --install-path=/opt/memfabric_mc2
+source /opt/memfabric_mc2/vendors/memfabric_mc2/bin/set_env.bash
 ```
 
-feature-on 会从当前源码用 bisheng `--npu-arch=dav-2002` 编译
-`memfabric310p_device.asc`，并链接 public `libmf_smem.so`。
+安装后先做 ELF/API 自检：
 
-## 2. Runtime 参数
+```bash
+python3 tests/st/check_install.py
+```
 
-当前 R7 部署约束下先固定：
+再做**不依赖 vLLM**的两 rank correctness：
 
 ```bash
 export ASCEND_RT_VISIBLE_DEVICES=0,1
+export MFMC2_STORE_URL=tcp://127.0.0.1:8581
+export MFMC2_LOCAL_BYTES=$((96 * 1024 * 1024))
+python3 tests/st/test_two_rank_accuracy.py
 ```
 
-推荐起始配置：
+要求 q=1/2/4 全矩阵 bit-exact。然后做 standalone head-to-head：
 
 ```bash
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
-export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
-
-# 默认即 96 MiB；arena 由预算推导，上限 8192 rows。
-export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
-
-# q=2 -> baseM=256, batch_m=512, 当前形状下 batch payload=2 MiB。
-# 合法值仅 1/2/4。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT=2
-
-# v7 尚未重新实测 crossover，因此先保留 v6 已验证的保守路由阈值。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M=4096
-
-# 服务 bring-up 推荐：profile/dummy-run 先走 stock。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK=1
-
-# 诊断时开启。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1
+python3 tests/perf/bench_two_rank.py --q 2 --warmup 20 --iters 100
 ```
 
-ABI v7 不再使用 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M`。
+在这两步通过前，不进入 vLLM E2E。
 
-## 3. 编译后检查
+> `.run` 已打包 public `libmf_smem.so`；但 310P MemFabric 的系统级 AICPU/orchestrator 前置仍必须按 `memfabric_hybrid:wgm-dev-310p` 的目标机要求部署，并由上述 ST 最终验证。
+
+## 2. 构建 vllm-ascend
+
+vLLM 已不再编译/链接 MemFabric kernel/runtime，因此构建时不需要 `MEMFABRIC_HYBRID_HOME_PATH`。
+
+```bash
+cd /path/to/vllm-ascend
+export SOC_VERSION=ascend310p3
+export ASCEND_HOME_PATH=/usr/local/Ascend/ascend-toolkit/latest
+export MAX_JOBS=8
+python3 -m pip install -v -e . --no-build-isolation --no-deps
+```
+
+启动 worker 前必须已经 source 独立 OPP 的 `set_env.bash`。
+
+## 3. Runtime 参数
+
+```bash
+export ASCEND_RT_VISIBLE_DEVICES=0,1
+
+# 外部 operator-owned runtime
+export MFMC2_STORE_URL=tcp://127.0.0.1:8581
+export MFMC2_LOCAL_BYTES=$((96 * 1024 * 1024))
+
+# vLLM routing policy
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT=2
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M=4096
+export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK=1
+```
+
+`q=2 -> batch_m=512 -> N=2048/FP16 payload=2MiB`。合法 q 仅 1/2/4。
+
+旧 `VLLM_ASCEND_310P_MEMFABRIC_STORE_URL` / `...LOCAL_BYTES` 仅由 external runtime ABI 1 作为兼容别名读取；新脚本统一使用 `MFMC2_*`。
+
+## 4. vLLM 可见性/安全回退检查
 
 ```bash
 python3 - <<'PY'
@@ -72,118 +84,69 @@ import torch
 import vllm_ascend.vllm_ascend_C  # noqa
 
 for op in [
-    "memfabric_direct_o_proj_allreduce",
-    "memfabric_o_proj_shutdown",
-    "memfabric_o_proj_debug_snapshot",
+    "memfabric_matmul_allreduce",
+    "memfabric_matmul_allreduce_available",
+    "memfabric_matmul_allreduce_shutdown",
+    "memfabric_matmul_allreduce_debug_snapshot",
 ]:
     print(op, hasattr(torch.ops._C_ascend, op))
+print("external OPP available:", torch.ops._C_ascend.memfabric_matmul_allreduce_available())
 PY
 ```
 
-预期均为 `True`。
+预期最后一项为 `True`。
 
-再检查动态依赖：
+再做负向验证：不 source/remove external OPP 后启动同一 vLLM build，`available()` 必须为 False，目标层不得关闭 `reduce_results`，stock matmul + HCCL 正常工作。
 
-```bash
-python3 - <<'PY'
-import vllm_ascend.vllm_ascend_C as C
-print(C.__file__)
-PY
+## 5. 独立算子稳定性
 
-ldd /path/to/vllm_ascend_C*.so | grep -E 'mf_smem|mf310p'
-```
+correctness 后继续：
 
-## 4. 单层 correctness
-
-先跑默认 q=2：
-
-```bash
-torchrun --standalone --nproc-per-node=2 \
-  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
-  --batch-basem-count 2 \
-  --rows 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
-  --repeat 20
-```
-
-再补 q=1/4：
-
-```bash
-for q in 1 4; do
-  torchrun --standalone --nproc-per-node=2 \
-    benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
-    --batch-basem-count "$q" \
-    --rows 255 256 257 511 512 513 1024 2048 4096 \
-    --repeat 20
-done
-```
-
-检查：
-
-- 两 rank bit-exact；
-- 255/257、511/513 tail/boundary；
-- multiple batches/waves；
-- protocol status 始终 OK；
-- 无 hang/trap。
-
-失败后不要继续复用 worker。进程仍可响应时可读：
-
-```python
-torch.ops._C_ascend.memfabric_o_proj_debug_snapshot()
-```
-
-## 5. Protocol status
-
-```text
-1 READY_TIMEOUT
-2 SIGNAL_FAILED
-3 QUIET_FAILED
-4 WAIT_FAILED
-5 MAIL_MISMATCH
-6 CREDIT_MISMATCH
-7 ACK_FAILED
-```
-
-出现非 0 后保存双方日志并重启两个 TP worker。
-
-## 6. Long-run / coexistence
-
-correctness 通过后：
-
-- representative M repeat >=1000；
-- mixed-M；
+- representative M 重复 >=1000；
+- mixed M；
+- q=1/2/4 分别新进程验证；
+- diverged peer GVA；
 - >60s；
 - 10min；
-- destroy/recreate；
-- HCCL barrier/all_reduce 共存；
-- stream/device sync 行为。
+- HCCL barrier/all_reduce 共存。
 
-这些结论必须绑定当前 MemFabric/CANN/Driver/Firmware/代码 SHA。
+任一 protocol/device fault 后双方 worker 全部重启，不复用 poisoned runtime。
 
-## 7. Profiler / overlap
+## 6. Profiler / 性能 Gate
 
-```bash
-python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \
-  /path/to/task_time.csv \
-  --rows 8192 \
-  --batch-basem-count 2 \
-  --bandwidth-gbps 20
-```
-
-最终必须在 CANN timeline 直接确认：
+独立 benchmark 必须至少覆盖：
 
 ```text
-SDMA(batch n)   || MM(batch n+1)
-SDMA(batch n+1) || reduce(batch n)
+M=512,1024,2048,4096,6144,8192
 ```
 
-同时单独比较 cooperative producer 的 MM 时间与 stock `F.linear/aclnnMm`；
-P0 目标是 median 不劣于 stock 约 5%。
+基线：stock FP16 NZ linear + HCCL all-reduce。
 
-## 8. Qwen eager
+迁移前 v8 q=2 实测接受目标：
+
+```text
+M=2048 约持平
+M=4096 -17.0%
+M=6144 -24.2%
+M=8192 -22.2% (5.258ms vs 6.760ms)
+```
+
+这些是**迁移前基线**，不是新结构已通过的结果。
+
+CANN timeline 必须重新确认：
+
+```text
+producer(n+1) enqueue before wait/reduce(n)
+SDMA(n) || MM(n+1)
+```
+
+并确认 eager 路径没有重新出现每波 32KiB ready-cell memset。
+
+## 7. Qwen eager
 
 ```bash
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
-MODEL=/models/Qwen3.6-35B-A3B-w8a8
+MODEL=/home/models/Qwen3.6-35B-A3B-w8a8
 
 vllm serve "$MODEL" \
   --host 0.0.0.0 \
@@ -196,41 +159,42 @@ vllm serve "$MODEL" \
   --enforce-eager
 ```
 
-确认只有 full-attention o_proj 命中，linear-attention/GDN 不命中，且没有
-duplicate generic allreduce。
+检查：
 
-## 9. ACL Graph
+- 仅 full-attention `o_proj` 命中；
+- linear-attention/GDN 不命中；
+- `M < MIN_M` 走 stock + HCCL；
+- `M >= MIN_M` 走 external MC²；
+- 命中后没有 duplicate generic HCCL all-reduce；
+- feature/off 或 OPP unavailable 均安全 fallback。
 
-Eager 通过后再去掉 `--enforce-eager`。
+## 8. ACL Graph
 
-顺序：
+Eager 通过后去掉 `--enforce-eager`。顺序：
 
-1. eager/profile 完成 context/scratch/protocol/kernel warmup；
+1. eager/profile 先完成 external runtime context/scratch/protocol/kernel warmup；
 2. minimal fused-op capture/replay；
-3. repeated replay；
-4. 不同 graph bucket；
-5. Qwen ACL Graph；
-6. repeated requests。
+3. M=2048 repeated replay；
+4. M=8192 repeated replay；
+5. replay 后继续 eager；
+6. Qwen ACL Graph repeated requests。
 
-capture 内不允许 create/malloc/host barrier/lazy kernel warmup。
+capture 内不允许 external runtime 首次 create/malloc/host barrier/lazy warmup。
 
-## 10. 性能 A/B/C
+## 9. 最终实机 Gate
 
 ```text
-A: stock o_proj + HCCL
-B: ABI v6 7+1 baseline
-C: ABI v7 8-core batch pipeline
+custom OPP build
+-> install check
+-> q=2 correctness
+-> q=1/4
+-> repeated 1000
+-> standalone perf
+-> profiler
+-> vLLM OPP-missing fallback
+-> Qwen eager
+-> ACL Graph
+-> 10min
 ```
 
-记录 single-layer、local MM、TTFT、prefill tokens/s、TPOT/ITL、output tokens/s、
-peak memory、CANN timeline。
-
-不要把 v6 的历史性能数字写成 v7 结果。v7 的性能结论以当前 commit 实机 A/B/C
-为准。
-
-## 11. 已知外部约束
-
-- R6：偶发约 20s engine freeze 仍需 MemFabric/运行时侧继续定位；未解除前不能
-  判定生产可用。
-- R7：当前先使用 `ASCEND_RT_VISIBLE_DEVICES=0,1`；其它物理 device pair
-  待上游 deviceId 授权语义修复/确认后放开。
+只有全部通过并记录 CANN/Driver/Firmware、memfabric_hybrid SHA、operator SHA、vllm-ascend SHA 后，才判定独立迁移验收完成。
