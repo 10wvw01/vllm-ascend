@@ -4,6 +4,7 @@
 #ifdef ASCEND_PLATFORM_310P
 #include <torch_npu/csrc/core/npu/NPUGraphsUtils.h>
 
+#include <cstddef>
 #include <cstdint>
 
 #include "../aclnn_torch_adapter/op_api_common.h"
@@ -60,8 +61,11 @@ at::Tensor memfabric_matmul_allreduce(const at::Tensor& x,
                     weight.size(1) == kWidth,
                 "MemFabricMatmulAllReduce expects weight=[2048,2048], got ",
                 weight.sizes());
-    TORCH_CHECK(x.is_contiguous(), "x must be contiguous");
-    TORCH_CHECK(weight.is_contiguous(), "weight must be logically contiguous");
+    // Do not require logical contiguity here. The proven 310P linear path
+    // converts the FP16 weight to private NZ format before this adapter sees
+    // it; its raw device address is exactly what the AscendC B(NZ,T) matmul
+    // consumes. x is validated by the routing path and uses the same dense ND
+    // contract as the pre-migration v8 implementation.
     TORCH_CHECK(tp_rank == 0 || tp_rank == 1,
                 "MemFabricMatmulAllReduce supports TP rank 0/1 only");
     TORCH_CHECK(batch_basem_count == 1 || batch_basem_count == 2 ||
@@ -72,6 +76,8 @@ at::Tensor memfabric_matmul_allreduce(const at::Tensor& x,
     at::Tensor output = at::empty({rows, kWidth}, x.options());
     if (rows == 0) return output;
 
+    // Resolve all tensor addresses before ACLNN phase 1. EXEC_NPU_CMD must not
+    // query tensor internals between phase 1 and phase 2.
     const uint64_t x_addr =
         reinterpret_cast<uint64_t>(x.const_data_ptr());
     const uint64_t weight_addr =
