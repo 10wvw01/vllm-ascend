@@ -597,6 +597,21 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
             &scratch, scratch_bytes, ACL_MEM_MALLOC_HUGE_FIRST);
         TORCH_CHECK(malloc_ret == ACL_SUCCESS && scratch != nullptr,
                     "producer scratch aclrtMalloc failed, ret=", malloc_ret);
+        /*
+         * Zero the tail padding region exactly once, on the same stream as
+         * every later use. Tail batches below only overwrite their valid
+         * prefix; rows past valid_rows keep this zero (or stale rows from a
+         * previous, larger tail). Stale padded rows are computed and
+         * exchanged but never reduced: add_batch_async consumes exactly
+         * valid_rows rows, and matmul output rows depend only on their own
+         * input row, so garbage stays row-local. This removes the measured
+         * ~0.6 ms per-tail 2 MiB engine memset that dominated small-M
+         * latency now that every M takes the fused path.
+         */
+        const aclError zero_ret = aclrtMemsetAsync(
+            scratch, scratch_bytes, 0, scratch_bytes, stream);
+        TORCH_CHECK(zero_ret == ACL_SUCCESS,
+                    "producer scratch init zero failed, ret=", zero_ret);
         state.producer_scratch = reinterpret_cast<uint64_t>(scratch);
     }
 
@@ -683,15 +698,13 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
                     x_wave + static_cast<uint64_t>(batch) *
                                  state.batch_m * kMmArRowBytes;
                 if (valid_rows != state.batch_m) {
-                    const aclError memset_ret = aclrtMemsetAsync(
-                        reinterpret_cast<void*>(state.producer_scratch),
-                        scratch_bytes,
-                        0,
-                        scratch_bytes,
-                        stream);
-                    TORCH_CHECK(
-                        memset_ret == ACL_SUCCESS,
-                        "tail scratch memset failed, ret=", memset_ret);
+                    /*
+                     * Tail batch: copy only the valid rows into the
+                     * once-zeroed scratch (see the allocation-time zero).
+                     * No per-tail memset: padded rows keep zeros or stale
+                     * tail data, which is computed and exchanged but never
+                     * reduced into the output.
+                     */
                     const aclError copy_ret = aclrtMemcpyAsync(
                         reinterpret_cast<void*>(state.producer_scratch),
                         scratch_bytes,

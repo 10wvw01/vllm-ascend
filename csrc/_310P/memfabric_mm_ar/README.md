@@ -21,8 +21,8 @@
   `{batch_m/8, 2048, 2048}` basic `{batch_m/8, 256, 64}`, `CONFIG_NORM`
 - Producer blockDim: **8**
 - Communication batch: `batch_m = 256 * q`, `q in {1,2,4}`, default 2
-- Threshold: `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M`（默认 4096，其下走
-  stock matmul + HCCL all-reduce）
+- Threshold: **无 M 阈值**——启动选择融合路径后所有 M 均走融合；尾批补零到
+  `batch_m` 后仍走 8-core cooperative MM
 
 2 MiB 是 `q=2`、N=2048、FP16 时推导出的 batch payload，不是协议常量。
 
@@ -76,7 +76,11 @@ data `signal()` owner。wait/reduce 以 batch 为单位，credit 仍以 wave 为
    ~260µs 串行开销（dav-2002 profiler 时间线）；graph 捕获路径保持
    wave-invariant generation + 图内清零。
 7. arena 按 rows/内存预算定容，不随 batch payload 成正比放大。
-8. tail zero-pad 到完整 `batch_m` 后仍走 8-core cooperative MM。
+8. tail zero-pad 到完整 `batch_m` 后仍走 8-core cooperative MM；producer
+   scratch 仅在分配时清零一次，之后尾批只拷贝有效行——补零/陈旧行会被计算
+   和交换，但 `add_batch_async` 只读取 `valid_rows` 行，且 MM 输出行只依赖
+   自身输入行（garbage 行局部化），正确性不受影响。该优化消除了实测每尾批
+   ~0.6ms 的 2MiB 引擎 memset（全 M 融合后小 M 的主导开销）。
 9. eager 单 stream；Graph capture 前完成 context/scratch/protocol/kernel warmup。
 10. feature-off 不要求安装 MemFabric。
 

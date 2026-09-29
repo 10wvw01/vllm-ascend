@@ -4,20 +4,30 @@
 """310P3 TP=2 MemFabric fused matmul+allreduce (mm_ar) helpers.
 
 The fused path is intentionally narrow. It is only enabled for Qwen3.5/3.6
-MoE full-attention ``self_attn.o_proj`` layers that are *unquantized*
-(the real Qwen3.6-35B-A3B-w8a8 checkpoint keeps them FLOAT; owner decision A,
-2026-09-18) running with TP=2. All other layers keep the existing
-RowParallelLinear implementation. The checkpoint carries no torch_dtype, so
-vLLM runs it as FP16 on 310P (BF16 NZ linear is unsupported by this CANN
-anyway); the fused path therefore exchanges FP16 partial results.
+MoE layers whose RowParallelLinear matches the fused geometry contract:
+full-attention ``self_attn.o_proj`` and GDN (linear-attention)
+``linear_attn.out_proj``. Both are *unquantized* in the real
+Qwen3.6-35B-A3B-w8a8 checkpoint (kept FLOAT) and share the identical shape
+K_global=4096 / K_local=2048 / N=2048 at TP=2, so one ABI v7 kernel serves
+both. All other layers keep the existing RowParallelLinear implementation.
+The checkpoint carries no torch_dtype, so vLLM runs it as FP16 on 310P
+(BF16 NZ linear is unsupported by this CANN anyway); the fused path
+therefore exchanges FP16 partial results.
+
+There is no M threshold: once the fused path is selected at startup every
+M is fused. Tail batches are zero-padded to the fixed communication batch
+``batch_m``; the producer scratch is zeroed once at allocation and tail
+batches only copy their valid rows (padded rows are computed and exchanged
+but never reduced into the output).
 
 The fused op treats wgm-dev-310p MemFabric as an opaque public transport.
-One AICore block coordinates public ``signal()`` calls while seven workers
-compute interleaved FP16 mm chunks. Per chunk the dataflow is
-MM -> cache clean -> ready -> signal, allowing MM of later chunks to overlap
-SDMA of earlier chunks. Public ``quiet()/wait()`` joins the peer payload,
-a repo-owned FP16 add reduces the two TP partials, and a fixed FIFO credit
-protects arena reuse across waves and graph replays.
+All 8 AI cores cooperatively execute each batch MM; core0 becomes the sole
+data ``signal()`` owner after every core publishes a generation-tagged
+ready cell. Per batch the dataflow is MM -> cache clean -> ready -> signal,
+allowing MM of later batches to overlap SDMA of earlier batches. Public
+``wait()`` joins each peer batch payload, a repo-owned FP16 add reduces the
+two TP partials, and a fixed FIFO credit protects arena reuse across waves
+and graph replays.
 """
 
 from __future__ import annotations
@@ -87,10 +97,19 @@ def _target_text_config():
     return text_config
 
 
-def _is_full_attention_prefix(prefix: str, text_config) -> bool:
+_FUSED_LAYER_PREFIXES = {
+    # full-attention attn output projection
+    ".self_attn.o_proj": "full_attention",
+    # GDN (linear-attention) attn output projection
+    ".linear_attn.out_proj": "linear_attention",
+}
+
+
+def _is_fused_layer_prefix(prefix: str, text_config) -> bool:
     """Cross-check prefix against Qwen3.5/3.6's configured hybrid layer type."""
 
-    if not prefix.endswith(".self_attn.o_proj"):
+    suffix = next((s for s in _FUSED_LAYER_PREFIXES if prefix.endswith(s)), None)
+    if suffix is None:
         return False
 
     match = _LAYER_INDEX_RE.search(prefix)
@@ -101,7 +120,7 @@ def _is_full_attention_prefix(prefix: str, text_config) -> bool:
     layer_types = getattr(text_config, "layer_types", None)
     if layer_types is None or layer_idx >= len(layer_types):
         return False
-    return layer_types[layer_idx] == "full_attention"
+    return layer_types[layer_idx] == _FUSED_LAYER_PREFIXES[suffix]
 
 
 def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
@@ -115,7 +134,7 @@ def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
         return False
 
     prefix = getattr(layer, "prefix", "")
-    if not _is_full_attention_prefix(prefix, text_config):
+    if not _is_fused_layer_prefix(prefix, text_config):
         return False
 
     if getattr(layer, "tp_size", None) != _EXPECTED_TP_SIZE:
@@ -131,10 +150,11 @@ def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     if getattr(layer, "params_dtype", None) != torch.float16:
         return False
 
-    # Owner decision A (2026-09-18): the target checkpoint's full-attention
-    # o_proj is unquantized BF16, routed through the 310P unquantized linear
-    # method. Accept either that method or the MemFabric dispatch subclass of
-    # it (during quant-method routing quant_method may still be None).
+    # Owner decision A (2026-09-18): the target checkpoint's fused-eligible
+    # o_proj/out_proj layers are unquantized, routed through the 310P
+    # unquantized linear method. Accept either that method or the MemFabric
+    # dispatch subclass of it (during quant-method routing quant_method may
+    # still be None).
     quant_method = getattr(layer, "quant_method", None)
     if quant_method is not None:
         method_name = type(quant_method).__name__
@@ -339,7 +359,8 @@ def make_memfabric_mm_ar_linear_method():
         """Unquantized linear method that owns the eligible matmul + TP reduction.
 
         Selected by the 310P modelslim router for layers matching the
-        MemFabric o_proj prefix/geometry contract; configure-time checks in
+        MemFabric mm_ar prefix/geometry contract (full-attention o_proj and
+        GDN out_proj); configure-time checks in
         ``configure_memfabric_mm_ar`` remain the single eligibility source
         and can still reject this layer (leaving the stock behavior).
         """
@@ -356,17 +377,20 @@ def make_memfabric_mm_ar_linear_method():
         ) -> torch.Tensor:
             if is_memfabric_mm_ar_configured(layer):
                 if bias is not None:
-                    # Qwen o_proj is bias-free; a biased RowParallel o_proj
-                    # would need explicit rank0-only handling before fusion.
-                    raise RuntimeError("MemFabric mm_ar fusion does not support biased o_proj")
-                if memfabric_mm_ar_warmup_fallback_active() or x.shape[0] < envs.VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M:
-                    # Stock path (warmup dummy runs and small batches): the
-                    # fused path pays a fixed per-wave protocol cost plus
-                    # chunked-GEMM inefficiency that only amortizes on large
-                    # prefills, so rows below MIN_M take NZ matmul + HCCL
-                    # all-reduce. reduce_results was disabled by the routing,
-                    # so the stock path must be followed by the TP reduction
-                    # the fused op would have provided.
+                    # The fused-eligible o_proj/out_proj layers are
+                    # bias-free; a biased RowParallel layer would need
+                    # explicit rank0-only handling before fusion.
+                    raise RuntimeError("MemFabric mm_ar fusion does not support biased layers")
+                if memfabric_mm_ar_warmup_fallback_active():
+                    # Stock path (warmup dummy runs only): profile/warmup
+                    # dummy runs fall back to stock matmul + HCCL all-reduce
+                    # so the first fused call - and with it the MemFabric
+                    # pool - happens at the first real request.
+                    # reduce_results was disabled by the routing, so the
+                    # stock path must be followed by the TP reduction the
+                    # fused op would have provided. Real requests have no
+                    # M threshold: every M is fused (tail batches are
+                    # zero-padded to the communication batch).
                     from vllm.distributed import (
                         tensor_model_parallel_all_reduce,
                     )
@@ -375,6 +399,7 @@ def make_memfabric_mm_ar_linear_method():
                     return tensor_model_parallel_all_reduce(out)
                 from vllm.distributed import get_tensor_model_parallel_rank
 
+                x = x.contiguous()
                 return memfabric_mm_ar_allreduce(
                     layer=layer,
                     x=x,

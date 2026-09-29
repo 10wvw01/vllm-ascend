@@ -108,11 +108,12 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
         if isinstance(layer, LinearBase):
             packed = getattr(self, "packed_modules_mapping", {})
             if self.is_layer_skipped_ascend(prefix, packed):
-                # MemFabric o_proj dispatch (owner decision A, 2026-09-18):
-                # route the eligible unquantized BF16 full-attention o_proj
-                # to the fused matmul+TP-reduction method. The final
-                # eligibility check happens in configure_memfabric_mm_ar
-                # after weights load; a rejected layer behaves stock.
+                # MemFabric mm_ar dispatch (owner decision A, 2026-09-18):
+                # route the eligible unquantized o_proj (full attention) and
+                # out_proj (GDN) layers to the fused matmul+TP-reduction
+                # method. The final eligibility check happens in
+                # configure_memfabric_mm_ar after weights load; a rejected
+                # layer behaves stock.
                 from vllm_ascend._310p.ops.memfabric_mm_ar import (
                     should_enable_memfabric_mm_ar,
                 )

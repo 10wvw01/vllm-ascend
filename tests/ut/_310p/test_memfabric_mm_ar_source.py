@@ -60,15 +60,29 @@ def test_custom_310p_sources_are_isolated_under_marked_subproject() -> None:
 
 def test_eligibility_remains_deliberately_narrow() -> None:
     src = _src(_func(HELPER, "should_enable_memfabric_mm_ar"))
-    full_attn = _src(_func(HELPER, "_is_full_attention_prefix"))
+    module = HELPER.read_text()
+    fused_prefix = _src(_func(HELPER, "_is_fused_layer_prefix"))
     assert "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR" in src
-    assert "prefix.endswith('.self_attn.o_proj')" in full_attn
-    assert "layer_types[layer_idx] == 'full_attention'" in full_attn
+    # Both fused layer families: full-attention o_proj and GDN out_proj.
+    assert '".self_attn.o_proj": "full_attention"' in module
+    assert '".linear_attn.out_proj": "linear_attention"' in module
+    assert "layer_types[layer_idx] == _FUSED_LAYER_PREFIXES[suffix]" in fused_prefix
     assert "_EXPECTED_TP_SIZE" in src
     assert "_EXPECTED_INPUT_SIZE_PER_PARTITION" in src
     assert "_EXPECTED_OUTPUT_SIZE" in src
     assert "torch.float16" in src
     assert "AscendUnquantizedLinearMethod" in src
+
+
+def test_fused_route_has_no_m_threshold() -> None:
+    module = HELPER.read_text()
+    apply_src = module[module.index("def apply(") :]
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M" not in module
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M" not in ENVS.read_text()
+    # Once selected, every M is fused; only the opt-in warmup fallback keeps
+    # a stock detour for engine-init dummy runs.
+    assert "memfabric_mm_ar_warmup_fallback_active()" in apply_src
+    assert "x.shape[0] <" not in apply_src
 
 
 def test_python_plan_is_base_m_batch_based() -> None:
@@ -257,11 +271,23 @@ def test_runtime_arena_and_tail_are_batch_based_and_bounds_safe() -> None:
     assert "arena_rows = (arena_rows / batch_m) * batch_m" in src
     assert "state.layout.arena_rows" in impl
     assert "producer_scratch" in impl
-    assert "tail scratch memset failed" in impl
     assert "tail scratch copy failed" in impl
     assert "valid_rows" in impl
-    assert "tail slot pad memset failed" not in impl
     assert "VLLM_ASCEND_MF310P_MAX_CHUNKS" not in src
+
+
+def test_runtime_tail_scratch_is_zeroed_once_not_per_tail() -> None:
+    src = RUNTIME.read_text()
+    impl = src[src.index("memfabric_mm_ar_allreduce_impl") :]
+    producer = impl[impl.index("auto enqueue_producer") : impl.index("auto enqueue_wait_add")]
+    alloc = impl[impl.index("state.producer_scratch == 0") : impl.index("at::Tensor output")]
+    # One-time zero at allocation, on the same stream as every later use.
+    assert "aclrtMemsetAsync(" in alloc
+    assert "producer scratch init zero failed" in alloc
+    # The per-tail path copies only the valid rows; no per-tail memset.
+    assert "aclrtMemcpyAsync(" in producer
+    assert "aclrtMemsetAsync(" not in producer
+    assert "tail scratch memset failed" not in impl
 
 
 def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:

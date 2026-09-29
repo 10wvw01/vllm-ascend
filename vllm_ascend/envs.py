@@ -97,20 +97,14 @@ env_variables: dict[str, Callable[[], Any]] = {
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "2")
     ),
     # D2 workaround (validation aid, default off): during profile/warmup
-    # dummy runs the routed o_proj falls back to stock matmul + HCCL
-    # all-reduce, deferring MemFabric pool creation to the first real
+    # dummy runs the routed o_proj/out_proj falls back to stock matmul +
+    # HCCL all-reduce, deferring MemFabric pool creation to the first real
     # request. The 310P AICPU watchdog kills the SDMA orchestrator epoch
     # task 28s after pool creation (MemFabric self-limit arithmetic
     # assumes 22s), so eager-mode init must not create the pool.
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK", "0"))
     ),
-    # Minimum M (token rows) routed to the fused MemFabric o_proj path.
-    # Below this the layer uses the stock NZ matmul + HCCL all-reduce: the
-    # v7 keeps the conservative M=4096 route threshold inherited from the
-    # validated v6 baseline until cooperative-MM hardware measurements are
-    # collected. Range: 1 (always fused) to unlimited.
-    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M": lambda: int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M", "4096")),
     # Wave-level host-phase trace + device-duration outlier monitor (debug
     # aid, default off). C++ runtime prints one "[mf310p-trace]" line per
     # fused call; the Python wrapper additionally records NPU event pairs

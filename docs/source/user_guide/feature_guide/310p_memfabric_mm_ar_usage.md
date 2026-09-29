@@ -1,7 +1,9 @@
-# 310P3 Qwen3.6 o_proj + MemFabric ABI v7 使用与实机验证
+# 310P3 Qwen3.6 mm_ar + MemFabric ABI v7 使用与实机验证
 
 > 适用：Ascend 310P3 单卡双 die、TP=2、
-> `Eco-Tech/Qwen3.6-35B-A3B-w8a8` full-attention `self_attn.o_proj`。
+> `Eco-Tech/Qwen3.6-35B-A3B-w8a8` full-attention `self_attn.o_proj` 与
+> GDN (linear-attention) `linear_attn.out_proj`（两层形状合同一致：
+> K_global=4096 / K_local=2048 / N=2048，均未量化）。
 
 设计：[310p_memfabric_mm_ar.md](../../developer_guide/310p_memfabric_mm_ar.md)
 
@@ -52,8 +54,8 @@ export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
 # 合法值仅 1/2/4。
 export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT=2
 
-# v7 尚未重新实测 crossover，因此先保留 v6 已验证的保守路由阈值。
-export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M=4096
+# 无 M 阈值：启动选择融合路径后所有 M 均走融合（尾批补零到 batch_m，
+# producer scratch 仅分配时清零一次，尾批只拷贝有效行）。
 
 # 服务 bring-up 推荐：profile/dummy-run 先走 stock。
 export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK=1
@@ -95,13 +97,13 @@ ldd /path/to/vllm_ascend_C*.so | grep -E 'mf_smem|mf310p'
 
 ## 4. 单层 correctness
 
-先跑默认 q=2：
+先跑默认 q=2（含全 M 融合后的小 M 梯度与 tail/boundary）：
 
 ```bash
 torchrun --standalone --nproc-per-node=2 \
   benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
   --batch-basem-count 2 \
-  --rows 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
+  --rows 1 16 32 64 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
   --repeat 20
 ```
 
@@ -112,7 +114,7 @@ for q in 1 4; do
   torchrun --standalone --nproc-per-node=2 \
     benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
     --batch-basem-count "$q" \
-    --rows 255 256 257 511 512 513 1024 2048 4096 \
+    --rows 1 16 32 64 255 256 257 511 512 513 1024 2048 4096 \
     --repeat 20
 done
 ```
@@ -120,7 +122,7 @@ done
 检查：
 
 - 两 rank bit-exact；
-- 255/257、511/513 tail/boundary；
+- 1/16/32/64 小 M（尾批补零路径）与 255/257、511/513 tail/boundary；
 - multiple batches/waves；
 - protocol status 始终 OK；
 - 无 hang/trap。
@@ -196,8 +198,8 @@ vllm serve "$MODEL" \
   --enforce-eager
 ```
 
-确认只有 full-attention o_proj 命中，linear-attention/GDN 不命中，且没有
-duplicate generic allreduce。
+确认 full-attention o_proj（10 层）与 GDN linear_attn.out_proj（30 层）均
+命中，且没有 duplicate generic allreduce。
 
 ## 9. ACL Graph
 
