@@ -310,9 +310,120 @@ def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
 def test_env_exposes_batch_count_not_tile_size() -> None:
     src = ENVS.read_text()
     assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT" in src
-    assert '"2"' in src
+    assert '"1"' in src
     assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TILE_M" not in src
     assert "96 * 1024 * 1024" in src
+
+
+def test_env_exposes_small_m_path_kill_switch() -> None:
+    src = ENVS.read_text()
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH" in src
+    # Default on; "0" restores the padded batch pipeline for every M.
+    assert 'os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH", "1")' in src
+    # The runtime reads the switch directly in C++ (like the trace env), so
+    # the entry documents it for visibility rather than routing in Python.
+    runtime = RUNTIME.read_text()
+    assert '"VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH"' in runtime
+
+
+def test_device_nsplit_producer_uses_template_stair_and_column_slices() -> None:
+    src = DEVICE.read_text()
+    for template in (16, 32, 64, 128, 256):
+        assert f"MF310P_NSPLIT_TILING({template}, {template})" in src
+    nsplit = src[src.index("Mf310pNsplitProducerKernel") : src.index("mf310pWaitBatchKernel")]
+    # Shared staged A window, per-core 256-column B slice, contiguous
+    # [T, 256] C block per core: the whole slot stays one SDMA payload.
+    assert "MF310P_NSPLIT_SLICE_ELEMS * sizeof(float16_t)" in nsplit
+    assert "block) * T * MF310P_NSPLIT_N" in nsplit
+    assert "SetOrgShape(\n        T, MF310P_NSPLIT_N, MF310P_MM_AR_K" in nsplit
+    assert "mm.IterateAll(cGm)" in nsplit
+    assert "Mf310pCleanRegion(" in nsplit
+    # Core0 remains the sole signal owner after the 8-core ready rendezvous.
+    assert "Mf310pWaitReady(" in nsplit
+    assert "smem_shm_sdma_signal(" in nsplit
+    assert nsplit.index("Mf310pWriteReady(") < nsplit.index("smem_shm_sdma_signal(")
+    # All five template instantiations are distinct kernel symbols and the
+    # first launch of a symbol is a silent no-op: warmups must cover them all.
+    warmup = src[src.index("mf310p_device_warmup_nsplit_producer_async") :]
+    for template in (16, 32, 64, 128, 256):
+        assert f"MF310P_NSPLIT_WARMUP_CASE({template})" in warmup
+    assert "generation == 0" in src
+
+
+def test_device_blocked_add_reduces_exactly_valid_rows() -> None:
+    src = DEVICE.read_text()
+    blocked = src[src.index("mf310pAddBlockedKernel") : src.index("extern \"C\" int mf310p_device_launch_nsplit_producer_async")]
+    # out[m, n] = send[(n/256)*strideRows*256 + m*256 + (n%256)]: every
+    # 256-element segment is exactly one (row, N-block) pair, so it never
+    # straddles a 256-column block boundary of the blocked slot layout.
+    assert "nBlock) * strideRows * MF310P_NSPLIT_N" in blocked
+    assert "row * MF310P_NSPLIT_N" in blocked
+    assert "validRows) * outCols" in blocked
+    assert "MF310P_NSPLIT_N; /* 256 */" in blocked
+    # valid_rows == 0 is the side-effect-free warmup shape.
+    assert "valid_rows == 0" in src
+
+
+def test_adapter_builds_weight_slices_with_strided_copies() -> None:
+    src = ADAPTER.read_text()
+    build = src[src.index('extern "C" int mf310p_build_weight_slices') : src.index('extern "C" int mf310p_small_producer_async')]
+    assert "aclrtMemcpy2dAsync(" in build
+    # Full NZ [k_f=128][n_f=128][512B]; slice c = n_f fractals [16c, 16c+16):
+    # 8 KiB contiguous run per 64 KiB k_f row, re-laid out per core.
+    assert "kNzFullKfRowBytes" in src
+    assert "kNzSliceKfRowBytes" in src
+    assert "kWeightSliceBytes" in src
+    assert "kNsplitCores" in build
+    api = ADAPTER_API.read_text()
+    for fn in (
+        "mf310p_build_weight_slices",
+        "mf310p_small_producer_async",
+        "mf310p_wait_small_async",
+        "mf310p_add_small_async",
+        "mf310p_warmup_nsplit_producer_async",
+        "mf310p_warmup_add_blocked_async",
+    ):
+        assert fn in api
+
+
+def test_runtime_routes_small_m_before_batch_wave() -> None:
+    src = RUNTIME.read_text()
+    impl = src[src.index("memfabric_mm_ar_allreduce_impl") :]
+    assert "kSmallPathMaxM = 256" in src
+    assert "small_template_for" in src
+    assert "std::min<int64_t>(state.batch_m, kSmallPathMaxM)" in impl
+    small = impl[impl.index("const bool small_path") : impl.index("const int64_t max_rows_per_wave")]
+    # One serial wave: producer -> wait -> blocked add, then the shared
+    # quiet/ack credit handshake.
+    first = small.index("mf310p_small_producer_async(")
+    assert first < small.index("mf310p_wait_small_async(")
+    assert small.index("mf310p_wait_small_async(") < small.index("mf310p_add_small_async(")
+    assert small.index("mf310p_add_small_async(") < small.index("mf310p_quiet_async(")
+    assert small.index("mf310p_quiet_async(") < small.index("mf310p_ack_async(")
+    # Staging copies exactly the M valid rows into the once-zeroed scratch.
+    assert "small-path staging copy failed" in small
+    # Batch-0 mail with explicit template length through the existing wait
+    # kernel; generation contract matches the batch path (eager monotonic,
+    # captured wave-invariant 1).
+    assert "Wave-invariant batch-0 generation" in small
+    assert "state.wave_seq" in small
+
+
+def test_runtime_small_path_warmup_and_slice_cache_contracts() -> None:
+    src = RUNTIME.read_text()
+    assert "warm_small_locked" in src
+    # Any eager fused call warms the small-path symbols, so a later small
+    # capture never launches a cold symbol (whose first launch is a no-op).
+    eager = src[src.index("warm_producer_locked(state, stream);") : src.index("initialize_protocol_locked(state, stream);")]
+    assert "warm_small_locked(state, stream);" in eager
+    assert "(!small_path_enabled() || state.small_warmed)" in src
+    # Slices are built eagerly before capture and cached per weight pointer.
+    assert "ensure_weight_slices_locked" in src
+    assert "must be built by eager" in src
+    assert "kMaxWeightSliceEntries" in src
+    assert "WeightSlicesEntry" in src
+    # The entries are freed at shutdown alongside the producer scratch.
+    assert "state.weight_slices.clear();" in src
 
 
 def test_build_consumes_current_memfabric_public_package() -> None:
