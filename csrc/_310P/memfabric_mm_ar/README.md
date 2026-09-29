@@ -20,11 +20,18 @@
   classic AscendC Matmul is single-core semantics), per-block tiling
   `{batch_m/8, 2048, 2048}` basic `{batch_m/8, 256, 64}`, `CONFIG_NORM`
 - Producer blockDim: **8**
-- Communication batch: `batch_m = 256 * q`, `q in {1,2,4}`, default 2
-- Threshold: **无 M 阈值**——启动选择融合路径后所有 M 均走融合；尾批补零到
-  `batch_m` 后仍走 8-core cooperative MM
+- Communication batch: `batch_m = 256 * q`, `q in {1,2,4}`, default 1
+- Threshold: **无 M 阈值**——启动选择融合路径后所有 M 均走融合
+- Small-M exact path（默认开启，`VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH=0`
+  可关回补零批流水）：`M < min(batch_m, 256)` 时跳过补零批，改走单波 N-split
+  串行路径——8 核各自持有 256 列 NZ 权重切片（每层一次性 8 MiB strided
+  re-layout，按权重指针缓存），模板阶梯 T∈{16,32,64,128,256} 覆盖 M，
+  blocked slot 布局 `[8][T][256]` 保证 batch0 槽内 T*2048*2 字节连续、
+  单条 SDMA signal；wait 内核经既有 `batchBytes` 入参复用，add 改为
+  256 元素段（每段恰为一行×一个 N 块）的非阻塞寻址。行 [M,T) 的 staged
+  零/陈旧数据被计算和交换但从不 reduce（行局部化，同尾批论证）。
 
-2 MiB 是 `q=2`、N=2048、FP16 时推导出的 batch payload，不是协议常量。
+1 MiB 是 `q=1`、N=2048、FP16 时推导出的 batch payload，不是协议常量。
 
 ## 数据流
 
@@ -81,8 +88,13 @@ data `signal()` owner。wait/reduce 以 batch 为单位，credit 仍以 wave 为
    和交换，但 `add_batch_async` 只读取 `valid_rows` 行，且 MM 输出行只依赖
    自身输入行（garbage 行局部化），正确性不受影响。该优化消除了实测每尾批
    ~0.6ms 的 2MiB 引擎 memset（全 M 融合后小 M 的主导开销）。
-9. eager 单 stream；Graph capture 前完成 context/scratch/protocol/kernel warmup。
-10. feature-off 不要求安装 MemFabric。
+9. small-M N-split 路径与尾批共用 producer scratch（同 stream 串行，无并发）；
+   权重切片在首个 eager 融合调用按需构建（8×`aclrtMemcpy2dAsync`，同 stream
+   排序、无额外同步），graph 捕获前必须已由 eager warmup 构建；切片缓存按
+   权重指针不淘汰（权重进程生命周期稳定），上限 64 条（~512 MiB）防病态调用。
+10. eager 单 stream；Graph capture 前完成 context/scratch/protocol/kernel warmup
+    （含全部 5 个 N-split 模板符号与 blocked add——首启 no-op 规则）。
+11. feature-off 不要求安装 MemFabric。
 
 cache visibility 为 ownership-scoped：每个 core 在 cooperative MM 结束后只
 clean 自己写入的连续 C 行（dav-2002 实测）。

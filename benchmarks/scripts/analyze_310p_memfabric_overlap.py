@@ -9,7 +9,7 @@ acceptance must still inspect the CANN timeline.
 
 Usage:
   python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py task_time.csv \
-      --rows 8192 --batch-basem-count 2 --bandwidth-gbps 20
+      --rows 8192 --batch-basem-count 1 --bandwidth-gbps 20
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("csv")
     ap.add_argument("--rows", type=int, default=8192)
-    ap.add_argument("--batch-basem-count", type=int, choices=(1, 2, 4), default=2)
+    ap.add_argument("--batch-basem-count", type=int, choices=(1, 2, 4), default=1)
     ap.add_argument("--arena-rows", type=int, default=8192)
     ap.add_argument("--bandwidth-gbps", type=float, default=20.0)
     args = ap.parse_args()

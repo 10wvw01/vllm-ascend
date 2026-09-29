@@ -50,9 +50,15 @@ export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
 # 默认即 96 MiB；arena 由预算推导，上限 8192 rows。
 export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
 
-# q=2 -> baseM=256, batch_m=512, 当前形状下 batch payload=2 MiB。
-# 合法值仅 1/2/4。
-export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT=2
+# q=1 -> baseM=256, batch_m=256, 当前形状下 batch payload=1 MiB，
+# 且 M∈[256,512) 免尾批补零。合法值仅 1/2/4。
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT=1
+
+# Small-M exact path（默认开启）：M < min(batch_m, 256) 跳过补零批，
+# 走 N-split 串行波（每层一次性 8 MiB 权重列切片 re-layout，
+# Qwen3.6-35B 的 40 个 mm_ar 层合计 ~320 MiB 常驻）。
+# 置 0 恢复所有 M 走补零批流水。
+# export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH=1
 
 # 无 M 阈值：启动选择融合路径后所有 M 均走融合（尾批补零到 batch_m，
 # producer scratch 仅分配时清零一次，尾批只拷贝有效行）。
@@ -97,24 +103,24 @@ ldd /path/to/vllm_ascend_C*.so | grep -E 'mf_smem|mf310p'
 
 ## 4. 单层 correctness
 
-先跑默认 q=2（含全 M 融合后的小 M 梯度与 tail/boundary）：
+先跑默认 q=1（含 small-M N-split 路径的模板阶梯边界与 tail/boundary）：
 
 ```bash
 torchrun --standalone --nproc-per-node=2 \
   benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
-  --batch-basem-count 2 \
-  --rows 1 16 32 64 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
+  --batch-basem-count 1 \
+  --rows 1 10 16 17 32 33 64 128 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
   --repeat 20
 ```
 
-再补 q=1/4：
+再补 q=2/4：
 
 ```bash
-for q in 1 4; do
+for q in 2 4; do
   torchrun --standalone --nproc-per-node=2 \
     benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
     --batch-basem-count "$q" \
-    --rows 1 16 32 64 255 256 257 511 512 513 1024 2048 4096 \
+    --rows 1 10 16 17 32 33 64 128 255 256 257 511 512 513 1024 2048 4096 \
     --repeat 20
 done
 ```
@@ -122,7 +128,8 @@ done
 检查：
 
 - 两 rank bit-exact；
-- 1/16/32/64 小 M（尾批补零路径）与 255/257、511/513 tail/boundary；
+- 1/10/16/17/32/33/64/128（small-M N-split 路径，T 阶梯跨界 16→17、
+  32→33）与 255/257、511/513 tail/boundary；
 - multiple batches/waves；
 - protocol status 始终 OK；
 - 无 hang/trap。
@@ -167,7 +174,7 @@ correctness 通过后：
 python3 benchmarks/scripts/analyze_310p_memfabric_overlap.py \
   /path/to/task_time.csv \
   --rows 8192 \
-  --batch-basem-count 2 \
+  --batch-basem-count 1 \
   --bandwidth-gbps 20
 ```
 

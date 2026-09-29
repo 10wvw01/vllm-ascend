@@ -70,7 +70,10 @@ def main() -> None:
         "--rows",
         type=int,
         nargs="+",
-        default=[255, 256, 257, 511, 512, 513, 1024, 2048, 4096, 6144, 8192],
+        default=[
+            1, 10, 16, 17, 32, 33, 64, 128, 255, 256, 257,
+            511, 512, 513, 1024, 2048, 4096, 6144, 8192,
+        ],
     )
     parser.add_argument(
         "--batch-basem-count",
@@ -79,7 +82,7 @@ def main() -> None:
         default=int(
             os.getenv(
                 "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT",
-                "2",
+                "1",
             )
         ),
         help="ABI v7 communication batch multiplier q over baseM=256.",

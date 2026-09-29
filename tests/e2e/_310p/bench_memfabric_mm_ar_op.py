@@ -60,7 +60,7 @@ def main() -> None:
         "--batch-basem-count",
         type=int,
         choices=(1, 2, 4),
-        default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "2")),
+        default=int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "1")),
     )
     parser.add_argument("--iters", type=int, default=60)
     parser.add_argument("--rounds", type=int, default=3)

@@ -178,3 +178,31 @@ arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装�
   仍须 graph 模式
 - R4: graph capture sizes 若含 (batch_m, B) 之外的自定义值，捕获前需保证
   分支判定与 replay M 一致（vllm capture size 机制已保证，测试覆盖即可）
+
+## 10. 实施状态（2026-09-30）
+
+定标结论（详见第 3 节）后**跳过 Phase 1 直接实施 Phase 2 N-split**，
+且不做满 AB 槽 tiling（定标实测 baseN=16/baseK=1024 更差，90/241µs，弃用）：
+
+- **已实现**（源码 + feature-on 编译通过 + 27 项 UT 源码守卫全绿）：
+  - `memfabric310p_device.asc`：`MF310P_NSPLIT_TILING(16/32/64/128/256)`
+    模板、`Mf310pNsplitProducerKernel`（8 核全活、共享 staging A、每核
+    1 MiB 列切片、blocked slot `[8][T][256]`、core0 唯一 signal owner）、
+    `mf310pAddBlockedKernel`（256 元素段非阻塞寻址，每段恰为一行×一个
+    N 块）、全套 launcher + 首启 no-op warmup 入口
+  - adapter：`mf310p_build_weight_slices`（8×`aclrtMemcpy2dAsync` strided
+    重排，NZ 模型 [k_f=128][n_f=128][512B]，slice c=n_f∈[16c,16c+16)）及
+    small producer/wait（显式长度复用既有 wait 内核）/add-blocked/warmup ABI
+  - runtime：路由 `M < min(batch_m, 256)` 且
+    `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH`（默认开）；staging 复用
+    producer scratch；串行链 copy→prepare→gate→producer→wait→add→quiet→ack；
+    权重切片按指针缓存（上限 64 条）；任何 eager 融合调用预热全部 5 个模板
+    符号 + blocked add；`BATCH_BASEM_COUNT` 默认 2→1（决策 D2）
+- **待实机验证**：bit-exact 全 M 矩阵（同时验证 NZ 切片布局模型——若错则
+  翻转 k_f/n_f 解释重写 memcpy2d 参数）、算子级性能（M 梯度 vs stock）、
+  e2e 四组合、UT/文档随测更新
+- **设备阻塞（2026-09-30 01:46 发现）**：卡 5664 AICPU OS 的 KFC
+  `system()` 通道 wedge（`echo hello` 亦失败，ret=-1 fork 失败；对照历史
+  正常期为 ret=256=命令退出码），`smem_shm_create` 阶段即失败，与本次代码
+  无关（上次成功建池 09-29 07:34，期间无设备活动）。容器内无法执行
+  `npu-smi set -t device-reset`，需宿主机侧对 5664 复位后恢复验证。
