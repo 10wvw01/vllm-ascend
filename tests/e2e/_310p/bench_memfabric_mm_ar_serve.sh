@@ -75,7 +75,10 @@ for combo in "${COMBOS[@]}"; do
     fi
 
     echo "[$(date +%H:%M:%S)] starting $TAG server (log: $LOG)"
-    vllm serve "$MODEL" \
+    # setsid: non-interactive bash does not put background jobs into their own
+    # process group, so an explicit session is required for the later
+    # group-wide TERM/KILL to reach EngineCore/Worker children.
+    setsid vllm serve "$MODEL" \
         --host 127.0.0.1 --port "$PORT" --tensor-parallel-size 2 \
         --quantization ascend --served-model-name qwen3.6-35b-a3b-w8a8 \
         --trust-remote-code --dtype float16 --max-num-seqs 16 \
@@ -101,7 +104,10 @@ for combo in "${COMBOS[@]}"; do
     echo "[$(date +%H:%M:%S)] $TAG healthy; enabled layers: $(grep -c 'Enable 310P3 TP=2 MemFabric unquantized mm_ar' "$LOG" || true)"
 
     for rep in $(seq 1 "$REPEAT"); do
-        vllm bench serve --model qwen3.6-35b-a3b-w8a8 \
+        # Pin the tokenizer to the local model path (no network access) and
+        # keep the benchmark fully offline.
+        HF_HUB_OFFLINE=1 vllm bench serve --model qwen3.6-35b-a3b-w8a8 \
+            --tokenizer "$MODEL" \
             --base-url "http://127.0.0.1:${PORT}" \
             --dataset-name random --random-input-len "$INPUT_LEN" \
             --random-output-len "$OUTPUT_LEN" \
