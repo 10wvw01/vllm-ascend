@@ -91,10 +91,20 @@ env_variables: dict[str, Callable[[], Any]] = {
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(96 * 1024 * 1024))
     ),
     # Communication/reduction batch is an integer multiple of native
-    # baseM=256. Legal values are 1/2/4; q=2 derives batch_m=512 and a 2 MiB
-    # FP16 payload for N=2048. 2 MiB is not a protocol constant.
+    # baseM=256. Legal values are 1/2/4; q=1 derives batch_m=256 and a 1 MiB
+    # FP16 payload for N=2048 (q=1 also lets M in [256, 512) avoid the
+    # padded tail batch). The payload size is not a protocol constant.
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "2")
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "1")
+    ),
+    # Small-M exact path (default on): M < min(batch_m, 256) skips the padded
+    # batch pipeline and runs one serial N-split wave - eight per-core
+    # 256-column NZ weight slices (one-time 8 MiB re-layout per layer,
+    # ~320 MiB for the 40 mm_ar layers of Qwen3.6-35B-A3B) with the
+    # {16,32,64,128,256} template stair. "0" restores the padded batch
+    # pipeline for every M. Read by the C++ runtime directly.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH", "1"))
     ),
     # D2 workaround (validation aid, default off): during profile/warmup
     # dummy runs the routed o_proj/out_proj falls back to stock matmul +

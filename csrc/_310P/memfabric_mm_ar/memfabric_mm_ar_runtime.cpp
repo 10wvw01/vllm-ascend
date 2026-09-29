@@ -52,6 +52,37 @@ constexpr uint64_t kMmArRowBytes =
 constexpr uint64_t kDefaultLocalPoolBytes = 96ULL * 1024ULL * 1024ULL;
 constexpr uint64_t kPoolHeadroomBytes = 1ULL * 1024ULL * 1024ULL;
 constexpr const char* kDefaultStoreUrl = "tcp://127.0.0.1:8581";
+/*
+ * Small-M exact path ceiling: M below min(batch_m, this) skips the padded
+ * 256-row batch pipeline entirely and runs the N-split serial wave (eight
+ * per-core 256-column weight slices, template stair {16,32,64,128,256}).
+ */
+constexpr int64_t kSmallPathMaxM = 256;
+constexpr uint64_t kWeightSlicesBytes = 8ULL * 1024ULL * 1024ULL;
+constexpr size_t kMaxWeightSliceEntries = 64;
+
+/*
+ * Kill switch for the small-M N-split path (default on). "0" restores the
+ * padded batch pipeline for every M.
+ */
+bool small_path_enabled()
+{
+    static const bool enabled = [] {
+        const char* v =
+            std::getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH");
+        return v == nullptr || *v == '\0' || *v != '0';
+    }();
+    return enabled;
+}
+
+uint32_t small_template_for(int64_t rows)
+{
+    if (rows <= 16) return 16;
+    if (rows <= 32) return 32;
+    if (rows <= 64) return 64;
+    if (rows <= 128) return 128;
+    return 256;
+}
 
 uint64_t parse_u64_env(const char* name, uint64_t fallback)
 {
@@ -115,6 +146,18 @@ void trace_wave(
 
 struct RuntimeState;
 
+/*
+ * Per-weight N-split slice cache: the [2048, 2048] NZ weight re-laid out as
+ * eight contiguous per-core [256, 2048] NZ column slices. Weights are
+ * process-lifetime in serving, so entries are keyed by device pointer and
+ * never evicted; the entry cap bounds pathological callers (falling back to
+ * the batch pipeline once exceeded).
+ */
+struct WeightSlicesEntry {
+    uint64_t weight_ptr;
+    uint64_t slices;
+};
+
 struct RuntimeState {
     std::mutex mutex;
     mf310p_context_t* ctx = nullptr;
@@ -125,9 +168,11 @@ struct RuntimeState {
     bool poisoned = false;
     std::string failure_reason;
     uint64_t producer_scratch = 0; /* device VA, batch_m*2048*2 bytes */
+    std::vector<WeightSlicesEntry> weight_slices;
     bool producer_warmed = false;
     bool waiter_warmed = false;
     bool add_warmed = false;
+    bool small_warmed = false;
     bool protocol_warmed = false;
     bool protocol_initialized = false;
     aclrtStream eager_stream = nullptr;
@@ -281,10 +326,87 @@ void warm_producer_locked(RuntimeState& state, aclrtStream stream)
     state.producer_warmed = true;
 }
 
+/*
+ * Warm the small-path kernel symbols. Every N-split template instantiation
+ * is a distinct symbol with the silent-no-op first-launch property, so any
+ * eager fused call (small or batch) must warm all five templates plus the
+ * blocked add before a later small wave - eager or captured - can run.
+ */
+void warm_small_locked(RuntimeState& state, aclrtStream stream)
+{
+    if (state.small_warmed) return;
+    if (small_path_enabled()) {
+        for (int i = 0; i < 2; ++i) {
+            const int ret = mf310p_warmup_nsplit_producer_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_warmup_nsplit_producer_async failed with "
+                        "ret=",
+                        ret);
+        }
+        for (int i = 0; i < 2; ++i) {
+            const int ret = mf310p_warmup_add_blocked_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_warmup_add_blocked_async failed with ret=",
+                        ret);
+        }
+        const aclError sync_ret = aclrtSynchronizeStream(stream);
+        TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                    "small-path warmup sync failed, ret=", sync_ret);
+    }
+    state.small_warmed = true;
+}
+
+/*
+ * Find (or lazily build once per weight) the eight per-core NZ column
+ * slices. The build is eight strided device-to-device copies enqueued on
+ * the caller's stream, so it is ordered before the producer launch without
+ * any extra synchronization. Graph capture must never build slices: the
+ * eager warmup iterations before capture_begin do it (same contract as the
+ * producer scratch).
+ */
+uint64_t ensure_weight_slices_locked(
+    RuntimeState& state,
+    uint64_t weight_ptr,
+    aclrtStream stream,
+    bool capturing)
+{
+    for (const auto& entry : state.weight_slices) {
+        if (entry.weight_ptr == weight_ptr) {
+            return entry.slices;
+        }
+    }
+    TORCH_CHECK(
+        !capturing,
+        "310P MemFabric small-path weight slices must be built by eager "
+        "warmup before ACL Graph capture.");
+    TORCH_CHECK(
+        state.weight_slices.size() < kMaxWeightSliceEntries,
+        "310P MemFabric small-path weight slice cache is full (",
+        kMaxWeightSliceEntries,
+        " entries, ", kMaxWeightSliceEntries * kWeightSlicesBytes / (1024 * 1024),
+        " MiB). Set VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH=0 to fall "
+        "back to the batch pipeline.");
+
+    void* slices = nullptr;
+    const aclError malloc_ret = aclrtMalloc(
+        &slices, kWeightSlicesBytes, ACL_MEM_MALLOC_HUGE_FIRST);
+    TORCH_CHECK(malloc_ret == ACL_SUCCESS && slices != nullptr,
+                "weight slices aclrtMalloc failed, ret=", malloc_ret);
+    const int build_ret = mf310p_build_weight_slices(
+        state.ctx, weight_ptr, reinterpret_cast<uint64_t>(slices),
+        reinterpret_cast<void*>(stream));
+    TORCH_CHECK(build_ret == 0,
+                "mf310p_build_weight_slices failed with ret=", build_ret);
+    state.weight_slices.push_back({weight_ptr,
+                                   reinterpret_cast<uint64_t>(slices)});
+    return reinterpret_cast<uint64_t>(slices);
+}
+
 void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.waiter_warmed) return;
-
     for (int i = 0; i < 2; ++i) {
         const int ret = mf310p_warmup_waiter_async(
             state.ctx, reinterpret_cast<void*>(stream));
@@ -360,6 +482,7 @@ void require_capture_ready_locked(const RuntimeState& state)
         state.ctx != nullptr && state.protocol_initialized &&
             state.producer_scratch != 0 && state.producer_warmed &&
             state.waiter_warmed && state.add_warmed &&
+            (!small_path_enabled() || state.small_warmed) &&
             state.protocol_warmed,
         "310P MemFabric mm_ar entered ACL Graph capture before runtime "
         "initialization/warmup completed. Run the normal eager warmup/profile "
@@ -466,6 +589,10 @@ void memfabric_mm_ar_shutdown()
         (void)aclrtFree(reinterpret_cast<void*>(state.producer_scratch));
         state.producer_scratch = 0;
     }
+    for (const auto& entry : state.weight_slices) {
+        (void)aclrtFree(reinterpret_cast<void*>(entry.slices));
+    }
+    state.weight_slices.clear();
     const int destroy_ret = mf310p_destroy(state.ctx);
     if (destroy_ret != 0) {
         std::fprintf(stderr, "[mf310p] mf310p_destroy ret=%d\n", destroy_ret);
@@ -477,6 +604,7 @@ void memfabric_mm_ar_shutdown()
     state.protocol_warmed = false;
     state.waiter_warmed = false;
     state.add_warmed = false;
+    state.small_warmed = false;
     state.producer_warmed = false;
     state.batch_basem_count = 0;
     state.batch_m = 0;
@@ -624,7 +752,118 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
         require_capture_ready_locked(state);
     } else {
         warm_producer_locked(state, stream);
+        warm_small_locked(state, stream);
         initialize_protocol_locked(state, stream);
+    }
+
+    /*
+     * Small-M exact path: M < min(batch_m, 256) skips the padded batch
+     * pipeline and runs one serial N-split wave against the per-weight
+     * column slices. Routing is identical for eager and captured waves: the
+     * template/length/generation are all derived from M, which graph
+     * captures keep fixed per captured graph.
+     */
+    const bool small_path = small_path_enabled() &&
+        num_tokens < std::min<int64_t>(state.batch_m, kSmallPathMaxM);
+    if (small_path) {
+        try {
+            const bool small_trace = trace_enabled();
+            const int64_t t_enqueue0 = small_trace ? trace_now_us() : 0;
+            const uint32_t valid_rows = static_cast<uint32_t>(num_tokens);
+            const uint32_t t_rows = small_template_for(num_tokens);
+
+            int ret = mf310p_prepare_wave_async(
+                state.ctx, capturing ? 1u : 0u,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_prepare_wave_async failed with ret=", ret);
+            ret = mf310p_gate_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_gate_async failed with ret=", ret);
+
+            const uint64_t slices = ensure_weight_slices_locked(
+                state, weight_ptr, stream, capturing);
+
+            /*
+             * Stage exactly the M valid rows into the once-zeroed scratch
+             * shared with the batch tail path (same stream, never
+             * concurrent). Rows [M, T) keep zeros/stale data: computed and
+             * exchanged but never reduced by the blocked add.
+             */
+            const aclError copy_ret = aclrtMemcpyAsync(
+                reinterpret_cast<void*>(state.producer_scratch),
+                scratch_bytes,
+                x.const_data_ptr(),
+                static_cast<uint64_t>(valid_rows) * kMmArRowBytes,
+                ACL_MEMCPY_DEVICE_TO_DEVICE,
+                stream);
+            TORCH_CHECK(copy_ret == ACL_SUCCESS,
+                        "small-path staging copy failed, ret=", copy_ret);
+
+            uint32_t generation = 0;
+            if (!capturing) {
+                ++state.wave_seq;
+                if (state.wave_seq < kEagerGenerationBase ||
+                    state.wave_seq == 0u) {
+                    state.wave_seq = kEagerGenerationBase;
+                }
+                generation = state.wave_seq;
+            } else {
+                /* Wave-invariant batch-0 generation, cleared in-stream. */
+                generation = 1;
+            }
+
+            ret = mf310p_small_producer_async(
+                state.ctx,
+                state.producer_scratch,
+                slices,
+                valid_rows,
+                t_rows,
+                generation,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(
+                ret == 0,
+                "mf310p_small_producer_async failed with ret=", ret);
+            ret = mf310p_wait_small_async(
+                state.ctx, t_rows, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(
+                ret == 0, "mf310p_wait_small_async failed with ret=", ret);
+            ret = mf310p_add_small_async(
+                state.ctx,
+                reinterpret_cast<uint64_t>(output.mutable_data_ptr()),
+                valid_rows,
+                t_rows,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(
+                ret == 0, "mf310p_add_small_async failed with ret=", ret);
+            ret = mf310p_quiet_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_quiet_async failed with ret=", ret);
+            ret = mf310p_ack_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
+
+            if (small_trace) {
+                trace_wave(
+                    state.tp_rank,
+                    num_tokens,
+                    0 /* batches=0 marks the small N-split wave */,
+                    0,
+                    0,
+                    0,
+                    trace_now_us() - t_enqueue0,
+                    0);
+            }
+        } catch (const std::exception& exc) {
+            state.poisoned = true;
+            if (state.failure_reason.empty()) {
+                state.failure_reason = exc.what();
+            }
+            throw;
+        }
+        return output;
     }
 
     const int64_t max_rows_per_wave = state.layout.arena_rows;
