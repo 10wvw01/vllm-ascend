@@ -185,9 +185,10 @@ def configure_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     # RowParallelLinear must not launch its HCCL all-reduce afterwards.
     layer.reduce_results = False
     plan = get_memfabric_mm_ar_plan()
-    logger.info_once(
-        "Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 "
+    logger.info(
+        "Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 for %s "
         "(base_m=%d, batch_basem_count=%d, batch_m=%d, batch_bytes=%d).",
+        getattr(layer, "prefix", "<unknown>"),
         plan.base_m,
         plan.batch_basem_count,
         plan.batch_m,
