@@ -234,5 +234,10 @@ peak memory、CANN timeline。
 
 - R6：偶发约 20s engine freeze 仍需 MemFabric/运行时侧继续定位；未解除前不能
   判定生产可用。
+- **全 M 融合后 eager 长负载致命崩溃（2026-09-29 实测 2/2）**：连续 eager 融合
+  负载 >~10min 会触发上游 epoch/aicpu 交互停摆并升级为 aicore 507014 超时
+  崩溃（MIN_M 阈值时代 decode 走 stock 有喘息窗口，仅为 ~20s 可恢复冻结）。
+  **融合长负载必须使用 graph 模式**（`FULL_DECODE_ONLY`，实测 3/3 完整跑完
+  零 507014）；eager 融合仅限 <10min 连续负载窗口。
 - R7：当前先使用 `ASCEND_RT_VISIBLE_DEVICES=0,1`；其它物理 device pair
   待上游 deviceId 授权语义修复/确认后放开。

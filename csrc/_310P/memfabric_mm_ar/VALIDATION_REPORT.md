@@ -157,3 +157,92 @@ MemFabric 池存活前后 HCCL allreduce（fp16 [1/8/64,2048]）中位延迟 0.2
 - memfabric_hybrid `wgm-dev-310p` @ 8e24b56b（signed-off: 10wvw01）
 - 工具: /tmp/opencode/{ensure_kernel.sh, v7_env.sh, run_layer.sh, v7_profile.py, stock_profile.py, gate7_graph.py, hccl_coexist.py, ab_headtohead.py, ab_serve.sh, ab_capture.py, ab_compare.py, bench_ab.py, patch_tiling.py}
 - 证据: /tmp/opencode/{v7_correct_q*.log, v7_final_*.log, v7_soak_*.log, v7_prof_*.log/csv, gate7_m*.log, hccl_coexist.log, ab_*.csv, ab_*out*.json, ab_*serve*.log}
+
+---
+
+# 第二轮（2026-09-29）：memfabric_mm_ar 更名 + GDN out_proj 融合 + 全 M 融合
+
+日期: 2026-09-29 | 联调: w00804146 (10wvw01) | 提交: 932c9962 → 4806765d → 0001297f → ce48334e
+
+## R1. 本轮变更与环境
+
+| 项 | 值 |
+|---|---|
+| 变更 | ① 彻底更名 custom_memfabric_o_proj → memfabric_mm_ar（目录/文件/torch ops/Python 模块/环境变量/编译宏/文档/UT）；② GDN `linear_attn.out_proj`（30 层）纳入融合（形状合同与 o_proj 一致: K_local=2048, N=2048, TP=2, 未量化 FLOAT，内核零改动复用）；③ 移除 MIN_M 阈值——选融合即全 M 融合；④ 尾批优化: producer scratch 分配时一次性清零，尾批只拷贝有效行（消除每尾批 ~0.6ms 的 2MiB 引擎 memset） |
+| 环境 | CANN 9.1.0 / torch 2.10.0+npu / vllm 0.27.1 (source /vllm-workspace/vllm)；卡 5664 dev0/dev1，ASCEND_RT_VISIBLE_DEVICES=0,1 |
+| MemFabric | 运行包 1.2.0（wgm-dev-310p @ ba6fd50b，**KVER=10**，设备侧 v10 内核已部署）；serve 显式 MF_SDMA_ORCH_JSON |
+| 模型 | Qwen3.6-35B-A3B-w8a8（40 层 = 10 full-attn o_proj + 30 GDN out_proj，均 FLOAT 未量化） |
+
+## R2. 正确性（全部 bit-exact，atol=rtol=0）
+
+| 项 | 结果 |
+|---|---|
+| 层级全 M 矩阵（q=2: 1/16/32/64/255/256/257/511/512/513/1024/2048/4096/6144/8192；q=1/4: 1..4096） | **ALL PASS**（M=1 稳态 0.53ms，尾批优化生效） |
+| serve 路由 | fused 日志使能 **10 o_proj + 30 out_proj**（跨 rank 去重），`reduce_results` 关闭正确 |
+| serve greedy（eager + FULL_DECODE_ONLY graph） | 确定性 prompt（4 短 + [64]×4095 长）+ 并发 10 批量 decode 全部与 stock **完全一致**（2/2 PASSED） |
+| 大 prompt 基线非确定性 | 自然语言 ~4k prompt 在 stock 服务器自身跨运行即发散（两个 attractor 互换，eager/graph 交叉复现）→ 精确对比必须用重复 token-id prompt；负对照结论沿用首轮 |
+
+## R3. 算子级性能（同进程交替计时取中位；stock = NZ matmul + HCCL allreduce）
+
+fused 相对 stock 耗时变化（负 = fused 更慢；M≤64 为 decode 区、4096 为 prefill 区）:
+
+| M | q=1 (256) | q=2 (512) | q=4 (1024) |
+|---|---|---|---|
+| 1 | -63% | -92% | -135% |
+| 10/16 | -59%/-52% | — | — |
+| 32 | -45% | -74~-82% | -153% |
+| 64 | -57% | -84~-93% | -154% |
+| 256 | -24% | -56% | -107% |
+| 512 | -31% | -29% | -62% |
+| 1024 | -30% | -4% | +1% |
+| 2048 | -23% | **+3.3%** | **+13%** |
+| 4096 | -0.9% | **+17~20%** | **+29~41%** |
+
+- 绝对值: stock M=1~64 稳定 0.29-0.33ms；fused 小 M 平坦（q=1 ~0.47 / q=2 ~0.55-0.60 / q=4 ~0.78ms，= padding 到 batch_m 的 MM + ~0.2ms 协议）；M=4096: stock 3.28ms vs fused q=1 3.31 / q=2 2.73 / q=4 2.36ms。
+- 结论: 小 M fused 恒亏（padding 代价），大 M fused 恒赚且 q 越大赚越多（批数少、协议开销摊薄）；e2e 主导因素是 decode 小 M。
+- **默认 q 决策: 保持 q=2（batch_m=512）**——e2e 实测 q=1 与 q=2 均与 stock 持平（见 R4），q=2 保留 prefill 层 +17~20% 收益且与首轮验证连续。
+
+## R4. 端到端性能（vllm bench serve: 随机 4096 入 / 2048 出 / 50 prompts / 并发 10；输出吞吐 output tok/s）
+
+| 组合 | 完成 | out tok/s | TTFT med | ITL med | 备注 |
+|---|---|---|---|---|---|
+| stock_eager | 50/50 | 66.49 | 16.36s | 129.11ms | 基线 |
+| **fused_eager (q=1)** | **10/50** | — | — | **120.10ms** | **2/2 复现致命崩溃**（见 R5）；崩溃前 ITL 反而优于 stock -7% |
+| stock_graph | 50/50 | 87.73 / 86.40（均值 87.07） | 16.30s | 94.87/96.27ms | graph 较 eager +32% |
+| **fused_graph (q=1)** | 50/50 ×2 | 85.33 / 87.41（均值 86.37，**-0.8%**） | 16.31s | 96.15/95.52ms | 零 507014 |
+| **fused_graph (q=2)** | 50/50 | 86.85（**-0.3%**） | 16.30s | 96.89ms | 零 507014 |
+
+- **输出吞吐结论: graph 模式下 fused ≈ stock（-0.3%~-0.8%，均在 stock 自身 ±1.5% 噪声带内）**；TTFT 持平（队列主导，prefill 层级收益被稀释）。
+- eager 模式 fused 崩溃前 decode ITL 120-125ms 优于 stock 129ms（孤立算子层的小 M 亏损在真实模型内未成立——融合单 op 少 40 层/步的 host 派发），但被 R5 稳定性问题阻断。
+- 算子级 ±17~92% 的差异映射到 e2e 仅 ±1%：见 R6 影响范围。
+
+## R5. 稳定性：eager 全 M 连续融合负载下 D3/R6 wedge 恶化为致命崩溃
+
+| 项 | 证据 |
+|---|---|
+| 现象 | fused_eager 2/2 崩溃: EngineCore 先停摆（shm_broadcast 60s 窗口告警连续出现），随后双 rank `mf310pWaitBatchKernel`/`mf310pQuietKernel` **aicore 超时 507014**（>28s 邮件未达），EngineCore 死亡、剩余 40 请求 Internal Server Error |
+| 时间线 | rep1: 健康+8.5min 起停摆、+13.6min 崩溃；rep2: +3.1min 起停摆、+11min 崩溃 |
+| 归属 | 首轮 D3/R6 同签名（上游 MemFabric epoch 续命与 aicpu 调度交互）。**恶化因子**: 全 M 融合使 decode 持续走融合路径（首轮 MIN_M=4096 下 decode 走 stock，融合仅 prefill 突发、有喘息窗口，表现为 ~20s 可恢复冻结；本轮连续负载使停摆超过 28s aicore 看门狗，变为致命）。**非本轮集成代码缺陷**（协议/正确性全绿，崩溃 kernel 为等待对端邮件的 wait/quiet） |
+| graph 模式 | 3/3 完整跑完（2×q=1 + 1×q=2，各 ~20min）零 507014、零融合归因停摆（各有一次 init 期 stall 告警，stock graph 同样存在，为引擎初始化通用现象） |
+| 处置 | 融合长负载（>10min）**必须用 graph 模式**（FULL_DECODE_ONLY）；eager 融合限 <10min 连续负载窗口；已更新使用文档。上游修复前 eager 全 M 融合不可用于生产 |
+
+## R6. 影响范围评估（融合算子占端到端时间比例）
+
+- decode 步（graph, M=10）: stock mm_ar 层耗时 ≈ 40 层 × 0.30ms = 12ms / 96ms 步长 ≈ **12.5%**
+- prefill（M=4096）: ≈ 40 层 × 3.28ms = 131ms / ~1.5s ≈ **8.7%**
+- e2e 墙钟构成 ≈ decode 85% + prefill 15% → **全程 ~12% 的时间在 40 个融合层内**
+- 实测 e2e 净变化 -0.3%~-0.8%（噪声带内）→ 与影响范围自洽: decode 侧融合亏损被模型内 host 派发节省抵消，prefill 侧收益被队列稀释
+- 上限推演: 若融合在某工作负载完全失效（最坏 +100% 层耗时），e2e 最多退化 ~12%；若完全隐藏通信，理论上限收益 ~12%（当前实现远未达通信完全隐藏）
+
+## R7. 结论
+
+1. **正确性: PASS**（层级 bit-exact 全矩阵含 M=1 + serve eager/graph greedy 一致 + 路由 40/40 层）
+2. **算子级: 大 M 收益保持**（q=2 +17~20%@4096），小 M 亏损如实记录（q=2 -92%@M=1）
+3. **端到端: graph 模式输出吞吐与 stock 持平（-0.3~-0.8%，噪声带内）**，TTFT 持平
+4. **稳定性: graph 3/3 通过；eager 2/2 致命崩溃（上游 D3/R6 在全 M 连续负载下恶化）——生产阻塞项维持，且 eager 融合新增硬约束**
+5. 默认 q=2 维持；影响范围 ~12% e2e 时间
+
+## R8. 工具与证据
+
+- 基准/测试入库: `tests/e2e/_310p/`（functional pytest、算子 A/B、serve 4 组合 launcher、结果汇总 analyze 脚本）+ `benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py`
+- 证据: /tmp/opencode/phase4/{op_q*.csv,op_small_q*.log,serve_q1/,serve_q1_rep2/,serve_stock_g2/,serve_q2_g/}；功能: phase3_functional4.log（2 passed）；正确性: phase2_q{1,2,4}.log
