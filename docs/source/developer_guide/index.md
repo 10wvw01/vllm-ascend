@@ -4,10 +4,10 @@ This section is for developers who want to contribute to vLLM Ascend or understa
 
 ## 310P3 Qwen3.6 o_proj + MemFabric fusion
 
-- **[Requirements / Acceptance Baseline](310p_memfabric_o_proj_requirements.md)** — Current scope, invariants and final acceptance contract
-- **[Design](310p_memfabric_o_proj.md)** — Current public-API ABI v6 architecture and synchronization model
-- **[Hardware Validation Plan](310p_memfabric_o_proj_development_plan.md)** — Current 310P3 build/correctness/Graph/performance gates
-- **[Build / Deployment / Usage](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)** — Current installation, build and hardware-test commands
+- **[Requirements / Acceptance Baseline](310p_memfabric_mm_ar_requirements.md)** — Current scope, invariants and final acceptance contract
+- **[Design](310p_memfabric_mm_ar.md)** — Current public-API ABI v6 architecture and synchronization model
+- **[Hardware Validation Plan](310p_memfabric_mm_ar_development_plan.md)** — Current 310P3 build/correctness/Graph/performance gates
+- **[Build / Deployment / Usage](../user_guide/feature_guide/310p_memfabric_mm_ar_usage.md)** — Current installation, build and hardware-test commands
 
 The requirements document is authoritative for this feature. The other documents describe only the current implementation and current validation workflow; historical implementation details are intentionally excluded.
 

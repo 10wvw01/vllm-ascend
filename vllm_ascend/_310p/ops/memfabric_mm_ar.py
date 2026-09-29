@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Huawei Technologies Co., Ltd. All Rights Reserved.
 
-"""310P3 TP=2 MemFabric fused full-attention o_proj helpers.
+"""310P3 TP=2 MemFabric fused matmul+allreduce (mm_ar) helpers.
 
 The fused path is intentionally narrow. It is only enabled for Qwen3.5/3.6
 MoE full-attention ``self_attn.o_proj`` layers that are *unquantized*
@@ -13,7 +13,7 @@ anyway); the fused path therefore exchanges FP16 partial results.
 
 The fused op treats wgm-dev-310p MemFabric as an opaque public transport.
 One AICore block coordinates public ``signal()`` calls while seven workers
-compute interleaved FP16 o_proj chunks. Per chunk the dataflow is
+compute interleaved FP16 mm chunks. Per chunk the dataflow is
 MM -> cache clean -> ready -> signal, allowing MM of later chunks to overlap
 SDMA of earlier chunks. Public ``quiet()/wait()`` joins the peer payload,
 a repo-owned FP16 add reduces the two TP partials, and a fixed FIFO credit
@@ -45,7 +45,7 @@ _LAYER_INDEX_RE = re.compile(r"(?:^|\.)layers\.(\d+)\.")
 
 
 @dataclass(frozen=True)
-class MemFabricOProjPlan:
+class MemFabricMmArPlan:
     """Static ABI v7 contract for the 310P3 fused implementation."""
 
     batch_basem_count: int
@@ -69,11 +69,11 @@ class MemFabricOProjPlan:
         return (num_tokens + self.batch_m - 1) // self.batch_m
 
 
-def get_memfabric_o_proj_plan() -> MemFabricOProjPlan:
-    q = int(envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT)
+def get_memfabric_mm_ar_plan() -> MemFabricMmArPlan:
+    q = int(envs.VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT)
     if q not in (1, 2, 4):
-        raise ValueError(f"VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT must be one of 1/2/4, got {q}")
-    return MemFabricOProjPlan(batch_basem_count=q)
+        raise ValueError(f"VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT must be one of 1/2/4, got {q}")
+    return MemFabricMmArPlan(batch_basem_count=q)
 
 
 def _target_text_config():
@@ -104,10 +104,10 @@ def _is_full_attention_prefix(prefix: str, text_config) -> bool:
     return layer_types[layer_idx] == "full_attention"
 
 
-def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
+def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     """Return whether ``layer`` matches the deliberately narrow fused contract."""
 
-    if not envs.VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ:
+    if not envs.VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR:
         return False
 
     text_config = _target_text_config()
@@ -138,7 +138,7 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     quant_method = getattr(layer, "quant_method", None)
     if quant_method is not None:
         method_name = type(quant_method).__name__
-        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricOProjLinearMethod310"):
+        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricMmArLinearMethod310"):
             return False
         nested = getattr(quant_method, "quant_method", None)
         if nested is not None and type(nested).__name__ != "AscendUnquantizedLinearMethod":
@@ -147,26 +147,26 @@ def should_enable_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     return True
 
 
-def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
+def configure_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     """Mark a target RowParallelLinear so the fused op owns the TP reduction."""
 
-    enabled = should_enable_memfabric_o_proj(layer)
-    layer._ascend_310p_memfabric_o_proj = enabled
+    enabled = should_enable_memfabric_mm_ar(layer)
+    layer._ascend_310p_memfabric_mm_ar = enabled
     if not enabled:
         return False
 
     if not getattr(layer, "reduce_results", False):
         raise RuntimeError(
-            "MemFabric o_proj fusion expects RowParallelLinear(reduce_results=True) "
+            "MemFabric mm_ar fusion expects RowParallelLinear(reduce_results=True) "
             f"before patching, got {getattr(layer, 'prefix', '<unknown>')}"
         )
 
     # The fused path returns an already-reduced TP=2 result, so the generic
     # RowParallelLinear must not launch its HCCL all-reduce afterwards.
     layer.reduce_results = False
-    plan = get_memfabric_o_proj_plan()
+    plan = get_memfabric_mm_ar_plan()
     logger.info_once(
-        "Enable 310P3 TP=2 MemFabric unquantized full-attention o_proj ABI v7 "
+        "Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 "
         "(base_m=%d, batch_basem_count=%d, batch_m=%d, batch_bytes=%d).",
         plan.base_m,
         plan.batch_basem_count,
@@ -176,14 +176,14 @@ def configure_memfabric_o_proj(layer: torch.nn.Module) -> bool:
     return True
 
 
-def is_memfabric_o_proj_configured(layer: torch.nn.Module) -> bool:
-    return bool(getattr(layer, "_ascend_310p_memfabric_o_proj", False))
+def is_memfabric_mm_ar_configured(layer: torch.nn.Module) -> bool:
+    return bool(getattr(layer, "_ascend_310p_memfabric_mm_ar", False))
 
 
 _pool_protocol_started = False
 
 
-def memfabric_o_proj_pool_started() -> bool:
+def memfabric_mm_ar_pool_started() -> bool:
     """Whether the MemFabric SDMA pool exists in this process.
 
     The pool (and its supervised epoch kernel on the orchestrator's own
@@ -197,17 +197,17 @@ _warmup_fallback_depth = 0
 
 
 @contextmanager
-def memfabric_o_proj_warmup_fallback():
+def memfabric_mm_ar_warmup_fallback():
     """Opt-in D2 workaround: defer pool creation past profile/warmup runs.
 
     While active (and only when
-    ``VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK`` is set), routed
+    ``VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK`` is set), routed
     o_proj layers fall back to stock matmul + HCCL all-reduce so the first
     fused call - and with it the MemFabric pool - happens at the first real
     request instead of during engine-init dummy runs.
     """
     global _warmup_fallback_depth
-    if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK:
+    if envs.VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK:
         _warmup_fallback_depth += 1
         try:
             yield
@@ -217,11 +217,11 @@ def memfabric_o_proj_warmup_fallback():
         yield
 
 
-def memfabric_o_proj_warmup_fallback_active() -> bool:
+def memfabric_mm_ar_warmup_fallback_active() -> bool:
     return _warmup_fallback_depth > 0
 
 
-def memfabric_o_proj_allreduce(
+def memfabric_mm_ar_allreduce(
     layer: torch.nn.Module,
     x: torch.Tensor,
     tp_rank: int,
@@ -236,20 +236,20 @@ def memfabric_o_proj_allreduce(
     global _pool_protocol_started
 
     if tp_rank not in (0, 1):
-        raise RuntimeError(f"MemFabric o_proj fusion only supports TP rank 0/1, got {tp_rank}")
+        raise RuntimeError(f"MemFabric mm_ar fusion only supports TP rank 0/1, got {tp_rank}")
     if x.dtype != torch.float16:
-        raise TypeError(f"MemFabric o_proj expects FP16 activation, got {x.dtype}")
+        raise TypeError(f"MemFabric mm_ar expects FP16 activation, got {x.dtype}")
     if x.dim() != 2 or x.shape[1] != _EXPECTED_INPUT_SIZE_PER_PARTITION:
-        raise ValueError(f"MemFabric o_proj expects x=[M, 2048], got {tuple(x.shape)}")
+        raise ValueError(f"MemFabric mm_ar expects x=[M, 2048], got {tuple(x.shape)}")
     if layer.params_dtype != torch.float16:
-        raise TypeError(f"MemFabric o_proj reduction currently requires FP16 output, got {layer.params_dtype}")
+        raise TypeError(f"MemFabric mm_ar reduction currently requires FP16 output, got {layer.params_dtype}")
 
-    plan = get_memfabric_o_proj_plan()
+    plan = get_memfabric_mm_ar_plan()
 
-    direct = getattr(torch.ops._C_ascend, "memfabric_direct_o_proj_allreduce", None)
+    direct = getattr(torch.ops._C_ascend, "memfabric_mm_ar_allreduce", None)
     if direct is None:
-        raise RuntimeError("vllm_ascend_C was built without the fused 310P MemFabric o_proj op")
-    if envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE:
+        raise RuntimeError("vllm_ascend_C was built without the fused 310P MemFabric mm_ar op")
+    if envs.VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE:
         ev0, ev1 = _record_fused_call_events()
         out = direct(
             x,
@@ -326,7 +326,7 @@ def _device_monitor_loop():
                 )
 
 
-def make_memfabric_o_proj_linear_method():
+def make_memfabric_mm_ar_linear_method():
     """Build the MemFabric dispatch linear method (lazy import, no cycles).
 
     The returned class subclasses the 310P unquantized linear method so the
@@ -335,18 +335,18 @@ def make_memfabric_o_proj_linear_method():
     """
     from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
-    class MemFabricOProjLinearMethod310(AscendUnquantizedLinearMethod):
-        """Unquantized linear method that owns o_proj matmul + TP reduction.
+    class MemFabricMmArLinearMethod310(AscendUnquantizedLinearMethod):
+        """Unquantized linear method that owns the eligible matmul + TP reduction.
 
         Selected by the 310P modelslim router for layers matching the
         MemFabric o_proj prefix/geometry contract; configure-time checks in
-        ``configure_memfabric_o_proj`` remain the single eligibility source
+        ``configure_memfabric_mm_ar`` remain the single eligibility source
         and can still reject this layer (leaving the stock behavior).
         """
 
         def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
             super().process_weights_after_loading(layer)
-            configure_memfabric_o_proj(layer)
+            configure_memfabric_mm_ar(layer)
 
         def apply(
             self,
@@ -354,15 +354,12 @@ def make_memfabric_o_proj_linear_method():
             x: torch.Tensor,
             bias: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            if is_memfabric_o_proj_configured(layer):
+            if is_memfabric_mm_ar_configured(layer):
                 if bias is not None:
                     # Qwen o_proj is bias-free; a biased RowParallel o_proj
                     # would need explicit rank0-only handling before fusion.
-                    raise RuntimeError("MemFabric o_proj fusion does not support biased o_proj")
-                if (
-                    memfabric_o_proj_warmup_fallback_active()
-                    or x.shape[0] < envs.VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M
-                ):
+                    raise RuntimeError("MemFabric mm_ar fusion does not support biased o_proj")
+                if memfabric_mm_ar_warmup_fallback_active() or x.shape[0] < envs.VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M:
                     # Stock path (warmup dummy runs and small batches): the
                     # fused path pays a fixed per-wave protocol cost plus
                     # chunked-GEMM inefficiency that only amortizes on large
@@ -378,11 +375,11 @@ def make_memfabric_o_proj_linear_method():
                     return tensor_model_parallel_all_reduce(out)
                 from vllm.distributed import get_tensor_model_parallel_rank
 
-                return memfabric_o_proj_allreduce(
+                return memfabric_mm_ar_allreduce(
                     layer=layer,
                     x=x,
                     tp_rank=get_tensor_model_parallel_rank(),
                 )
             return super().apply(layer, x, bias)
 
-    return MemFabricOProjLinearMethod310
+    return MemFabricMmArLinearMethod310

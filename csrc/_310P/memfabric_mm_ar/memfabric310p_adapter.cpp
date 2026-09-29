@@ -20,9 +20,9 @@
 namespace {
 
 constexpr uint64_t kAckSlotBytes = 8ULL;
-constexpr uint32_t kOProjWidthElems = 2048;
-constexpr uint64_t kOProjRowBytes =
-    static_cast<uint64_t>(kOProjWidthElems) * sizeof(uint16_t);
+constexpr uint32_t kMmArWidthElems = 2048;
+constexpr uint64_t kMmArRowBytes =
+    static_cast<uint64_t>(kMmArWidthElems) * sizeof(uint16_t);
 constexpr uint64_t kProducerReadyStrideBytes = 64ULL;
 constexpr uint64_t kProducerControlBytes =
     static_cast<uint64_t>(VLLM_ASCEND_MF310P_MAX_BATCHES) *
@@ -177,9 +177,9 @@ extern "C" int mf310p_create(
         return -1;
     }
     const uint64_t arena_bytes =
-        static_cast<uint64_t>(arena_rows) * kOProjRowBytes;
+        static_cast<uint64_t>(arena_rows) * kMmArRowBytes;
     const uint64_t batch_bytes =
-        static_cast<uint64_t>(batch_m) * kOProjRowBytes;
+        static_cast<uint64_t>(batch_m) * kMmArRowBytes;
     const uint64_t app_bytes = 2 * arena_bytes + kAckSlotBytes;
     if (app_bytes >= local_size) {
         return -2;
@@ -584,7 +584,7 @@ extern "C" int mf310p_add_batch_async(
         return -1;
     }
     const uint64_t elems =
-        static_cast<uint64_t>(valid_rows) * kOProjWidthElems;
+        static_cast<uint64_t>(valid_rows) * kMmArWidthElems;
     if ((elems % kAddAlignElems) != 0) {
         return -1;
     }

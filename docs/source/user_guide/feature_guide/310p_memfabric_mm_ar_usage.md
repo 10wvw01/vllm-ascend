@@ -3,9 +3,9 @@
 > 适用：Ascend 310P3 单卡双 die、TP=2、
 > `Eco-Tech/Qwen3.6-35B-A3B-w8a8` full-attention `self_attn.o_proj`。
 
-设计：[310p_memfabric_o_proj.md](../../developer_guide/310p_memfabric_o_proj.md)
+设计：[310p_memfabric_mm_ar.md](../../developer_guide/310p_memfabric_mm_ar.md)
 
-Gate：[310p_memfabric_o_proj_development_plan.md](../../developer_guide/310p_memfabric_o_proj_development_plan.md)
+Gate：[310p_memfabric_mm_ar_development_plan.md](../../developer_guide/310p_memfabric_mm_ar_development_plan.md)
 
 ## 1. 编译
 
@@ -23,7 +23,7 @@ export SOC_VERSION=ascend310p3
 export ASCEND_HOME_PATH=/usr/local/Ascend/ascend-toolkit/latest
 export COMPILE_CUSTOM_KERNELS=1
 export MAX_JOBS=8
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1
 
 python3 -m pip install -v -e . --no-build-isolation --no-deps
 ```
@@ -42,7 +42,7 @@ export ASCEND_RT_VISIBLE_DEVICES=0,1
 推荐起始配置：
 
 ```bash
-export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1
 export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
 
 # 默认即 96 MiB；arena 由预算推导，上限 8192 rows。
@@ -50,19 +50,19 @@ export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
 
 # q=2 -> baseM=256, batch_m=512, 当前形状下 batch payload=2 MiB。
 # 合法值仅 1/2/4。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT=2
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT=2
 
 # v7 尚未重新实测 crossover，因此先保留 v6 已验证的保守路由阈值。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M=4096
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M=4096
 
 # 服务 bring-up 推荐：profile/dummy-run 先走 stock。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK=1
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK=1
 
 # 诊断时开启。
-export VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE=1
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE=1
 ```
 
-ABI v7 不再使用 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M`。
+ABI v7 不再使用 `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TILE_M`。
 
 ## 3. 编译后检查
 
@@ -72,9 +72,9 @@ import torch
 import vllm_ascend.vllm_ascend_C  # noqa
 
 for op in [
-    "memfabric_direct_o_proj_allreduce",
-    "memfabric_o_proj_shutdown",
-    "memfabric_o_proj_debug_snapshot",
+    "memfabric_mm_ar_allreduce",
+    "memfabric_mm_ar_shutdown",
+    "memfabric_mm_ar_debug_snapshot",
 ]:
     print(op, hasattr(torch.ops._C_ascend, op))
 PY
@@ -99,7 +99,7 @@ ldd /path/to/vllm_ascend_C*.so | grep -E 'mf_smem|mf310p'
 
 ```bash
 torchrun --standalone --nproc-per-node=2 \
-  benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
+  benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
   --batch-basem-count 2 \
   --rows 255 256 257 511 512 513 1024 2048 4096 6144 8192 \
   --repeat 20
@@ -110,7 +110,7 @@ torchrun --standalone --nproc-per-node=2 \
 ```bash
 for q in 1 4; do
   torchrun --standalone --nproc-per-node=2 \
-    benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
+    benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
     --batch-basem-count "$q" \
     --rows 255 256 257 511 512 513 1024 2048 4096 \
     --repeat 20
@@ -128,7 +128,7 @@ done
 失败后不要继续复用 worker。进程仍可响应时可读：
 
 ```python
-torch.ops._C_ascend.memfabric_o_proj_debug_snapshot()
+torch.ops._C_ascend.memfabric_mm_ar_debug_snapshot()
 ```
 
 ## 5. Protocol status

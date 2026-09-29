@@ -111,23 +111,23 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                 # MemFabric o_proj dispatch (owner decision A, 2026-09-18):
                 # route the eligible unquantized BF16 full-attention o_proj
                 # to the fused matmul+TP-reduction method. The final
-                # eligibility check happens in configure_memfabric_o_proj
+                # eligibility check happens in configure_memfabric_mm_ar
                 # after weights load; a rejected layer behaves stock.
-                from vllm_ascend._310p.ops.memfabric_o_proj import (
-                    should_enable_memfabric_o_proj,
+                from vllm_ascend._310p.ops.memfabric_mm_ar import (
+                    should_enable_memfabric_mm_ar,
                 )
                 from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
                 try:
-                    eligible = should_enable_memfabric_o_proj(layer)
+                    eligible = should_enable_memfabric_mm_ar(layer)
                 except Exception:
                     eligible = False
                 if eligible:
-                    from vllm_ascend._310p.ops.memfabric_o_proj import (
-                        make_memfabric_o_proj_linear_method,
+                    from vllm_ascend._310p.ops.memfabric_mm_ar import (
+                        make_memfabric_mm_ar_linear_method,
                     )
 
-                    cls = make_memfabric_o_proj_linear_method()
+                    cls = make_memfabric_mm_ar_linear_method()
                     logger.debug("Select %s for %s (layer=LinearBase)", cls.__name__, prefix)
                     return cls()
 

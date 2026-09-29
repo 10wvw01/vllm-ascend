@@ -4,10 +4,10 @@
 > [计算通信协作优化方案.md](计算通信协作优化方案.md)
 >
 > 开发/实机 Gate：
-> [310p_memfabric_o_proj_development_plan.md](310p_memfabric_o_proj_development_plan.md)
+> [310p_memfabric_mm_ar_development_plan.md](310p_memfabric_mm_ar_development_plan.md)
 >
 > 使用：
-> [310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
+> [310p_memfabric_mm_ar_usage.md](../user_guide/feature_guide/310p_memfabric_mm_ar_usage.md)
 
 ## 1. 目标路径
 
@@ -168,20 +168,20 @@ process lifetime，避免无法证明 replay stream quiescent 时销毁 pool。
 ## 9. 代码地图
 
 ```text
-vllm_ascend/_310p/ops/memfabric_o_proj.py
+vllm_ascend/_310p/ops/memfabric_mm_ar.py
 vllm_ascend/_310p/quantization/modelslim_config.py
 
-csrc/_310P/custom_memfabric_o_proj/
-  memfabric_o_proj_binding.cpp
-  memfabric_o_proj_runtime.cpp
-  memfabric_o_proj_torch_adpt.h
+csrc/_310P/memfabric_mm_ar/
+  memfabric_mm_ar_binding.cpp
+  memfabric_mm_ar_runtime.cpp
+  memfabric_mm_ar_torch_adpt.h
   memfabric310p_adapter_api.h
   memfabric310p_adapter.cpp
   memfabric310p_device.asc
 
 cmake/memfabric_310p.cmake
-tests/ut/_310p/test_memfabric_o_proj_source.py
-benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py
+tests/ut/_310p/test_memfabric_mm_ar_source.py
+benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py
 benchmarks/scripts/analyze_310p_memfabric_overlap.py
 ```
 

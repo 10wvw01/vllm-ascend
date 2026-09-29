@@ -73,11 +73,11 @@ env_variables: dict[str, Callable[[], Any]] = {
     ),
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
-    # Experimental 310P3-only path: Qwen3.5/3.6 full-attention unquantized
-    # o_proj plus TP=2 reduction through the installed wgm-dev-310p
+    # Experimental 310P3-only path: Qwen3.5/3.6 unquantized
+    # o_proj/out_proj plus TP=2 reduction through the installed wgm-dev-310p
     # MemFabric public SHM/SDMA API.
-    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ": lambda: bool(
-        int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ", "0"))
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR", "0"))
     ),
     # Config-store rendezvous used by customized MemFabric SHM.
     "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
@@ -93,8 +93,8 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Communication/reduction batch is an integer multiple of native
     # baseM=256. Legal values are 1/2/4; q=2 derives batch_m=512 and a 2 MiB
     # FP16 payload for N=2048. 2 MiB is not a protocol constant.
-    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT", "2")
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "2")
     ),
     # D2 workaround (validation aid, default off): during profile/warmup
     # dummy runs the routed o_proj falls back to stock matmul + HCCL
@@ -102,25 +102,23 @@ env_variables: dict[str, Callable[[], Any]] = {
     # request. The 310P AICPU watchdog kills the SDMA orchestrator epoch
     # task 28s after pool creation (MemFabric self-limit arithmetic
     # assumes 22s), so eager-mode init must not create the pool.
-    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK": lambda: bool(
-        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_WARMUP_FALLBACK", "0"))
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK", "0"))
     ),
     # Minimum M (token rows) routed to the fused MemFabric o_proj path.
     # Below this the layer uses the stock NZ matmul + HCCL all-reduce: the
     # v7 keeps the conservative M=4096 route threshold inherited from the
     # validated v6 baseline until cooperative-MM hardware measurements are
     # collected. Range: 1 (always fused) to unlimited.
-    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_MIN_M", "4096")
-    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M": lambda: int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M", "4096")),
     # Wave-level host-phase trace + device-duration outlier monitor (debug
     # aid, default off). C++ runtime prints one "[mf310p-trace]" line per
     # fused call; the Python wrapper additionally records NPU event pairs
     # and a daemon thread logs "[mf310p-slow]" lines for calls whose device
     # duration exceeds 500 ms (e.g. delayed SDMA mail relay at an epoch
     # relaunch boundary).
-    "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE": lambda: bool(
-        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE", "0"))
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE", "0"))
     ),
 }
 

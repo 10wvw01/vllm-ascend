@@ -6,9 +6,9 @@
 >
 > 目标设计：[计算通信协作优化方案.md](计算通信协作优化方案.md)
 >
-> 需求：[310p_memfabric_o_proj_requirements.md](310p_memfabric_o_proj_requirements.md)
+> 需求：[310p_memfabric_mm_ar_requirements.md](310p_memfabric_mm_ar_requirements.md)
 >
-> 使用：[310p_memfabric_o_proj_usage.md](../user_guide/feature_guide/310p_memfabric_o_proj_usage.md)
+> 使用：[310p_memfabric_mm_ar_usage.md](../user_guide/feature_guide/310p_memfabric_mm_ar_usage.md)
 
 ## 0. 当前实施状态（2026-09-22）
 
@@ -198,9 +198,9 @@ SDMA(batch n+1) overlaps Reduce(batch n)
 
 - v7 为内部定制 ABI，不维持 v6 二进制兼容；
 - Python/C++/device 必须同 commit 升级；
-- 旧 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M` 退出核心设计；
+- 旧 `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TILE_M` 退出核心设计；
 - 新增
-  `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT`，
+  `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT`，
   默认 2，合法值 1/2/4。
 
 ## 5. Device kernel 计划
@@ -302,7 +302,7 @@ Graph capture 内禁止 malloc/create/barrier/host sync/lazy warmup。
 
 ## 7. Python / benchmark 计划
 
-`vllm_ascend/_310p/ops/memfabric_o_proj.py`：
+`vllm_ascend/_310p/ops/memfabric_mm_ar.py`：
 
 - Plan 改为 `base_m / batch_basem_count / batch_m / batch_bytes / arena_rows`；
 - 删除 tile/chunk 核心语义；
@@ -311,7 +311,7 @@ Graph capture 内禁止 malloc/create/barrier/host sync/lazy warmup。
 
 `envs.py`：
 
-- 新增 `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT=2`；
+- 新增 `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT=2`；
 - TILE_M 标为 deprecated/不再参与 v7 路径，后续清理。
 
 benchmark：

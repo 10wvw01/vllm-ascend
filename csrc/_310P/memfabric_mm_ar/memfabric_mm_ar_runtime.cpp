@@ -1,5 +1,5 @@
 /*
- * 310P3 TP=2 MemFabric runtime for the ABI v7 o_proj batch pipeline.
+ * 310P3 TP=2 MemFabric runtime for the ABI v7 mm_ar batch pipeline.
  *
  * One wave owns a bounded send/recv arena. Each batch is a baseM-aligned
  * 8-core cooperative MM. Core0 sends the completed batch, then later batches
@@ -33,12 +33,12 @@
 namespace vllm_ascend {
 
 /* Defined below (both build variants); forward-declared for the atexit hook. */
-void memfabric_o_proj_shutdown();
+void memfabric_mm_ar_shutdown();
 
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
 namespace {
 
-constexpr int64_t kOProjWidth = 2048;
+constexpr int64_t kMmArWidth = 2048;
 constexpr uint32_t kBaseM = 256;
 constexpr uint32_t kMaxArenaRows = 8192;
 /*
@@ -47,8 +47,8 @@ constexpr uint32_t kMaxArenaRows = 8192;
  * the captured launch, so eager values must live in a disjoint range.
  */
 constexpr uint32_t kEagerGenerationBase = 0x40000000u;
-constexpr uint64_t kOProjRowBytes =
-    static_cast<uint64_t>(kOProjWidth) * sizeof(at::Half);
+constexpr uint64_t kMmArRowBytes =
+    static_cast<uint64_t>(kMmArWidth) * sizeof(at::Half);
 constexpr uint64_t kDefaultLocalPoolBytes = 96ULL * 1024ULL * 1024ULL;
 constexpr uint64_t kPoolHeadroomBytes = 1ULL * 1024ULL * 1024ULL;
 constexpr const char* kDefaultStoreUrl = "tcp://127.0.0.1:8581";
@@ -75,7 +75,7 @@ uint64_t parse_u64_env(const char* name, uint64_t fallback)
 bool trace_enabled()
 {
     static const bool enabled = [] {
-        const char* v = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TRACE");
+        const char* v = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE");
         return v != nullptr && *v != '\0' && *v != '0';
     }();
     return enabled;
@@ -188,7 +188,7 @@ void init_context_locked(
         "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", kDefaultLocalPoolBytes);
     const uint64_t min_bytes =
         kPoolHeadroomBytes +
-        2 * static_cast<uint64_t>(batch_m) * kOProjRowBytes + 8;
+        2 * static_cast<uint64_t>(batch_m) * kMmArRowBytes + 8;
     TORCH_CHECK(
         local_pool_bytes > min_bytes,
         "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=", local_pool_bytes,
@@ -197,7 +197,7 @@ void init_context_locked(
 
     const uint64_t rows_by_budget =
         (local_pool_bytes - kPoolHeadroomBytes - 8) /
-        (2 * kOProjRowBytes);
+        (2 * kMmArRowBytes);
     uint32_t arena_rows = static_cast<uint32_t>(
         std::min<uint64_t>(rows_by_budget, kMaxArenaRows));
     arena_rows = (arena_rows / batch_m) * batch_m;
@@ -231,7 +231,7 @@ void init_context_locked(
                 "MemFabric returned unexpected arena_rows");
     TORCH_CHECK(
         state.layout.batch_bytes ==
-            static_cast<uint64_t>(batch_m) * kOProjRowBytes,
+            static_cast<uint64_t>(batch_m) * kMmArRowBytes,
         "MemFabric returned unexpected batch_bytes");
     TORCH_CHECK(
         state.layout.max_batches == arena_rows / batch_m &&
@@ -248,7 +248,7 @@ void init_context_locked(
     static bool atexit_registered = false;
     if (!atexit_registered) {
         const int atexit_ret =
-            std::atexit([]() { memfabric_o_proj_shutdown(); });
+            std::atexit([]() { memfabric_mm_ar_shutdown(); });
         TORCH_CHECK(atexit_ret == 0,
                     "failed to register MemFabric shutdown hook");
         atexit_registered = true;
@@ -259,7 +259,7 @@ void check_runtime_healthy(const RuntimeState& state)
 {
     TORCH_CHECK(
         !state.poisoned,
-        "310P MemFabric o_proj runtime is poisoned after a previous failed wave. "
+        "310P MemFabric mm_ar runtime is poisoned after a previous failed wave. "
         "Restart both TP workers before reusing it. First failure: ",
         state.failure_reason);
 }
@@ -346,7 +346,7 @@ void validate_execution_stream_locked(
     }
     TORCH_CHECK(
         state.eager_stream == stream,
-        "310P MemFabric o_proj eager execution is single-stream by contract. "
+        "310P MemFabric mm_ar eager execution is single-stream by contract. "
         "The first eager call used stream=",
         reinterpret_cast<void*>(state.eager_stream),
         ", current stream=",
@@ -361,7 +361,7 @@ void require_capture_ready_locked(const RuntimeState& state)
             state.producer_scratch != 0 && state.producer_warmed &&
             state.waiter_warmed && state.add_warmed &&
             state.protocol_warmed,
-        "310P MemFabric o_proj entered ACL Graph capture before runtime "
+        "310P MemFabric mm_ar entered ACL Graph capture before runtime "
         "initialization/warmup completed. Run the normal eager warmup/profile "
         "path before graph capture.");
 }
@@ -402,9 +402,9 @@ void initialize_protocol_locked(RuntimeState& state, aclrtStream stream)
 
 } // namespace
 
-void memfabric_o_proj_shutdown()
+void memfabric_mm_ar_shutdown()
 {
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
     if (state.ctx == nullptr) return;
@@ -487,13 +487,13 @@ void memfabric_o_proj_shutdown()
  * Debug-only application snapshot. MemFabric internals are intentionally
  * opaque: report only public pool geometry, vLLM-owned arenas and data words.
  */
-at::Tensor memfabric_o_proj_debug_snapshot()
+at::Tensor memfabric_mm_ar_debug_snapshot()
 {
     constexpr int64_t kWords = 24;
     at::Tensor out = at::zeros({kWords}, at::TensorOptions().dtype(at::kLong));
     int64_t* w = out.data_ptr<int64_t>();
 
-#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
     RuntimeState& state = runtime_state();
     std::lock_guard<std::mutex> guard(state.mutex);
     if (state.ctx == nullptr) {
@@ -545,7 +545,7 @@ at::Tensor memfabric_o_proj_debug_snapshot()
     return out;
 }
 
-at::Tensor memfabric_direct_o_proj_allreduce_impl(
+at::Tensor memfabric_mm_ar_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
     int64_t tp_rank,
@@ -555,17 +555,17 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     TORCH_CHECK(
         batch_basem_count == 1 || batch_basem_count == 2 ||
             batch_basem_count == 4,
-        "direct MemFabric o_proj requires batch_basem_count in {1,2,4}, got ",
+        "direct MemFabric mm_ar requires batch_basem_count in {1,2,4}, got ",
         batch_basem_count);
     TORCH_CHECK(x.is_contiguous(),
-                "direct MemFabric o_proj requires contiguous x, got strides ",
+                "direct MemFabric mm_ar requires contiguous x, got strides ",
                 x.strides());
     TORCH_CHECK(weight.is_contiguous(),
-                "direct MemFabric o_proj requires contiguous weight");
+                "direct MemFabric mm_ar requires contiguous weight");
 
     const int64_t num_tokens = x.size(0);
     if (num_tokens == 0) {
-        return at::empty({0, kOProjWidth}, x.options());
+        return at::empty({0, kMmArWidth}, x.options());
     }
 
     RuntimeState& state = runtime_state();
@@ -586,7 +586,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     validate_execution_stream_locked(state, stream, capturing);
 
     const uint64_t scratch_bytes =
-        static_cast<uint64_t>(state.batch_m) * kOProjRowBytes;
+        static_cast<uint64_t>(state.batch_m) * kMmArRowBytes;
     if (state.producer_scratch == 0) {
         TORCH_CHECK(
             !capturing,
@@ -601,7 +601,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     }
 
     at::Tensor output =
-        at::empty({num_tokens, kOProjWidth}, x.options());
+        at::empty({num_tokens, kMmArWidth}, x.options());
     const uint64_t weight_ptr =
         reinterpret_cast<uint64_t>(weight.const_data_ptr());
 
@@ -650,7 +650,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
 
             const uint64_t x_wave =
                 reinterpret_cast<uint64_t>(x.const_data_ptr()) +
-                static_cast<uint64_t>(wave_start) * kOProjRowBytes;
+                static_cast<uint64_t>(wave_start) * kMmArRowBytes;
 
             auto valid_rows_for = [&](uint32_t batch) -> uint32_t {
                 const int64_t batch_begin =
@@ -681,7 +681,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                 const uint32_t valid_rows = valid_rows_for(batch);
                 uint64_t x_batch =
                     x_wave + static_cast<uint64_t>(batch) *
-                                 state.batch_m * kOProjRowBytes;
+                                 state.batch_m * kMmArRowBytes;
                 if (valid_rows != state.batch_m) {
                     const aclError memset_ret = aclrtMemsetAsync(
                         reinterpret_cast<void*>(state.producer_scratch),
@@ -696,7 +696,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                         reinterpret_cast<void*>(state.producer_scratch),
                         scratch_bytes,
                         reinterpret_cast<const void*>(x_batch),
-                        static_cast<uint64_t>(valid_rows) * kOProjRowBytes,
+                        static_cast<uint64_t>(valid_rows) * kMmArRowBytes,
                         ACL_MEMCPY_DEVICE_TO_DEVICE,
                         stream);
                     TORCH_CHECK(
@@ -733,7 +733,7 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
                     static_cast<uint64_t>(
                         wave_start +
                         static_cast<int64_t>(batch) * state.batch_m) *
-                        kOProjRowBytes;
+                        kMmArRowBytes;
                 batch_ret = mf310p_add_batch_async(
                     state.ctx,
                     out_batch,
@@ -792,22 +792,22 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     return output;
 }
 
-#else  // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+#else  // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
 
 namespace {
 [[noreturn]] void memfabric_not_built()
 {
     TORCH_CHECK(
         false,
-        "vllm_ascend_C was built without the 310P customized MemFabric o_proj "
+        "vllm_ascend_C was built without the 310P customized MemFabric mm_ar "
         "runtime. Install wgm-dev-310p MemFabric, source its set_env.sh, "
-        "enable VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1, then rebuild "
+        "enable VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1, then rebuild "
         "vLLM-Ascend.");
     std::abort();
 }
 } // namespace
 
-at::Tensor memfabric_direct_o_proj_allreduce_impl(
+at::Tensor memfabric_mm_ar_allreduce_impl(
     const at::Tensor&,
     const at::Tensor&,
     int64_t,
@@ -816,19 +816,19 @@ at::Tensor memfabric_direct_o_proj_allreduce_impl(
     memfabric_not_built();
 }
 
-void memfabric_o_proj_shutdown()
+void memfabric_mm_ar_shutdown()
 {
     /* Feature-off builds never create the context; nothing to tear down. */
 }
 
-at::Tensor memfabric_o_proj_debug_snapshot()
+at::Tensor memfabric_mm_ar_debug_snapshot()
 {
     /* Feature-off builds have no pool; mirror the feature-on no-context
      * result (all-zero words) so the always-registered debug op resolves. */
     return at::zeros({24}, at::TensorOptions().dtype(at::kLong));
 }
 
-#endif // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ
+#endif // VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
 
 } // namespace vllm_ascend
 #endif // ASCEND_PLATFORM_310P

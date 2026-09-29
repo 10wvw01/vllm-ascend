@@ -1,4 +1,4 @@
-# 310P MemFabric integration for the Qwen3.6 o_proj fused path.
+# 310P MemFabric integration for the Qwen3.6 mm_ar fused path.
 #
 # MemFabric is an external black box.  vLLM-Ascend consumes only the installed
 # public host/device headers and libmf_smem.so exposed by the current
@@ -8,28 +8,28 @@
 # Runtime/build contract:
 #   1. Install memfabric_hybrid:wgm-dev-310p with its run package.
 #   2. source <install>/set_env.sh so MEMFABRIC_HYBRID_HOME_PATH is exported.
-#   3. Set VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 and build vLLM-Ascend.
+#   3. Set VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 and build vLLM-Ascend.
 #
 # No MemFabric internal library, AICPU json, mailbox header or split source-tree
 # layout is part of the vLLM-Ascend contract.
 
 function(vllm_ascend_configure_310p_memfabric target)
     set(_mf_custom_src_dir
-        "${CMAKE_SOURCE_DIR}/csrc/_310P/custom_memfabric_o_proj")
+        "${CMAKE_SOURCE_DIR}/csrc/_310P/memfabric_mm_ar")
     if(NOT TARGET ${target})
         message(FATAL_ERROR
             "Unknown target passed to vllm_ascend_configure_310p_memfabric: ${target}")
     endif()
 
-    if(NOT DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ} OR
-       NOT "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ}" STREQUAL "1")
-        message(STATUS "310P MemFabric o_proj fusion is disabled")
+    if(NOT DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR} OR
+       NOT "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR}" STREQUAL "1")
+        message(STATUS "310P MemFabric mm_ar fusion is disabled")
         return()
     endif()
 
     if(NOT SOC_VERSION MATCHES "ascend310p.*")
         message(FATAL_ERROR
-            "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 is only valid for "
+            "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 is only valid for "
             "ascend310p*, got ${SOC_VERSION}")
     endif()
 
@@ -147,7 +147,7 @@ function(vllm_ascend_configure_310p_memfabric target)
         "-Wl,--as-needed")
 
     target_compile_definitions(
-        ${target} PRIVATE VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ)
+        ${target} PRIVATE VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR)
 
     get_filename_component(_mf_lib_dir "${_mf_smem_lib}" DIRECTORY)
     target_link_options(
@@ -155,7 +155,7 @@ function(vllm_ascend_configure_310p_memfabric target)
 
     install(FILES "${_mf_device_lib}" DESTINATION .)
 
-    message(STATUS "310P MemFabric o_proj fusion enabled (public API)")
+    message(STATUS "310P MemFabric mm_ar fusion enabled (public API)")
     message(STATUS "  MemFabric home: ${_mf_home}")
     message(STATUS "  Host include: ${_mf_host_include}")
     message(STATUS "  Device include: ${_mf_device_include}")

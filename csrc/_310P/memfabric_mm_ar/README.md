@@ -1,17 +1,19 @@
-# CUSTOM 310P3 MemFabric o_proj fusion
+# CUSTOM 310P3 MemFabric mm_ar fusion
 
 > **CUSTOMIZED 310P3 ONLY**
 >
-> Qwen3.6 full-attention `self_attn.o_proj + TP=2 reduction` 的 310P3
-> 定制实现。所有平台特化 C++/AscendC 代码隔离在本目录。
+> Qwen3.6 TP=2 matmul + allreduce 融合（`self_attn.o_proj` / GDN
+> `linear_attn.out_proj`）的 310P3 定制实现。所有平台特化 C++/AscendC
+> 代码隔离在本目录。
 
 ## 当前合同
 
 - Hardware: Ascend 310P3 / dav-2002
-- Model: `qwen3_5_moe_text` full-attention `self_attn.o_proj`
+- Model: `qwen3_5_moe_text` full-attention `self_attn.o_proj` 与
+  linear-attention (GDN) `linear_attn.out_proj`
 - TP: 2
-- Shape: global K=4096, local K=2048, N=2048
-- Compute / exchange / output: FP16
+- Shape: global K=4096, local K=2048, N=2048（两种层一致）
+- Compute / exchange / output: FP16（权重为 checkpoint FLOAT 未量化层）
 - Transport: installed `wgm-dev-310p` MemFabric public SHM/SDMA API
 - Adapter ABI: **v7**
 - Cooperative MM: 8 blocks × explicit M-partition (`batch_m/8` rows each,
@@ -19,8 +21,10 @@
   `{batch_m/8, 2048, 2048}` basic `{batch_m/8, 256, 64}`, `CONFIG_NORM`
 - Producer blockDim: **8**
 - Communication batch: `batch_m = 256 * q`, `q in {1,2,4}`, default 2
+- Threshold: `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_MIN_M`（默认 4096，其下走
+  stock matmul + HCCL all-reduce）
 
-2 MiB 是默认 `q=2`、N=2048、FP16 时推导出的 batch payload，不是协议常量。
+2 MiB 是 `q=2`、N=2048、FP16 时推导出的 batch payload，不是协议常量。
 
 ## 数据流
 
@@ -37,7 +41,7 @@ P1 -------------------------- SDMA0
 W0 -> A0 -------------------- SDMA1
         |
 P2 -------------------------- ...
-...
+        ...
 drain last wait/add
         |
 public quiet (once per wave)
@@ -50,9 +54,9 @@ data `signal()` owner。wait/reduce 以 batch 为单位，credit 仍以 wave 为
 
 ## 文件职责
 
-- `memfabric_o_proj_binding.cpp`：PyTorch custom op
-- `memfabric_o_proj_runtime.cpp`：arena/wave、lookahead pipeline、Graph/lifecycle
-- `memfabric_o_proj_torch_adpt.h`：torch-facing 校验
+- `memfabric_mm_ar_binding.cpp`：PyTorch custom op
+- `memfabric_mm_ar_runtime.cpp`：arena/wave、lookahead pipeline、Graph/lifecycle
+- `memfabric_mm_ar_torch_adpt.h`：torch-facing 校验
 - `memfabric310p_adapter_api.h`：内部 ABI v7
 - `memfabric310p_adapter.cpp`：MemFabric public host API bridge
 - `memfabric310p_device.asc`：8-core cooperative MM、public signal/wait/quiet、FP16 add

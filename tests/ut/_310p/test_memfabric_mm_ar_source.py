@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Import-free source regressions for the 310P3 MemFabric o_proj ABI v7 path."""
+"""Import-free source regressions for the 310P3 MemFabric mm_ar ABI v7 path."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_o_proj.py"
+HELPER = ROOT / "vllm_ascend" / "_310p" / "ops" / "memfabric_mm_ar.py"
 ENVS = ROOT / "vllm_ascend" / "envs.py"
 MODELSLIM = ROOT / "vllm_ascend" / "_310p" / "quantization" / "modelslim_config.py"
-CUSTOM_CSRC = ROOT / "csrc" / "_310P" / "custom_memfabric_o_proj"
-BINDING = CUSTOM_CSRC / "memfabric_o_proj_binding.cpp"
-RUNTIME = CUSTOM_CSRC / "memfabric_o_proj_runtime.cpp"
+CUSTOM_CSRC = ROOT / "csrc" / "_310P" / "memfabric_mm_ar"
+BINDING = CUSTOM_CSRC / "memfabric_mm_ar_binding.cpp"
+RUNTIME = CUSTOM_CSRC / "memfabric_mm_ar_runtime.cpp"
 ADAPTER_API = CUSTOM_CSRC / "memfabric310p_adapter_api.h"
 ADAPTER = CUSTOM_CSRC / "memfabric310p_adapter.cpp"
 DEVICE = CUSTOM_CSRC / "memfabric310p_device.asc"
@@ -44,12 +44,12 @@ def _src(node: ast.AST) -> str:
 
 
 def test_custom_310p_sources_are_isolated_under_marked_subproject() -> None:
-    assert CUSTOM_CSRC.name == "custom_memfabric_o_proj"
+    assert CUSTOM_CSRC.name == "memfabric_mm_ar"
     assert CUSTOM_CSRC.parent.name == "_310P"
     expected = {
-        "memfabric_o_proj_binding.cpp",
-        "memfabric_o_proj_runtime.cpp",
-        "memfabric_o_proj_torch_adpt.h",
+        "memfabric_mm_ar_binding.cpp",
+        "memfabric_mm_ar_runtime.cpp",
+        "memfabric_mm_ar_torch_adpt.h",
         "memfabric310p_adapter_api.h",
         "memfabric310p_adapter.cpp",
         "memfabric310p_device.asc",
@@ -59,9 +59,9 @@ def test_custom_310p_sources_are_isolated_under_marked_subproject() -> None:
 
 
 def test_eligibility_remains_deliberately_narrow() -> None:
-    src = _src(_func(HELPER, "should_enable_memfabric_o_proj"))
+    src = _src(_func(HELPER, "should_enable_memfabric_mm_ar"))
     full_attn = _src(_func(HELPER, "_is_full_attention_prefix"))
-    assert "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ" in src
+    assert "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR" in src
     assert "prefix.endswith('.self_attn.o_proj')" in full_attn
     assert "layer_types[layer_idx] == 'full_attention'" in full_attn
     assert "_EXPECTED_TP_SIZE" in src
@@ -73,20 +73,20 @@ def test_eligibility_remains_deliberately_narrow() -> None:
 
 def test_python_plan_is_base_m_batch_based() -> None:
     module = HELPER.read_text()
-    plan = module[module.index("class MemFabricOProjPlan") : module.index("def _target_text_config")]
+    plan = module[module.index("class MemFabricMmArPlan") : module.index("def _target_text_config")]
     assert "_BASE_M = 256" in module
     assert "batch_basem_count" in plan
     assert "def batch_m" in plan
     assert "def batch_bytes" in plan
-    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT" in plan
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT" in plan
     assert "q not in (1, 2, 4)" in plan
-    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M" not in module
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TILE_M" not in module
     assert "_MAX_CHUNKS_PER_WAVE" not in module
 
 
 def test_fused_op_is_single_python_route_and_passes_batch_count() -> None:
-    src = _src(_func(HELPER, "memfabric_o_proj_allreduce"))
-    assert "memfabric_direct_o_proj_allreduce" in src
+    src = _src(_func(HELPER, "memfabric_mm_ar_allreduce"))
+    assert "memfabric_mm_ar_allreduce" in src
     assert "layer.weight.data" in src
     assert "plan.batch_basem_count" in src
     assert "F.linear" not in src
@@ -95,10 +95,10 @@ def test_fused_op_is_single_python_route_and_passes_batch_count() -> None:
 def test_cpp_binding_registers_v7_fused_op_and_shutdown() -> None:
     src = BINDING.read_text()
     assert "TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)" in src
-    assert "memfabric_direct_o_proj_allreduce" in src
+    assert "memfabric_mm_ar_allreduce" in src
     assert "int batch_basem_count" in src
     assert "int tile_m" not in src
-    assert "memfabric_o_proj_shutdown" in src
+    assert "memfabric_mm_ar_shutdown" in src
     assert "torch::kPrivateUse1" in src
 
 
@@ -135,8 +135,8 @@ def test_device_uses_eight_core_cooperative_mm_with_core0_signal_owner() -> None
     # Classic Matmul is single-core semantics: cooperation must be expressed
     # through explicit per-block M-partitions over dense row-sliced A/C views.
     assert "kRowsPerCore = BATCH_M / MF310P_COOPERATIVE_CORES" in producer
-    assert "rowOff * MF310P_O_PROJ_K" in producer
-    assert "rowOff * MF310P_O_PROJ_N" in producer
+    assert "rowOff * MF310P_MM_AR_K" in producer
+    assert "rowOff * MF310P_MM_AR_N" in producer
     # CONFIG_MDL measurably faults (on-chip MTE overrun) at these per-block
     # M sizes; the tiling must stay on the measured-valid CONFIG_NORM.
     assert "GetMMConfig<MatmulConfigMode::CONFIG_NORM>" in src
@@ -145,7 +145,7 @@ def test_device_uses_eight_core_cooperative_mm_with_core0_signal_owner() -> None
     # contiguous C rows it wrote (not the whole batch).
     clean = producer[producer.index("mm.IterateAll(cGm)") : producer.index("Mf310pWriteReady(")]
     assert "Mf310pCleanRegion(" in clean
-    assert "rowOff * MF310P_O_PROJ_N * sizeof(float16_t)" in clean
+    assert "rowOff * MF310P_MM_AR_N * sizeof(float16_t)" in clean
     assert "Mf310pWriteReady(" in producer
     assert "if (block != 0)" in producer
     assert "smem_shm_sdma_signal(" in producer
@@ -236,7 +236,7 @@ def test_adapter_uses_public_host_readiness_and_real_device_id() -> None:
 
 def test_runtime_pipelines_batches_then_quiets_and_acks_wave() -> None:
     src = RUNTIME.read_text()
-    impl = src[src.index("memfabric_direct_o_proj_allreduce_impl") :]
+    impl = src[src.index("memfabric_mm_ar_allreduce_impl") :]
     loop = impl[impl.index("enqueue_producer(0)") : impl.index("if (trace_enabled())")]
     assert "enqueue_producer(batch);" in loop
     assert "enqueue_wait_add(batch - 1);" in loop
@@ -250,7 +250,7 @@ def test_runtime_pipelines_batches_then_quiets_and_acks_wave() -> None:
 
 def test_runtime_arena_and_tail_are_batch_based_and_bounds_safe() -> None:
     src = RUNTIME.read_text()
-    impl = src[src.index("memfabric_direct_o_proj_allreduce_impl") :]
+    impl = src[src.index("memfabric_mm_ar_allreduce_impl") :]
     assert "kBaseM = 256" in src
     assert "kMaxArenaRows = 8192" in src
     assert "rows_by_budget" in src
@@ -283,9 +283,9 @@ def test_runtime_has_graph_safe_fixed_credit_and_stream_contract() -> None:
 
 def test_env_exposes_batch_count_not_tile_size() -> None:
     src = ENVS.read_text()
-    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT" in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT" in src
     assert '"2"' in src
-    assert "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_TILE_M" not in src
+    assert "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TILE_M" not in src
     assert "96 * 1024 * 1024" in src
 
 
@@ -297,7 +297,7 @@ def test_build_consumes_current_memfabric_public_package() -> None:
     assert "--npu-arch=dav-2002" in src
     assert "memfabric310p_adapter.cpp" in src
     assert "memfabric310p_device.asc" in src
-    assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_O_PROJ" in src
+    assert "VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR" in src
     assert "find_program(BISHENG_COMPILER" in src
     assert "add_custom_command(" in src
     assert "mf310p_device_lib" in src
@@ -305,6 +305,6 @@ def test_build_consumes_current_memfabric_public_package() -> None:
 
 def test_modelslim_router_still_dispatches_eligible_float_layer() -> None:
     src = MODELSLIM.read_text()
-    assert "should_enable_memfabric_o_proj(layer)" in src
-    assert "make_memfabric_o_proj_linear_method" in src
+    assert "should_enable_memfabric_mm_ar(layer)" in src
+    assert "make_memfabric_mm_ar_linear_method" in src
     assert "return AscendUnquantizedLinearMethod()" in src

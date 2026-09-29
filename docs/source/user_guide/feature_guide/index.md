@@ -34,5 +34,5 @@ batch_invariance
 lmcache_ascend_deployment
 dynamic_chunk_pipeline_parallel
 flash_attention
-310p_memfabric_o_proj_usage
+310p_memfabric_mm_ar_usage
 :::

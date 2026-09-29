@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""310P3 TP=2 FP16 o_proj single-layer correctness benchmark.
+"""310P3 TP=2 FP16 mm_ar single-layer correctness benchmark.
 
-The target checkpoint keeps full-attention o_proj as an unquantized FLOAT
+The target checkpoint keeps the fused-eligible o_proj/out_proj as unquantized FLOAT
 layer; this 310P3 path runs FP16.
 
 Reference:
@@ -20,9 +20,9 @@ Coexistence is a separate hardware-validation gate.
 Run:
 
   ASCEND_RT_VISIBLE_DEVICES=0,1 \
-  VLLM_ASCEND_310P_ENABLE_MEMFABRIC_O_PROJ=1 \
+  VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 \
   torchrun --standalone --nproc-per-node=2 \
-    benchmarks/scripts/bench_310p_memfabric_o_proj_layer.py \
+    benchmarks/scripts/bench_310p_memfabric_mm_ar_layer.py \
     --rows 255 256 257 511 512 513 1024 2048 4096 6144 8192 --repeat 20
 """
 
@@ -39,7 +39,7 @@ import torch.nn.functional as F
 import torch_npu  # noqa: F401
 import vllm_ascend.vllm_ascend_C  # noqa: F401
 
-from vllm_ascend._310p.ops.memfabric_o_proj import memfabric_o_proj_allreduce
+from vllm_ascend._310p.ops.memfabric_mm_ar import memfabric_mm_ar_allreduce
 from vllm_ascend.utils import maybe_trans_nz
 
 K_LOCAL = 2048
@@ -78,7 +78,7 @@ def main() -> None:
         choices=(1, 2, 4),
         default=int(
             os.getenv(
-                "VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT",
+                "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT",
                 "2",
             )
         ),
@@ -110,7 +110,7 @@ def main() -> None:
     # batch_bytes / mail imm-len expectations) is read per process, and a
     # rank-0-only override silently desynchronizes the two sides when the
     # ambient env var differs from --batch-basem-count.
-    os.environ["VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT"] = str(args.batch_basem_count)
+    os.environ["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT"] = str(args.batch_basem_count)
 
     torch.npu.set_device(local_rank)
     device = torch.device(f"npu:{local_rank}")
@@ -153,7 +153,7 @@ def main() -> None:
         ref = refs[rows]
 
         t0 = time.perf_counter()
-        fused = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
+        fused = memfabric_mm_ar_allreduce(layer=layer, x=x, tp_rank=rank)
         _stream_sync()
         first_ms = (time.perf_counter() - t0) * 1e3
 
@@ -165,7 +165,7 @@ def main() -> None:
         steady_ms = []
         for _ in range(args.repeat - 1):
             t1 = time.perf_counter()
-            out = memfabric_o_proj_allreduce(layer=layer, x=x, tp_rank=rank)
+            out = memfabric_mm_ar_allreduce(layer=layer, x=x, tp_rank=rank)
             _stream_sync()
             steady_ms.append((time.perf_counter() - t1) * 1e3)
             if not torch.allclose(out, ref, rtol=args.rtol, atol=args.atol):
@@ -186,7 +186,7 @@ def main() -> None:
                 print(f"{rows}\t{verdict}\t{max_diff:.6f}\t{n_bad}\t{first_ms:.3f}")
 
         if not ok:
-            raise AssertionError(f"FP16 o_proj fused mismatch rows={rows} max_abs_diff={max_diff}")
+            raise AssertionError(f"FP16 mm_ar fused mismatch rows={rows} max_abs_diff={max_diff}")
 
     if rank == 0:
         print("ALL PASS", flush=True)
@@ -194,7 +194,7 @@ def main() -> None:
     # Both ranks must finish their last wave before either destroys the
     # symmetric pool. Use host-only Gloo, not HCCL, for this rendezvous.
     dist.barrier(group=cpu_group)
-    torch.ops._C_ascend.memfabric_o_proj_shutdown()
+    torch.ops._C_ascend.memfabric_mm_ar_shutdown()
     dist.barrier(group=cpu_group)
 
 
