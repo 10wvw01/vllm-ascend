@@ -133,6 +133,60 @@ int mf310p_add_batch_async(
 
 int mf310p_warmup_add_async(mf310p_context_t* ctx, void* acl_stream);
 
+/* ---- Small-M exact path (N-split, M < batch_m) ---- */
+
+/*
+ * One-time per-layer weight slice build: re-layout the full [2048, 2048]
+ * NZ weight into eight contiguous per-core [256, 2048] NZ column slices
+ * (slice-major layout, 8 MiB). Runs as strided device-to-device copies on
+ * the caller's stream; the caller owns the output buffer.
+ */
+int mf310p_build_weight_slices(
+    mf310p_context_t* ctx,
+    uint64_t weight_nz,
+    uint64_t slices_out,
+    void* acl_stream);
+
+/*
+ * One small-wave N-split producer launch: all eight AI cores compute the
+ * staged [T, 2048] window against their own 256-column slice into the
+ * blocked [8][T][256] batch-0 slot; core0 signals the whole t_rows*2048*2
+ * byte slot to the peer after the ready rendezvous. t_rows is the template
+ * stair {16, 32, 64, 128, 256} covering valid_rows.
+ */
+int mf310p_small_producer_async(
+    mf310p_context_t* ctx,
+    uint64_t x_staging,
+    uint64_t weight_slices,
+    uint32_t valid_rows,
+    uint32_t t_rows,
+    uint32_t generation,
+    void* acl_stream);
+
+/*
+ * Wait the single small-path mail: batch 0 with expected length
+ * t_rows * 2048 * 2 bytes (the existing wait kernel is reused verbatim
+ * through its batchBytes argument).
+ */
+int mf310p_wait_small_async(
+    mf310p_context_t* ctx,
+    uint32_t t_rows,
+    void* acl_stream);
+
+/* Unblocking reduce of exactly valid_rows rows from the blocked slot. */
+int mf310p_add_small_async(
+    mf310p_context_t* ctx,
+    uint64_t out,
+    uint32_t valid_rows,
+    uint32_t t_rows,
+    void* acl_stream);
+
+int mf310p_warmup_nsplit_producer_async(
+    mf310p_context_t* ctx,
+    void* acl_stream);
+
+int mf310p_warmup_add_blocked_async(mf310p_context_t* ctx, void* acl_stream);
+
 /* Wave-level fixed credit. */
 int mf310p_ack_async(mf310p_context_t* ctx, void* acl_stream);
 int mf310p_gate_async(mf310p_context_t* ctx, void* acl_stream);

@@ -94,9 +94,67 @@ extern "C" int mf310p_device_quiet_async(
     uint32_t enable,
     aclrtStream stream);
 
+extern "C" int mf310p_device_launch_nsplit_producer_async(
+    uint64_t pool_base,
+    uint64_t x,
+    uint64_t w_slices,
+    uint64_t send_arena,
+    uint64_t peer_recv_arena,
+    uint32_t t_rows,
+    uint32_t batch_index,
+    uint32_t generation,
+    uint64_t signal_bytes,
+    uint64_t producer_control,
+    uint64_t protocol_status,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_nsplit_producer_async(
+    uint64_t pool_base,
+    uint32_t t_rows,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_add_blocked_async(
+    uint64_t out,
+    uint64_t send_arena,
+    uint64_t recv_arena,
+    uint32_t valid_rows,
+    uint32_t stride_rows,
+    uint32_t block_count,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_add_blocked_async(
+    uint64_t arena,
+    aclrtStream stream);
+
 bool is_valid_batch_m(uint32_t batch_m)
 {
     return batch_m == 256 || batch_m == 512 || batch_m == 1024;
+}
+
+/*
+ * N-split weight slice geometry. The full [2048, 2048] transposed NZ weight
+ * is physically [k_f=128][n_f=128][512B fractal] (8 MiB). Core c owns output
+ * columns [256c, 256c+256), i.e. whole n_f fractals [16c, 16c+16): within
+ * every k_f row (128 * 512B = 64 KiB) the slice's 16 fractals are one
+ * contiguous 8 KiB run. The per-core slice re-layout is therefore eight
+ * strided copies into [k_f=128][16 n_f][512B] (1 MiB each, 8 MiB total).
+ */
+constexpr uint32_t kNzFractalBytes = 512;
+constexpr uint32_t kNzKFractals = 128;
+constexpr uint32_t kNzFullNFractals = 128;
+constexpr uint32_t kNzSliceNFractals = 16;
+constexpr uint64_t kNzFullKfRowBytes =
+    static_cast<uint64_t>(kNzFullNFractals) * kNzFractalBytes;  /* 64 KiB */
+constexpr uint64_t kNzSliceKfRowBytes =
+    static_cast<uint64_t>(kNzSliceNFractals) * kNzFractalBytes; /* 8 KiB */
+constexpr uint64_t kWeightSliceBytes =
+    static_cast<uint64_t>(kNzKFractals) * kNzSliceKfRowBytes;   /* 1 MiB */
+constexpr uint32_t kNsplitCores = 8;
+
+bool is_valid_t_rows(uint32_t t_rows)
+{
+    return t_rows == 16 || t_rows == 32 || t_rows == 64 || t_rows == 128 ||
+           t_rows == 256;
 }
 
 void destroy_partial(mf310p_context_t* opaque);
@@ -612,6 +670,149 @@ extern "C" int mf310p_warmup_add_async(
         return -1;
     }
     return mf310p_device_warmup_add_async(
+        ctx->layout.send_arena,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+/* ---- Small-M exact path (N-split, M < batch_m) ---- */
+
+extern "C" int mf310p_build_weight_slices(
+    mf310p_context_t* opaque,
+    uint64_t weight_nz,
+    uint64_t slices_out,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || weight_nz == 0 || slices_out == 0 ||
+        acl_stream == nullptr) {
+        return -1;
+    }
+    const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
+    for (uint32_t c = 0; c < kNsplitCores; ++c) {
+        const aclError ret = aclrtMemcpy2dAsync(
+            reinterpret_cast<void*>(
+                slices_out + static_cast<uint64_t>(c) * kWeightSliceBytes),
+            kNzSliceKfRowBytes,
+            reinterpret_cast<const void*>(
+                weight_nz + static_cast<uint64_t>(c) * kNzSliceKfRowBytes),
+            kNzFullKfRowBytes,
+            kNzSliceKfRowBytes,
+            kNzKFractals,
+            ACL_MEMCPY_DEVICE_TO_DEVICE,
+            stream);
+        if (ret != ACL_SUCCESS) {
+            return static_cast<int>(ret);
+        }
+    }
+    return 0;
+}
+
+extern "C" int mf310p_small_producer_async(
+    mf310p_context_t* opaque,
+    uint64_t x_staging,
+    uint64_t weight_slices,
+    uint32_t valid_rows,
+    uint32_t t_rows,
+    uint32_t generation,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr || x_staging == 0 ||
+        weight_slices == 0 || generation == 0 || valid_rows == 0 ||
+        valid_rows > t_rows || !is_valid_t_rows(t_rows)) {
+        return -1;
+    }
+    const uint64_t signal_bytes =
+        static_cast<uint64_t>(t_rows) * kMmArRowBytes;
+    return mf310p_device_launch_nsplit_producer_async(
+        ctx->layout.pool_base,
+        x_staging,
+        weight_slices,
+        ctx->layout.send_arena,
+        ctx->layout.peer_recv_arena,
+        t_rows,
+        0,
+        generation,
+        signal_bytes,
+        reinterpret_cast<uint64_t>(ctx->producer_control),
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_wait_small_async(
+    mf310p_context_t* opaque,
+    uint32_t t_rows,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr ||
+        !is_valid_t_rows(t_rows)) {
+        return -1;
+    }
+    return mf310p_device_wait_batch_async(
+        ctx->layout.pool_base,
+        ctx->layout.expected_recv_base,
+        0,
+        static_cast<uint64_t>(t_rows) * kMmArRowBytes,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_add_small_async(
+    mf310p_context_t* opaque,
+    uint64_t out,
+    uint32_t valid_rows,
+    uint32_t t_rows,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    constexpr uint32_t kSmallAddBlocks = 8;
+    if (ctx == nullptr || acl_stream == nullptr || out == 0 ||
+        valid_rows == 0 || valid_rows > t_rows ||
+        !is_valid_t_rows(t_rows)) {
+        return -1;
+    }
+    return mf310p_device_add_blocked_async(
+        out,
+        ctx->layout.send_arena,
+        ctx->layout.recv_arena,
+        valid_rows,
+        t_rows,
+        kSmallAddBlocks,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_nsplit_producer_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    const auto stream = reinterpret_cast<aclrtStream>(acl_stream);
+    /* Every template instantiation is a distinct kernel symbol, so one
+     * warmup call launches all five (generation == 0 no-ops). */
+    const uint32_t stair[5] = {16, 32, 64, 128, 256};
+    for (uint32_t t = 0; t < 5; ++t) {
+        const int ret = mf310p_device_warmup_nsplit_producer_async(
+            ctx->layout.pool_base, stair[t], stream);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+    return 0;
+}
+
+extern "C" int mf310p_warmup_add_blocked_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr) {
+        return -1;
+    }
+    return mf310p_device_warmup_add_blocked_async(
         ctx->layout.send_arena,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
