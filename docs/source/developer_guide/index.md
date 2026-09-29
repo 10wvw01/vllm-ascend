@@ -8,6 +8,7 @@ This section is for developers who want to contribute to vLLM Ascend or understa
 - **[Design](310p_memfabric_mm_ar.md)** — Current public-API ABI v6 architecture and synchronization model
 - **[Hardware Validation Plan](310p_memfabric_mm_ar_development_plan.md)** — Current 310P3 build/correctness/Graph/performance gates
 - **[Build / Deployment / Usage](../user_guide/feature_guide/310p_memfabric_mm_ar_usage.md)** — Current installation, build and hardware-test commands
+- **[小 M 计算优化设计](小M计算优化设计.md)** — Planned exact-M serial path below batch_m (design draft, not yet implemented)
 
 The requirements document is authoritative for this feature. The other documents describe only the current implementation and current validation workflow; historical implementation details are intentionally excluded.
 
