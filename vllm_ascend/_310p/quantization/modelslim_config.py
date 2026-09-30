@@ -108,7 +108,27 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
         if isinstance(layer, LinearBase):
             packed = getattr(self, "packed_modules_mapping", {})
             if self.is_layer_skipped_ascend(prefix, packed):
+                # MemFabric mm_ar dispatch: keep DFlash's stock unquantized
+                # routing as the fallback, and only replace the eligible
+                # Qwen3.5/3.6 o_proj/out_proj method with the fused mm+TP
+                # reduction implementation.
+                from vllm_ascend._310p.ops.memfabric_mm_ar import (
+                    should_enable_memfabric_mm_ar,
+                )
                 from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
+
+                try:
+                    eligible = should_enable_memfabric_mm_ar(layer)
+                except Exception:
+                    eligible = False
+                if eligible:
+                    from vllm_ascend._310p.ops.memfabric_mm_ar import (
+                        make_memfabric_mm_ar_linear_method,
+                    )
+
+                    cls = make_memfabric_mm_ar_linear_method()
+                    logger.debug("Select %s for %s (layer=LinearBase)", cls.__name__, prefix)
+                    return cls()
 
                 logger.debug("Select AscendUnquantizedLinearMethod for %s (layer=%s)", prefix, "LinearBase")
                 return AscendUnquantizedLinearMethod()
