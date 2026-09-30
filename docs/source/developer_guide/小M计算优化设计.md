@@ -22,7 +22,7 @@
 
 ### 既有分区（三段）与问题
 
-```
+```text
 M: 0 ── 补零到 batch_m（单批串行） ──≤ batch_m ── 多批流水 + 尾批补零 ──→
 ```
 
@@ -53,7 +53,7 @@ M: 0 ── 补零到 batch_m（单批串行） ──≤ batch_m ── 多批�
 
 ## 4. 分区图（目标状态）
 
-```
+```text
 M: 0 ──[ exact-M 串行路径: 只算 ceil(M/16)×16 行, 传 M 行 ]──≤ 256 ──[ 256 行批, lookahead 流水, 尾批补零 ≤255 行 ]──→
 ```
 
@@ -98,7 +98,7 @@ else              /* 现有批路径, batch_m=256 */
 
 ### 5.4 波编排（串行链，无 lookahead）
 
-```
+```text
 prepare_wave(gen) → gate → [尾部暂存拷贝, 仅 M%16≠0] → producer_small
 → wait(len=M×row_bytes) → add(valid=M) → quiet → ack
 ```
@@ -170,6 +170,7 @@ core0 唯一 signal owner、mail 严格校验（变长后校验更严）、gener
 arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装。
 
 **风险**：
+
 - R1: B 地板定标结果差（单核 MTE1 瓶颈）→ Phase 1 收益缩水至仅 SDMA 部分
   （~0.05ms），此时直接跳 Phase 2
 - R2: N-split 的 stride-C/gather 成本超预期 → Phase 2 收益被 gather 吃掉，
@@ -185,15 +186,15 @@ arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装�
 且不做满 AB 槽 tiling（定标实测 baseN=16/baseK=1024 更差，90/241µs，弃用）：
 
 - **已实现**（源码 + feature-on 编译通过 + 27 项 UT 源码守卫全绿）：
-  - `memfabric310p_device.asc`：`MF310P_NSPLIT_TILING(16/32/64/128/256)`
+    - `memfabric310p_device.asc`：`MF310P_NSPLIT_TILING(16/32/64/128/256)`
     模板、`Mf310pNsplitProducerKernel`（8 核全活、共享 staging A、每核
     1 MiB 列切片、blocked slot `[8][T][256]`、core0 唯一 signal owner）、
     `mf310pAddBlockedKernel`（256 元素段非阻塞寻址，每段恰为一行×一个
     N 块）、全套 launcher + 首启 no-op warmup 入口
-  - adapter：`mf310p_build_weight_slices`（8×`aclrtMemcpy2dAsync` strided
+    - adapter：`mf310p_build_weight_slices`（8×`aclrtMemcpy2dAsync` strided
     重排，NZ 模型 [k_f=128][n_f=128][512B]，slice c=n_f∈[16c,16c+16)）及
     small producer/wait（显式长度复用既有 wait 内核）/add-blocked/warmup ABI
-  - runtime：路由 `M < min(batch_m, 256)` 且
+    - runtime：路由 `M < min(batch_m, 256)` 且
     `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH`（默认开）；staging 复用
     producer scratch；串行链 copy→prepare→gate→producer→wait→add→quiet→ack；
     权重切片按指针缓存（上限 64 条）；任何 eager 融合调用预热全部 5 个模板
@@ -213,13 +214,13 @@ arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装�
      重启后 OPP 包签名校验被启用（E30009，未签名 cann-kfc-compat 包导致
      TsdOpen 507033，已回滚恢复设备打开）。签名强制 + fork 受阻共同指向
      重启后设备侧安全/沙箱模式变化，容器内无法处置。
-  - **恢复所需（宿主机侧）**：a) `npu-smi set -t reset -i 5664 -c 0`（须在
+    - **恢复所需（宿主机侧）**：a) `npu-smi set -t reset -i 5664 -c 0`（须在
     宿主机执行，容器内被拒）；b) 若复位无效，排查该次重启启用的
     driver/firmware 安全模式（签名校验/沙箱），恢复 9-29 重启前的配置；
     c) 恢复后验证顺序：`mini_kfc 0 "echo hello"` sync=0 → 若仍 -1 而解析
     成功，可用 `kfc_try 0 libcpu_kernels.so` 载体 + CUST 迁移把
     `kfc_min.so` 落到设备搜索路径（bootstrap 全链），再跑 bit-exact。
-  - **KFC 必要性定论（2026-09-30 实验链）**：KFC 仅是初始化期把
+    - **KFC 必要性定论（2026-09-30 实验链）**：KFC 仅是初始化期把
     orchestrator kernel 从 CUST 落盘目录（/home/CustAiCpuUser）搬到
     regular 引擎搜索目录（aicpu_kernels_device）的唯一"桥"，运行时数据面
     不依赖它。绕行实验全部完成：CUST 迁移通道重启后完好，经其直连

@@ -32,13 +32,13 @@ and graph replays.
 
 from __future__ import annotations
 
-import re
 import threading
 import time
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass
 
+import regex as re
 import torch
 from vllm.config import get_current_vllm_config
 from vllm.logger import logger

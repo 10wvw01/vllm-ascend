@@ -352,7 +352,9 @@ def test_device_nsplit_producer_uses_template_stair_and_column_slices() -> None:
 
 def test_device_blocked_add_reduces_exactly_valid_rows() -> None:
     src = DEVICE.read_text()
-    blocked = src[src.index("mf310pAddBlockedKernel") : src.index("extern \"C\" int mf310p_device_launch_nsplit_producer_async")]
+    blocked = src[
+        src.index("mf310pAddBlockedKernel") : src.index('extern "C" int mf310p_device_launch_nsplit_producer_async')
+    ]
     # out[m, n] = send[(n/256)*strideRows*256 + m*256 + (n%256)]: every
     # 256-element segment is exactly one (row, N-block) pair, so it never
     # straddles a 256-column block boundary of the blocked slot layout.
@@ -366,7 +368,9 @@ def test_device_blocked_add_reduces_exactly_valid_rows() -> None:
 
 def test_adapter_builds_weight_slices_with_strided_copies() -> None:
     src = ADAPTER.read_text()
-    build = src[src.index('extern "C" int mf310p_build_weight_slices') : src.index('extern "C" int mf310p_small_producer_async')]
+    build = src[
+        src.index('extern "C" int mf310p_build_weight_slices') : src.index('extern "C" int mf310p_small_producer_async')
+    ]
     assert "aclrtMemcpy2dAsync(" in build
     # Full NZ [k_f=128][n_f=128][512B]; slice c = n_f fractals [16c, 16c+16):
     # 8 KiB contiguous run per 64 KiB k_f row, re-laid out per core.
@@ -414,7 +418,9 @@ def test_runtime_small_path_warmup_and_slice_cache_contracts() -> None:
     assert "warm_small_locked" in src
     # Any eager fused call warms the small-path symbols, so a later small
     # capture never launches a cold symbol (whose first launch is a no-op).
-    eager = src[src.index("warm_producer_locked(state, stream);") : src.index("initialize_protocol_locked(state, stream);")]
+    eager = src[
+        src.index("warm_producer_locked(state, stream);") : src.index("initialize_protocol_locked(state, stream);")
+    ]
     assert "warm_small_locked(state, stream);" in eager
     assert "(!small_path_enabled() || state.small_warmed)" in src
     # Slices are built eagerly before capture and cached per weight pointer.

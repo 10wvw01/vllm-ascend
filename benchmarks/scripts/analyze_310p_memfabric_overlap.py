@@ -125,10 +125,7 @@ def main() -> None:
     )
 
     expected_ratio = len(by[PRODUCER_MARK]) / max(1, len(by[GATE_MARK]))
-    print(
-        f"observed producers/wave={expected_ratio:.2f}; "
-        f"shape expects about {batches / waves:.2f}"
-    )
+    print(f"observed producers/wave={expected_ratio:.2f}; shape expects about {batches / waves:.2f}")
 
     wait_us = _median(by[WAITER_MARK])
     if wait_us <= 0:

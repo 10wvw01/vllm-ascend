@@ -23,18 +23,21 @@
 ## 2. BUG 清单、根因与修复（均已修复并回归）
 
 ### BUG#1 feature-off 构建导入崩溃（vllm-ascend）
+
 - 现象: `ImportError: undefined symbol _ZN11vllm_ascend31memfabric_o_proj_debug_snapshotEv`
 - 根因: binding 无条件注册 debug op，但 `memfabric_o_proj_debug_snapshot()` 仅在 feature-on `#ifdef` 分支定义。
 - 修复: `#else` 分支补 stub（返回 `zeros({24}, kLong)`，镜像 feature-on 无上下文结果）。
 - 回归: feature-off 构建 import/注册/fused op 清晰报错/snapshot 全零 → PASS。
 
 ### BUG#2 层基准 q=1/4 双侧 MAIL_MISMATCH trap（bench 脚本）
+
 - 现象: q=1/q=4 首次运行 `mf310pWaitBatchKernel` aicore trap。
 - 根因: `VLLM_ASCEND_310P_MEMFABRIC_O_PROJ_BATCH_BASEM_COUNT` 只在 rank0 设置（rank1 用默认 q=2）→ batch_bytes/mail imm-len 两侧期望不一致。
 - 修复: env 在 dist init 前对全部 rank 设置。
 - 回归: q=1、q=4 各 9 个 M 全部 PASS（修复前 100% trap）。
 
 ### BUG#3 融合 MM 效率（核心，.asc 设备内核）
+
 - 现象: producer 1024µs/批 vs stock ~246µs/批；fused 17.8ms@M=8192 vs stock ~6.93ms。
 - 根因: AscendC 经典 `Matmul` 是**单核语义**（每个 block 从 tensor 基址消费同一 tiling），原代码把整批形状填入 `MatmulShapeParams` singleCore 字段 → 8 核全量冗余计算整批（正确但 ~8×工作量）。
 - 修复: 8 核协作改为显式 per-block M 分区——A/C 连续行切片视图（`aGm = xGm + block·(BATCH_M/8)·K` 等），B(NZ) 全量共享；tiling `{MB/8, 2048, 2048}` basic `{MB/8, 256, 64}`，**CONFIG_NORM**（CONFIG_MDL 在该 per-block M 下实测片上 MTE 越界 aicore 507015 崩溃）；cache clean 收窄为各核只清自己写的连续 C 行。
@@ -42,16 +45,19 @@
 - 回归: 全部正确性矩阵 bit-exact。
 
 ### BUG#4 运行包缺 310P 编排内核三件套（memfabric_hybrid）
+
 - 现象: .run 安装后 orchestrator 加载失败（除非手设 MF_SDMA_ORCH_JSON）。
 - 根因: `make_run.sh` 未打包 `output/hybm/aicpu_kernel`（launch json + CUST json + so）；运行时按 `<prefix>/<ARCH_OS>/lib64/../hybm/aicpu_kernel` 自动发现。
 - 修复: 三件套随包打入 `${PKG_DIR}/${ARCH_OS}/hybm/`。已验证自动发现生效。
 
 ### BUG#5 安装器在 310P3 上中断（memfabric_hybrid）
+
 - 现象: `install.sh` 芯片检测失败 exit 1 → set_env.sh 不生成。
 - 根因: npu-smi 正则仅匹配 Ascend9xx，310P3 报 "310P3"；copy_extend 仅为 A2/A5 构建。
 - 修复: 检测不到时 WARNING 跳过可选 extend lib 并继续安装。已验证 set_env.sh 正常生成。
 
 ### 环境问题（非代码缺陷，已规避/工具化）
+
 1. **库内自动部署在 torch 进程内必败**: KFC probe miss（`test -f` 退出码 1）经流 sync 以 507018 返回后，torch_npu 注册的 ACL 错误回调将进程内 ACL 运行时闩锁（后续建流/launch 立即 507018）；独立进程无此现象。→ 必须外部预部署（`tools/aicpu_kernel_deploy/deployer`+`mini_kfc` P0 链），已在 orchestrator 代码中注释记录。
 2. **设备侧 kernel 文件被延迟 janitor 删除** → 每次运行前 `ensure_kernel.sh` 重新探测/补拷。
 3. **pip 残留 memfabric_hybrid 包抢先加载 site-packages 的 libmf_smem.so** → serve 内 json 自动发现失败（`mf310p_create ret=-7`）。处理: 卸载 pip 残留 + serve 脚本显式 `MF_SDMA_ORCH_JSON`。
@@ -140,6 +146,7 @@ MemFabric 池存活前后 HCCL allreduce（fp16 [1/8/64,2048]）中位延迟 0.2
 ## 7. 剩余风险与验收结论
 
 风险（按严重度）:
+
 1. **上游 D3/R6 wedge/冻结**: 连续融合负载 ≥5min 有 wedge 风险，serve 下为 ~20s 冻结拉高尾部延迟——生产化阻塞项，待上游修复。
 2. **部署链**: torch 进程内自动部署不可用（ACL 闩锁）+ kernel 文件 janitor 删除 → 依赖外部 deployer 工具链，需服务化固化。
 3. 纯 MM +11%（端到端已 -18%）；N-split 优化路线已勘明。
@@ -147,6 +154,7 @@ MemFabric 池存活前后 HCCL allreduce（fp16 [1/8/64,2048]）中位延迟 0.2
 5. 多副本 libmf_smem.so 环境陷阱（pip 残留/opt 旧装）→ 部署需唯一安装源或显式 MF_SDMA_ORCH_JSON。
 
 **验收结论（实机）**:
+
 - 正确性（层级 bit-exact 全矩阵 + diverge-va + graph replay + serve 统计等价）: **PASS**
 - 性能（M=8192 端到端 -18%；serve 中位持平略优；overlap 有 profiler 证据）: **PASS**
 - 稳定性（60s/mixed/repeat1000/进程生命周期/HCCL 共存）: **PASS**；≥5min 连续负载受上游 D3 限制: **条件通过**（<5min 负载窗口内可靠，或待上游修复）
@@ -160,7 +168,7 @@ MemFabric 池存活前后 HCCL allreduce（fp16 [1/8/64,2048]）中位延迟 0.2
 
 ---
 
-# 第二轮（2026-09-29）：memfabric_mm_ar 更名 + GDN out_proj 融合 + 全 M 融合
+## 第二轮（2026-09-29）：memfabric_mm_ar 更名 + GDN out_proj 融合 + 全 M 融合
 
 日期: 2026-09-29 | 联调: w00804146 (10wvw01) | 提交: 932c9962 → 4806765d → 0001297f → ce48334e
 

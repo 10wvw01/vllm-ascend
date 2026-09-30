@@ -99,4 +99,3 @@ class AscendW8A8LinearMethod310(AscendW8A8Linear310pScheme):
         # ---- dequant stage tensors ----
         layer.weight_scale.data = torch.flatten(layer.weight_scale.data)
         layer.weight_offset.data = torch.flatten(layer.weight_offset.data)
-
