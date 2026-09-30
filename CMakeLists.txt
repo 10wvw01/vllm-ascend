@@ -85,6 +85,13 @@ if(SOC_VERSION MATCHES "ascend310p.*")
     file(GLOB VLLM_ASCEND_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/aclnn_torch_adapter/*.cpp)
+
+    # CUSTOM 310P3: project-specific Qwen3.6 mm + MemFabric allreduce fusion.
+    # Keep these torch-facing sources compiled on every 310P build so the
+    # feature-off stub/registration behavior remains deterministic.
+    list(APPEND VLLM_ASCEND_SRC
+        ${CMAKE_CURRENT_SOURCE_DIR}/csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_binding.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp)
 else()
     file(GLOB VLLM_ASCEND_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/*.cpp
@@ -109,6 +116,15 @@ set(
 )
 
 pybind11_add_module(vllm_ascend_C ${VLLM_ASCEND_SRC})
+
+# CUSTOM 310P3 fusion: csrc/_310P/memfabric_mm_ar.
+# The transport dependency is the installed wgm-dev-310p MemFabric public API.
+# Enabling the feature makes that public package mandatory at configure time.
+if(DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR} AND
+   "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR}" STREQUAL "1")
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/memfabric_310p.cmake)
+    vllm_ascend_configure_310p_memfabric(vllm_ascend_C)
+endif()
 
 # Detect aclrtMemcpyBatchAsync availability (CANN 8.5+)
 # Can be overridden via VLLM_ASCEND_ENABLE_BATCH_MEMCPY env var (registered
