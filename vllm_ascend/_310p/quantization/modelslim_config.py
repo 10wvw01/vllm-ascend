@@ -125,7 +125,11 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                     from vllm_ascend._310p.ops.memfabric_mm_ar import (
                         make_memfabric_mm_ar_linear_method,
                     )
+                    from vllm_ascend._310p.ops.memfabric_mm_ar_runner_hooks import (
+                        install_memfabric_mm_ar_runner_hooks,
+                    )
 
+                    install_memfabric_mm_ar_runner_hooks()
                     cls = make_memfabric_mm_ar_linear_method()
                     logger.debug("Select %s for %s (layer=LinearBase)", cls.__name__, prefix)
                     return cls()
