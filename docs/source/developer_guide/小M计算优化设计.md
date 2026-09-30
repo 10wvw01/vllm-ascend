@@ -219,3 +219,16 @@ arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装�
     c) 恢复后验证顺序：`mini_kfc 0 "echo hello"` sync=0 → 若仍 -1 而解析
     成功，可用 `kfc_try 0 libcpu_kernels.so` 载体 + CUST 迁移把
     `kfc_min.so` 落到设备搜索路径（bootstrap 全链），再跑 bit-exact。
+  - **KFC 必要性定论（2026-09-30 实验链）**：KFC 仅是初始化期把
+    orchestrator kernel 从 CUST 落盘目录（/home/CustAiCpuUser）搬到
+    regular 引擎搜索目录（aicpu_kernels_device）的唯一"桥"，运行时数据面
+    不依赖它。绕行实验全部完成：CUST 迁移通道重启后完好，经其直连
+    （memfabric_hybrid `MF_SDMA_ORCH_CUST_DIRECT=1`，commit 254e6d85）可
+    **KFC-free 完成池创建**，epoch kernel 亦能在 aicpu_custom_scheduler
+    内执行；但 custom 引擎 LD_LIBRARY_PATH 受限（无 /home/HwHiAiUser/hs
+    运行库）且 SQ 属 regular 引擎进程上下文，epoch 的 halSqCqQuery 返回
+    24，数据面不可用。AICPUKernel 类（路由 regular 引擎）则因 so 不在
+    搜索目录而无法执行。`ASCEND_CUST_AICPU_KERNEL_CACHE_PATH` 为宿主侧
+    变量、不改设备侧落盘路径；包配置 `verifyFlag:Close` 不豁免设备级签名
+    校验。结论：替代 KFC 需要一个可写 regular 引擎搜索目录的通道，当前
+    仅 KFC / 华为签名包 / 设备复位三者可得——**复位仍是最短恢复路径**。
