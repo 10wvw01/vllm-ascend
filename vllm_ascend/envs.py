@@ -112,6 +112,44 @@ env_variables: dict[str, Callable[[], Any]] = {
     # Control the aclrtMemcpyBatchAsync compile path for KV cache offloading.
     # "1": force enable, "0": force disable, None: auto-detect from CANN headers.
     "VLLM_ASCEND_ENABLE_BATCH_MEMCPY": lambda: os.getenv("VLLM_ASCEND_ENABLE_BATCH_MEMCPY", None),
+    # Experimental 310P3-only path: Qwen3.5/3.6 unquantized
+    # o_proj/out_proj plus TP=2 reduction through the installed wgm-dev-310p
+    # MemFabric public SHM/SDMA API.
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR", "0"))
+    ),
+    # Config-store rendezvous used by customized MemFabric SHM.
+    "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": lambda: os.getenv(
+        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"
+    ),
+    # Per-rank physical contribution to the symmetric pool. ABI v7 derives
+    # arena_rows from this budget instead of multiplying it by communication
+    # batch size. 96 MiB keeps the default arena at up to 8192 rows while
+    # leaving transport headroom.
+    "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(96 * 1024 * 1024))
+    ),
+    # Communication/reduction batch is an integer multiple of native
+    # baseM=256. Legal values are 1/2/4; q=1 derives batch_m=256 and a 1 MiB
+    # FP16 payload for N=2048. The payload size is not a protocol constant.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "1")
+    ),
+    # Small-M exact path (default on): M < min(batch_m, 256) skips the padded
+    # batch pipeline and runs one serial N-split wave. Read by the C++ runtime.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH", "1"))
+    ),
+    # During profile/warmup dummy runs routed layers can fall back to stock
+    # matmul + HCCL all-reduce, deferring MemFabric pool creation until the
+    # first real request.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK", "0"))
+    ),
+    # Wave-level host/device trace and slow-call monitor.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE", "0"))
+    ),
     # Optional owner-only output directory that enables the 310P DFlash FDO
     # numerical probe. Unset by default, so the probe adds no runtime work.
     # The path may contain model intermediates and is not a credential.
