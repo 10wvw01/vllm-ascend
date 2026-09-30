@@ -201,8 +201,21 @@ arena 定容、eager 单流、graph 前置 warmup、feature-off 不依赖安装�
 - **待实机验证**：bit-exact 全 M 矩阵（同时验证 NZ 切片布局模型——若错则
   翻转 k_f/n_f 解释重写 memcpy2d 参数）、算子级性能（M 梯度 vs stock）、
   e2e 四组合、UT/文档随测更新
-- **设备阻塞（2026-09-30 01:46 发现）**：卡 5664 AICPU OS 的 KFC
-  `system()` 通道 wedge（`echo hello` 亦失败，ret=-1 fork 失败；对照历史
-  正常期为 ret=256=命令退出码），`smem_shm_create` 阶段即失败，与本次代码
-  无关（上次成功建池 09-29 07:34，期间无设备活动）。容器内无法执行
-  `npu-smi set -t device-reset`，需宿主机侧对 5664 复位后恢复验证。
+- **设备阻塞（2026-09-30 深入定位）**：机器于 09-29 13:32 UTC 重启后，KFC
+  `system()` 通道全机（4 卡同症）失效，`smem_shm_create` 阶段即失败，与本次
+  代码无关（上次成功建池 09-28 23:34 UTC）。两级根因：
+  1. 设备侧 KFC handler 重启后不再走"soname 缺失→dlsym 回退"路径（对照
+     9-22 工作日志 `ae_kernel_lib_aicpu_kfc.cpp:168` 成功 vs 现 `:95` 失败）。
+     **已找到绕过**：json 的 `kernelSo` 改指设备上必然存在的 built-in
+     kernel（`libcpu_kernels.so`）后 api 解析成功（实测日志
+     `Get api system from so libcpu_kernels.so success`）。
+  2. 但 `system()` 执行本身返回 -1（fork/exec 失败，设备 OS 层），且本次
+     重启后 OPP 包签名校验被启用（E30009，未签名 cann-kfc-compat 包导致
+     TsdOpen 507033，已回滚恢复设备打开）。签名强制 + fork 受阻共同指向
+     重启后设备侧安全/沙箱模式变化，容器内无法处置。
+  - **恢复所需（宿主机侧）**：a) `npu-smi set -t reset -i 5664 -c 0`（须在
+    宿主机执行，容器内被拒）；b) 若复位无效，排查该次重启启用的
+    driver/firmware 安全模式（签名校验/沙箱），恢复 9-29 重启前的配置；
+    c) 恢复后验证顺序：`mini_kfc 0 "echo hello"` sync=0 → 若仍 -1 而解析
+    成功，可用 `kfc_try 0 libcpu_kernels.so` 载体 + CUST 迁移把
+    `kfc_min.so` 落到设备搜索路径（bootstrap 全链），再跑 bit-exact。
