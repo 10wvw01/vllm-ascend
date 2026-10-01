@@ -1,456 +1,222 @@
-# 07｜MM+AR 融合算子完整设计：从一个公式走到 8 核、SDMA 和流水线
+# 07｜MM+AR 融合算子完整设计：从数学等价到计算通信流水
 
-这一章不按文件讲，而是按“设计问题”讲。先理解为什么需要每个机制，再去看源码。
-
-## 1. 先从最简单的正确版本开始
-
-TP=2：
-
-```text
-rank0: Y0 = X0 @ W0
-rank1: Y1 = X1 @ W1
-Y = Y0 + Y1
-```
-
-最直接实现：
-
-```text
-rank0 MM -> Y0
-rank1 MM -> Y1
-        |
-        v
-两边交换 Y0/Y1
-        |
-        v
-各自做 FP16 add
-```
-
-如果只考虑数学，这就够了。
-
-真正工程复杂的原因是还要满足：
-
-```text
-性能
-并发执行
-缓存一致性
-内存复用
-Graph replay
-异常处理
-动态 M
-小 M 效率
-进程生命周期
-```
-
-下面逐个增加机制。
+> 本章位置：主线第四幕入口。这里先给完整设计全景；后面的 16～19 会把 kernel、runtime、MemFabric、Graph 分别拆开。
 
 ---
 
-## 2. 为什么要用 arena，而不是每次 malloc 一个输出
+## 1. 目标合同
 
-每轮都：
-
-```text
-malloc send
-malloc recv
-通信
-free
-```
-
-会有：
-
-- host/runtime 固定开销；
-- Graph 无法安全 capture 动态 malloc；
-- 通信双方地址不稳定；
-- 更难做流水和信用控制。
-
-因此初始化时建立固定 symmetric pool，并从中规划：
+当前主路径可以抽象成：
 
 ```text
-send_arena
-recv_arena
-peer_recv_arena
-ack_slot
-control/status
+输入 A_rank : [M,2048] FP16
+权重 B_rank : [2048,2048] FP16
+本地 partial: [M,2048]
+TP = 2
+最终输出    : Y0 + Y1
 ```
 
-之后每个 batch 只用：
+普通实现：
 
 ```text
-slot = arena_base + batch_index * batch_bytes
+local MM -> framework AllReduce -> output
 ```
 
-这把动态问题变成了固定地址上的循环复用。
+融合实现：
+
+```text
+local MM 分批产生 partial
+ -> 每批尽早 signal peer
+ -> peer 数据到达后 local add
+ -> 直接返回 reduced output
+```
 
 ---
 
-## 3. baseM 和 q 是什么
+## 2. 为什么 baseM=256、q 又是什么
 
-当前原生 MM 设计以：
+当前定义：
 
 ```text
 baseM = 256
-```
-
-作为通信/计算批次基础。
-
-配置：
-
-```text
-q ∈ {1,2,4}
+q = batch_basem_count ∈ {1,2,4}
 batch_m = 256 * q
 ```
 
-于是：
+对应 FP16、N=2048 的单 batch payload：
 
 ```text
-q=1 -> batch_m=256
-q=2 -> batch_m=512
-q=4 -> batch_m=1024
-```
-
-每行输出 N=2048，FP16 2 bytes，因此 payload：
-
-```text
-batch_bytes = batch_m * 2048 * 2
-```
-
-得到：
-
-```text
-q=1: 1 MiB
+q=1: 256*2048*2B = 1 MiB
 q=2: 2 MiB
 q=4: 4 MiB
 ```
 
-这里的“通信 batch”不是一个永远固定 2 MiB 的概念，而是跟 `baseM*q` 绑定。
+重点：
 
-当前默认 q=1。
-
----
-
-## 4. 为什么 MM 用 8 个 AI Core
-
-目标硬件上当前 producer 设计使用：
-
-```text
-blockDim = 8
-```
-
-并且不是留一个 core 专门通信，而是：
-
-> 8 个 core 全部参与 MM，core0 在完成自己那份 MM 后再兼任 signal owner。
-
-原因很直观：
-
-如果为 signal 独占一个 core：
-
-```text
-7 核算 MM + 1 核等通信
-```
-
-MM 计算资源白白少 1/8。
-
-而 signal 只是 MM 结束后的短控制动作，没有必要长期占用一个 AI Core。
-
-所以当前原则是：
-
-```text
-8 核都算
-core0 也算
-所有核 ready 后
-core0 单 producer signal
-```
+> “2MiB”不是协议常数；真正的协议粒度由 `baseM × q × N × dtype` 决定。
 
 ---
 
-## 5. 为什么普通 batch path 按 M 切 8 份
+## 3. 大 M 路径：8 核 M-split
 
-AscendC classic Matmul API 在这里按单 core 语义工作，不会自动把一个大 MM 分给 8 个 block。
-
-因此代码显式做：
+每个 batch 共有 `batch_m` 行，8 个 AI Core 分行：
 
 ```text
-batch_m rows
-     |
-按 M 等分给 8 core
+core b:
+rows [b*batch_m/8, (b+1)*batch_m/8)
 ```
 
-例如 q=1：
+图示：
 
 ```text
-batch_m = 256
-每 core = 32 行
+C batch
++---------------------+ core0
++---------------------+ core1
++---------------------+ core2
++---------------------+ ...
++---------------------+ core7
 ```
 
-每个 core：
+所有 8 核都做 MM。
 
-```text
-A: [32,2048]
-B: [2048,2048] 共享完整权重
-C: [32,2048]
-```
-
-8 个 core 合起来才得到完整：
-
-```text
-[256,2048]
-```
-
-q=2/4 同理，只是每 core 的 M 增大。
+core0 不是专职通信核；它先完成自己的 MM，再等所有 ready，然后做唯一 signal。
 
 ---
 
-## 6. 为什么权重是共享完整 B，而不是也切 B
+## 4. 为什么需要 ready cell
 
-大 M batch path 选择 M-split：
+如果 core0 自己算完就 signal：
 
 ```text
-每个 core 负责不同输出行
+core0 done
+core1..7 可能还在算
+      ↓
+signal
+      ↓
+SDMA 开始读整个 batch
 ```
 
-这样每个 core 需要完整的 B，因为：
+会读到未完成数据。
+
+因此每核完成自己的 C rows 后：
 
 ```text
-一行完整输出有 N=2048 列
-```
-
-优点是输出直接是正常 ND 连续行，通信和 reduce 简单。
-
-缺点是小 M 时，每个 core 分到的行太少，而每个 core 仍然需要访问完整 B，这会出现明显的权重流固定成本。
-
-这正是 small-M 后来改 N-split 的原因。
-
----
-
-## 7. 为什么 MM 完成后不能马上 signal
-
-假设 core0 自己算完了，就立刻告诉 SDMA：
-
-```text
-“这个 batch 可以搬了”
-```
-
-但此时 core1~7 可能还没把自己的 C 写完。
-
-SDMA 会读到：
-
-```text
-一部分新数据 + 一部分旧数据
-```
-
-所以必须有一个 8-core 完成协议。
-
-当前使用 generation-tagged ready cells。
-
-每个 core：
-
-```text
-完成自己的 MM
- -> clean 自己写的 C cache lines
+MM
+ -> cache clean
  -> ready[batch][core] = generation
 ```
 
 core0：
 
 ```text
-等待 8 个 ready 都等于本轮 generation
+wait ready[0..7] == generation
  -> signal
 ```
 
----
-
-## 8. 为什么 ready 要带 generation
-
-如果 ready 只是：
-
-```text
-0 = 没完成
-1 = 完成
-```
-
-上一波留下的 `1` 很可能让下一波误以为 core 已经完成。
-
-最简单办法是每波先 memset ready 区域为 0，但当前实测清 32 KiB 会产生可见固定开销。
-
-所以 eager 路径改成：
-
-```text
-wave 1: generation = 0x40000000
-wave 2: generation = 0x40000001
-wave 3: generation = 0x40000002
-...
-```
-
-core0 只认“等于当前 generation”的 cell。
-
-旧值即使存在，也不会误判。
-
-这是很经典的并发设计：
-
-```text
-用版本号避免反复清状态
-```
-
-Graph capture 则因为要 replay 相同命令，继续使用固定 generation，并把 clear 放在图内。
+这里 ready 只做卡内 8 核协调；跨卡通知由 MemFabric signal/wait 负责。
 
 ---
 
-## 9. 为什么写完 C 还要 cache clean
+## 5. 为什么 ready 前还有 cache clean
 
-AI Core 写 GM 后，最新数据可能仍在缓存层级里。
+“AI Core 写完”不自动等价于“SDMA 一定看到最新 GM 数据”。
 
-而 peer SDMA 直接从内存地址搬数据。如果不保证可见性，可能发生：
+所以正确性链是：
 
-```text
-AI Core 认为写完了
-SDMA 却读到旧内存内容
+```mermaid
+flowchart LR
+  A[MM 写 C] --> B[cache clean/invalidate]
+  B --> C[ready]
+  C --> D[signal]
+  D --> E[SDMA read]
 ```
 
-因此每个 core 在发布 ready 前，会对自己负责的 C 区域做 64B cache line clean/invalidate。
-
-顺序非常重要：
-
-```text
-MM write
- -> cache clean
- -> ready
- -> core0 signal
-```
-
-不能变成：
-
-```text
-ready
- -> cache clean
-```
-
-否则 ready 就失去“数据已经可被 SDMA 正确读取”的含义。
-
-这叫 happens-before 关系：ready 不只是完成标记，还隐含了前面的数据可见性已经成立。
+交换 B/C 或删除 B 都必须有硬件一致性证据，否则属于 correctness 风险。
 
 ---
 
-## 10. signal 到底做什么
+## 6. generation 解决什么
 
-core0 调用 public device API：
-
-```text
-smem_shm_sdma_signal(...)
-```
-
-可以把它理解成：
+单纯：
 
 ```text
-请 SDMA 把我的 send slot
-搬到 peer 的 recv slot
-并附带 batch_index 等 mail 信息
+ready = 1
 ```
 
-MemFabric transport 内部如何组织 ring/mailbox，对 vLLM 是黑盒。
+下一轮复用同一 ready cell 时，旧的 1 可能被误认为本轮完成。
 
-这是当前设计的重要边界：
+因此写：
 
 ```text
-vLLM 只依赖 public signal/wait/quiet
-不读取 MemFabric private internals
+ready = generation
 ```
 
-这样外部库升级时耦合更小。
+每轮判断当前 generation。
+
+Eager 和 Graph 的 generation 生命周期不同，后面 19 详讲。
 
 ---
 
-## 11. peer 到达后为什么还要 wait 并严格校验 mail
+## 7. 数据平面：send / recv / local add
 
-`wait` 不是只问“有没有一条消息”。
-
-还要检查：
+TP=2 很简单：
 
 ```text
-status
-目标 dst
-长度 len
-imm / batch index
+rank0 partial Y0 --send--> rank1
+rank1 partial Y1 --send--> rank0
 ```
 
-因为流水线中可能同时存在多个 batch。
+每个 rank 最终：
 
-如果 batch0 的 reduce 错拿了 batch1 的 recv 数据，shape 仍然一样，很可能不会 crash，却会静默算错。
+```text
+local partial + peer partial
+```
 
-所以协议校验属于 correctness，不是调试附加项。
+不需要某个 rank 汇总再广播。
+
+当前 MemFabric 被当作 transport：
+
+```text
+signal
+wait
+quiet
+```
+
+vLLM runtime 不依赖其 private ring/mailbox 内部结构。
 
 ---
 
-## 12. local add 为什么自己写 AscendC kernel
+## 8. 为什么 Add 也做定制 kernel
 
-收到 peer partial 后：
-
-```text
-out = local_send + peer_recv
-```
-
-理论上直接用 PyTorch：
-
-```python
-out = a + b
-```
-
-也能完成数学。
-
-但当前实机观察到通用 elementwise add 对变化 output shape 可能产生昂贵的首次 GE compile 固定开销，代码注释记录约 90ms 量级的历史测量。
-
-因此实现了 shape-agnostic 的：
+理论上可以：
 
 ```text
-mf310pAddKernel
+torch.add / at::add_out
 ```
 
-由 8 个 block 切连续元素，使用双 buffer queue 做：
+但小动态 shape 曾出现明显首编译/图构建固定开销，因此当前有轻量 AscendC FP16 add kernel。
+
+它只做：
 
 ```text
-MTE2 load
- -> vector Add
- -> MTE3 store
+out = local + peer
 ```
 
-这说明高性能工程中经常要优化的不是数学复杂度，而是**框架首次编译/动态 shape 固定成本**。
-
-历史数字要在当前软件栈重新测，不能当永恒事实。
+大 M normal layout 与 small-M blocked layout 会有不同处理。
 
 ---
 
-## 13. 为什么不等整个 M 算完再一次通信
+## 9. 一个 wave 怎样流水
 
-假设 M=2048，q=1，可以切成 8 个 256-row batch。
-
-如果串行：
+定义：
 
 ```text
-MM batch0
-MM batch1
-...
-MM batch7
-然后通信全部数据
-然后 add
+P = Producer: MM + ready + signal
+W = Wait peer batch
+A = Add local + peer
 ```
 
-前面 batch0 算完以后一直在等。
-
-更合理的是：
-
-```text
-batch0 算完 -> 马上让 SDMA 搬
-同时 AI Core 去算 batch1
-```
-
-于是把 M 变成流。
-
-这就是 batch pipeline 的真正价值。
-
----
-
-## 14. 当前为什么是 lookahead=1
-
-当前实际 enqueue：
+当前 lookahead=1 的 enqueue 思路：
 
 ```text
 P0
@@ -464,368 +230,168 @@ quiet
 ack
 ```
 
-`P` = producer：MM + signal
-`W` = wait peer mail
-`A` = local add
-
-之所以先 enqueue `P(n+1)` 再 enqueue `W/A(n)`，是希望：
+希望设备时间线上形成：
 
 ```text
-P(n) signal 以后 SDMA(n) 进行中
-AI Core 开始 P(n+1)
-```
-
-然后 P(n+1) signal 后，设备又可推进：
-
-```text
-W/A(n) 与 SDMA(n+1)
-```
-
-这是一种计算、通信、reduce 的交错。
-
-为什么不是 lookahead=2/3？不是数学不允许，而是：
-
-- arena 占用；
-- mail/credit 复杂度；
-- wait 时机；
-- 硬件实际 overlap；
-- 过度排队可能没有收益。
-
-当前选择是工程平衡，后续可以 profiler 驱动继续研究。
-
----
-
-## 15. 为什么 quiet 只在 wave 尾部做一次
-
-如果每个 batch 都：
-
-```text
-signal
-quiet
-wait
-add
-```
-
-`quiet` 会把通信流水反复 drain，导致后续 batch 无法与前面计算重叠。
-
-当前 hot path 的 wait 刻意不包含 quiet。
-
-整波完成后才：
-
-```text
-quiet
-ack
-```
-
-于是中间可以让多个 outbound SDMA 保持流水状态。
-
-这是“把同步从 batch 粒度提升到 wave 粒度”的核心优化之一。
-
----
-
-## 16. wave 和 batch 有什么区别
-
-### batch
-
-一次 producer/MM/communication 的粒度：
-
-```text
-batch_m = 256*q 行
-```
-
-### wave
-
-一次可以安全占用当前 arena 的一组 batch。
-
-arena 有固定行容量，例如最多到 8192 rows。
-
-如果 M 超过 arena capacity：
-
-```text
-M
- -> wave0
- -> wave1
- -> ...
-```
-
-每 wave 内再切多个 batch。
-
-wave 边界承担资源复用和 credit 保护。
-
----
-
-## 17. credit 是解决什么问题
-
-想象 rank0 已经开始下一波，并重新写自己的 send/recv arena，但 rank1 还在读上一波。
-
-就会发生覆盖：
-
-```text
-rank1 正在读 old batch
-rank0 把 slot 写成 new batch
-```
-
-结果数据竞争。
-
-所以需要一个波级信用协议：
-
-```text
-只有确认 peer 已经完成上一波对共享 arena 的使用
-才允许下一波复用
-```
-
-当前抽象成：
-
-```text
-gate
+MM1  || SDMA0
+MM2  || SDMA1 || Add0
 ...
+```
+
+注意：这是“设计意图”，是否真的 overlap 必须看 profiler。
+
+---
+
+## 10. arena、wave、credit
+
+为了避免每次 malloc，runtime 复用固定通信 arena。
+
+但同一地址不能在 peer 还没消费时被下一轮覆盖。
+
+因此一个 wave 有：
+
+```text
+gate/credit
+  ↓
+多个 batch produce/wait/add
+  ↓
 quiet
+  ↓
 ack
+  ↓
+下一 wave 才可复用
 ```
 
-可以把 credit 想成“一张 arena 使用许可证”。
+`quiet` 证明本 wave 通信不再 in-flight；`ack` 证明 peer 可以复用相应资源。
 
 ---
 
-## 18. 为什么尾批不再每次清零整个 scratch
+## 11. Tail 为什么不必每次清整个 scratch
 
-如果最后 batch 只有 33 行，但 batch_m=256，需要一个完整形状给固定 MM kernel。
+如果 M 不是 `batch_m` 整数倍，最后一批有 tail。
 
-最直观：
+当前 scratch 分配时清零一次；tail 只复制有效行。
 
-```text
-scratch 256 行全 memset 0
-copy 33 行有效数据
-做 256 行 MM
-最后只 reduce 前 33 行
-```
-
-但每次 memset 大块设备内存会成为固定开销。
-
-当前优化：
+为什么旧 padding 不影响结果？
 
 ```text
-scratch 初始化时只清零一次
-之后尾批只覆盖有效前缀
-后面的行允许保留 0 或历史脏值
+MM 各输出行相互独立
+最终 add 只消费 valid_rows
+padding 行不会参与有效输出
 ```
 
-为什么正确？
+因此无需每个 tail 再做整块 memset。
 
-矩阵乘每一输出行只依赖对应输入行：
-
-```text
-C[row] = A[row] @ B
-```
-
-脏的 padding 行只会污染自己的输出行。
-
-而 add 只消费：
-
-```text
-valid_rows
-```
-
-所以这些无效行永远不会进入最终 output。
-
-这是一类非常有价值的优化思维：
-
-> 不要为了“内存看起来干净”做无必要工作；只要能证明无效数据不会流入可观察结果，就可以避免清零。
+这属于“有证明的省固定开销”，不是随便省初始化。
 
 ---
 
-## 19. 为什么 small-M 需要另一条路
+## 12. small-M 为什么要单独一条路
 
-假设 M=16，batch_m=256。
+大 M M-split 每核需要完整 B。
 
-普通 M-split batch path 会算 256 行，其中 240 行无效。
-
-更大的问题是每个 core 只算很少 M 行，却仍访问完整 2048×2048 权重。
-
-当前实测发现这有明显的权重流固定地板。
-
-因此 small path 改为 N-split：
+小 M 时：
 
 ```text
-N=2048
- -> 8 core × 256 columns
+每核只算很少行
+但完整 weight stream 固定成本仍在
 ```
 
-每个 core：
+于是 small path 改成 N-split：
 
 ```text
-处理全部 T 行
-只读取自己的 [256,2048] 权重 slice
-得到 [T,256]
+8 核每核负责 256 个输出列
+每核只读自己的 [256,2048] weight slice
 ```
 
-权重预先重排成：
-
-```text
-8 个连续的 256-column NZ slice
-总计约 8 MiB / weight
-```
-
-这牺牲额外常驻内存，换取小 M 下更低的 weight-stream 成本。
-
----
-
-## 20. 为什么 small-M 用 T 阶梯而不是完全动态 M
-
-当前模板：
-
-```text
-T ∈ {16,32,64,128,256}
-```
-
-例如：
-
-```text
-M=9   -> T=16
-M=25  -> T=32
-M=70  -> T=128
-```
-
-这是静态高性能 kernel 和动态服务 shape 的折中：
-
-- 完全动态 M：kernel tiling/Graph 更复杂；
-- 永远 T=256：小 M 浪费太多；
-- 多个模板阶梯：代码有限，同时降低 padding。
-
-这是常见的 bucketization 思路。
-
----
-
-## 21. small path 为什么输出是 blocked layout
-
-N-split 时每个 core 产生：
-
-```text
-[T,256]
-```
-
-8 core 输出自然排成：
+输出先写 blocked：
 
 ```text
 [8][T][256]
 ```
 
-为了避免 producer 之后再做一次昂贵重排，通信直接搬这个 blocked layout。
+再由 blocked add/unblock 变回 `[M,2048]`。
 
-最后由 `mf310pAddBlockedKernel` 一边 local+peer add，一边把它写回正常：
+当前 T stair：
 
 ```text
-[M,2048]
+16,32,64,128,256
 ```
-
-这叫把“解块/unblock”融合进 reduce。
-
-原则是：
-
-> 中间格式只服务中间阶段，不必强迫每一步都回到最终标准格式。
 
 ---
 
-## 22. 为什么 kernel 首次要 warm 两次
+## 13. Graph 为什么参与协议设计
 
-当前代码记录目标环境存在一个特殊行为：fresh `.so` 中每个 kernel symbol 第一次 launch 可能 silent no-op。
-
-因此 runtime 在正式使用前，对相关 symbol 做两次 warmup并同步。
-
-这不是算法设计，而是目标平台运行时现实。
-
-重点学习的是应对方式：
+Graph capture 时不能临时：
 
 ```text
-把不可控的首次行为提前移出 hot path
-并且移出 Graph capture
+malloc
+第一次 build weight slice
+第一次 warm kernel symbol
+重新做 host rendezvous
 ```
 
-不要把这种平台 quirks 隐藏成偶发 correctness bug。
+因此 runtime 需要在 eager 阶段完成资源构建和 warmup。
+
+Graph replay 对 generation 也有特殊处理，因此不是“同一条 eager 代码录下来”这么简单。
 
 ---
 
-## 23. 为什么失败后要 poisoned
+## 14. 设计审视：当前完整方案是不是最佳？
 
-分布式通信协议一旦中途失败，不能简单 catch 然后继续下一轮。
-
-例如：
+不能这么下结论。当前设计是多个约束下的阶段平衡：
 
 ```text
-rank0 认为 batch2 已发
-rank1 wait 失败
-arena / mail / credit 状态可能已经不同步
+TP=2
+固定 K/N=2048
+public MemFabric API
+8 AI Core
+FP16
+Graph 可用
+DFlash 下有大量小 M
 ```
 
-继续复用 context 可能把一次显式错误变成后续静默错数。
+### 可替换的性能策略
 
-所以 RuntimeState 记录：
+| 当前 | 候选演进 |
+|---|---|
+| M-split | 自适应核数、2D M×N split |
+| q 固定 | 按 M/负载自适应 q |
+| lookahead=1 | 0/2/更深 window |
+| batch 完整后 signal | tile/chunk 粒度 producer |
+| local add 独立 | 更早规约或与后续算子融合 |
+| FP16 transport | 低精度通信 |
+| wave credit | ring/window credit |
+| TP=2 peer exchange | TP>2 collective protocol |
+
+### 不应该轻易改的 correctness 边
 
 ```text
-poisoned = true
-failure_reason = first error
+MM 完成
+ -> 数据对通信可见
+ -> 标记 ready
+ -> signal
+ -> peer 完成可见
+ -> add
+ -> quiet/ack 后才复用
 ```
 
-以后直接 fail fast，要求重启 worker。
-
-这是分布式底层代码很重要的安全原则：
-
-> 当协议状态是否还能恢复无法被严格证明时，宁可停止复用，也不要猜。
+任何“优化”只要破坏这条 happens-before，就不是优化。
 
 ---
 
-## 24. 把整个大 M wave 连起来
+## 15. 怎样决定下一刀
 
-最终可以画成：
-
-```text
-Host/C++ Runtime
-  |
-prepare_wave
-  |
-gate  ----------------------------- 等上一波资源可复用
-  |
-  +--> P0: 8-core MM -> clean -> ready -> core0 signal
-  +--> P1: 8-core MM -> clean -> ready -> core0 signal
-  +--> W0 -> A0
-  +--> P2
-  +--> W1 -> A1
-  |    ...
-  +--> Wlast -> Alast
-  |
-quiet ------------------------------- drain outbound SDMA
-  |
-ack   ------------------------------- 告诉 peer 本波资源已安全消费
-  |
-output [M,2048]
-```
-
-small M 则：
+只看三个东西：
 
 ```text
-prepare -> gate
- -> stage M rows
- -> 8-core N-split producer
- -> one signal
- -> wait
- -> blocked add/unblock
- -> quiet -> ack
+真实 M histogram
+CANN profiler 时间线
+端到端 TTFT/ITL/throughput
 ```
 
-这两条路共享的是同一个数学语义，不同的是如何映射硬件。
+先找暴露时间最大的阶段，再改。
 
----
+如果通信已经被完全隐藏，就不要继续优化通信；如果 small-M 占绝大多数，就不要把精力都花在 M=2048 benchmark。
 
-## 25. 本章自测
-
-1. 为什么 core0 不能自己 MM 完就 signal？
-2. ready 前为什么必须 cache clean？
-3. generation 为什么可以让 eager 省掉 ready clear？
-4. 为什么 `wait` 不应该每次隐含 `quiet`？
-5. wave credit 保护的是哪个资源竞争？
-6. 尾批保留脏 padding 行为什么仍然正确？
-7. small-M 为什么从 M-split 改成 N-split？
-8. blocked add 为什么也是一种融合？
-9. poisoned 状态为什么比“失败后继续试”安全？
-
-下一章按真正调用链逐文件读代码。
+这也是后面 10、20、21 的核心方法。

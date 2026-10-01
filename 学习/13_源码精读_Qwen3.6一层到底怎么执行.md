@@ -1,734 +1,195 @@
-# 13｜源码精读：Qwen3.6 的一层在这个仓库里到底怎么执行
+# 13｜源码精读：Qwen3.6 一层到底怎么执行
 
-> 目标：不再停留在“Qwen3.6 有 Attention / MoE / TP”这种概念层，而是沿着当前仓库真实代码，把一层模型从 Python forward 一直追到本次 MM+AR custom op 的入口。
->
-> 本章建议同时打开：
->
-> - `vllm_ascend/patch/worker/patch_qwen3_5.py`
-> - `vllm_ascend/_310p/quantization/modelslim_config.py`
-> - `vllm_ascend/_310p/ops/memfabric_mm_ar.py`
-> - `csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_binding.cpp`
+> 本章位置：主线第三幕。目标是从真实模型执行视角找到 `o_proj/out_proj`，理解它前后是什么，而不是孤立地看一个 Linear。
 
 ---
 
-## 1. 先明确：Qwen3.6 在代码里为什么叫 `qwen3_5`
+## 1. 先用“数据流”读模型，不要先陷入类继承
 
-当前目标 checkpoint 属于 Qwen3.5/3.6 这一套模型实现，HF text config 的 `model_type` 在本分支里仍按：
+一层 Transformer 可以先粗化成：
 
-```text
-qwen3_5_moe_text
+```mermaid
+flowchart LR
+  A[hidden_states] --> B[norm]
+  B --> C{layer type}
+  C -->|full attention| D[QKV/attention]
+  C -->|linear attention| E[GDN]
+  D --> F[o_proj]
+  E --> G[out_proj]
+  F --> H[residual / 后续]
+  G --> H
+  H --> I[MoE/MLP]
 ```
 
-做识别。
+本项目真正盯的是 F/G。
 
-因此看到：
+---
 
-```python
-from vllm.model_executor.models.qwen3_5 import Qwen3_5DecoderLayer
-```
+## 2. 为什么先找 `layer_type`
 
-不要误判成“这不是 Qwen3.6”。这里的名称是框架内部模型协议名，不是我们学习时要纠结的产品版本号。
+Qwen3.6 并不是“每一层完全相同”。
 
-真正应该关心的是：
+因此读源码第一步不是搜索 `o_proj`，而是先确认：
 
 ```text
-这一层的结构是什么？
-这一层的 Linear 形状是什么？
-这一层是否被量化？
-这一层在 TP=2 下需要什么通信？
+这一层是 full_attention 还是 linear_attention？
+```
+
+这样才能知道它最终会走：
+
+```text
+self_attn.o_proj
+或
+linear_attn.out_proj
 ```
 
 ---
 
-## 2. 一层 DecoderLayer 的真实骨架
+## 3. full attention 路径怎么跟
 
-`patch_qwen3_5.py` 里把上游 `Qwen3_5DecoderLayer.forward` 替换成 `AscendQwen3_5DecoderLayer.forward`。
-
-核心结构可以直接从源码抽象成：
+阅读时按 tensor 追：
 
 ```text
 hidden_states
-   |
-   v
-input_layernorm
-   |
-   +------------------------------+
-   |                              |
-   | layer_type=full_attention    | layer_type=linear_attention
-   v                              v
-self_attn                      linear_attn (GDN)
-   |                              |
-   +--------------+---------------+
-                  |
-                  v
-        attention output hidden
-                  |
-                  v
-post_attention_layernorm
-                  |
-                  v
-                 MLP / MoE
-                  |
-                  v
-           本层 hidden_states
+ -> q/k/v projection
+ -> position/RoPE
+ -> attention
+ -> attention output
+ -> o_proj
 ```
 
-这里有一个非常关键的概念：
-
-> Qwen3.6 的层不是“每层都完全一样的普通 Attention”。当前模型是一种 hybrid layer 结构，某些层走 full attention，某些层走 linear attention/GDN。
-
-这就是为什么本次融合最终同时覆盖：
+到了 `o_proj` 前，问三个问题：
 
 ```text
-full attention:  self_attn.o_proj
-linear attention: linear_attn.out_proj
+输入 shape 是什么？
+TP 在哪一维切？
+这层之后是否立刻需要 reduction？
 ```
 
-它们虽然来自不同 attention 类型，但最后都存在“把 attention 结果投影回 hidden size”的 RowParallel Linear。
+当前目标恰好形成 RowParallel partial + SUM。
 
 ---
 
-## 3. full-attention 分支里，`o_proj` 在哪里出现
+## 4. linear attention / GDN 路径怎么跟
 
-`AscendQwen3NextAttention.forward` 的主要逻辑是：
+不要因为它不是普通 attention 就认为融合逻辑完全不同。
 
-```text
-hidden_states
-  -> qkv_proj
-  -> q/k norm + RoPE / MRoPE
-  -> attention core
-  -> optional gate
-  -> o_proj
-```
-
-源码最后非常直接：
-
-```python
-attn_output = self.attn(q, k, v)
-...
-out, _ = self.o_proj(attn_output)
-```
-
-也就是说，本次融合的前一个数据来源不是“任意 tensor”，而是：
+要找的是同一个语义边界：
 
 ```text
-Attention 已经算好的输出 attn_output
+GDN/linear attention 内部结果
+ -> out_proj
+ -> TP partial
+ -> SUM
 ```
 
-随后 `o_proj` 做的是一个线性变换。
-
-如果先忽略 TP：
-
-```text
-Y = X @ W^T
-```
-
-本项目 kernel 采用的内部约定更适合写成：
-
-```text
-A[M,K] @ B[K,N] -> C[M,N]
-```
-
-当前融合合同固定：
-
-```text
-K_local = 2048
-N       = 2048
-```
-
-所以每张 TP 卡真正接到融合 op 的输入是：
-
-```text
-x_rank: [M, 2048]
-weight_rank: [2048, 2048]
-partial_output: [M, 2048]
-```
-
-其中 M 不是模型固定维度，它是“这次 forward 有多少 token 行”。
-
-这点很重要：
-
-```text
-K/N 是模型几何
-M 是运行时工作量
-```
-
-Prefill 的 M 往往较大；Decode / speculative verify 下的 M 可能很小或是 batch×query-token 数。
+只要上层语义与 shape 合同满足，MM+AR 可以复用同一类 fused Linear method。
 
 ---
 
-## 4. 为什么 TP=2 后，`o_proj` 不是一个普通 MatMul
+## 5. MoE 为什么在后面但不是本次融合对象
 
-当前 `o_proj` 是 Row Parallel Linear。
+Attention 投影之后，模型还会继续 residual/norm/MoE 等计算。
 
-先用一个非常小的例子理解。
-
-假设原始输入 hidden dimension 是 4：
+MoE 自己有另一套并行与通信：
 
 ```text
-X = [x0 x1 x2 x3]
+router
+ -> dispatch
+ -> expert compute
+ -> combine
 ```
 
-TP=2 后，输入维度按 K 切开：
-
-```text
-rank0 拿 [x0 x1]
-rank1 拿 [x2 x3]
-```
-
-权重也按对应 K 分片：
-
-```text
-W = [ W0 ]
-    [ W1 ]
-```
-
-每张卡只算自己的部分：
-
-```text
-rank0: Y0 = X0 @ W0
-rank1: Y1 = X1 @ W1
-```
-
-最终完整线性层等价于：
-
-```text
-Y = Y0 + Y1
-```
-
-因为矩阵乘法对 K 维求和，本来就可以拆成两个 K 分片的部分和。
-
-所以 RowParallelLinear 的本质不是：
-
-```text
-两张卡各算一半输出列
-```
-
-而是：
-
-```text
-两张卡都得到完整 N 列的 partial output，最后在相同位置做 SUM。
-```
-
-这解释了为什么当前两张卡上：
-
-```text
-partial output 都是 [M, 2048]
-```
-
-而不是 `[M,1024]`。
-
-也解释了为什么通信语义是 **AllReduce SUM**。
+所以 `o_proj` 后的 TP SUM 是一个相对干净的“局部闭合边界”，不会要求本次算子理解 expert routing。
 
 ---
 
-## 5. 为什么模型名是 W8A8，这里却进入 FP16 kernel
+## 6. 从模型层看到 TP reduction 所有权
 
-这是本项目最容易被误读的地方之一。
-
-目标模型名：
+普通 RowParallel Linear 概念：
 
 ```text
-Qwen3.6-35B-A3B-w8a8
+LinearMethod.apply
+ -> local matmul
+ -> if reduce_results:
+        tensor_model_parallel_all_reduce
 ```
 
-很容易让人下意识认为：
+融合后：
 
 ```text
-所有 Linear 的 weight 和 activation 都必须是 INT8
+LinearMethod.apply
+ -> memfabric_mm_ar_allreduce
+ -> 已经是 reduced result
 ```
 
-实际上 ModelSlim 的量化描述允许某些层被跳过量化。
-
-当前 `modelslim_config.py` 的逻辑是：
-
-```python
-if isinstance(layer, LinearBase):
-    if self.is_layer_skipped_ascend(prefix, packed):
-        ...
-        return AscendUnquantizedLinearMethod()
-```
-
-而 MemFabric 定制就挂在这个“被跳过量化”的分支里：
-
-```python
-eligible = should_enable_memfabric_mm_ar(layer)
-if eligible:
-    return MemFabricMmArLinearMethod310()
-```
-
-所以顺序其实是：
+因此：
 
 ```text
-这是 Linear 吗？
-  -> 是
-它是不是 ModelSlim 跳过量化的层？
-  -> 是
-它又是不是本次融合目标 o_proj/out_proj？
-  -> 是
-那就用 MemFabricMmArLinearMethod310
+reduce_results=False
 ```
 
-也就是说，本次融合不是去改 W8A8 matmul kernel，而是在 W8A8 模型里**命中少数保留 FLOAT 的 projection**。
-
-`memfabric_mm_ar.py` 还继续检查：
-
-```python
-layer.params_dtype == torch.float16
-```
-
-因此当前融合合同明确是：
-
-```text
-A: FP16 ND
-B: FP16 NZ
-C partial: FP16 ND
-MemFabric payload: FP16
-local reduction: FP16
-```
-
-这也是为什么以后你若想把融合扩到真正的 W8A8 Linear，不能只把 dtype 检查删掉：
-
-你还必须重新回答：
-
-```text
-INT8 MM 的输出是什么 dtype？
-scale 在哪里？
-两个 rank 的 partial 是否可在同一 scale 下直接 SUM？
-是先 dequant 再通信，还是量化通信？
-误差怎么验证？
-```
-
-这已经是另一套设计问题。
+这说明融合不是“偷偷换一个 matmul”，而是改变了模型并行语义的实现位置。
 
 ---
 
-## 6. `should_enable_memfabric_mm_ar()` 为什么检查这么多条件
+## 7. 源码精读时建议做一张 shape 表
 
-很多初学者看到一堆 if，会觉得只是“防御式编程”。
+每走到关键节点，记录：
 
-实际上它是在定义一个非常窄的 **kernel ABI 合同**。
+| 节点 | rank 本地 shape | dtype | 是否 partial |
+|---|---|---|---|
+| attention output | `[M,2048]` 或对应本地维度 | FP16 | 视路径 |
+| o_proj input | `[M,2048]` | FP16 | 本 rank 输入 |
+| weight | `[2048,2048]` | FP16 | rank shard |
+| local MM | `[M,2048]` | FP16 | 是 |
+| fused output | `[M,2048]` | FP16 | 否 |
 
-当前检查包含：
-
-```text
-feature flag 开启
-model_type == qwen3_5_moe_text
-prefix 是 self_attn.o_proj 或 linear_attn.out_proj
-prefix 对应的真实 layer_type 必须匹配
-TP size == 2
-input_size == 4096
-input_size_per_partition == 2048
-output_size == 2048
-params_dtype == FP16
-quant method 必须是 unquantized 路径
-```
-
-为什么 `input_size=4096`，但 kernel K=2048？
-
-因为：
-
-```text
-全局 Linear K = 4096
-TP=2 RowParallel
-每 rank K_local = 4096 / 2 = 2048
-```
-
-kernel 只看到本 rank 的局部分片，所以 kernel 里的：
-
-```cpp
-MF310P_MM_AR_K = 2048
-```
-
-完全正确。
-
-这个区别以后一定要形成条件反射：
-
-```text
-模型层 global shape != 单 rank kernel local shape
-```
+只要这张表不清楚，就不要继续读底层 kernel。
 
 ---
 
-## 7. 为什么还要根据 `layer_types[layer_idx]` 再校验一次
+## 8. 设计审视：当前在 LinearMethod 层接管是不是最佳边界？
 
-仅凭后缀：
-
-```text
-.self_attn.o_proj
-.linear_attn.out_proj
-```
-
-理论上已经很具体。
-
-但代码还会：
-
-```python
-layer_idx = ...
-return layer_types[layer_idx] == expected_layer_type
-```
-
-这相当于做“双因素验证”：
+它是一个很合理的工程边界，因为：
 
 ```text
-名字说你是 full attention o_proj
-配置也必须说这一层确实是 full_attention
+模型 forward 基本不改
+RowParallel 语义仍然明确
+量化 route 可以决定是否接管
+custom op 可独立测试
 ```
 
-为什么要这么保守？
+但未来可能有更高层的优化 pass：
 
-因为融合 kernel 是极窄 shape/语义特化。万一模型结构、prefix 规则或上游实现以后变化，仅靠名字误命中可能直接造成静默错数。
+```text
+模型 IR/graph 识别：RowParallelLinear + SUM
+    ↓
+自动替换成平台 fused implementation
+```
 
-对于“定制融合算子”，一个重要工程原则就是：
+这样模型代码甚至不需要知道 MemFabric。
 
-> 宁可漏优化，不要误优化。
+### 什么情况下值得往更高层演进？
 
-漏优化只是回到 stock path；误优化可能返回形状正确但数值错误的 tensor。
+当：
+
+- 同类模式出现在更多模型；
+- 手工 layer-name route 越来越多；
+- 新模型适配主要在重复“识别同一语义”；
+
+就应该从“模型特判”升级到“图模式识别”。
 
 ---
 
-## 8. `configure_memfabric_mm_ar()` 真正接管了什么
+## 9. 本章结论
 
-命中以后有一句非常关键：
-
-```python
-layer.reduce_results = False
-```
-
-这句是整个融合接管的“法律手续”。
-
-原始 RowParallelLinear 的逻辑语义是：
+真正的融合节点不是因为文件里叫 `o_proj`，而是因为源码证明它满足：
 
 ```text
-LinearMethod.apply()
-   -> 产生本 rank partial output
-RowParallelLinear 外层
-   -> 如果 reduce_results=True
-      再做 tensor_model_parallel_all_reduce
+RowParallel local MM
+ + 紧邻 SUM reduction
+ + 上下层 tensor contract 稳定
 ```
 
-而融合路径的 `apply()` 已经返回：
-
-```text
-两 rank partial 已经合并好的 final output
-```
-
-如果不把 `reduce_results` 关掉，就会变成：
-
-```text
-fused MM + reduce
-        |
-        v
-又做一次 generic all-reduce
-```
-
-TP=2 情况下结果会接近：
-
-```text
-2 * 正确结果
-```
-
-所以 `reduce_results=False` 不是性能开关，而是 correctness 所有权转移：
-
-```text
-以前：RowParallelLinear 外层负责 reduce
-现在：MemFabric custom op 负责 reduce
-```
-
-以后做任何算子融合，都要问同样的问题：
-
-> 原来后处理是谁负责？融合后是否出现“双执行”？
-
----
-
-## 9. `MemFabricMmArLinearMethod310` 为什么继承 `AscendUnquantizedLinearMethod`
-
-它没有重新实现完整权重加载逻辑，而是：
-
-```python
-class MemFabricMmArLinearMethod310(AscendUnquantizedLinearMethod):
-```
-
-这是一个很好的工程选择。
-
-因为目标层原本就是 unquantized path，原有 method 已经负责：
-
-```text
-weight parameter 管理
-load 后处理
-310P 所需的 NZ format/cast
-普通 fallback matmul
-```
-
-融合实现只想替换：
-
-```text
-apply 阶段的“MM + TP reduction”
-```
-
-而不是重写所有 Linear 基础设施。
-
-所以代码：
-
-```python
-def process_weights_after_loading(...):
-    super().process_weights_after_loading(layer)
-    configure_memfabric_mm_ar(layer)
-```
-
-先让 stock path 把 weight 处理正确，再挂融合标记。
-
-这体现一个可复用原则：
-
-> 定制代码尽量只接管真正需要改变的最小边界，不要复制整套框架逻辑。
-
-否则上游 weight format、loader、quant router 一变，你的定制代码就很容易漂移。
-
----
-
-## 10. 一次真实融合调用的 Python 调用链
-
-模型执行到：
-
-```python
-self.o_proj(attn_output)
-```
-
-如果该 layer 已在 weight loading 后配置成功，可以把调用链理解成：
-
-```text
-Qwen Attention.forward
-  |
-  v
-RowParallelLinear.forward
-  |
-  v
-MemFabricMmArLinearMethod310.apply
-  |
-  | x = x.contiguous()
-  | rank = get_tensor_model_parallel_rank()
-  v
-memfabric_mm_ar_allreduce(layer, x, rank)
-  |
-  | 检查 dtype / shape / rank
-  | 读取 q -> batch_m
-  v
-torch.ops._C_ascend.memfabric_mm_ar_allreduce(
-    x,
-    layer.weight.data,
-    tp_rank,
-    batch_basem_count,
-)
-```
-
-到这里才离开 Python。
-
-注意 custom op 的参数里**没有显式传 M**。
-
-因为 M 直接来自：
-
-```cpp
-num_tokens = x.size(0)
-```
-
-也没有传 N/K，因为 ABI v7 当前是极窄定制：
-
-```text
-K=N=2048 已经编译进 kernel contract
-```
-
-这种写法性能和实现都简单，但可复用性低。
-
-以后若想泛化到其他 hidden size，需要重新考虑：
-
-```text
-静态多模板？
-运行时 tiling？
-kernel cache？
-ABI 中是否传 K/N？
-哪些 shape 真值得支持？
-```
-
----
-
-## 11. custom op binding 为什么很薄
-
-`memfabric_mm_ar_binding.cpp` 只做 PyTorch 注册：
-
-```text
-memfabric_mm_ar_allreduce(Tensor x, Tensor weight, int tp_rank, int batch_basem_count)
-```
-
-然后映射到 C++ 实现。
-
-它没有把大量业务逻辑堆在 binding 层，这是对的。
-
-建议以后读自定义算子时固定分三层：
-
-```text
-binding: PyTorch 怎么找到这个 op
-runtime: op 内部怎么组织资源和 launch
-kernel: AI Core 具体怎么算
-```
-
-把三层职责混在一起，会很难维护，也很难 Graph 化。
-
----
-
-## 12. 用一个具体 M=10 的 Decode 例子串起来
-
-假设当前某轮进入这个 `o_proj` 的 token 行数：
-
-```text
-M = 10
-TP = 2
-q = 1
-batch_m = 256
-```
-
-每个 rank 上：
-
-```text
-x_rank      [10, 2048] FP16
-weight_rank [2048,2048] FP16 NZ
-```
-
-Python 命中融合以后不会先执行 stock matmul。
-
-直接把 x/weight 交给 custom op。
-
-C++ runtime 看到：
-
-```text
-num_tokens = 10
-10 < min(batch_m=256, small-path ceiling=256)
-```
-
-因此后续不会走普通 256-row M-split batch path，而是进入 small-M N-split。
-
-也就是说，模型层代码完全不知道：
-
-```text
-这个 M=10 最终在 kernel 里不是按 M 分 8 核，而是按 N 分 8 核
-```
-
-这就是好的抽象边界：
-
-```text
-模型语义固定
-运行时根据 shape 选择不同硬件执行策略
-```
-
----
-
-## 13. 用一个 M=512 的例子串起来
-
-仍然：
-
-```text
-q=1 -> batch_m=256
-M=512
-```
-
-C++ runtime 会得到：
-
-```text
-batches = ceil(512 / 256) = 2
-```
-
-每个 batch 的 kernel 几何：
-
-```text
-A [256,2048]
-B [2048,2048]
-C [256,2048]
-```
-
-8 core 按 M 切：
-
-```text
-每 core 32 行
-A_core [32,2048]
-C_core [32,2048]
-B 仍共享完整 [2048,2048]
-```
-
-rank0 算出：
-
-```text
-C0_batch0
-C0_batch1
-```
-
-rank1 算出：
-
-```text
-C1_batch0
-C1_batch1
-```
-
-每个 batch 交换以后本地：
-
-```text
-out_batch = local_partial + peer_partial
-```
-
-最终 output 仍然是模型期待的：
-
-```text
-[512,2048]
-```
-
-上层 attention 完全不需要知道里面分成了两个 batch。
-
----
-
-## 14. 这一章最重要的三个“边界”
-
-### 边界一：模型语义边界
-
-```text
-Attention -> o_proj -> final hidden
-```
-
-模型只关心最终 hidden 正确。
-
-### 边界二：TP 语义边界
-
-```text
-本 rank MM partial + TP SUM = final Linear result
-```
-
-这是为什么可以把 MM 和 AllReduce 放进同一个 custom op。
-
-### 边界三：硬件执行边界
-
-```text
-M 大：M-split batch pipeline
-M 小：N-split small path
-```
-
-这个选择只属于 runtime/kernel，不应该污染模型层。
-
-能分清这三个边界，你以后就更容易判断：
-
-```text
-某个优化应该放模型代码？
-放 quant method？
-放 runtime？
-还是放 AscendC？
-```
-
----
-
-## 15. 自测：不要只回答“是什么”，要回答“为什么”
-
-1. `input_size=4096` 为什么 kernel K 却是 2048？
-2. RowParallelLinear 为什么每个 rank 的输出仍然是 `[M,2048]`？
-3. 为什么 `reduce_results=False` 是 correctness 必需，而不是性能优化？
-4. 为什么融合 method 继承 `AscendUnquantizedLinearMethod`，而不是从零写一个新 Linear？
-5. 为什么 W8A8 模型里这个融合仍然是 FP16？
-6. M=10 和 M=512 最终为什么会走两套不同 kernel 策略，但模型层不需要知道？
-7. 如果未来把 `o_proj` 改成真正 INT8 quantized，当前 ABI 哪些假设会立刻失效？
-
-如果这些问题能从代码路径解释，而不是背结论，就已经开始真正读懂这个项目了。
+下一章继续沿真实执行链看 DFlash 一次 Decode 怎样准备这些 M 行。

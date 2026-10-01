@@ -1,625 +1,564 @@
-# 00｜主线故事：这个项目为什么一步步走到了 MM+AR 融合
+# 00｜主线故事：从一次 Qwen 请求到 MM+AR，再到下一代设计
 
-> 这一篇不是知识点目录，而是整套学习材料的“故事主线”。
->
-> 后面的 vLLM、310P、DFlash、Qwen3.6、TP、MemFabric、AscendC、Graph、small-M 都不是彼此独立的主题。它们都是在解决同一个问题：**怎样让 Qwen3.6-35B-A3B-w8a8 在 310P3 上既能正确服务，又能把真实推理关键路径压下来。**
+> 这一篇要解决一个最重要的问题：**当前实现是怎么一步步“被问题逼出来”的，以及它为什么仍然不是终点。**
 
 ---
 
-## 1. 先设定一个贯穿全文的真实场景
+## 1. 起点：我们不是在优化一个 kernel，而是在优化一条在线推理链
 
-以后读所有章节，都先想象我们正在服务这一组请求：
-
-```text
-硬件：310P3 × 2
-并行：TP = 2
-模型：Tech/Qwen3.6-35B-A3B-w8a8
-输入：典型 prompt 约 4K token
-输出：约 2K token
-在线并发：例如 10 个请求
-推理：开启 DFlash speculative decoding
-```
-
-这不是说运行时永远只有 `batch=10` 或 `M=10`。
-
-vLLM 是 continuous batching，DFlash 又会让一次模型 forward 处理 `1+K` 个 verification token，所以真正进入某一层 Linear 的 `M` 会不断变化。
-
-整个项目的故事，其实就是不断追问：
-
-> **这一轮请求现在卡在哪里？为什么卡？310P 上应该在哪一层解决？**
-
----
-
-## 2. 第一幕：先别优化 kernel，模型服务本身就很复杂
-
-如果只有一个离线请求，我们可以简单地：
+固定场景：
 
 ```text
-prompt -> model -> token1 -> model -> token2 -> ...
-```
-
-但线上有 10 个并发请求，每个人长度不同，结束时间也不同。
-
-于是第一个问题出现：
-
-> 怎样让 NPU 不要因为请求长短不一而大量空转？
-
-这就是 vLLM 先解决的问题：
-
-```mermaid
-flowchart LR
-    A[多个用户请求] --> B[Scheduler]
-    B --> C[Continuous Batching]
-    C --> D[Model Runner]
-    D --> E[模型 Forward]
-    E --> F[采样/更新请求]
-    F --> B
-```
-
-所以我们学习 vLLM，不是为了背框架结构，而是理解：
-
-```text
-谁决定本轮 M 有多大？
-谁准备 KV Cache 地址？
-谁决定 Prefill 还是 Decode？
-谁真正调用模型？
-```
-
-这对应后面的 01、02。
-
----
-
-## 3. 第二幕：同一套 vLLM 不能原封不动搬到 310P
-
-接下来模型要在 310P 上跑。
-
-这时第二个问题出现：
-
-> 上游通用实现里的算子、Graph、Triton、数据格式、量化路径，在 310P 上是不是都能直接用？
-
-答案显然不是。
-
-于是 vLLM-Ascend 和 `_310p` 定制层出现了。
-
-它不是“给代码加一个 310P if”，而是在多个层面接管硬件相关逻辑：
-
-```text
-Worker / Runner
-    ↓
-Graph / metadata
-    ↓
-Attention / GDN / MoE
-    ↓
-Quantization routing
-    ↓
-Custom op
-    ↓
-C++ runtime
-    ↓
-AscendC kernel
-```
-
-这就是为什么项目里会有：
-
-```text
-vllm_ascend/_310p/
-vllm_ascend/patch/worker/
-csrc/_310P/
-```
-
-03、04 的作用，就是让你知道以后一个性能问题应该在哪一层解决，而不是所有问题都往 AscendC 里塞。
-
----
-
-## 4. 第三幕：真正进入 Qwen3.6，一层里到底发生了什么
-
-现在请求终于进入模型。
-
-Qwen3.6 不是每一层都完全一样，当前代码会遇到：
-
-```text
-full_attention
-linear_attention / GDN
-MoE
-```
-
-但无论 full attention 还是 GDN，都会有一个“把 attention 结果投影回 hidden size”的 Linear：
-
-```text
-full attention  -> self_attn.o_proj
-linear attention -> linear_attn.out_proj
-```
-
-这里第一次出现了我们后面真正关心的结构。
-
-在 TP=2 下，它不是一张卡独立完成完整 Linear，而是 Row Parallel：
-
-```text
-rank0: Y0 = X0 @ W0
-rank1: Y1 = X1 @ W1
-final: Y = Y0 + Y1
-```
-
-shape 可以具体写成：
-
-```text
-全局输入 K = 4096
+310P3 × 2
 TP = 2
-
-rank0 X0 : [M, 2048]
-rank1 X1 : [M, 2048]
-
-rank0 W0 : [2048, 2048]
-rank1 W1 : [2048, 2048]
-
-Y0/Y1    : [M, 2048]
-最终 Y    : [M, 2048]
+Tech/Qwen3.6-35B-A3B-w8a8
+4K 左右输入，2K 左右输出
+在线并发，例如 10
+DFlash speculative decoding
 ```
 
-于是第一次出现了一个非常重要的事实：
-
-> **MM 算完以后，这层还没结束。两张卡的 partial output 必须 SUM。**
-
-这就是后面 MM+AR 的数学起点。
-
-13 会沿着真实源码把这一层一路跟到底。
-
----
-
-## 5. 第四幕：为了加速 Decode，我们又引入了 DFlash
-
-如果普通 autoregressive decode 一次只验证/生成很少 token，大模型每一步都要跑一遍，Decode latency 很高。
-
-于是又出现一个问题：
-
-> 能不能先让便宜的 drafter 猜几个 token，再让大模型一次验证多个？
-
-DFlash 就进入故事了。
+用户看的是 TTFT、ITL、吞吐和稳定性；工程师需要把它拆成：
 
 ```mermaid
 flowchart LR
-    A[当前已接受 token] --> B[Drafter 猜 K 个]
-    B --> C[Target 一次 Verify]
-    C --> D{哪些 draft 被接受?}
-    D -->|接受| E[一次推进多个 token]
-    D -->|拒绝| F[回退到正确 token]
-    E --> A
-    F --> A
+  U[请求] --> S[Scheduler]
+  S --> R[310P Runner]
+  R --> Q[Qwen3.6]
+  Q --> A[Attention/GDN]
+  A --> O[o_proj/out_proj]
+  O --> T[TP reduction]
+  T --> X[后续层]
+  X --> P[Sampling]
+  P --> S
 ```
 
-但在 310P 上，DFlash 又不是简单照搬：
+所以“最好”的标准从来不是某个 kernel 最快，而是：
 
-- Triton 路径要换成 AscendC；
-- slot mapping 要正确；
-- physical KV block size 可能按层不同；
-- Graph 下动态地址计算还有限制；
-- recurrent GDN buffer 又约束 speculative token 数。
-
-这里有一个对 MM+AR 非常重要的副作用：
-
-> **DFlash 改变了真实 workload 的 M 分布。**
-
-所以你不能只拿一个固定大 M benchmark 判断 MM+AR 是否优秀。
-
-05、14 就是在解释这件事。
+```text
+正确性不退化
++ 真实 workload 端到端收益
++ 可维护
++ Graph/并发/异常路径能活
++ 下一代还能继续演进
+```
 
 ---
 
-## 6. 第五幕：Profiler 告诉我们，Attention 末尾还有一段不能忽视的串行路径
+# 第一幕：vLLM 先解决“怎么喂饱硬件”
 
-现在回到 `o_proj/out_proj`。
+## 2. 为什么不能一请求一请求串行跑
 
-普通 TP 路径概念上是：
+在线请求长度不同：
+
+```text
+req A: 4K prompt + 2K output
+req B: 800 prompt + 50 output
+req C: 12K prompt + 500 output
+```
+
+如果每人独占模型，硬件利用率会很差。vLLM 用 Scheduler + continuous batching 把当前能执行的 token 拼成一轮 forward。
+
+这时第一个关键认识出现：
+
+> 用户看到的 `batch=10`，不等于某个 Linear 永远看到 `M=10`。
+
+Prefill、Decode、chunk、speculative verify 都会改 M。
+
+### 当前做法是不是最好？
+
+Continuous batching 是当前系统的基础，但它不是“调度已经结束”。未来仍可演进：
+
+```text
+固定调度策略
+   ↓
+shape-aware scheduling
+   ↓
+communication-aware scheduling
+   ↓
+让 Scheduler 主动制造更适合 MM+AR / Graph 的 M 分布
+```
+
+这意味着以后 MM+AR 的优化甚至可能反向影响 Scheduler，而不是只在 kernel 内继续抠微秒。
+
+---
+
+# 第二幕：310P 不能只做“平台替换”
+
+## 3. 为什么会出现 `_310p` 纵向定制
+
+通用 vLLM 假设的 runtime、kernel、Graph、Triton 能力并不完全适配 310P。
+
+因此当前工程把硬件特化放在多个层级：
+
+```text
+Patch / Worker / Runner
+        ↓
+Spec Decode / Graph / Metadata
+        ↓
+Quant route / custom op
+        ↓
+C++ runtime
+        ↓
+AscendC
+```
+
+### 为什么不是所有东西都 fork 一份？
+
+完全 fork 上游模型代码虽然短期自由，但长期会造成：
+
+```text
+上游升级难
+bug 修复难合入
+310P 分支越来越孤立
+```
+
+当前思路更偏向“纵向窄切口”：只接管 310P 真正不同的部分。
+
+### 未来更好的形态
+
+理想演进不是让 `_310p` 越来越大，而是：
+
+```text
+平台差异 -> 清晰 capability/ABI
+模型差异 -> declarative route
+性能特化 -> 可注册 optimization pass
+```
+
+也就是从“patch 驱动”逐步走向“能力声明 + 策略选择”。
+
+---
+
+# 第三幕：Qwen3.6 的 TP 结构天然制造了 MM 后的 SUM
+
+## 4. `o_proj/out_proj` 为什么重要
+
+在 TP=2 Row Parallel 下：
+
+```text
+X = [X0, X1]
+W = [W0; W1]
+
+Y = X @ W
+  = X0 @ W0 + X1 @ W1
+  = Y0 + Y1
+```
+
+单 rank 只得到 partial：
+
+```text
+rank0: Y0 [M,2048]
+rank1: Y1 [M,2048]
+```
+
+最后必须 SUM。
+
+于是普通路径形成：
 
 ```text
 MM partial
    ↓
-写出结果
+完整写出
    ↓
-HCCL AllReduce
+通用 AllReduce
    ↓
 下一算子
 ```
 
-如果这个节点：
-
-- 每层都会出现；
-- decode 每一步都会出现；
-- MM 后紧跟 SUM reduction；
-- TP 固定为 2；
-- shape 很稳定；
-
-那么一个自然问题就出现了：
-
-> 为什么必须等整个 MM 完成，再启动一整个通用 AllReduce？
-
-能不能：
-
-```text
-一部分 MM 完成
-   ↓
-这一部分先发给 peer
-   ↓
-AI Core 继续算下一部分
-```
-
-这才是本项目真正进入“计算通信协作优化”的转折点。
+这条边就是融合机会。
 
 ---
 
-## 7. 第六幕：为什么偏偏选 o_proj，而不是哪里都融合
+# 第四幕：DFlash 一进来，优化问题变复杂了
 
-这里不是“看到 MM 后面有通信就融合”。
+## 5. Speculative decoding 不是独立优化，它改变下游 workload
 
-我们先问数学：
+DFlash：
+
+```mermaid
+flowchart LR
+  A[当前上下文] --> B[Drafter 生成 K 个候选]
+  B --> C[Target verify 1+K]
+  C --> D{接受多少?}
+  D --> E[一次推进多个 token]
+  E --> A
+```
+
+好处是可能减少大模型 decode 轮数。
+
+但代价是：
+
+```text
+一次 target forward 的 token 数改变
+M 分布改变
+Graph shape 分布改变
+KV slot mapping 更复杂
+```
+
+这对 MM+AR 很关键，因为大 M 和小 M 的最佳 kernel 并不一样。
+
+### DFlash 是不是一定最好？
+
+不是。
+
+它是否赚，取决于：
+
+```text
+acceptance rate
+K
+Drafter 开销
+Target verify 开销
+KV/Graph 准备成本
+下游各算子的 M 敏感性
+```
+
+如果 acceptance 很低，或者 verify 放大了某些昂贵算子，speculative 可能不赚。
+
+所以后面所有融合 benchmark 都必须放进 DFlash 的真实 M histogram 里看。
+
+---
+
+# 第五幕：为什么选择 o_proj 做 MM+AR
+
+## 6. 数学允许按 batch 切开
+
+因为：
 
 ```text
 Y = Y0 + Y1
 ```
 
-因为 reduction 是线性的 SUM，所以可以把矩阵按行分块：
+对行分块仍成立：
 
 ```text
-Y_batch0 = Y0_batch0 + Y1_batch0
-Y_batch1 = Y0_batch1 + Y1_batch1
-...
+Y[b] = Y0[b] + Y1[b]
 ```
 
-因此：
+于是：
 
 ```text
 完整 MM -> 完整 AR
 ```
 
-可以变成：
+可以改成：
 
 ```text
-MM batch0 -> transport batch0
-MM batch1 -> transport batch1
+MM batch0 -> send batch0
+MM batch1 -> send batch1
 ...
 ```
 
-而且 `o_proj` 的上层输入输出合同不用改变。
+如果通信能与后续 MM 重叠，就能缩短关键路径。
 
-这就是一个好的融合边界：
+### 这是不是唯一、甚至最好的融合点？
+
+不一定。
+
+候选还有：
 
 ```text
-数学能拆
-数据紧邻
-调用频繁
+QKV projection 周边
+Attention 内部
+MoE dispatch/combine 周边
+更大的 transformer block 融合
+Scheduler + communication 协同
+```
+
+当前选 `o_proj/out_proj` 的原因更务实：
+
+```text
+数学边界干净
+SUM 语义明确
 shape 稳定
-上层接口不变
-有 stock reference 可以对照
+调用频繁
+上层接口变化小
+reference 路径清楚
 ```
 
-15 会进一步拿 qkv_proj、整 Attention、MoE 等候选点来对比，而不是事后给 `o_proj` 找理由。
+它是“风险/收益比不错的第一刀”，不是全局最优证明。
 
 ---
 
-## 8. 第七幕：最简单的 MM+AR 方案一写，马上遇到一堆真实硬件问题
+# 第六幕：数学上简单，硬件上却先要保证“谁真的算完了”
 
-假设我们先写最朴素版本：
+## 7. 8 核 cooperative MM 为什么出现
 
-```text
-MM
--> signal peer
--> wait peer
--> local add
-```
-
-数学对了，但工程上马上会冒出很多问题。
-
-### 问题 1：一个 AscendC Matmul launch 怎么让 8 个 AI Core 真正共同算？
-
-于是有了：
+目标 shape 当前固定为：
 
 ```text
-8 core M-split
-core b 负责自己的 rows
+A [M,2048]
+B [2048,2048]
+C [M,2048]
 ```
 
-### 问题 2：core0 算完了，其他 7 核没算完怎么办？
-
-不能 signal。
-
-于是有了：
+大 M path 用 8 核 M-split：
 
 ```text
-ready[batch][core]
+core0: 一段 rows
+core1: 下一段 rows
+...
+core7: 最后一段 rows
 ```
 
-### 问题 3：AI Core 说“写完”不等于 SDMA 一定能读到最新数据
+所有核都做 MM，没有专门通信核。
 
-于是有了：
+### 为什么 core0 还负责 signal？
+
+因为 signal 需要单 producer 语义，当前采用：
 
 ```text
-MM write
--> cache clean
--> ready
+core0 先算自己的 rows
+等待 ready[0..7]
+再调用 signal
 ```
 
-### 问题 4：上一轮 ready=1，下一轮会不会误判？
-
-于是有了：
-
-```text
-generation tag
-```
-
-### 问题 5：谁调用 signal？8 个 core 都调会怎样？
-
-于是有了当前原则：
-
-```text
-8 核全部参加 MM
-core0 也算自己的部分
-等 8 个 ready 后
-只有 core0 signal
-```
-
-这就是 16 的故事。
+不是把 core0 浪费成通信核。
 
 ---
 
-## 9. 第八幕：能正确通信以后，还要解决“怎么不把流水自己同步死”
+## 8. `MM -> clean -> ready -> signal` 每一步保护什么
 
-如果每个 batch 都：
-
-```text
-MM
-signal
-quiet
-wait
-add
+```mermaid
+flowchart LR
+  A[MM 写 C] --> B[cache clean]
+  B --> C[ready generation]
+  C --> D[core0 看到 8 ready]
+  D --> E[signal SDMA]
 ```
 
-当然容易理解，但也可能把通信流水完全 drain 掉。
+- MM：数据产生；
+- clean：让 SDMA 可见；
+- ready：证明某个 core 的区域完成且可见；
+- signal：告诉通信侧可以搬。
 
-于是我们继续追问：
+### 能不能更好？
 
-> 能不能让 batch0 的 SDMA 和 batch1 的 MM 同时发生？
+可能。
 
-当前 runtime 形成了 lookahead=1 的 enqueue 思路：
+例如未来硬件/runtime 若提供：
+
+```text
+更直接的 producer completion primitive
+设备侧 event
+更强 cache coherence
+按 tile 的 signal
+```
+
+ready cell 和显式 clean 的组织方式都可能重构。
+
+但在当前硬件语义没有证据前，不能为了“少几个指令”删掉 correctness 边。
+
+---
+
+# 第七幕：正确以后，第二目标才是让计算通信重叠
+
+## 9. 为什么不能每个 batch 都 `quiet`
+
+最保守写法：
+
+```text
+P0 -> quiet -> W0 -> A0
+P1 -> quiet -> W1 -> A1
+```
+
+它很容易把 pipeline drain 掉。
+
+当前 lookahead=1 更像：
 
 ```text
 P0
-P1
-W0 A0
-P2
-W1 A1
+P1          || SDMA0
+W0/A0       || SDMA1
+P2          || ...
+W1/A1
 ...
 quiet
 ack
 ```
 
-其中：
+### lookahead=1 是最好的吗？
+
+没有这个结论。
+
+可能存在：
 
 ```text
-P = MM + signal
-W = wait peer data
-A = local add
+lookahead 0：资源紧/小 wave 反而更省
+lookahead 1：当前简单平衡点
+lookahead 2+：通信长尾足够大时可能更好
 ```
 
-这时又冒出新的资源复用问题：
-
-> 下一 wave 能不能覆盖上一 wave 还在使用的 arena？
-
-于是有了：
-
-```text
-arena
-batch
-wave
-credit
-gate
-ack
-```
-
-这就是 17、19 的故事。
+决定依据应是 profiler：通信是否真的藏在 MM 后面、队列深度是否造成反压、arena 是否够、wait 是否成为新瓶颈。
 
 ---
 
-## 10. 第九幕：一上 Graph，又发现“普通 eager 正确”还远远不够
+# 第八幕：为了复用内存和防止覆盖，引出了 wave/credit
 
-为了降低 launch 开销，服务路径还希望使用 ACL Graph。
+## 10. arena 不是普通 buffer
 
-但 Graph capture 有自己的约束：
+多个 batch 共用固定通信区域：
 
 ```text
-不能 capture 时临时 malloc
-不能 capture 时第一次构建 weight slices
-不能依赖每次 host rendezvous
-固定 replay 又会重复 generation
+wave n:
+  batch0 slot
+  batch1 slot
+  ...
 ```
 
-于是 current runtime 被迫引入：
+下一 wave 不能在 peer 还没消费时覆盖它，于是：
 
 ```text
-capture 前 eager warmup
-producer scratch 预分配
-kernel symbol warmup
-protocol init
-Graph 内 clear ready control
+gate -> produce -> wait/add -> quiet -> ack
+```
+
+credit 管的是“整个 wave 是否可以复用 arena”。
+
+### 有没有更好的协议？
+
+候选包括：
+
+```text
+双/多缓冲 arena
+ring buffer + sequence number
+per-batch credit
+更深流水的 window protocol
+```
+
+当前 wave credit 简单、可证明，但并不一定给最大并发深度。
+
+演进前提是先量出：当前到底是 arena reuse 在挡流水，还是 MM/SDMA 本身已经是瓶颈。
+
+---
+
+# 第九幕：ACL Graph 把 runtime 设计重新限制了一遍
+
+## 11. eager 正确，不代表 Graph 能 replay
+
+Graph capture/replay 要求：
+
+```text
+固定或可复用地址
+capture 前完成动态资源初始化
+不能第一次进 kernel 才做昂贵初始化
+replay generation 不能和 eager 混淆
+```
+
+所以当前有：
+
+```text
+capture 前 warmup
+scratch/weight slice 预构建
+Graph control clear
 Graph fixed generation
-eager high-range monotonic generation
+eager 用高位区间 monotonic generation
 ```
 
-所以 Graph 不是附带特性，而是反过来塑造了 runtime 生命周期设计。
+### 更好的长期方向
 
-这也是为什么 `memfabric_mm_ar_runner_hooks.py` 这种看似不起眼的代码实际上很关键。
+当前 runtime 是“为了兼容 Graph 去管理很多状态”。更理想的方向是：
+
+```text
+Graph-safe resource object
+显式 capture epoch
+设备侧 generation namespace
+更少 host 生命周期特殊分支
+```
+
+目标是把 Graph 从“特殊模式”变成同一套协议的另一种执行前端。
 
 ---
 
-## 11. 第十幕：大 M 跑顺了，小 M 又把方案打回来了
+# 第十幕：small-M 打破“大 M 经验”
 
-最初 M-split 很自然：
+## 12. 为什么 M-split 在小 M 下不一定好
+
+M 小时 8 核各自只算几行，但每核仍面对完整 B 的 weight-stream 成本。
+
+于是性能不再近似：
 
 ```text
-8 core 各算不同的输出行
-每核都需要完整 B
+时间 ∝ M
 ```
 
-但 Decode/DFlash 中经常出现小 M。
+固定成本开始占主导。
 
-M 很小时：
-
-```text
-每核只有很少几行 A
-却仍然要面对完整 2048×2048 weight 的读取/调度成本
-```
-
-于是 profiler 告诉我们：
-
-> 算得少，不代表这个 M-split MM 就按比例变快。
-
-这才逼出了 small-M N-split：
+当前 small path 改成 N-split：
 
 ```text
-M-split:
-core0..7 切行，每核看完整 B
-
-          ↓ 改成
-
-N-split:
-core0 负责 256 列
-core1 负责 256 列
+core0 -> 256 columns
 ...
-core7 负责 256 列
+core7 -> 256 columns
 ```
 
-每核只保留自己的 `[256,2048]` weight slice。
+每核只需要自己的 `[256,2048]` weight slice。
 
-于是又自然出现：
+### N-split 是最终答案吗？
+
+也不是。
+
+未来可比较：
 
 ```text
-T stair {16,32,64,128,256}
-blocked [8][T][256] output
-blocked add + unblock
-weight slice cache
+1/2/4/8 core 自适应
+M×N 二维切分
+persistent weight cache
+更小 T stair
+直接输出 normal layout
+MM 内直接规约部分 peer 数据
 ```
 
-所以 small-M 路径不是“另写了一个花活”，而是**原 M-split 策略在真实 Decode workload 下暴露瓶颈后的第二代方案**。
-
-这就是 18 的故事。
+哪个更好必须看不同 M、DFlash K、并发和 Graph 下的 break-even。
 
 ---
 
-## 12. 第十一幕：到这里还不能说“已经最优”
+# 第十一幕：真正的下一代不是“再优化 5%”，而是重新检查边界
 
-项目做到今天，只能说明：
-
-```text
-当前设计在已有证据下解决了一组明确问题
-```
-
-不能说明：
-
-```text
-q=1 永远最好
-lookahead=1 永远最好
-small-M threshold=256 永远最好
-FP16 transport 永远最好
-TP>2 还能照搬当前方案
-```
-
-下一阶段必须继续问：
-
-```text
-真实 M 分布是什么？
-MM 和 SDMA 到底有没有重叠？
-重叠了多少？
-瓶颈现在在 weight stream、SDMA、wait、add 还是协议固定成本？
-q 变大是在提高效率，还是只是在延迟首批通信？
-能否边搬运边规约？
-需要 MemFabric 暴露什么新的 completion 粒度？
-```
-
-于是故事最终进入性能实验，而不是停在“代码写完”。
-
-20 就是教你怎样继续推进这条故事线。
-
----
-
-## 13. 把整个故事压缩成一张因果图
+## 13. 当前方案的演进树
 
 ```mermaid
 flowchart TD
-    A[要在 310P3 上服务 Qwen3.6] --> B[vLLM 负责调度/KV/Continuous Batch]
-    B --> C[310P 与通用平台能力不同]
-    C --> D[_310p Runner/Graph/Attention/Quant/Kernel 定制]
-    D --> E[Decode 很贵]
-    E --> F[DFlash: draft + target verify]
-    F --> G[真实 M 分布更加动态]
-    D --> H[TP=2 RowParallel o_proj]
-    H --> I[每 rank 只得到 partial Y]
-    I --> J[必须 SUM reduction]
-    J --> K[普通 MM + HCCL 边界成为可优化点]
-    K --> L[按 batch 融合 MM + peer transport + add]
-    L --> M[8 核协作/缓存可见性/ready/generation]
-    M --> N[arena/wave/credit/lookahead]
-    N --> O[ACL Graph 生命周期约束]
-    O --> P[small-M 暴露完整 weight-stream 固定成本]
-    P --> Q[N-split + weight slices + blocked layout]
-    Q --> R[Profiler 决定下一代优化]
+  A[当前 TP2 FP16 MM+AR] --> B{瓶颈在哪?}
+  B -->|MM| C[tiling/core split/weight locality]
+  B -->|通信| D[chunk/sub-batch/更深 lookahead]
+  B -->|Add| E[更早规约/融合 add]
+  B -->|固定开销| F[persistent runtime/Graph-safe objects]
+  B -->|small M| G[adaptive M/N/2D split]
+  B -->|调度| H[shape-aware scheduler]
+  B -->|带宽| I[低精度 transport]
+  B -->|扩展性| J[TP>2 collective protocol]
 ```
 
-如果你能沿着这张图把“为什么下一步会出现”讲出来，就已经不是在背知识点，而是在理解项目的演进逻辑。
+这里最重要的不是列方向，而是**每个方向都有触发证据**。
+
+例如：
+
+```text
+如果 SDMA 几乎完全被 MM 隐藏 -> 不要继续抠通信
+如果 Add 出现在 critical path -> 才研究 add 融入/更早规约
+如果 M<64 占 80% -> 优先 small path
+如果 Graph replay 仍有 host 固定开销 -> 优先 runtime 生命周期
+如果 TP 扩到 4 -> 当前 peer-exchange 架构需要重新设计，不是改 world_size 常量
+```
 
 ---
 
-## 14. 后面所有章节都要挂回这条主线
+## 14. 什么叫“最优”
 
-建议不要再把章节理解成 20 个平级主题。
-
-应该分成五幕：
+至少要限定五个维度：
 
 ```text
-第一幕：先让模型成为一个可服务的系统
-01 -> 02 -> 03 -> 04
-
-第二幕：让 Decode 一次推进更多 token
-05 -> 14
-
-第三幕：从真实模型关键路径发现 MM+AR 机会
-13 -> 06 -> 15
-
-第四幕：把一个数学上简单的融合做成硬件上真的正确且可流水
-07 -> 16 -> 17 -> 19 -> 18
-
-第五幕：证明当前方案值不值得，并决定下一代往哪演进
-10 -> 20
+硬件版本
+CANN/runtime 版本
+模型/量化
+workload 分布
+优化目标（吞吐/ITL/TTFT/资源占用）
 ```
 
-08、11、12 是工具型章节：源码地图、练习、自查术语，不属于主剧情。
+因此工程上更准确的目标不是：
 
----
+> 找到永远最优的 MM+AR。
 
-## 15. 学习时始终用这六个问题推进故事
+而是：
 
-每遇到一个新机制，都不要先背名字，按这个顺序问：
+> 建立一套**可测量、可推翻、可替换**的设计，使当前 workload 收益明确，并让下一轮优化有证据可循。
 
-```text
-1. 上一步遇到了什么真实问题？
-2. 这个问题是 correctness、性能，还是平台能力差异？
-3. 为什么应该在当前这一层解决？
-4. 当前方案具体改变了什么数据流/时序/内存？
-5. 代价是什么？为什么没选另一种方案？
-6. 哪个 profiler/实验结果会证明它应该继续保留或被替换？
-```
-
-这六问才是整套学习材料真正的主线方法。
-
-最终你要掌握的不是“MemFabric MM+AR 这一个算子”，而是完整的方法：
-
-```text
-从真实服务 workload
-  -> 找关键路径
-  -> 判断融合是否合法
-  -> 确定软件接入层
-  -> 映射到硬件执行
-  -> 建立同步与生命周期合同
-  -> 用 profiler 推翻或验证设计
-  -> 继续演进
-```
-
-这才是后续自己做第二个、第三个融合算子时真正能复用的能力。
+这就是后面 01～21 的真正学习目标。
