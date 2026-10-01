@@ -1,231 +1,342 @@
 # 310P × Qwen3.6 × vLLM-Ascend 系统学习地图
 
-> 面向第一次接触 vLLM、昇腾推理、投机推理和融合算子的学习者。
+> 目标不是“看懂几个名词”，而是最终能够从源码解释：一条请求为什么这样跑、310P 为什么这样定制、DFlash 为什么这样改、MM+AR 为什么选这个节点、当前实现为什么这样写、哪里仍可能不是最优。
 >
-> 本目录以分支 `feat/310p-memfabric-public-api` 当前实现为准。编写基线：`90a4d1f8fd0ce0100d032bafa484bbd9a20dcbc9`。
-
-## 1. 最终要学会什么
-
-学完以后，不只是“知道代码在哪”，而应该能独立回答：
-
-- vLLM 是什么，vLLM-Ascend 又补了什么？
-- 一条请求从 HTTP/Engine 进入，到 310P 上真正执行算子，中间经过哪些层？
-- Qwen3.6-35B-A3B-w8a8 的 W8A8、MoE、TP=2 分别意味着什么？
-- Prefill、Decode、KV Cache、Batch、Graph、投机推理分别解决什么问题？
-- 310P 为什么需要单独的 `vllm_ascend/_310p`、patch、AscendC 算子？
-- DFlash 投机推理为什么能更快？draft、verify、accept/reject 到底在干什么？
-- 为什么本次 MM+AR 选择 `self_attn.o_proj` / `linear_attn.out_proj` 作为融合点？
-- 普通路径 `MatMul -> HCCL AllReduce` 和当前融合路径到底差在哪里？
-- 为什么 8 个 AI Core 全部参与 MM，core0 还要兼任 signal owner？
-- 为什么要有 ready、generation、credit、arena、wave、batch、quiet？
-- 为什么小 M 又改成 N-split？为什么尾批可以带“脏的补齐行”却仍然正确？
-- 当前方案是不是最优？如何通过 profiler 和性能模型判断下一步应该优化哪里？
-
-真正的目标是获得一套“看懂系统、找瓶颈、选融合点、做实验、证明优化有效”的方法，而不是背当前实现。
+> 本目录分成两层：**01～12 是入门/地图层，13～20 是源码精读/设计推导层。** 如果你的目标是“真正吃透”，01～12 只算预备知识，必须继续读 13～20。
 
 ---
 
-## 2. 建议学习顺序
+## 1. 学习完成后的能力标准
 
-请严格按下面顺序读。前面章节是在给后面的融合算子铺路。
+最终你应该可以不看文档独立回答下面这些问题，而且能指出源码位置：
 
-| 顺序 | 文档 | 读完应掌握 |
+```text
+vLLM Scheduler 到底给 Model Runner 什么？
+Prefill / Decode 的 M 为什么不同？
+Qwen3.6 hybrid layer 中 full attention 和 GDN 怎么分流？
+W8A8 模型为什么本次 o_proj 还是 FP16？
+TP=2 RowParallelLinear 为什么天然产生 [M,N] partial + SUM？
+为什么 self_attn.o_proj 是一个适合做 MM+AR 的边界？
+为什么 8 个 AI Core 全都做 MM，core0 又能安全 signal？
+为什么 cache clean 必须发生在 ready 前？
+为什么 ready cell 每个占 64B？
+为什么 eager generation 可以省掉每 wave 32KiB clear？
+为什么 Graph 又必须 clear？
+为什么 batch 和 wave 是两种不同粒度？
+为什么 quiet 必须在 wave 尾，不能放进每个 wait？
+为什么 small-M 改 N-split 后每 core weight 只有 1MiB？
+为什么 blocked layout [8][T][256] 还可以一次 SDMA？
+为什么 tail 的脏 padding 行不会污染有效输出？
+DFlash 的 slot_mapping 为什么 block_size 错一个值就可能 acceptance≈0？
+怎样用 profiler 判断 q 应该变大还是变小？
+怎样证明“边搬边规约”值得做，而不是凭直觉？
+```
+
+如果只能回答“是什么”，还没到目标；要能回答：
+
+```text
+为什么这样设计
+不这样会出什么具体错误/性能问题
+替代方案是什么
+为什么当前没选替代方案
+以后什么证据出现时应该改
+```
+
+---
+
+## 2. 第一阶段：先建立系统地图（01～12）
+
+这部分面向第一次接触 vLLM / 昇腾 / speculative decode 的读者，作用是建立共同语言。
+
+| 顺序 | 文档 | 作用 |
 |---|---|---|
-| 1 | [01_先看懂全局地图.md](01_先看懂全局地图.md) | vLLM、vLLM-Ascend、310P、模型、算子之间是什么关系 |
-| 2 | [02_一次请求端到端怎么跑.md](02_一次请求端到端怎么跑.md) | 一次请求从调度到 NPU 执行的完整数据流 |
-| 3 | [03_Qwen3.6模型_TP与W8A8.md](03_Qwen3.6模型_TP与W8A8.md) | 模型结构、MoE、TP、RowParallelLinear、W8A8 与 FP16 例外 |
-| 4 | [04_310P定制能力是怎么接进去的.md](04_310P定制能力是怎么接进去的.md) | 310P 定制代码为什么是“纵向切片”，patch/runner/quant/ops 怎样协同 |
-| 5 | [05_投机推理_DFlash怎么工作.md](05_投机推理_DFlash怎么工作.md) | draft + target verify 的原理，以及 310P 下 DFlash 的特殊实现 |
-| 6 | [06_为什么选择o_proj做MM_AR融合.md](06_为什么选择o_proj做MM_AR融合.md) | 如何判断一个融合点“合法、值得、可落地” |
-| 7 | [07_MM_AR融合算子完整设计.md](07_MM_AR融合算子完整设计.md) | 当前融合算子的数学、内存、同步、流水线和失败语义 |
-| 8 | [08_从Python到AscendC逐层读代码.md](08_从Python到AscendC逐层读代码.md) | 从模型层一路跟进到 AscendC kernel 的真实调用链 |
-| 9 | [09_MemFabric_同步_流水线与Graph.md](09_MemFabric_同步_流水线与Graph.md) | MemFabric public API、cache coherence、credit、Graph 生命周期 |
-| 10 | [10_性能分析与下一步优化方法论.md](10_性能分析与下一步优化方法论.md) | 如何判断当前是不是最好，以及怎样找下一步优化方向 |
-| 11 | [11_实战学习路线与自测题.md](11_实战学习路线与自测题.md) | 用实验把“看懂”升级为“会做” |
-| 12 | [12_术语表_小白版.md](12_术语表_小白版.md) | 随时查不懂的专业名词 |
+| 1 | [01_先看懂全局地图.md](01_先看懂全局地图.md) | 分清 Qwen、vLLM、vLLM-Ascend、310P、Python/C++/AscendC 各自职责 |
+| 2 | [02_一次请求端到端怎么跑.md](02_一次请求端到端怎么跑.md) | 建立 Scheduler → Runner → Model → NPU 的一条请求主线 |
+| 3 | [03_Qwen3.6模型_TP与W8A8.md](03_Qwen3.6模型_TP与W8A8.md) | 先理解模型几何、MoE、TP、量化 |
+| 4 | [04_310P定制能力是怎么接进去的.md](04_310P定制能力是怎么接进去的.md) | 看懂 `_310p` 为什么是一个纵向平台适配，而不只是几个 kernel |
+| 5 | [05_投机推理_DFlash怎么工作.md](05_投机推理_DFlash怎么工作.md) | 建立 draft / verify / accept 的基本概念 |
+| 6 | [06_为什么选择o_proj做MM_AR融合.md](06_为什么选择o_proj做MM_AR融合.md) | 融合点选择导读 |
+| 7 | [07_MM_AR融合算子完整设计.md](07_MM_AR融合算子完整设计.md) | MM+AR 总体机制导读 |
+| 8 | [08_从Python到AscendC逐层读代码.md](08_从Python到AscendC逐层读代码.md) | 先建立源码文件地图 |
+| 9 | [09_MemFabric_同步_流水线与Graph.md](09_MemFabric_同步_流水线与Graph.md) | 同步/通信/Graph 的基础认知 |
+| 10 | [10_性能分析与下一步优化方法论.md](10_性能分析与下一步优化方法论.md) | 性能优化思路导读 |
+| 11 | [11_实战学习路线与自测题.md](11_实战学习路线与自测题.md) | 建立练习顺序 |
+| 12 | [12_术语表_小白版.md](12_术语表_小白版.md) | 随查术语 |
+
+**注意：06～10 现在应当视为“导读”，真正的源码深度在下面第二阶段。**
 
 ---
 
-## 3. 先记住一张总图
+## 3. 第二阶段：源码精读与设计推导（13～20）
+
+### 13｜一层 Qwen3.6 到底怎么执行
+
+[13_源码精读_Qwen3.6一层到底怎么执行.md](13_源码精读_Qwen3.6一层到底怎么执行.md)
+
+直接跟：
 
 ```text
-用户请求
-  |
-  v
-vLLM 调度器 / Engine
-  |  决定本轮哪些请求、多少 token 一起跑
-  v
-vLLM Model Runner
-  |
-  v
-vLLM-Ascend 310P Model Runner / Patch
-  |
-  +-------------------------+
-  |                         |
-  | 普通模型计算             | 投机推理 DFlash
-  |                         | draft -> verify -> accept/reject
-  v                         v
-Qwen3.6 模型层
-  |
-  | Full Attention / GDN / MoE / Linear ...
-  v
-RowParallelLinear(o_proj / out_proj)
-  |
-  | 当前定制命中后改走 MemFabricMmArLinearMethod310
-  v
-Python custom-op wrapper
-  |
-  v
-torch.ops._C_ascend.memfabric_mm_ar_allreduce
-  |
-  v
-C++ Runtime
-  |  arena / wave / batch / graph / lifecycle
-  v
-AscendC kernels
-  |  8-core MM -> cache clean -> ready
-  |                     |
-  |                     v
-  |              MemFabric SDMA signal/wait
-  |                     |
-  +-------------> FP16 local add
-                        |
-                        v
-                已完成 TP=2 规约的输出
+Qwen3_5DecoderLayer.forward
+ -> full attention / linear attention
+ -> o_proj/out_proj
+ -> ModelSlim quant route
+ -> MemFabricMmArLinearMethod310
+ -> torch custom op
 ```
 
-这条链就是整个学习目录的“主轴”。后面所有章节都只是把其中一层放大。
+重点解释：
+
+```text
+global K=4096 为什么 kernel local K=2048
+W8A8 模型为什么目标层是 FP16
+reduce_results=False 为什么是 correctness 所有权转移
+M=10 与 M=512 为什么进入不同硬件路径
+```
+
+### 14｜DFlash 一轮 decode 的真实数据结构
+
+[14_源码精读_310P_DFlash一次decode.md](14_源码精读_310P_DFlash一次decode.md)
+
+直接跟 `set_inputs_first_pass()` 和 310P override，重点拆：
+
+```text
+context/query
+1+K query length
+block table
+slot mapping
+64/128 kernel block-size mismatch
+per-layer cache layout
+Graph persistent buffer
+acceptance 为什么会被地址错误打到接近 0
+```
+
+### 15｜从数学和 critical path 真正推导融合点
+
+[15_深度推导_为什么选o_proj做MM_AR.md](15_深度推导_为什么选o_proj做MM_AR.md)
+
+不是列“o_proj 很适合”的优点，而是比较：
+
+```text
+o_proj
+qkv_proj
+residual
+整 Attention
+MoE communication
+TP=2 vs TP>2
+```
+
+并解释融合的真正收益来自哪里、理论上限怎么估。
+
+### 16｜AscendC producer 内核逐行精读
+
+[16_AscendC内核逐行精读_MM_ready_signal.md](16_AscendC内核逐行精读_MM_ready_signal.md)
+
+会手算：
+
+```text
+q=1/2/4 的 batch_m / batch_bytes
+每 core A/C 地址偏移
+每核写多少 KiB
+为什么 B 完整共享
+为什么 ready 64B/cell
+为什么 clean -> ready -> signal 顺序不能变
+```
+
+### 17｜Host Runtime 状态机
+
+[17_Runtime深度精读_arena_wave_credit_graph.md](17_Runtime深度精读_arena_wave_credit_graph.md)
+
+把：
+
+```text
+96MiB pool
+arena_rows
+batch/wave
+credit
+lookahead=1
+tail scratch
+Graph warmup
+single stream
+poisoned context
+shutdown lifecycle
+```
+
+放进一个明确状态机里。
+
+### 18｜Small-M N-split 为什么有效
+
+[18_SmallM_Nsplit深度推导.md](18_SmallM_Nsplit深度推导.md)
+
+从小 M 的完整 weight-stream 固定开销出发，推到：
+
+```text
+M-split -> N-split
+8MiB weight -> 8×1MiB slices
+T stair
+[8][T][256] blocked layout
+blocked add
+payload 缩小
+```
+
+并解释什么情况下 N-split 反而不适合。
+
+### 19｜MemFabric 协议正确性证明
+
+[19_MemFabric协议与Graph正确性.md](19_MemFabric协议与Graph正确性.md)
+
+从 happens-before 角度证明：
+
+```text
+MM -> cache clean -> ready -> signal
+peer signal -> wait -> add
+wave reads -> quiet -> ack -> next gate
+```
+
+并解释 Graph generation、GVA geometry、mail strict validation、fail-stop。
+
+### 20｜性能实验手册
+
+[20_性能建模与实验手册.md](20_性能建模与实验手册.md)
+
+不再泛泛说“可以调 q”，而是给出：
+
+```text
+M sweep 点位
+q=1/2/4 实验矩阵
+overlap ratio
+small-path threshold 曲线
+T staircase 实验
+ready clear A/B
+tail memset A/B
+chunk-size microbenchmark
+lookahead depth 实验
+TP>2/低精度通信的收益上限判断
+```
 
 ---
 
-## 4. 当前实现最重要的事实
+## 4. 建议的真正学习顺序
 
-### 4.1 这不是简单地把两个函数粘在一起
+不要从 01 一口气顺读到 20。
 
-当前所谓“MM+AR 融合”，更准确地说是**系统调度边界上的融合**：
-
-- 对模型层来说，只调用一次 custom op；
-- custom op 内部统一控制 MM、跨卡交换、等待、规约和生命周期；
-- 设备侧仍有 producer / wait / add / protocol 等不同 kernel；
-- 性能收益来自减少通用路径开销，并让计算与通信形成流水，而不是强行把所有逻辑塞进一个 AscendC kernel。
-
-理解这一点非常重要：**融合的本质是消除不必要的边界，并创造可重叠的数据流，不等于“kernel 数量必须等于 1”。**
-
-### 4.2 W8A8 模型不代表每一层都是 INT8
-
-本次命中的：
+推荐：
 
 ```text
-self_attn.o_proj
-linear_attn.out_proj
+第一轮：01 -> 02 -> 03 -> 04 -> 05
+目的：知道系统里有哪些角色
+
+第二轮：13 -> 14
+目的：用真实源码把“模型执行”和“投机推理”落地
+
+第三轮：06 -> 15
+目的：先看融合点导读，再看真实推导
+
+第四轮：07 -> 16 -> 17 -> 18 -> 19
+目的：从总设计进入 kernel/runtime/protocol
+
+第五轮：10 -> 20
+目的：从“知道有哪些优化方向”升级到“会设计实验判断方向”
+
+最后：08 / 11 / 12 当源码地图、练习题和术语索引反复使用
 ```
-
-在当前目标 checkpoint 的 ModelSlim 路由中属于被跳过量化的 FLOAT 层，310P 上按 FP16 执行。因此当前融合合同是：
-
-```text
-activation FP16
-weight FP16/NZ
-partial output FP16
-MemFabric exchange FP16
-local reduce FP16
-```
-
-不要看到模型名字里的 `w8a8` 就默认所有 Linear 都是 W8A8。
-
-### 4.3 当前 q 默认值以代码为准
-
-历史设计文档里曾出现过默认 `q=2`，但当前 `vllm_ascend/envs.py` 和融合目录 README 的实现合同是：
-
-```text
-baseM = 256
-q ∈ {1,2,4}
-default q = 1
-batch_m = 256 * q
-```
-
-学习源码时要建立一个习惯：**运行时代码 > 当前模块 README > 历史设计文档**。文档也会过期。
-
-### 4.4 当前方案不是“终极答案”
-
-代码里已经包含多轮实机发现后形成的优化，例如：
-
-- eager ready 用 generation 避免每波清 32 KiB；
-- tail scratch 只初始化一次，避免每尾批大 memset；
-- small-M 从 M-split 改成 N-split；
-- lookahead=1 让 MM、SDMA、wait/add 尝试重叠。
-
-这些选择都来自特定硬件、特定 shape、特定版本上的测量。它们是“当前证据下的工程答案”，不是永恒定律。后续每次改 CANN、MemFabric、模型 shape 或 TP，都要重新验证。
 
 ---
 
-## 5. 阅读源码时的三个原则
+## 5. 阅读每一段源码都问五个问题
 
-### 原则一：先问“数据是什么”，再问“函数叫什么”
+### 1）这段代码的输入 tensor/地址到底是什么？
 
-例如 `M/K/N` 不清楚时直接看 kernel 会非常痛苦。先写清楚：
+先写 shape，不要先看函数名。
 
-```text
-X_rank: [M, 2048]
-W_rank: [2048, 2048]
-Y_partial: [M, 2048]
-TP=2 final: Y = Y_rank0 + Y_rank1
-```
-
-函数名马上就会变得好懂。
-
-### 原则二：所有同步都问“它在保护什么资源”
-
-- ready：保护“8 个 core 都把这个 batch 写完了”；
-- wait mail：保护“peer 数据真的已经到 recv arena”；
-- quiet：保护“本波发出的 SDMA 已经 drain”；
-- credit：保护“下一波不会过早覆盖当前 arena”；
-- Graph warmup：保护“capture 里不会发生 malloc / 首启 / host rendezvous”。
-
-不要只记 API 名字。
-
-### 原则三：优化必须回答“省了哪段时间”
-
-任何“更快”的方案都应该能映射到时间线：
+例如融合入口：
 
 ```text
-MM | 通信 | reduce | launch | sync | format/layout | memset/copy | graph overhead
+x_rank      [M,2048]
+weight_rank [2048,2048]
+partial     [M,2048]
 ```
 
-如果说不清楚优化减少的是哪一段，通常就还没有形成可以验证的性能假设。
+### 2）它保护的资源是什么？
+
+例如：
+
+```text
+ready 保护一个 batch 的 8-core C 完成
+credit 保护整个 wave 的 arena 复用
+```
+
+### 3）如果删掉这段，会出现“错数、hang、还是只变慢”？
+
+这能帮你区分 correctness 机制和 performance 机制。
+
+### 4）为什么放在这一层实现？
+
+```text
+模型层？quant route？C++ runtime？AscendC？MemFabric adapter？
+```
+
+### 5）有没有替代方案，为什么当前没选？
+
+例如：
+
+```text
+small M 为什么不继续 M-split？
+为什么不是通信专核？
+为什么不是每 batch quiet？
+为什么不是整个 Attention mega-kernel？
+```
+
+能回答第五个问题，才算开始具备继续演进设计的能力。
 
 ---
 
-## 6. 建议同时打开的源码
+## 6. 以后判断文档和代码冲突时，以什么为准
 
-学习本目录时，建议 IDE 里长期固定打开：
+优先级：
 
 ```text
-vllm_ascend/_310p/ops/memfabric_mm_ar.py
-vllm_ascend/_310p/quantization/modelslim_config.py
-vllm_ascend/_310p/model_runner_310p.py
-vllm_ascend/_310p/spec_decode/dflash_proposer_310.py
-vllm_ascend/patch/worker/patch_idex_310.py
-
-csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_binding.cpp
-csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp
-csrc/_310P/memfabric_mm_ar/memfabric310p_adapter_api.h
-csrc/_310P/memfabric_mm_ar/memfabric310p_adapter.cpp
-csrc/_310P/memfabric_mm_ar/memfabric310p_device.asc
-
-vllm_ascend/envs.py
+1. 当前运行时代码
+2. 当前模块 README / contract
+3. 当前测试与 benchmark
+4. 历史设计文档
+5. 历史聊天结论
 ```
 
-读到一个陌生概念，先查 [12_术语表_小白版.md](12_术语表_小白版.md)，再回源码。
+例如 q 默认值历史上出现过 q=2，但当前 `envs.py` 与 runtime contract 是默认 q=1。学习时必须养成“以当前 commit 的执行代码为准”的习惯。
 
 ---
 
-## 7. 什么叫“真的学会了”
+## 7. 最终你要能画出的三张图
 
-最终你应该能不看文档，自己画出以下两张图：
+### 图一：一次请求端到端
 
-1. **一次 Qwen3.6 请求的端到端执行图**：scheduler → runner → model → attention/GDN/MoE → linear → custom op → NPU；
-2. **一个 MM+AR wave 的设备时间线**：P0 → P1/W0/A0 → P2/W1/A1 → drain → quiet → ack。
+```text
+Scheduler -> Runner -> Qwen Layer -> Attention/GDN/MoE -> Linear -> NPU
+```
 
-并且能解释每一条边为什么存在、删掉会发生什么、如果 profiler 显示某段变成瓶颈下一步怎么做。
+### 图二：一次 MM+AR wave
 
-做到这一点，才算从“会用项目”进入“能继续优化项目”的阶段。
+```text
+P0
+P1 + SDMA0
+W0/A0 + SDMA1
+P2 ...
+quiet
+ack
+```
+
+### 图三：correctness happens-before
+
+```text
+MM -> clean -> ready -> signal -> wait -> add -> quiet -> ack -> next gate
+```
+
+不仅能画，还要能解释：
+
+```text
+每条边保护什么资源
+删掉后会发生什么
+哪条边是性能可调、哪条边是 correctness 不能动
+```
+
+做到这一层，才接近“吃透融合算子怎么玩”。
