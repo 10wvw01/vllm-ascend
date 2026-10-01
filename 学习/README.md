@@ -2,7 +2,53 @@
 
 > 目标不是“看懂几个名词”，而是最终能够从源码解释：一条请求为什么这样跑、310P 为什么这样定制、DFlash 为什么这样改、MM+AR 为什么选这个节点、当前实现为什么这样写、哪里仍可能不是最优。
 >
-> 本目录分成两层：**01～12 是入门/地图层，13～20 是源码精读/设计推导层。** 如果你的目标是“真正吃透”，01～12 只算预备知识，必须继续读 13～20。
+> **先读 `00_主线故事_从一次Qwen请求到MM_AR融合.md`。** 后面的 01～20 不是平级知识点，而是同一条工程故事线上逐步出现的问题与解法。
+
+---
+
+## 0. 先抓住唯一主线
+
+整套材料只围绕一个故事：
+
+```text
+要在 310P3 上高效服务 Qwen3.6
+    ↓
+vLLM 先解决在线调度/KV/Continuous Batch
+    ↓
+310P 和通用平台不同，需要 _310p 纵向定制
+    ↓
+Decode 太贵，引入 DFlash 一次验证多个 token
+    ↓
+进入 Qwen3.6 层后，TP=2 的 o_proj 产生 partial output
+    ↓
+partial 必须 SUM，形成 MM -> AllReduce 串行边界
+    ↓
+选择 o_proj/out_proj 做 MM+AR 融合
+    ↓
+朴素融合又遇到 8 核协作、cache 可见性、ready、generation
+    ↓
+为了流水，又引入 arena / wave / credit / lookahead
+    ↓
+为了 Graph，又必须解决 warmup / 固定地址 / generation 生命周期
+    ↓
+真实 Decode 小 M 又暴露 M-split 的 weight-stream 固定成本
+    ↓
+演进出 small-M N-split
+    ↓
+最后用 profiler 决定 q、threshold、lookahead、chunk 等下一代优化
+```
+
+主线文档：
+
+[00_主线故事_从一次Qwen请求到MM_AR融合.md](00_主线故事_从一次Qwen请求到MM_AR融合.md)
+
+以后每读到一个机制，都问：
+
+```text
+上一阶段到底遇到了什么问题，才逼出这个设计？
+```
+
+如果回答不了，就先不要背 API 或源码。
 
 ---
 
@@ -50,6 +96,7 @@ DFlash 的 slot_mapping 为什么 block_size 错一个值就可能 acceptance≈
 
 | 顺序 | 文档 | 作用 |
 |---|---|---|
+| 0 | [00_主线故事_从一次Qwen请求到MM_AR融合.md](00_主线故事_从一次Qwen请求到MM_AR融合.md) | 先知道整套项目为什么一步步演进到当前形态 |
 | 1 | [01_先看懂全局地图.md](01_先看懂全局地图.md) | 分清 Qwen、vLLM、vLLM-Ascend、310P、Python/C++/AscendC 各自职责 |
 | 2 | [02_一次请求端到端怎么跑.md](02_一次请求端到端怎么跑.md) | 建立 Scheduler → Runner → Model → NPU 的一条请求主线 |
 | 3 | [03_Qwen3.6模型_TP与W8A8.md](03_Qwen3.6模型_TP与W8A8.md) | 先理解模型几何、MoE、TP、量化 |
@@ -215,36 +262,59 @@ TP>2/低精度通信的收益上限判断
 
 ---
 
-## 4. 建议的真正学习顺序
+## 4. 不要按编号顺读：按“故事五幕”学习
 
-不要从 01 一口气顺读到 20。
-
-推荐：
+### 第一幕：先让 Qwen3.6 成为一个可服务系统
 
 ```text
-第一轮：01 -> 02 -> 03 -> 04 -> 05
-目的：知道系统里有哪些角色
-
-第二轮：13 -> 14
-目的：用真实源码把“模型执行”和“投机推理”落地
-
-第三轮：06 -> 15
-目的：先看融合点导读，再看真实推导
-
-第四轮：07 -> 16 -> 17 -> 18 -> 19
-目的：从总设计进入 kernel/runtime/protocol
-
-第五轮：10 -> 20
-目的：从“知道有哪些优化方向”升级到“会设计实验判断方向”
-
-最后：08 / 11 / 12 当源码地图、练习题和术语索引反复使用
+00 -> 01 -> 02 -> 03 -> 04
 ```
+
+你要回答：请求如何变成一次 NPU forward？310P 为什么需要自己的 Runner/Graph/算子路径？
+
+### 第二幕：让 Decode 一次推进更多 token
+
+```text
+05 -> 14
+```
+
+你要回答：DFlash 到底改了什么数据结构？为什么它会改变 MM+AR 看到的 M 分布？
+
+### 第三幕：从真实模型关键路径发现融合机会
+
+```text
+13 -> 06 -> 15
+```
+
+你要回答：为什么这里天然是 `partial MM + SUM`？为什么选 o_proj，而不是随便选一个 Linear？
+
+### 第四幕：把一个数学上简单的融合做成硬件上真正正确且可流水
+
+```text
+07 -> 16 -> 17 -> 19 -> 18
+```
+
+你要回答：为什么会依次出现 8 核 M-split、ready、cache clean、generation、arena、credit、Graph 生命周期和 small-M N-split？
+
+### 第五幕：证明当前方案值不值得，并决定下一代怎么演进
+
+```text
+10 -> 20
+```
+
+你要回答：怎样用真实 workload 和 profiler 推翻或验证 q、lookahead、threshold、chunk 等设计假设？
+
+`08 / 11 / 12` 是工具型章节：源码地图、练习题、术语索引，贯穿全程反复查。
 
 ---
 
-## 5. 阅读每一段源码都问五个问题
+## 5. 阅读每一段源码都问六个问题
 
-### 1）这段代码的输入 tensor/地址到底是什么？
+### 1）上一步遇到了什么真实问题？
+
+这是现在新增的第一问，也是最重要的一问。没有问题背景，后面的机制都会变成抽象名词。
+
+### 2）这段代码的输入 tensor/地址到底是什么？
 
 先写 shape，不要先看函数名。
 
@@ -256,7 +326,7 @@ weight_rank [2048,2048]
 partial     [M,2048]
 ```
 
-### 2）它保护的资源是什么？
+### 3）它保护的资源是什么？
 
 例如：
 
@@ -265,17 +335,17 @@ ready 保护一个 batch 的 8-core C 完成
 credit 保护整个 wave 的 arena 复用
 ```
 
-### 3）如果删掉这段，会出现“错数、hang、还是只变慢”？
+### 4）如果删掉这段，会出现“错数、hang、还是只变慢”？
 
 这能帮你区分 correctness 机制和 performance 机制。
 
-### 4）为什么放在这一层实现？
+### 5）为什么放在这一层实现？
 
 ```text
 模型层？quant route？C++ runtime？AscendC？MemFabric adapter？
 ```
 
-### 5）有没有替代方案，为什么当前没选？
+### 6）有没有替代方案，为什么当前没选？什么证据出现时应该换？
 
 例如：
 
@@ -286,7 +356,7 @@ small M 为什么不继续 M-split？
 为什么不是整个 Attention mega-kernel？
 ```
 
-能回答第五个问题，才算开始具备继续演进设计的能力。
+能回答第六个问题，才算开始具备继续演进设计的能力。
 
 ---
 
@@ -306,37 +376,37 @@ small M 为什么不继续 M-split？
 
 ---
 
-## 7. 最终你要能画出的三张图
+## 7. 最终你要能讲出的不是三张孤立图，而是一部完整电影
 
-### 图一：一次请求端到端
+第一张是请求如何进入模型：
 
 ```text
 Scheduler -> Runner -> Qwen Layer -> Attention/GDN/MoE -> Linear -> NPU
 ```
 
-### 图二：一次 MM+AR wave
+第二张是为什么走到融合：
 
 ```text
-P0
-P1 + SDMA0
-W0/A0 + SDMA1
-P2 ...
-quiet
-ack
+TP=2 RowParallel
+ -> partial MM
+ -> 必须 SUM
+ -> stock MM+HCCL 边界
+ -> batch 化 MM+transport+add
 ```
 
-### 图三：correctness happens-before
+第三张是融合内部如何保证正确又试图重叠：
 
 ```text
 MM -> clean -> ready -> signal -> wait -> add -> quiet -> ack -> next gate
 ```
 
-不仅能画，还要能解释：
+第四张是它如何继续演进：
 
 ```text
-每条边保护什么资源
-删掉后会发生什么
-哪条边是性能可调、哪条边是 correctness 不能动
+大 M M-split
+ -> profiler 暴露 small-M weight-stream floor
+ -> N-split
+ -> 再用 profiler 判断下一步
 ```
 
-做到这一层，才接近“吃透融合算子怎么玩”。
+当你能把这四段首尾连起来，并解释“为什么下一段必然从上一段的问题里长出来”，才真正形成了这套项目的系统认知。
