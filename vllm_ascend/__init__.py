@@ -21,6 +21,52 @@ _GLOBAL_PATCH_APPLIED = False
 _logger = logging.getLogger(__name__)
 
 
+def _install_fla_compat_alias() -> None:
+    """Alias vllm.model_executor.layers.fla onto its vLLM v0.27+ location.
+
+    vLLM v0.27.0 moved the FLA ops package to
+    vllm.third_party.flash_linear_attention. vllm-ascend patch modules import
+    and rebind symbols through the v0.26 lane dotted path; register that path
+    as an alias of the real package so both vLLM lanes work and attribute
+    patches land on the real modules.
+    """
+    import importlib
+    import sys
+    import types
+
+    legacy_root = "vllm.model_executor.layers.fla"
+    real_root = "vllm.third_party.flash_linear_attention"
+    if legacy_root in sys.modules:
+        return
+    try:
+        importlib.import_module(legacy_root)
+        return
+    except ModuleNotFoundError:
+        pass
+
+    suffixes = (
+        "",
+        ".ops",
+        ".ops.index",
+        ".ops.utils",
+        ".ops.l2norm",
+        ".ops.layernorm_guard",
+        ".ops.fused_recurrent",
+    )
+    root_alias = types.ModuleType(legacy_root)
+    root_alias.__path__ = []
+    for suffix in suffixes:
+        target = importlib.import_module(real_root + suffix)
+        sys.modules[legacy_root + suffix] = root_alias if suffix == "" else target
+        if suffix:
+            head, _, leaf = suffix.rpartition(".")
+            parent = root_alias if head == "" else sys.modules[legacy_root + head]
+            setattr(parent, leaf, target)
+    import vllm.model_executor.layers as _layers_pkg
+
+    _layers_pkg.fla = root_alias
+
+
 def _ensure_global_patch():
     """Apply process-wide vLLM patches before engine-core initialization.
 
@@ -83,8 +129,7 @@ def register_model():
         install_hunyuan_vl_processor_compat()
     else:
         _logger.info(
-            "Skipping optional HunyuanVL processor compatibility patch: "
-            "transformers.HunYuanVLProcessor is unavailable."
+            "Skipping optional HunyuanVL processor compatibility patch: transformers.HunYuanVLProcessor is unavailable."
         )
     from .models import register_model
 

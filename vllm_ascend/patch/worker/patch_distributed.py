@@ -106,6 +106,7 @@ class GroupCoordinatorPatch(GroupCoordinator):
         use_device_communicator: bool,  # whether to use device communicator
         use_message_queue_broadcaster: bool = False,
         group_name: str | None = None,
+        use_all2all: bool = False,
     ):
         group_name = group_name or "anonymous"
         self.unique_name = _get_unique_name(group_name)
@@ -114,6 +115,7 @@ class GroupCoordinatorPatch(GroupCoordinator):
         self.rank = torch.distributed.get_rank()
         self.local_rank = local_rank
         self.backend = _normalize_backend(torch_distributed_backend)
+        self.use_all2all = use_all2all
         self._acquired_hccl_keys: list[HcclPgKey] = []
         self._unshared_hccl_groups: list[object] = []
         self.use_device_communicator = use_device_communicator

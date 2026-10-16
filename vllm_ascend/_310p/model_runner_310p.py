@@ -45,7 +45,15 @@ from vllm.v1.kv_cache_interface import (
     UniformTypeKVCacheSpecs,
 )
 from vllm.v1.spec_decode.metadata import SpecDecodeMetadata
-from vllm.v1.worker.cp_utils import get_total_cp_world_size
+
+try:
+    from vllm.v1.worker.cp_utils import get_total_cp_world_size
+except ImportError:
+    from vllm.v1.worker.cp_utils import get_dcp_group
+
+    def get_total_cp_world_size() -> int:
+        return get_dcp_group().world_size
+
 
 from vllm_ascend._310p.block_table import MultiGroupBlockTable as MultiGroupBlockTable310
 from vllm_ascend._310p.dflash_full_and_piecewise import (

@@ -15,17 +15,16 @@
 # limitations under the License.
 #
 
-# Patch vllm's FusedMoE factory to use AscendMoERunner by default.
+# Patch vllm's MoE factory to use AscendMoERunner by default.
 #
-# vllm's FusedMoE is a factory function (not a class). deepseek_v2 and other
-# models do `from vllm.model_executor.layers.fused_moe import FusedMoE` and
-# call it directly, so we must patch the binding in the package __init__ as
-# well as the layer module before any model is imported.
+# vLLM v0.26.0 exports the factory as FusedMoE, while vLLM v0.27.0 renamed it
+# to FusedMoEFactory. We patch the exact binding for the active version lane
+# in both the package __init__ and layer module before any model is imported.
 #
 # Import order in worker.__init__:
-#   1. adapt_patch()  ->  this file runs  ->  FusedMoE patched
+#   1. adapt_patch()  ->  this file runs  ->  MoE factory patched
 #   2. from vllm_ascend import ops
-#   3. model loading  ->  deepseek_v2 imported  ->  gets patched FusedMoE  ✓
+#   3. model loading  ->  deepseek_v2 imported  ->  gets patched factory  ✓
 
 import vllm.model_executor.layers.fused_moe as _fused_moe_pkg
 import vllm.model_executor.layers.fused_moe.layer as _fused_moe_layer
@@ -33,7 +32,12 @@ import vllm.model_executor.layers.fused_moe.layer as _fused_moe_layer
 from vllm_ascend.utils import is_310p
 
 # Capture the real original before fused_moe.py's module-level code runs.
-_original_FusedMoE = _fused_moe_layer.FusedMoE
+_original_FusedMoE = getattr(_fused_moe_layer, "FusedMoE", None)
+if _original_FusedMoE is None:
+    _original_FusedMoE = _fused_moe_layer.FusedMoEFactory
+    _factory_attr = "FusedMoEFactory"
+else:
+    _factory_attr = "FusedMoE"
 
 if is_310p():
     from vllm_ascend._310p.fused_moe.fused_moe import AscendMoERunner310 as _DefaultAscendMoERunner
@@ -54,5 +58,5 @@ def _ascend_FusedMoE(*args, runner_cls=None, runner_args=None, **kwargs):
     return _original_FusedMoE(*args, runner_cls=runner_cls, runner_args=runner_args, **kwargs)
 
 
-_fused_moe_layer.FusedMoE = _ascend_FusedMoE
-_fused_moe_pkg.FusedMoE = _ascend_FusedMoE
+setattr(_fused_moe_layer, _factory_attr, _ascend_FusedMoE)
+setattr(_fused_moe_pkg, _factory_attr, _ascend_FusedMoE)

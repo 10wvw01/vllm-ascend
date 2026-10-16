@@ -535,6 +535,9 @@ def attention_calculation_stream() -> torch.npu.Stream:
 
 
 def adapt_patch(is_global_patch: bool = False):
+    from vllm_ascend import _install_fla_compat_alias
+
+    _install_fla_compat_alias()
     if is_global_patch:
         from vllm_ascend.patch import platform  # noqa: F401
     else:

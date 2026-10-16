@@ -27,10 +27,7 @@ from vllm.distributed import get_dp_group, get_ep_group, get_tp_group, tensor_mo
 from vllm.forward_context import get_forward_context
 from vllm.logger import logger
 from vllm.model_executor.layers.fused_moe.config import FusedMoEConfig
-from vllm.model_executor.layers.fused_moe.layer import (
-    FusedMoE,  # noqa: F401
-    MoERunner,
-)
+from vllm.model_executor.layers.fused_moe.layer import MoERunner
 from vllm.model_executor.layers.fused_moe.unquantized_fused_moe_method import UnquantizedFusedMoEMethod
 
 from vllm_ascend._310p.dflash_full_decode_only import (
@@ -529,9 +526,10 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             MoECommType.FUSED_MC2,
         } or (moe_comm_type == MoECommType.ALLGATHER and _EXTRA_CTX.flash_comm_v1_enabled)
 
-    def _maybe_reduce_shared_expert_output(
+    def _maybe_reduce_shared_expert_output(  # type: ignore[misc]
         self,
         shared_output: torch.Tensor | None,
+        fused_output_is_reduced: bool | None = None,
     ) -> torch.Tensor | None:
         # _forward_shared_experts already handles shared expert TP all-reduce
         # for MC2/ALLTOALL/FUSED_MC2. For AllGather the reduction is done
@@ -539,13 +537,19 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
         # output. Skip any additional reduction here.
         return shared_output
 
-    def _maybe_reduce_final_output(
+    def _maybe_reduce_final_output(  # type: ignore[misc]
         self,
         states: torch.Tensor,
-        trunc_size: int,
+        trunc_size: int | None,
+        output_is_reduced: bool | None = None,
     ) -> torch.Tensor:
-        states = torch.ops.vllm.maybe_all_reduce_tensor_model_parallel(states)
-        return states[..., :trunc_size]
+        if output_is_reduced is None:
+            output_is_reduced = self._fused_output_is_reduced
+        if not output_is_reduced:
+            states = torch.ops.vllm.maybe_all_reduce_tensor_model_parallel(states)
+        if trunc_size is not None and trunc_size > 0:
+            return states[..., :trunc_size]
+        return states
 
     def set_lora_context(self, lora_context):
         self.routed_experts._ascend_moe_lora_context = lora_context

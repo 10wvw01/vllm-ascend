@@ -31,6 +31,11 @@ from vllm_ascend.worker.block_table import MultiGroupBlockTable
 
 
 class NPUInputBatch(InputBatch):
+    # main2main compat: `use_replayssm` and `slot_mapping_modes` were
+    # added to upstream InputBatch.__init__() in vllm main after 0.26.0.
+    # NPU does not implement Mamba replay-SSM, so the kwargs are only
+    # accepted for interface alignment.
+    # Remove the version gate once 0.26.0 support is dropped.
     def __init__(
         self,
         max_num_reqs: int,
@@ -49,7 +54,11 @@ class NPUInputBatch(InputBatch):
         num_speculative_tokens: int = 0,
         cp_kv_cache_interleave_size: int = 1,
         kv_cache_groups: list[KVCacheGroupSpec] | None = None,
+        use_replayssm: bool = False,
+        slot_mapping_modes: list | None = None,
     ):
+        self.use_replayssm = use_replayssm
+        self.slot_mapping_modes = slot_mapping_modes
         self.is_pooling_model = is_pooling_model
         self.is_spec_decode = is_spec_decode
         # Added for compatibility with InputBatch methods that reference these
