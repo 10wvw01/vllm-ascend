@@ -130,15 +130,24 @@ env_variables: dict[str, Callable[[], Any]] = {
         os.getenv("VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES", str(96 * 1024 * 1024))
     ),
     # Communication/reduction batch is an integer multiple of native
-    # baseM=256. Legal values are 1/2/4; q=1 derives batch_m=256 and a 1 MiB
-    # FP16 payload for N=2048. The payload size is not a protocol constant.
+    # baseM=256. Legal values are 1/2/4; the batch pipeline now only serves
+    # M >= the single-wave ceiling, so the default q=4 derives batch_m=1024
+    # and a 4 MiB FP16 payload for N=2048. The payload size is not a
+    # protocol constant.
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT": lambda: int(
-        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "1")
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT", "4")
     ),
     # Small-M exact path (default on): M < min(batch_m, 256) skips the padded
     # batch pipeline and runs one serial N-split wave. Read by the C++ runtime.
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SMALL_M_PATH", "1"))
+    ),
+    # Single-wave one-shot AR ceiling: 256 <= M < ceiling runs one M-split
+    # serial wave (full padded MM + one variable-length SDMA signal).
+    # Legal values are 1024/2048; 1024 routes (1024, 2048) to the batch
+    # pipeline instead. Read by the C++ runtime; must match on both ranks.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SINGLE_WAVE_MAX_M": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SINGLE_WAVE_MAX_M", "2048")
     ),
     # During profile/warmup dummy runs routed layers can fall back to stock
     # matmul + HCCL all-reduce, deferring MemFabric pool creation until the

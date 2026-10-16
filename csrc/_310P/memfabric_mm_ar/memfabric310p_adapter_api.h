@@ -17,10 +17,12 @@ extern "C" {
 
 /*
  * Stable internal ABI between vLLM-Ascend and the installed 310P MemFabric
- * package. ABI v7 is batch based: MemFabric remains an opaque transport and
- * only public host APIs plus public device signal/wait/quiet are used.
+ * package. ABI v9 replaces the single-wave six-launch protocol chain with
+ * two fused kernels (clear+gate+MM+signal / wait+broadcast+add+quiet+ack):
+ * MemFabric remains an opaque transport and only public host APIs plus
+ * public device signal/wait/quiet are used.
  */
-#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 7u
+#define VLLM_ASCEND_MF310P_ADAPTER_ABI_VERSION 9u
 #define VLLM_ASCEND_MF310P_MAX_BATCHES 64u
 #define VLLM_ASCEND_MF310P_COOPERATIVE_CORES 8u
 
@@ -186,6 +188,65 @@ int mf310p_warmup_nsplit_producer_async(
     void* acl_stream);
 
 int mf310p_warmup_add_blocked_async(mf310p_context_t* ctx, void* acl_stream);
+
+/* ---- Single-wave one-shot AR path (256 <= M < wave ceiling) ---- */
+
+/*
+ * V1 fused kernel A: every core clears its own ready cell (core0 also
+ * the error channel and the mail-ok flag) with an AICore store+clean,
+ * core0 gates on the peer credit mail before its own MM (overlapping
+ * the other cores' MM), then the eight cores run the padded_rows
+ * cooperative M-split MM and core0 signals the whole padded slot as one
+ * SDMA payload (batch 0, imm 0). Every 256-multiple padded_rows in
+ * [256, 2048] is a template, so M % 256 == 0 callers pass x directly
+ * with zero staging. generation == 0 is the no-op warmup.
+ */
+int mf310p_wave_fused_a_async(
+    mf310p_context_t* ctx,
+    uint64_t x,
+    uint64_t w,
+    uint32_t padded_rows,
+    uint32_t generation,
+    void* acl_stream);
+
+/*
+ * V1 fused kernel B: core0 waits and strictly validates the single data
+ * mail (len padded_rows*2048*2, imm 0) and publishes a mail-ok flag; all
+ * cores reduce their row slice of the arenas into out (exactly
+ * valid_rows rows); core0 then quiets the outbound SDMA and signals the
+ * wave credit. valid_rows == 0 is the no-op warmup shape.
+ */
+int mf310p_wave_fused_b_async(
+    mf310p_context_t* ctx,
+    uint64_t out,
+    uint32_t valid_rows,
+    uint32_t padded_rows,
+    uint32_t generation,
+    void* acl_stream);
+
+/* Warm the fused kernel symbols (no-op shapes). */
+int mf310p_warmup_wave_fused_a_async(
+    mf310p_context_t* ctx,
+    uint32_t padded_rows,
+    void* acl_stream);
+
+int mf310p_warmup_wave_fused_b_async(
+    mf310p_context_t* ctx,
+    void* acl_stream);
+
+/*
+ * P0 API-mixing probe: one core executes wait(credit) -> [clear status ->
+ * signal -> quiet -> wait -> payload round-trip check] * iters. Returns 0
+ * on enqueue; the kernel traps and writes a nonzero protocol status on any
+ * failure. iters == 0 && gate_first == 0 is the no-op warmup shape.
+ */
+int mf310p_probe_api_async(
+    mf310p_context_t* ctx,
+    uint32_t iters,
+    uint32_t send_tag,
+    uint32_t expect_tag,
+    uint32_t gate_first,
+    void* acl_stream);
 
 /* Wave-level fixed credit. */
 int mf310p_ack_async(mf310p_context_t* ctx, void* acl_stream);

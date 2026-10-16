@@ -46,5 +46,23 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         "memfabric_mm_ar_debug_snapshot",
         c10::DispatchKey::CompositeExplicitAutograd,
         &vllm_ascend::memfabric_mm_ar_debug_snapshot);
+
+    /* P0 API-mixing probe: same-core mixed public-API sequence validation
+     * (see 单KernelAR协议重构设计.md §7). Returns the final protocol
+     * status: 0 = pass. */
+    ops.def("memfabric_ar_probe(int iters, int send_tag, int expect_tag, int gate_first, int tp_rank, int batch_basem_count) -> int");
+    ops.impl(
+        "memfabric_ar_probe",
+        c10::DispatchKey::CompositeExplicitAutograd,
+        [](int64_t iters,
+           int64_t send_tag,
+           int64_t expect_tag,
+           int64_t gate_first,
+           int64_t tp_rank,
+           int64_t batch_basem_count) -> int64_t {
+            return vllm_ascend::memfabric_ar_probe_impl(
+                iters, send_tag, expect_tag, gate_first, tp_rank,
+                batch_basem_count);
+        });
 }
 #endif

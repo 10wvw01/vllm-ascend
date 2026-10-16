@@ -35,6 +35,17 @@ void memfabric_mm_ar_shutdown();
  * arena words. It deliberately exposes no MemFabric internal state. */
 at::Tensor memfabric_mm_ar_debug_snapshot();
 
+/* P0 API-mixing probe: run the single-kernel mixed public-API sequence
+ * (wait(credit) -> [clear -> signal -> quiet -> wait -> payload check] *
+ * iters) on one core and return the final protocol status (0 = pass). */
+int64_t memfabric_ar_probe_impl(
+    int64_t iters,
+    int64_t send_tag,
+    int64_t expect_tag,
+    int64_t gate_first,
+    int64_t tp_rank,
+    int64_t batch_basem_count);
+
 inline at::Tensor memfabric_mm_ar_allreduce(
     const at::Tensor& x,
     const at::Tensor& weight,

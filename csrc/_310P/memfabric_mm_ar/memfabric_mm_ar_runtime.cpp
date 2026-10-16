@@ -58,8 +58,30 @@ constexpr const char* kDefaultStoreUrl = "tcp://127.0.0.1:8581";
  * per-core 256-column weight slices, template stair {16,32,64,128,256}).
  */
 constexpr int64_t kSmallPathMaxM = 256;
+/*
+ * Single-wave one-shot AR path: M below this ceiling (and >= 256) runs one
+ * M-split serial wave - full padded MM, one variable-length SDMA signal,
+ * wait, contiguous add. The 256-granular template stair makes every
+ * M % 256 == 0 a zero-staging direct read, which is what keeps the wave
+ * structurally comparable to stock matmul + allreduce.
+ */
+constexpr int64_t kSingleWaveDefaultMaxM = 2048;
+constexpr int64_t kSingleWaveScratchRows = 2048;
 constexpr uint64_t kWeightSlicesBytes = 8ULL * 1024ULL * 1024ULL;
 constexpr size_t kMaxWeightSliceEntries = 64;
+/*
+ * Eager in-flight wave ceiling. The public transport rings are bounded
+ * (request ring 64 slots, arrival ring 1024 mails): with unbounded async
+ * enqueue one rank can run far enough ahead that an in-kernel signal()
+ * spins on a full request ring while its own later wait kernels cannot
+ * execute (the AICore is held by the spinning kernel), and both ranks
+ * deadlock. A depth of six waves keeps the worst case (8-batch pipeline
+ * wave = 9 signals) under the request-ring capacity. Real serving never
+ * approaches this (layers interleave other ops and every step observes
+ * outputs); only back-to-back synthetic loops do. Captured waves are
+ * excluded (capture cannot synchronize; replay depth is framework-paced).
+ */
+constexpr uint32_t kMaxInFlightWaves = 1;
 
 /*
  * Kill switch for the small-M N-split path (default on). "0" restores the
@@ -82,6 +104,37 @@ uint32_t small_template_for(int64_t rows)
     if (rows <= 64) return 64;
     if (rows <= 128) return 128;
     return 256;
+}
+
+/*
+ * Single-wave routing ceiling. Legal values {1024, 2048}; 1024 routes the
+ * (1024, 2048) band to the batch pipeline instead (A4 experiment switch).
+ */
+int64_t single_wave_max_rows()
+{
+    static const int64_t ceiling = [] {
+        const char* v =
+            std::getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_SINGLE_WAVE_MAX_M");
+        if (v == nullptr || *v == '\0') {
+            return kSingleWaveDefaultMaxM;
+        }
+        errno = 0;
+        char* end = nullptr;
+        const long long parsed = std::strtoll(v, &end, 0);
+        if (errno != 0 || end == v || *end != '\0' ||
+            (parsed != 1024 && parsed != 2048)) {
+            return kSingleWaveDefaultMaxM;
+        }
+        return static_cast<int64_t>(parsed);
+    }();
+    return ceiling;
+}
+
+/* Padded single-wave template: every 256-multiple in [256, 2048]. */
+uint32_t wave_padded_for(int64_t rows)
+{
+    const int64_t padded = ((rows + 255) / 256) * 256;
+    return static_cast<uint32_t>(padded);
 }
 
 uint64_t parse_u64_env(const char* name, uint64_t fallback)
@@ -173,6 +226,7 @@ struct RuntimeState {
     bool waiter_warmed = false;
     bool add_warmed = false;
     bool small_warmed = false;
+    bool wave_warmed = false;
     bool protocol_warmed = false;
     bool protocol_initialized = false;
     aclrtStream eager_stream = nullptr;
@@ -184,6 +238,8 @@ struct RuntimeState {
      * generations live in a disjoint high range and simply increase.
      */
     uint32_t wave_seq = 0;
+    /* Eager in-flight wave count for the bounded-ring deadlock guard. */
+    uint32_t in_flight_waves = 0;
 
     ~RuntimeState() = default;
 };
@@ -407,6 +463,32 @@ uint64_t ensure_weight_slices_locked(
 void warm_waiter_locked(RuntimeState& state, aclrtStream stream)
 {
     if (state.waiter_warmed) return;
+    if (!state.wave_warmed) {
+        /*
+         * V1 fused single-wave kernels: warm all eight template symbols of
+         * kernel A plus kernel B (no-op first launches) so any later
+         * single wave - eager or captured - can run.
+         */
+        static const uint32_t stair[8] = {
+            256, 512, 768, 1024, 1280, 1536, 1792, 2048};
+        for (int i = 0; i < 2; ++i) {
+            for (uint32_t t = 0; t < 8; ++t) {
+                const int ret = mf310p_warmup_wave_fused_a_async(
+                    state.ctx, stair[t], reinterpret_cast<void*>(stream));
+                TORCH_CHECK(ret == 0,
+                            "mf310p_warmup_wave_fused_a_async failed with "
+                            "ret=",
+                            ret);
+            }
+            const int ret = mf310p_warmup_wave_fused_b_async(
+                state.ctx, reinterpret_cast<void*>(stream));
+            TORCH_CHECK(ret == 0,
+                        "mf310p_warmup_wave_fused_b_async failed with "
+                        "ret=",
+                        ret);
+        }
+        state.wave_warmed = true;
+    }
     for (int i = 0; i < 2; ++i) {
         const int ret = mf310p_warmup_waiter_async(
             state.ctx, reinterpret_cast<void*>(stream));
@@ -476,12 +558,36 @@ void validate_execution_stream_locked(
         ". ACL Graph capture side streams are handled separately.");
 }
 
-void require_capture_ready_locked(const RuntimeState& state)
+/*
+ * Bounded-ring deadlock guard: count each eagerly enqueued wave and
+ * synchronize the stream at the ceiling (see kMaxInFlightWaves). The
+ * counter is approximate by design - any host-side synchronization from
+ * the surrounding model resets it via wave_seq-free accounting below.
+ */
+void throttle_in_flight_locked(
+    RuntimeState& state,
+    aclrtStream stream,
+    bool capturing)
 {
+    if (capturing) {
+        return;
+    }
+    ++state.in_flight_waves;
+    if (state.in_flight_waves < kMaxInFlightWaves) {
+        return;
+    }
+    const aclError sync_ret = aclrtSynchronizeStream(stream);
+    TORCH_CHECK(sync_ret == ACL_SUCCESS,
+                "in-flight throttle sync failed, ret=", sync_ret);
+    state.in_flight_waves = 0;
+}
+
+void require_capture_ready_locked(const RuntimeState& state){
     TORCH_CHECK(
         state.ctx != nullptr && state.protocol_initialized &&
             state.producer_scratch != 0 && state.producer_warmed &&
             state.waiter_warmed && state.add_warmed &&
+            state.wave_warmed &&
             (!small_path_enabled() || state.small_warmed) &&
             state.protocol_warmed,
         "310P MemFabric mm_ar entered ACL Graph capture before runtime "
@@ -605,6 +711,7 @@ void memfabric_mm_ar_shutdown()
     state.waiter_warmed = false;
     state.add_warmed = false;
     state.small_warmed = false;
+    state.wave_warmed = false;
     state.producer_warmed = false;
     state.batch_basem_count = 0;
     state.batch_m = 0;
@@ -673,6 +780,95 @@ at::Tensor memfabric_mm_ar_debug_snapshot()
     return out;
 }
 
+int64_t memfabric_ar_probe_impl(
+    int64_t iters,
+    int64_t send_tag,
+    int64_t expect_tag,
+    int64_t gate_first,
+    int64_t tp_rank,
+    int64_t batch_basem_count)
+{
+#ifdef VLLM_ASCEND_ENABLE_310P_MEMFABRIC_MM_AR
+    TORCH_CHECK(iters >= 0 && iters <= 1000000,
+                "probe iters out of range: ", iters);
+    TORCH_CHECK(gate_first == 0 || gate_first == 1,
+                "gate_first must be 0/1, got ", gate_first);
+    TORCH_CHECK(tp_rank == 0 || tp_rank == 1,
+                "probe only supports TP rank 0/1, got ", tp_rank);
+    TORCH_CHECK(batch_basem_count == 1 || batch_basem_count == 2 ||
+                    batch_basem_count == 4,
+                "batch_basem_count must be one of {1,2,4}, got ",
+                batch_basem_count);
+
+    RuntimeState& state = runtime_state();
+    std::lock_guard<std::mutex> guard(state.mutex);
+    check_runtime_healthy(state);
+
+    const auto npu_stream = c10_npu::getCurrentNPUStream();
+    aclrtStream stream = npu_stream.stream();
+    TORCH_CHECK(!is_current_stream_capturing(),
+                "the API-mixing probe must run eager");
+
+    init_context_locked(state, at::Tensor(), tp_rank, batch_basem_count);
+    validate_execution_stream_locked(state, stream, /*capturing=*/false);
+
+    initialize_protocol_locked(state, stream);
+
+    /* First-launch symbol warmup after geometry exchange (the adapter
+     * validates expected_recv_base, which is only meaningful then):
+     * iters=0 && gate_first=0 is a side-effect-free no-op. */
+    int ret = mf310p_probe_api_async(
+        state.ctx, 0, 0, 0, 0, reinterpret_cast<void*>(stream));
+    TORCH_CHECK(ret == 0, "probe warmup failed with ret=", ret);
+
+    ret = mf310p_probe_api_async(
+        state.ctx,
+        static_cast<uint32_t>(iters),
+        static_cast<uint32_t>(send_tag),
+        static_cast<uint32_t>(expect_tag),
+        static_cast<uint32_t>(gate_first),
+        reinterpret_cast<void*>(stream));
+    TORCH_CHECK(ret == 0, "probe enqueue failed with ret=", ret);
+    const aclError sync_ret = aclrtSynchronizeStream(stream);
+    if (sync_ret != ACL_SUCCESS) {
+        /* The kernel trapped: best-effort read of the fail-stop status. */
+        uint64_t trap_status = 0;
+        (void)mf310p_debug_protocol_status(state.ctx, &trap_status);
+        state.poisoned = true;
+        if (state.failure_reason.empty()) {
+            state.failure_reason =
+                "probe kernel trapped (see protocol status)";
+        }
+        TORCH_CHECK(
+            false,
+            "probe sync failed, ret=", sync_ret,
+            ", protocol_status=", trap_status,
+            " (1=READY_TIMEOUT 2=SIGNAL_FAILED 3=QUIET_FAILED "
+            "4=WAIT_FAILED 5=MAIL_MISMATCH 6=CREDIT_MISMATCH "
+            "7=ACK_FAILED 8=PAYLOAD_MISMATCH)");
+    }
+
+    uint64_t status = 0;
+    const int status_ret =
+        mf310p_debug_protocol_status(state.ctx, &status);
+    TORCH_CHECK(status_ret == 0,
+                "probe status read failed, ret=", status_ret);
+    return static_cast<int64_t>(status);
+#else
+    (void)iters;
+    (void)send_tag;
+    (void)expect_tag;
+    (void)gate_first;
+    (void)tp_rank;
+    (void)batch_basem_count;
+    TORCH_CHECK(
+        false,
+        "vllm_ascend_C was built without the 310P customized MemFabric "
+        "mm_ar runtime (probe unavailable).");
+    return -1;
+#endif
+}
+
 at::Tensor memfabric_mm_ar_allreduce_impl(
     const at::Tensor& x,
     const at::Tensor& weight,
@@ -713,8 +909,15 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
     init_context_locked(state, x, tp_rank, batch_basem_count);
     validate_execution_stream_locked(state, stream, capturing);
 
+    /*
+     * Producer scratch covers the largest single-wave template (2048 rows,
+     * 16 MiB) as well as the batch tail staging region.
+     */
     const uint64_t scratch_bytes =
-        static_cast<uint64_t>(state.batch_m) * kMmArRowBytes;
+        std::max<uint64_t>(
+            static_cast<uint64_t>(state.batch_m),
+            static_cast<uint64_t>(kSingleWaveScratchRows)) *
+        kMmArRowBytes;
     if (state.producer_scratch == 0) {
         TORCH_CHECK(
             !capturing,
@@ -856,6 +1059,113 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
                     trace_now_us() - t_enqueue0,
                     0);
             }
+            throttle_in_flight_locked(state, stream, capturing);
+        } catch (const std::exception& exc) {
+            state.poisoned = true;
+            if (state.failure_reason.empty()) {
+                state.failure_reason = exc.what();
+            }
+            throw;
+        }
+        return output;
+    }
+
+    /*
+     * Single-wave one-shot AR path (V1 fused kernels): 256 <= M < ceiling
+     * runs exactly two launches - kernel A (in-kernel clears + core0
+     * credit gate overlapped with the other cores' MM + cooperative MM +
+     * one variable-length signal) and kernel B (core0 wait + mail-ok
+     * broadcast + row-slice reduce + quiet + credit ack). Padded rows
+     * cover the 256-granular template stair (M % 256 == 0 hits a template
+     * exactly and reads x directly with zero staging). Routing is
+     * identical for eager and captured waves: padded rows, lengths and
+     * generation are all derived from M, which graph captures keep fixed
+     * per captured graph. Kernel A clears its own protocol state, so no
+     * prepare_wave engine memset exists on this path (eager or captured).
+     */
+    const int64_t single_wave_ceiling = single_wave_max_rows();
+    const bool single_wave = num_tokens >= kSmallPathMaxM &&
+        num_tokens < single_wave_ceiling;
+    if (single_wave) {
+        try {
+            const bool wave_trace = trace_enabled();
+            const int64_t t_enqueue0 = wave_trace ? trace_now_us() : 0;
+            const uint32_t valid_rows =
+                static_cast<uint32_t>(num_tokens);
+            const uint32_t padded_rows = wave_padded_for(num_tokens);
+            const bool direct_read =
+                static_cast<int64_t>(padded_rows) == num_tokens;
+
+            uint64_t wave_x =
+                reinterpret_cast<uint64_t>(x.const_data_ptr());
+            if (!direct_read) {
+                /*
+                 * Stage exactly the M valid rows into the once-zeroed
+                 * 2048-row scratch. Rows [M, padded) keep zeros/stale
+                 * data: computed and exchanged but never reduced by the
+                 * row-slice reduce (which reads exactly valid_rows rows).
+                 */
+                const aclError copy_ret = aclrtMemcpyAsync(
+                    reinterpret_cast<void*>(state.producer_scratch),
+                    scratch_bytes,
+                    x.const_data_ptr(),
+                    static_cast<uint64_t>(valid_rows) * kMmArRowBytes,
+                    ACL_MEMCPY_DEVICE_TO_DEVICE,
+                    stream);
+                TORCH_CHECK(copy_ret == ACL_SUCCESS,
+                            "single-wave staging copy failed, ret=",
+                            copy_ret);
+                wave_x = state.producer_scratch;
+            }
+
+            uint32_t generation = 0;
+            if (!capturing) {
+                ++state.wave_seq;
+                if (state.wave_seq < kEagerGenerationBase ||
+                    state.wave_seq == 0u) {
+                    state.wave_seq = kEagerGenerationBase;
+                }
+                generation = state.wave_seq;
+            } else {
+                /* Wave-invariant generation; kernel A clears the cells
+                 * itself before publishing, so stale values (including
+                 * prior replays') can never match. */
+                generation = 1;
+            }
+
+            int ret = mf310p_wave_fused_a_async(
+                state.ctx,
+                wave_x,
+                weight_ptr,
+                padded_rows,
+                generation,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(
+                ret == 0,
+                "mf310p_wave_fused_a_async failed with ret=", ret);
+            ret = mf310p_wave_fused_b_async(
+                state.ctx,
+                reinterpret_cast<uint64_t>(output.mutable_data_ptr()),
+                valid_rows,
+                padded_rows,
+                generation,
+                reinterpret_cast<void*>(stream));
+            TORCH_CHECK(
+                ret == 0,
+                "mf310p_wave_fused_b_async failed with ret=", ret);
+
+            if (wave_trace) {
+                trace_wave(
+                    state.tp_rank,
+                    num_tokens,
+                    1 /* batches=1 marks the fused single wave */,
+                    0,
+                    0,
+                    0,
+                    trace_now_us() - t_enqueue0,
+                    0);
+            }
+            throttle_in_flight_locked(state, stream, capturing);
         } catch (const std::exception& exc) {
             state.poisoned = true;
             if (state.failure_reason.empty()) {
@@ -1019,6 +1329,7 @@ at::Tensor memfabric_mm_ar_allreduce_impl(
             ret = mf310p_ack_async(
                 state.ctx, reinterpret_cast<void*>(stream));
             TORCH_CHECK(ret == 0, "mf310p_ack_async failed with ret=", ret);
+            throttle_in_flight_locked(state, stream, capturing);
 
             if (trace_enabled()) {
                 const int64_t t_enq = trace_now_us();

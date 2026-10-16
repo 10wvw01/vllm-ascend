@@ -126,6 +126,58 @@ extern "C" int mf310p_device_warmup_add_blocked_async(
     uint64_t arena,
     aclrtStream stream);
 
+extern "C" int mf310p_device_launch_wave_fused_a_async(
+    uint64_t pool_base,
+    uint64_t x,
+    uint64_t w,
+    uint64_t send_arena,
+    uint64_t peer_recv_arena,
+    uint32_t padded_rows,
+    uint32_t generation,
+    uint64_t signal_bytes,
+    uint64_t producer_control,
+    uint64_t protocol_status,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_launch_wave_fused_b_async(
+    uint64_t pool_base,
+    uint64_t out,
+    uint64_t send_arena,
+    uint64_t recv_arena,
+    uint64_t expected_recv_base,
+    uint64_t mail_ok_cell,
+    uint64_t protocol_status,
+    uint64_t ack_slot,
+    uint64_t peer_ack_slot,
+    uint32_t valid_rows,
+    uint32_t padded_rows,
+    uint32_t generation,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_wave_fused_a_async(
+    uint64_t pool_base,
+    uint32_t padded_rows,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_warmup_wave_fused_b_async(
+    uint64_t pool_base,
+    uint64_t arena,
+    uint64_t protocol_status,
+    aclrtStream stream);
+
+extern "C" int mf310p_device_probe_api_async(
+    uint64_t pool_base,
+    uint64_t send_arena,
+    uint64_t peer_recv_arena,
+    uint64_t expected_recv_base,
+    uint64_t recv_arena,
+    uint64_t protocol_status,
+    uint32_t iters,
+    uint32_t send_tag,
+    uint32_t expect_tag,
+    uint32_t gate_first,
+    aclrtStream stream);
+
 bool is_valid_batch_m(uint32_t batch_m)
 {
     return batch_m == 256 || batch_m == 512 || batch_m == 1024;
@@ -814,6 +866,147 @@ extern "C" int mf310p_warmup_add_blocked_async(
     }
     return mf310p_device_warmup_add_blocked_async(
         ctx->layout.send_arena,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+/* ---- Single-wave one-shot AR path ---- */
+
+namespace {
+
+constexpr uint32_t kWaveMinRows = 256;
+constexpr uint32_t kWaveMaxRows = 2048;
+
+bool is_valid_wave_rows(uint32_t rows)
+{
+    return rows >= kWaveMinRows && rows <= kWaveMaxRows &&
+        (rows % kWaveMinRows) == 0;
+}
+
+} // namespace
+
+extern "C" int mf310p_wave_fused_a_async(
+    mf310p_context_t* opaque,
+    uint64_t x,
+    uint64_t w,
+    uint32_t padded_rows,
+    uint32_t generation,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr || x == 0 || w == 0 ||
+        ctx->producer_control == nullptr || generation == 0 ||
+        !is_valid_wave_rows(padded_rows)) {
+        return -1;
+    }
+    const uint64_t signal_bytes =
+        static_cast<uint64_t>(padded_rows) * kMmArRowBytes;
+    return mf310p_device_launch_wave_fused_a_async(
+        ctx->layout.pool_base,
+        x,
+        w,
+        ctx->layout.send_arena,
+        ctx->layout.peer_recv_arena,
+        padded_rows,
+        generation,
+        signal_bytes,
+        reinterpret_cast<uint64_t>(ctx->producer_control),
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_wave_fused_b_async(
+    mf310p_context_t* opaque,
+    uint64_t out,
+    uint32_t valid_rows,
+    uint32_t padded_rows,
+    uint32_t generation,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr || out == 0 ||
+        ctx->producer_control == nullptr || ctx->protocol_status == nullptr ||
+        generation == 0 || valid_rows == 0 ||
+        valid_rows > padded_rows || !is_valid_wave_rows(padded_rows)) {
+        return -1;
+    }
+    /* mail-ok flag: ready-cell batch 1, core 0 (offset 512B) - disjoint
+     * from the single-wave batch-0 rendezvous cells. */
+    const uint64_t mail_ok_cell =
+        reinterpret_cast<uint64_t>(ctx->producer_control) +
+        static_cast<uint64_t>(kProducerReadyStrideBytes) *
+            VLLM_ASCEND_MF310P_COOPERATIVE_CORES;
+    return mf310p_device_launch_wave_fused_b_async(
+        ctx->layout.pool_base,
+        out,
+        ctx->layout.send_arena,
+        ctx->layout.recv_arena,
+        ctx->layout.expected_recv_base,
+        mail_ok_cell,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        ctx->layout.ack_slot,
+        ctx->layout.peer_ack_slot,
+        valid_rows,
+        padded_rows,
+        generation,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_wave_fused_a_async(
+    mf310p_context_t* opaque,
+    uint32_t padded_rows,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr ||
+        !is_valid_wave_rows(padded_rows)) {
+        return -1;
+    }
+    return mf310p_device_warmup_wave_fused_a_async(
+        ctx->layout.pool_base,
+        padded_rows,
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_warmup_wave_fused_b_async(
+    mf310p_context_t* opaque,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr ||
+        ctx->protocol_status == nullptr) {
+        return -1;
+    }
+    return mf310p_device_warmup_wave_fused_b_async(
+        ctx->layout.pool_base,
+        ctx->layout.send_arena,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        reinterpret_cast<aclrtStream>(acl_stream));
+}
+
+extern "C" int mf310p_probe_api_async(
+    mf310p_context_t* opaque,
+    uint32_t iters,
+    uint32_t send_tag,
+    uint32_t expect_tag,
+    uint32_t gate_first,
+    void* acl_stream)
+{
+    auto* ctx = reinterpret_cast<mf310p_context*>(opaque);
+    if (ctx == nullptr || acl_stream == nullptr ||
+        ctx->protocol_status == nullptr) {
+        return -1;
+    }
+    return mf310p_device_probe_api_async(
+        ctx->layout.pool_base,
+        ctx->layout.send_arena,
+        ctx->layout.peer_recv_arena,
+        ctx->layout.expected_recv_base,
+        ctx->layout.recv_arena,
+        reinterpret_cast<uint64_t>(ctx->protocol_status),
+        iters,
+        send_tag,
+        expect_tag,
+        gate_first,
         reinterpret_cast<aclrtStream>(acl_stream));
 }
 

@@ -11,6 +11,7 @@ through its public environment variables.
 from __future__ import annotations
 
 import contextlib
+import glob
 import json
 import os
 import shutil
@@ -26,10 +27,24 @@ DEFAULT_STORE_PORT = int(os.getenv("MEMFABRIC_MM_AR_E2E_STORE_PORT", "8581"))
 DEFAULT_BATCH_BASEM_COUNT = os.getenv("MEMFABRIC_MM_AR_E2E_BATCH_BASEM_COUNT", "1")
 HEALTH_TIMEOUT_S = float(os.getenv("MEMFABRIC_MM_AR_E2E_HEALTH_TIMEOUT", "2400"))
 MEMFABRIC_SET_ENV = os.getenv("MEMFABRIC_MM_AR_E2E_SET_ENV", "/usr/local/memfabric_hybrid/set_env.sh")
-MEMFABRIC_ORCH_JSON = os.getenv(
-    "MEMFABRIC_MM_AR_E2E_ORCH_JSON",
-    "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v10.json",
-)
+
+
+def _autodetect_orch_json() -> str:
+    candidates = glob.glob("/usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v*.json")
+    versioned = []
+    for path in candidates:
+        stem = path.rsplit("/", 1)[1]
+        try:
+            versioned.append((int(stem.rsplit("_v", 1)[1].split(".")[0]), path))
+        except (IndexError, ValueError):
+            continue
+    return max(versioned)[1] if versioned else ""
+
+
+MEMFABRIC_ORCH_JSON = os.getenv("MEMFABRIC_MM_AR_E2E_ORCH_JSON") or _autodetect_orch_json()
+DFLASH_ENABLED = os.getenv("MEMFABRIC_MM_AR_E2E_DFLASH", "0") == "1"
+DFLASH_MODEL = os.getenv("MEMFABRIC_MM_AR_E2E_DFLASH_MODEL", "/home/models/Qwen/Qwen3.6-35B-A3B-DFlash")
+DFLASH_NUM_SPEC_TOKENS = int(os.getenv("MEMFABRIC_MM_AR_E2E_DFLASH_TOKENS", "7"))
 
 FUSED_ENV_KEYS = (
     "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR",
@@ -55,7 +70,7 @@ def build_serve_cmd(
         "serve",
         model,
         "--host",
-        "127.0.0.1",
+        "0.0.0.0",
         "--port",
         str(port),
         "--tensor-parallel-size",
@@ -77,6 +92,7 @@ def build_serve_cmd(
         "0.90",
         "--no-enable-prefix-caching",
         "--enable-chunked-prefill",
+        "--async-scheduling",
         "--mamba-ssm-cache-dtype",
         "float16",
         "--mamba-cache-mode",
@@ -89,12 +105,23 @@ def build_serve_cmd(
                 "enable_prefill_mc2": False,
                 "enable_fused_mc2": 0,
                 "ascend_compilation_config": {
-                    "fuse_norm_quant": True,
+                    "fuse_norm_quant": False,
                     "enable_npugraph_ex": False,
                 },
             }
         ),
     ]
+    if DFLASH_ENABLED:
+        cmd += [
+            "--speculative-config",
+            json.dumps(
+                {
+                    "method": "dflash",
+                    "model": DFLASH_MODEL,
+                    "num_speculative_tokens": DFLASH_NUM_SPEC_TOKENS,
+                }
+            ),
+        ]
     if graph:
         cmd += ["--compilation-config", GRAPH_COMPILATION_CONFIG]
     else:
