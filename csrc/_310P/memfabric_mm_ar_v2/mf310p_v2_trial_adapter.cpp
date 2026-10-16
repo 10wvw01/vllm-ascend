@@ -11,6 +11,8 @@ extern "C" int mf310p_v2_trial_launch_async(
     uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_ib_probe_async(
     uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
+extern "C" int mf310p_v2_ib_fan_probe_async(
+    uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
 extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes();
 
 struct mf310p_v2_trial {
@@ -63,14 +65,14 @@ extern "C" int mf310p_v2_trial_create(
     if (!err) err = static_cast<int>(aclrtMalloc(
         &s->status, kStatusSize, ACL_MEM_MALLOC_HUGE_FIRST));
     if (!err) err = static_cast<int>(aclrtMalloc(
-        &s->probe_result, 8, ACL_MEM_MALLOC_HUGE_FIRST));
+        &s->probe_result, 32, ACL_MEM_MALLOC_HUGE_FIRST));
     if (!err) err = static_cast<int>(aclrtMemset(
         s->ib, mf310p_v2_trial_ib_workspace_bytes(), 0,
         mf310p_v2_trial_ib_workspace_bytes()));
     if (!err) err = static_cast<int>(aclrtMemset(
         s->status, kStatusSize, 0, kStatusSize));
     if (!err) err = static_cast<int>(aclrtMemset(
-        s->probe_result, 8, 0, 8));
+        s->probe_result, 32, 0, 32));
     if (!err) err = static_cast<int>(aclrtMemset(
         reinterpret_cast<void*>(s->layout.ack_slot), 8, 0, 8));
     if (err) {
@@ -103,9 +105,29 @@ extern "C" int mf310p_v2_trial_ib_probe(
     if (!err) err = static_cast<int>(aclrtMemcpy(
         got, sizeof(got), s->probe_result, sizeof(got),
         ACL_MEMCPY_DEVICE_TO_HOST));
-    s->ib_probed = (err == 0 && got[0] == repetitions &&
-                    got[1] == repetitions);
-    return err ? err : (s->ib_probed ? 0 : -2);
+    if (!err && (got[0] != repetitions || got[1] != repetitions))
+        return -2;
+    // The real MM kernel uses 8->1 ready, 1->7 release, 7->1 done.
+    // Warm this distinct device symbol twice before enabling.
+    if (!err) err = mf310p_v2_ib_fan_probe_async(
+        reinterpret_cast<uint64_t>(s->ib),
+        reinterpret_cast<uint64_t>(s->probe_result), 0, 0, acl_stream);
+    if (!err) err = mf310p_v2_ib_fan_probe_async(
+        reinterpret_cast<uint64_t>(s->ib),
+        reinterpret_cast<uint64_t>(s->probe_result), 0, 0, acl_stream);
+    if (!err) err = mf310p_v2_ib_fan_probe_async(
+        reinterpret_cast<uint64_t>(s->ib),
+        reinterpret_cast<uint64_t>(s->probe_result),
+        repetitions, 1, acl_stream);
+    if (!err) err = static_cast<int>(aclrtSynchronizeStream(acl_stream));
+    uint32_t all[8] = {};
+    if (!err) err = static_cast<int>(aclrtMemcpy(
+        all, sizeof(all), s->probe_result, sizeof(all),
+        ACL_MEMCPY_DEVICE_TO_HOST));
+    bool all_ok = err == 0;
+    for (uint32_t v : all) all_ok = all_ok && v == repetitions;
+    s->ib_probed = all_ok;
+    return err ? err : (all_ok ? 0 : -3);
 }
 
 extern "C" int mf310p_v2_trial_run(
