@@ -1,290 +1,267 @@
-# memfabric_mm_ar_v2 设计方案 — 单内核 Lane 对称融合
+# memfabric_mm_ar_v2 设计方案：单 Kernel 双引擎融合
 
-> **CUSTOMIZED 310P3 ONLY**。v1(`csrc/_310P/memfabric_mm_ar/`)保持冻结不动;
-> 本目录是全新设计,与本目录外的 v1 代码零耦合(仅链接复用 v1 adapter 的建池函数)。
+> **设计版本：2026-10-16 重构草案；尚未编码和实机验证。**  
+> **硬件限定：310P3 / dav-2002，TP=2，CANN 9.1，Qwen3.6-35B-A3B-w8a8。**  
+> V1 `csrc/_310P/memfabric_mm_ar/` 冻结；V2 独立实现，按需复用 V1 已验证的 MemFabric 建池、几何信息和 PyTorch 适配能力。本文**替换**旧版「8 Lane 对称通信、直接改写请求环」方案。**现有 PLAN.md 仍针对旧设计，后续需同步修订，不可据其直接编码。**
 
-## 1. 目标与范围
+## 1. 设计目标与已确认合同
 
-- Hardware: Ascend 310P3 / dav-2002,TP=2,Qwen3.6 `o_proj`/`out_proj`。
-- Shape: x `[M, 2048]` FP16,weight `[2048, 2048]` NZ FP16,out `[M, 2048]`。
-- **一次调用 = 1 个 AICore 内核 launch**(M≤2048 与 M>2048 同一内核模板族,
-  差别只是运行期参数),消除 v1 的 27 launch/波与三路路由。
-- **任意 M 无小M N-split 路**:M<256 补零到 256 模板(接受全量权重流地板),
-  换取符号数、权重切片缓存、blocked add、graph 预热合同的全部删除。
-- **2048 分界**:M ≤ 2048 串行单 chunk;M > 2048 交叠 chunk 流水。
+本期目标是把 Qwen3.6 中未量化的 FP16 `self_attn.o_proj`（10 层）与 GDN `linear_attn.out_proj`（30 层）的 **MatMul + TP AllReduce** 融合到一次 AICore Kernel launch 中。
 
-## 2. 设计公理(继承自 v1/V2 尸检的实测结论)
-
-| # | 公理 | 来源 |
-|---|------|------|
-| A1 | 同 stream 相邻 launch 边界 = 免费的全核 barrier + L1 flush | v1 依赖但未言明 |
-| A2 | launch gap 是对端邮件的落地窗口;单内核 B=1 的 wait 自旋实测更差 | device.asc:705 (v1 V2 实验) |
-| A3 | wait 只有躲在计算后面才免费 | v1 lookahead 流水线 |
-| A4 | `signal()` 是**单生产者 API**(读 REQ_TAIL→写槽→写回,无原子) | smem_shm_aicore_base_sdma.h:127 |
-| A5 | AICore L1 与 SDMA/对端互不侦听:每次跨引擎可见性必须显式 dcci | probe 内核 E0c 定论 |
-| A6 | 请求环 64 槽 / 到达环 1024 槽 / 邮差每邮件 3 SQE,严格 FIFO | smem_shm_sdma_layout.h |
-
-## 3. 三个对称内存技巧
-
-**T1 引擎写信箱(跨 rank 同步 = 读本地内存)**
-每封数据邮件配一封 8B 标签邮件,由**对端的 SDMA 引擎**直接写进我段的标签格子
-(同一请求环 FIFO ⇒ 标签落地 ⇒ 数据已完整落地)。消费方轮询自己段内的 64B
-格子(一次 dcci),不碰 mail FIFO、不等邮差转发、无需任何人广播。
-v1 的 mail-ok 广播被此技巧整体消灭。
-
-**T2 Lane 镜像(集体 → 8 条点对点流)**
-两卡 M-partition 同构:我的核 b 只算每个 chunk 的第 b 个行片,对端核 b 亦然。
-于是我的核 b 的 add 只依赖**对端核 b** 一份数据,我的核 b 的覆写安全只由
-**对端核 b** 的确认保证。ready 会合、generation、done 会合、全局 credit、
-全局 quiet——五样机制的存在理由(等 8 个核)全部消失。
-
-**T3 影子比较(格子永不清零)**
-所有格子用"值变化"语义:`cell != shadow` 即新事件,shadow 随消费推进。
-配合每 lane 单调计数器(值流严格递增),格子**自清理**:
-
-- 无每波清零、无 eager/graph 双轨 generation、无 prepare_wave。
-- graph 捕获合同退化为"预热 + 烘焙指针",replay 期间计数器/影子在内存中自然演进。
-
-## 4. 关键问题:`signal()` 多生产者竞态 → 槽分区生产者
-
-**问题**。A4:`signal()` 内部是"读 REQ_TAIL → 写槽 → 写回 TAIL+1"的无原子
-读改写。v1 靠"只有 core0 调 signal"规避。v2 里 8 条 lane 并发发货,
-两 lane 读到同一 TAIL 会互相覆写邮件 → 丢邮件 = 死锁或脏数据。
-本平台无已证实的 AICore 标量 test-and-set,自旋锁不可实现;
-轮转票号(turnstile)会把信号顺序耦合到 lane 顺序,退化为每 chunk 屏障。
-
-**解法:槽分区生产者(对公共布局头的生产者侧扩展)**。
-请求环 64 槽 × 32B,每 64B cache line 恰好装两槽。给每封邮件分配
-**确定性全局序号 seq**,使"序号 → cache line"映射的 line 属主恒等于
-`line % 8 = lane`——**任何 cache line 在任何时刻只被一个核写**,消除
-v1 式 false-sharing 写回竞态:
+两 Rank 沿 K 维分片，而非沿 M 维简单拼接：
 
 ```text
-波 w(内含 B 个 chunk),波内序号布局(waveSeq 为该波基准):
-  chunk k, lane b:  data seq = waveSeq + 16k + 2b      ← 偶槽
-                    tag  seq = waveSeq + 16k + 2b + 1  ← 奇槽(与 data 同 line)
-  ack lane b:       seq = waveSeq + 16B + 2b           ← 连发两封相同邮件
-                    seq = waveSeq + 16B + 2b + 1       ← (dup,幂等,凑满 line)
-  波步长 = 16B + 16
-  line(16k+2b) = 8k+b (mod 32) → 属主恒为 lane b ✓
+Rank 0: X0[M,2048] × W0[2048,2048] → C0[M,2048]
+Rank 1: X1[M,2048] × W1[2048,2048] → C1[M,2048]
+Both:   Y[M,2048] = C0 + C1
 ```
 
-生产流程(lane b):
+- 计算与通信数据均为 FP16；权重采用已加载的 NZ 格式，输出为 ND。
+- **计算引擎**：AICore 执行局部 MM 和本地向量 Add。
+- **AllReduce 通信引擎**：MemFabric 对称内存 + 异步 SDMA 负责双向交换部分结果；到达之后计算引擎 Add。
+- **单 Kernel、两条执行路线**：低开销串行与大 M 分块交叠。不得为了实现两条路线退回多 Kernel 编排。
+- 只为真实数据依赖付费：`MM(chunk)完成 → signal(chunk)`，`wait(chunk)完成 → Add(chunk)`，以及整个静态工作区复用前的完成条件。
+- 核数、分核方式、分块大小及两条路线切换点都以 310P3 实测选型，不预设「8 核 MM + 8 核 Add」必然最优。
 
-1. **背压**:写槽 seq 前轮询 `REQ_HEAD`,直到 `HEAD > seq - 64`(该槽上一任
-   邮件已被邮差消费),预算超时 → fail-stop。
-2. **私有写槽**:直接写 32B 邮件 `{src,dst,len,imm}` 到
-   `res + RS_REQ_RING + (seq%64)*32`,逐行 dcci clean。
-3. **标记**:写 `writtenThrough[lane] = seq+1`(store + clean)。
-4. **TAIL 推进(仅 lane0)**:每轮读 8 个 `writtenThrough`(dcci),
-   `P = min_b writtenThrough[b]`,若 `P > REQ_TAIL` 则写 `REQ_TAIL = P`。
-   单写者 ⇒ 无竞态;P 单调 ⇒ 只前进。
+目标基线：**stock FP16 NZ MatMul + HCCL AllReduce**、V1。必须分别考核 Decode 小 M 延迟、Prefill 大 M 时延与真实模型的 Graph/Eager 端到端稳定性。
 
-**与黑盒边界的关系(明确豁免声明)**:v1 的边界规则"不得读写 request ring /
-head/tail"在 v2 **生产者侧**有意放宽:只使用已安装公共头
-`smem_shm_sdma_layout.h` 的单一事实源常量、与公共 API 完全相同的 dcci 纪律、
-邮差"按 [HEAD,TAIL) 序消费"这一文档化行为。**消费侧仍 100% 公共 API**
-(`wait/quiet` + 到达戳 peek)。风险对冲:
-
-- 布局变更 → 编译期断裂(单一事实源头文件);
-- 行为变更 → `V2ContractProbeKernel` 启动期双向往返探针拦截(见 PLAN P0);
-- 若探针失败,回退方案 = 单发货者模式(lane0 代发,lane 写 ship 描述格)。
-
-**标签值单调性论证(防引擎滞后读旧值)**:标签 SQE 在**执行时**读
-`tagSrc[lane]`。需要证明:同一标签格子按落地序读到的值严格递增。
-传递链:我写 `tagSrc(k, w+2)` ⟹ 已过波 w+2 门 ⟹ 对端已发波 w+1 ack
-⟹ 对端已 add 完波 w+1 全部 chunk ⟹ 对端已消费 `tag(k, w+1)`
-⟹ 该标签邮件已执行。故 `tag(k,w+1)` 执行时读值 ∈ [v(k,w+1), v(k,w+2)),
-`tag(k,w+2)` ∈ [v(k,w+2), v(k,w+3)) —— 区间不相交,影子比较恰触发一次。
-
-## 5. 内存布局
-
-### 5.1 对称池段(每卡一段,偏移对称;arena 8192 行 = 16 chunk × 512)
+## 2. 运行时架构：两个引擎，官方原语优先
 
 ```text
-段基址 + 0            send_arena   32 MiB
-+ 32 MiB              recv_arena   32 MiB
-+ 64 MiB + 8 KiB      cellsBase(本卡格子,对端引擎可写/可读):
-   tagCell  [8 lane][16 slot] × 64B = 8 KiB    对端引擎写,本端 dcci 轮询
-   ackCell  [8 lane]          × 64B = 512 B    对端引擎写(波门 + 兼作 lane quiet)
-   tagSrc   [8 lane]          × 64B = 512 B    本端 lane 写 + clean,引擎读(SQE 源)
-   ackSrc   [8 lane]          × 64B = 512 B    同上
-   probeCell[1]               × 64B = 64  B    契约探针往返格
+┌─────────────── 单个 AICore Kernel ───────────────┐
+│                                                   │
+│ 计算引擎：MM(chunk) ───────────────→ Add(chunk)    │
+│                │                     ↑            │
+│                │ MM 已完成            │ 对端到达    │
+│                ↓                     │            │
+│ 通信调度：Core0 signal(chunk) ──→ wait(chunk)     │
+│                │                     ↑            │
+└────────────────┼─────────────────────┼────────────┘
+                 └── MemFabric SDMA ────┘
+                     对称内存双向交换
 ```
 
-### 5.2 本地设备内存(vLLM 自有,非池内;全部 64B 行对齐)
+**MemFabric 数据面仅调用公共 API：**
+
+| API | 功能及调用时机 | 不应混淆的保证 |
+|---|---|---|
+| `smem_shm_sdma_signal(gva,src,dst,len,imm)` | 唯一通信提交者 Core0 为一个连续 chunk 提交异步数据搬运 | 返回并不等于搬运完成，也不意味着对端 Add 已完成 |
+| `smem_shm_sdma_wait(gva)` | Core0 消费按序到达的邮件；检验 `status/dst/len/imm` 后允许 Add | 只证明**本端收到了对端数据**，不是对端已消费本端数据 |
+| `smem_shm_sdma_quiet(gva)` | 确认**本端提交的发送**已经落地，发送源可复写 | **不能**单独证明对端 Add 完毕或对端 recv 可覆写 |
+
+热点调用可缓存 `smem_shm_sdma_reserved(gva)`，使用公共 `*_at` 变体。**禁止直接操作 MemFabric 请求环、TAIL/HEAD、到达环、SQE 和内部布局；禁止自定义多生产者协议。** 只有 Core0 执行 `signal/wait/quiet`，但 Core0 仍正常参与 MM。
+
+**核间同步优先 Ascend C 官方 `IBSet/IBWait`**，不用自写 GM ready-cell/影子计数器作为默认方案。两者在官方产品支持表包含 Atlas 推理系列 AI Core，但 dav-2002、当前混合/单体编译模式与多次复用的具体行为需编译及实机 probe；不是 A2 的硬件 `CrossCoreSetFlag/WaitFlag`。不能混淆核间完成通知与 GM↔SDMA 的缓存可见性。
+
+参考：
+- [MemFabric 310P 公共原语](https://github.com/10wvw01/memfabric_hybrid/blob/wgm-dev-310p/src/smem/include/device/smem_shm_aicore_base_sdma.h)
+- [IBSet 官方文档](https://www.hiascend.com/doc_center/source/zh/canncommercial/900/API/ascendcopapi/atlasascendc_api_07_0202.html)
+- [IBWait 官方文档](https://www.hiascend.com/doc_center/source/zh/canncommercial/900/API/ascendcopapi/atlasascendc_api_07_0203.html)
+
+## 3. 对称内存即计算结果汇合区
+
+每张卡各有一个对称内存段，**同样的逻辑偏移，不同的本地物理存储**：
 
 ```text
-writtenThrough [8]×64B         lane 写 + clean,lane0 dcci 读(min-prefix)
-laneCounter    [8]×64B         每 lane 单调计数器(tag/ack 值;初值 1,首值 2)
-shadowAck      [8]×64B         波门影子(初值 0)
-shadowTag      [8][16]×64B     每 slot 标签影子(初值 0)
-seqState       4×u64           globalSeqBase / drainSeq / drainWave / drainPos
-protocolStatus 64B             错误通道(Trap 前写码)
-scratch        2048 行 × 4KB   尾 chunk/串行 staging,分配时清零一次
-                               (垃圾行局部化:v1 已论证,原样继承)
+                 Rank 0                              Rank 1
+       ┌────────────────────────┐         ┌────────────────────────┐
+offset │ C0: 本卡 MM 直接写入  │ --SDMA-->│ C0: 接收 Rank0 的结果 │
+       ├────────────────────────┤         ├────────────────────────┤
+       │ C1: 接收 Rank1 的结果 │ <--SDMA--│ C1: 本卡 MM 直接写入  │
+       └────────────────────────┘         └────────────────────────┘
+                   │                                  │
+             Add(C0,C1) → Y0                    Add(C0,C1) → Y1
 ```
 
-### 5.3 状态初始化与自播种
+- MM 直接写本 Rank 所属的 C 区；SDMA 直接写对端对应的 C 区；Add 从本地两个区读出后写到输出 `Y`。没有额外本地 staging/pack/unpack。
+- 对称内存**不等于**两卡自动共享缓存；仍须跨卡 SDMA 传输一次，且通信读写要遵守缓存可见性。
+- chunk 沿 **M 行**切分；同一波每块占自己独立、连续的 `[rows,2048]` ND 位置。**单波内不循环复用 send/recv chunk 槽**，从根源取消逐块 credit/ACK。
+- Core0 收到邮件不需要按 Lane 转发数据，只发布必要的本核「接收完成」通知。
+- MemFabric 自有段尾保留区由库管理，不分配给算子。官方 IB 同步 GM/UB workspace、错误码、波级控制邮件和输出 `Y` 与数据区分配明确隔离。
 
-- `V2InitKernel`(单块):`ackCell[b] ← 1`(本 AICore 写 + clean,= 种子);
-  `tagCell` 全零;`laneCounter[b] ← 1`;经**公共 `signal()`**(单生产者,无竞态)
-  向对端发 8 封 INIT ack 拷贝(imm `0x180|b`)→ 对端 ackCell 同步获种子 1;
-  `globalSeqBase ← 8`;quiet。
-- 首波门:`ackCell(b)=1 != shadow(0)` ✓ 立即放行,与对端进度无关。
-- 波门正确性:`对端 lane b 的波 w ack ⟹ 对端已 add 完波 w 该 lane 全部片
-  ⟹ 我可覆写对端 recv 槽,且我的 send 槽拷贝已落地(免 quiet 论证)`;
-  ack 值 ≥ 2 严格大于种子 1,影子单调 ✓。
-- tagCell 初值 0 = 影子初值 → 首个真实标签(≥2)恰触发一次。
-- 不需要跨 rank 的 init 依赖:对端首个 ack 逻辑上必然晚于本端首波发货。
+**初始空间预算（每 Rank）：** `windowM=8192`，`C0=8192×2048×2=32 MiB`，`C1=32 MiB`，数据区总计 **64 MiB**；另需同步工作区、控制区、对齐和池管理保留区。M 超过窗口时按 wave 顺序复用整片窗口；窗口大小不是性能常量，按内存预算配置。
 
-## 6. 唯一的计算内核:`Mf310pV2LanesKernel<CHUNK>`
+**缓存边界：** MM 各核在通知完成前，确保自己写入的 C 行对 SDMA 可读（V1 已验证按行 cache clean）。`wait` 成功后 Add 读取接收区前，必须保证 SDMA→AICore 可见性，重复使用的地址还要防止读到旧缓存。优先采用官方缓存维护 API，并以 dav-2002 probe 确定最小操作范围；`IBSet/IBWait` **不能自动代替**跨引擎 cache 维护。
 
-8 个模板符号(CHUNK ∈ {256,512,768,1024,1280,1536,1792,2048},
-每 lane 行片 = CHUNK/8 ∈ {32..256},basicM = min(行片,128),
-tiling 参数与 v1 单波阶梯一致),blockDim=8,`lane = GetBlockIdx()`。
-串行路(B=1)与交叠路(B≥5)是同一模板的运行期参数差异。
+## 4. Chunk 取值：继承 V1 已证实的 4 MiB 单邮件能力
+
+固定 `K=N=2048, FP16`，单块传输大小为 `chunkRows × 2048 × 2`：
+
+| chunkRows | 单次 signal 数据量 | 证据与定位 |
+|---|---:|---|
+| 256 | 1 MiB | V1 `q=1` 实机验证 |
+| 512 | 2 MiB | V1 `q=2` 实机验证、默认基线 |
+| **1024** | **4 MiB** | **V1 `q=4` 实机正确性与性能均已验证** |
+
+V1 的 `mf310p_device_launch_direct_producer_async` 支持 `BATCH_M=1024`，调用公共 `smem_shm_sdma_signal(..., batchBytes, ...)`；测试报告中 q=4（1024）通过多 M 正确性，并在 M=4096 获得明显的算子级收益。
+
+**不要将 MemFabric 示例里的「8×128 KiB、单次 ≤1 MiB」测试规模当成接口硬性上限。** 在当前 V1 运行栈中，1024 行（4 MiB）已经由实机证明可工作；超过 4 MiB 的候选必须再做传输正确性和性能验证。
+
+- 串行和交叠 **不与固定 CHUNK 绑定**：初期 A/B 比较 256/512/1024。
+- 小 M 允许按有效行数计算/传输；必要的 tile 对齐或 staged 输入只在确有硬件要求时采用，禁止沿用「M<256 一律补到256」作为设计前提。
+- 大 M 优先实验 `512/1024`；是否用「短首块 + 长后续块」由 `T_MM`、`T_SDMA` 和每块同步成本决定。
+- `M=2048` 是旧 V2 的路线分界**候选值**，不是硬约束。最终依据端到端实测调整。
+
+## 5. 计算引擎：MM 与 Add 核数解耦
+
+借鉴官方 [MatmulAllReduceCustom](https://gitee.com/ascend/samples/tree/master/operator/ascendc/4_best_practices/23_matmul_all_reduce_custom/MatmulAllReduceCustom) 的 `MatmulBlock`：按 `baseM/baseN` 将 C 分成基本块，再向多个核分配任务；小 M 不应为采用 8 核 M-split 而进行大量无效补零。不能直接搬用 A2 的 HCCL API 或硬件 `CrossCoreSetFlag/WaitFlag`。
+
+| 数据规模 | MM 初始候选 | Add 初始候选 | 关注点 |
+|---|---|---|---|
+| M=1～64 | 1/2/4/8 核，N-split/GEMV 优先 | 1 核优先 | Decode 延迟；避免无效计算和接收广播 |
+| M=65～255 | 2/4/8 核，N-split 与精确 M tiling | 1/2 核 | 权重切片、按 ND 连续地址写入成本 |
+| M=256～2048 | 4/8 核，M/N 切块对照 | 1/2/4/8 核 | 同步与计算负载均衡 |
+| M>2048 | 8 核 M-split 为基线，补测 4 核 | 4/8 核并测单核 | MM/SDMA/Add overlap 与带宽 |
+
+这张表是**实验矩阵**，不是最终选择。
+
+- 核间协作采用「工作核完成 MM → Core0 汇总 → 一封 signal」；不需要所有核互等。
+- Add 只有在 `wait` 完成后消费对应数据。小 M 优先 Core0 独自 Add（省去接收完成广播）；大 M 再用多核 Add。
+- 若 N-split，各核应把结果按最终 ND 地址写入 C 区；需要验证写回步长、cache line 所有权与 NZ 权重切片成本。通信必须仍能读到一个连续 chunk。
+- MM 和 Add 共享 Kernel 内资源，需要分别确认 `Matmul` 与向量 TQue/UB 资源可同时满足编译与执行约束；各核在进入下一块前应确保其上一个 Add 的依赖已满足。
+
+## 6. 单 Kernel 两条路线及最小同步
+
+### 6.1 串行：低 M / 少块
+
+```text
+计算核：  MM(k) ── 发送前本地完成通知 ───── Add(k) ── ...
+Core0：           汇总 → signal(k) → wait(k) → 放行 Add
+SDMA：                        对端交换数据
+```
+
+单 chunk 不追求没有用处的交叠，优先减少 MM 核数、cache 维护、同步与暴露 wait；多个 chunk 仍按串行次序执行。**只启动一个 Kernel**。
+
+### 6.2 交叠：足够多的 chunk
+
+```text
+计算核          Core0 / MemFabric
+MM(0)         → signal(0) ───────── SDMA(0)
+MM(1)         → signal(1) ───────── SDMA(1)
+Add(0)        ← wait(0)
+MM(2)         → signal(2) ───────── SDMA(2)
+Add(1)        ← wait(1)
+ ...
+Add(last)     ← wait(last)
+```
+
+这只是偏序约束而非严格锁步时间表：`MM(k+1)` 优先遮蔽 `SDMA(k)`，但 `wait(k)` 必须发生于 `Add(k)` 前；Core0 若先等待数据导致后续 `signal` 无法推进，则需改变其局部调度，不能形成两卡循环互等。
+
+**每 chunk 仅两类本地通知：**
+
+1. **7→1 MM 完成扇入**：非 Core0 核完成本块工作并发布 `IBSet`，Core0 对相应源核 `IBWait` 后 signal。Core0 自己的 MM 完成由本核流水依赖保证。
+2. **1→参与 Add 核的到达放行**：Core0 执行 `wait` 后，给每个需要参与 Add 的核建立独立的 `IBSet/IBWait` 事件配对；**不得多个核消费同一个一次性标志**。若官方 API 的事件容量/复用合同不能满足，则优先测试 Core0 单核 Add 或降低 Add 核数，而非立刻自制事件协议。
+
+官方 IB 的 GM workspace 要按逻辑核数和 eventID 范围配置，初始清零；`isAIVOnly`、MIX 模式下的索引语义、同一 event 多轮消费和 Graph replay 必须先通过专项 probe。尤其逻辑 block 数不得超过实际核数，否则可能发生调度死锁。
+
+### 6.3 静态工作区跨 wave/调用的复用：**一次波级握手**
+
+**只有 `quiet()` 不够**：它证明自己的 SDMA 已落地，却不能证明对端已做完 Add 并不再读取其接收区。
+
+基准实现采用**每个 wave 一次对称完成握手**：
+
+1. 各核做完本波所有 Add，Core0 在完成必要的本地 Add-done 会合后执行 `quiet()`。
+2. Core0 用公共 `signal()` 发送**一封 8B 完成通知邮件**至对端的独立控制区（恒定不改写的源字节；通过 `imm` 或顺序校验 wave 标识）。
+3. Core0 用公共 `wait()` 消费对端完成邮件；此时各端都已消费本波 C 数据，且本端发送已经落地。
+4. 只有此后才能在下一 wave 或下一次调用覆写同一 C0/C1 区。两侧都 **先发送完成通知、再等待对端通知**，避免对称死锁。
+
+该握手**不在每个 chunk 执行**。同一 wave 的所有 chunk 使用不同地址，因此 Send/Recv 可独立推进，无需三槽循环、逐 chunk credit、tagCell、ackCell、shadowCounter。若整次调用在一个 window 内完成，一次调用只付出一对完成通知和一次收尾 `quiet`。
+
+**跨调用额外注意：**同一 Rank 若由多个 stream 并发使用该池，需要上层串行化或按 stream 独立工作区。Graph replay 不能跳过波级握手，也不能把「旧邮件」视为当前 wave；对端失联/报错必须 fail-stop，不允许复用污染的池。
+
+## 7. 可实现的数据流伪代码（调度级，不是可直接编译的 AscendC）
 
 ```cpp
-// 参数:gva, x, tailSrc, w, out, ownSegment, peerSegment, peerViewOfMe,
-//       localState, totalChunks, tailValidRows, enabled
-lane = GetBlockIdx(); if (!enabled || lane >= 8) return;
-res = smem_shm_sdma_reserved(gva);                    // 公共 inline
-// 载入持久状态(寄存器):counter, shadowAck, shadowTag[0..15]
-// waveSeq = globalSeqBase(本地格,上一 launch 的 lane0 写回;graph replay 自然演进)
-for (w = 0; w < waves; ++w) {
-  B = min(16, totalChunks - 16w);
-  for (k = 0; k < B; ++k) {
-    if (k == 0) gate: 轮询 ackCell[lane] != shadowAck → 更新影子
-                    (lane0 自旋内夹带 AdvanceTail + PeekDrain,见 §7);
-    // ---- 计算:零会合 ----
-    srcRows = (本波尾 chunk && tailValid < CHUNK) ? scratch : x + g*CHUNK*ROW;
-    mm(A=srcRows+lane*rpl 行, B=全量 NZ 权重, C=send+(g*CHUNK+lane*rpl) 行);
-    CleanRegion(自己写的 C 行);                        // 唯一保留的 clean(物理必需)
-    // ---- 发货:数据 + 标签(槽分区生产者) ----
-    cnt++; tagSrc[lane] = cnt (写+clean);
-    seqD = waveSeq + 16k + 2*lane;
-    WriteMail(seqD, sendSlice → peerRecvSlice, rpl*ROW, imm=(k<<3)|lane);
-    WriteMail(seqD+1, tagSrc[lane] → peerTagCell[lane][k], 8, imm=TAG|(k<<3)|lane);
-    writtenThrough[lane] = seqD+2 (写+clean);
-    if (lane==0) AdvanceTail();
-    // ---- 消费上一 chunk(夹在 MM(k) 与 MM(k+1) 之间,A3) ----
-    if (k > 0) {
-      轮询 tagCell[lane][k-1] != shadowTag[k-1] → 更新影子
-        (lane0 自旋内夹带 AdvanceTail + PeekDrain);
-      if (w > 0) InvalidateRegion(recvSlice);          // P0:同 launch 槽重读
-      add(out 行片 ← send + recv, 精确 validLaneRows 行);  // v1 位等价 FP16 加
+rank = tp_rank;  core = GetBlockIdx();
+for (wave : waves) {
+    for (k : wave.chunks) {
+        MM_to_symmetric_C(rank, k);           // 参与 MM 的计算核
+        // 官方核内流水完成 + 必要 cache clean
+        IB_publish_mm_done(core, k);          // 需 probe 证实重用语义
+        if (core == 0) {
+            IB_gather_mm_done(k);
+            mf_signal(data_src(rank,k), peer_dst(rank,k),
+                      chunk_bytes(k), DATA_TAG(k));
+        }
+
+        if (strategy == OVERLAP && k > wave.first) {
+            if (core == 0) {
+                mail = mf_wait();              // 消费对端上一 chunk 的邮件
+                check_data_mail(mail, k - 1);
+                IB_release_add(k - 1);
+            } else {
+                IB_wait_add_release_if_needed(k - 1);
+            }
+            ADD_symmetric_C_to_output(k - 1);
+        } else if (strategy == SERIAL) {
+            // 本 chunk signal 后直接 wait → Add
+            // Core0 或 Add 核数由本 M 的配置决定
+            wait_release_add(k);
+            ADD_symmetric_C_to_output(k);
+        }
     }
-  }
-  轮询 tagCell[lane][B-1];(w>0 则先 invalidate)add(B-1);   // 尾 chunk(暴露,见风险)
-  // ---- lane 信用归还(兼作对端的 lane-quiet) ----
-  cnt++; ackSrc[lane] = cnt (写+clean);
-  seqA = waveSeq + 16B + 2*lane;
-  WriteMail(seqA, ackSrc[lane] → peerAckCell[lane], 8, imm=ACK|lane);
-  WriteMail(seqA+1, 同上, 幂等重复(凑满 line));        // imm/dst/len 全同
-  writtenThrough[lane] = seqA+2; if (lane==0) AdvanceTail();
-  waveSeq += 16B + 16;
+    if (strategy == OVERLAP) {
+        wait_release_add(wave.last); ADD_symmetric_C_to_output(wave.last);
+    }
+    IB_gather_all_add_done_if_needed();
+    if (core == 0) {
+        mf_quiet();                            // 本 Rank 所有 data 已落地
+        mf_signal(CONST_CTRL_SRC, peer_ctrl, 8, WAVE_DONE);
+        check_wave_done_mail(mf_wait());       // 双 Rank 均先 signal 再 wait
+    }
+    // 必要的本地放行后，才能复用下一 wave 的工作区
 }
-// ---- 收尾:持久化 + 排空兜底 ----
-写回 counter / shadowAck / shadowTag(本地格,own-core 读写);
-if (lane == 0) { AdvanceTail(); PeekDrain 预算排空;
-                globalSeqBase = waveSeq; drainSeq/Wave/Pos 写回; }
 ```
 
-add 内核体复用 v1 的双缓冲 TQue 向量加(位等价论证原样成立),tile 缩到
-2048 元素以让出 UB;尾 chunk 的 `validLaneRows = clamp(tailValid - lane*rpl, 0, rpl)`,
-垃圾行只被计算/交换、永不归约。
+真正编码时须补齐「Core0/其余核是否同一轮执行 wait_release_add」及「波尾本核复用放行」的逐核时序，不得把上述抽象函数当作隐含全核 barrier。同步对象属于本 Kernel，本地核不能在 Core0 完成远端 wave 握手前提前开始下一 wave 的 MM。
 
-## 7. 排空(Drain)与 Peek
+## 8. 生命周期、Graph 与异常
 
-`wait()` 是阻塞原语,无法在自旋中夹带 TAIL 推进 ⇒ 排空必须 **peek 化**:
+- **建池**：复用已验证的 MemFabric Host 创建/几何校验，分配静态对称区与官方 IB 工作区；保持 V1/V2 的单池互斥规则，不能在同进程未经隔离复用同一通信邮箱。
+- **初始状态**：官方 IB GM 工作区初始化为零，所有同步事件配对执行；清零和重复消费的正确语义由 probe 后固定，不能未经验证声称 graph replay 自动安全。
+- **Graph**：在 capture 前完成建池、权重预处理、设备库和全部选中模板的 eager warmup；形状参数可固定，但邮件和事件需能跨 replay 正确演进。双 Rank 的相应调用顺序一致。
+- **通信安全**：所有数据/完成邮件校验 `status/dst/len/imm`，超时、到达溢出、同步不匹配、`quiet` 失败均记录错误并拒绝重用池，不得静默 fallback 已部分传输的波。
+- **长稳**：V1 曾在连续 eager 负载下观察到 MemFabric AICPU epoch 续命停摆与 AICore 超时；V2 单 Kernel 不视为自动修复，须重新覆盖 eager、Graph、10min+ 持续负载。
+- **精度**：FP16 MM、两端数据交换及 Add 必须通过与 stock/V1 的正确性回归；bit-exact 作为目标，具体参考要固定舍入和输入分布并实测确认。
 
-```text
-V2ArrivalPeek: 读 ARR_STAMP[drainSeq % 1024](dcci)== drainSeq+1 ⇒ 下一封已落地
-V2DrainOne:  peek 通过 → 公共 wait_at() 取邮件 → 按确定性序校验 → drainSeq++
-```
-
-- **确定性校验序**:每波邮件 = `for k: for b: [data(16k+2b), tag(+1)]`,
-  然后 `for b: [ack(16B+2b), dup(+1)]`;INIT 邮件(seq 0..7)最先。
-  校验 dst(= peerViewOfMe + 偏移)/len/imm 三元组,错任一 → fail-stop。
-- **排空调度点**:lane0 的每个自旋点(波门、标签轮询、收尾)都夹带
-  `AdvanceTail + PeekDrain`;生产速率 ≈ 16 封/chunk,排空机会 ≈ 每 chunk 一次,
-  到达环积压恒 ≪ 1024。
-- **单消费者**:`wait` 只允许 lane0 调用(lanes 1-7 从不消费)。
-- 波尾不做阻塞式"等 8 ack":门走格子、排空只是 FIFO 卫生 + 校验,
-  两者解耦,消除了"双侧 lane0 互等"的死锁形态。
-
-## 8. 正确性论证汇总
-
-1. **数值**:MM 模板与 v1 逐位一致;FP16+FP16 在 FP32 精确、正确舍入加法唯一
-   ⇒ 与不融合参考位等价(v1 已验证,原样继承)。
-2. **顺序链**:同 lane 连续两封 signal → 请求环槽位递增 → 邮差按环序翻译
-   → 同 SQ FIFO ⇒ 标签落地 ⇒ 数据完整。写侧 clean / 读侧 dcci 全程显式。
-3. **槽复用安全**:波门(对端 ack)⟹ 对端已消费我上一波同名槽 ⟹ 覆写合法;
-   对端 ack 同理蕴含我的 send 槽拷贝已落地(免 quiet)。
-4. **标签单调性**:§4 传递链,影子比较无漏报/误报。
-5. **无死锁**(关键非对称结构):
-   - 每 lane 的依赖链是 (lane, wave) 偏序,无环;lane 间零依赖;
-   - 双侧 lane0 的门/标签互不构成环:每侧 lane0 进入轮询前已使自己的
-     chunk-(k-1) 邮件 TAIL 可见,所等的数据由对侧 lane0 的"轮询前推进"保证
-     可见 —— 两个 lane0 锁步推进,各自永不等待对方未发布的数据;
-   - 排空与门解耦(§7),不存在"等 ack 邮件可见"的循环;
-   - 背压只针对**本端邮差**(本地独立推进),不构成跨 rank 环。
-6. **容量**:在途请求 ≤ 单波 16B+16 ≤ 272 < 64 槽环(背压兜底);
-   到达环积压 ≈ 一波 272 + 排空延迟 ≪ 1024。
-7. **fail-stop**:任何轮询超时/校验失败 → 写 protocolStatus + `Trap()`;
-   runtime 毒化,拒绝复用(v1 纪律)。
-
-## 9. 路由(host,runtime.cpp)
-
-```text
-M == 0            → 空张量直接返回
-M ≤ 2048 (串行)   → CHUNK = ceil(M/256)*256,totalChunks=1,tailValid=M,
-                    waves=1;M%256!=0 时 stage x→scratch 后 launch
-M > 2048 (交叠)   → CHUNK = 512,totalChunks = ceil(M/512),
-                    waves = ceil(totalChunks/16),tailValid = M-(totalChunks-1)*512,
-                    M%512!=0 时 stage 尾 chunk 有效行 → scratch 后 launch
-两次 launch 之间无 host 同步(背压/门全部在内核内,论证见 §8.5)
-```
-
-## 10. 生命周期与合同
-
-- **初始化(首调,host)**:v1 adapter `mf310p_create(rank,2,store,local,8192,512)`
-  → layout 校验 → 本地格/scratch 分配清零 → 全符号 warmup(enabled=0)×2
-  → `V2InitKernel`(真启动)→ stream sync → `control_barrier` →
-  `exchange_geometry`(得 peerViewOfMe)→ sync。
-- **warmup 合同**:8 模板 + init + probe + quiet 全符号,no-op 形状各两遍;
-  graph 捕获前必须完成(eager 预热路径)。
-- **graph 捕获**:烘焙 12 个内核参数(M 固定/图);seq 基、影子、计数器全部
-  从内存读写 ⇒ replay 间自然演进,**无任何清零/代数烘焙合同**。
-- **shutdown**:quiet 内核(公共 quiet)→ stream sync → 释放本地块 →
-  `mf310p_destroy`;graph-used 上下文保持进程生命周期(v1 纪律)。
-- **单池约束**:v1/v2 共用进程级 MemFabric 单例与 `mf310p_create(id=0)`;
-  同进程只允许一个变体初始化,后者带明确报错拒绝。
-
-## 11. 风险清单(P0/P1 实测拦截)
-
-| # | 风险 | 量级估计 | 拦截手段 |
-|---|------|---------|---------|
-| R1 | 串行 B=1 尾 chunk 标签轮询暴露(v1 V2 教训残留) | ~10-50µs/次 | P3 微基准确认;退避轮询;唯一预留切缝=该轮询处加回 launch 边界 |
-| R2 | 槽分区生产者 vs 邮差契约(灰区豁免) | 布局/行为变更即坏 | P0 契约探针;单一事实源头文件;回退=单发货者模式 |
-| R3 | MM+add 共享 UB(TOTAL_UB_SIZE - 24KB 给 mm) | mm workspace 不足 | P1 编译+P2 首跑;不足则降 add tile / basicM |
-| R4 | 同一 Matmul 对象跨 chunk 重复 SetTensorA+IterateAll | API 支持度 | P2 首跑;不支持则每 chunk 重建对象(开销可测) |
-| R5 | 多波 reread 的 recv invalidate 开销(4096 dcci/lane/chunk) | 仅 M>8192 | P4 微基准;若 MTE2 不经 L1 可去掉 |
-| R6 | lane0 TAIL 推进节拍 = 其他 lane 邮件可见性上界 | ≈ lane0 循环周期 | 论证已被流水吸收(§8.5);P4 压测验证 |
-| R7 | M<256 补零的全量权重流地板(放弃 N-split 的代价) | ~100µs/call | 设计指令接受;扩展点保留(权重切片可后补) |
-
-## 12. 文件清单
+## 9. 工程实现范围与验证关口
 
 ```text
 csrc/_310P/memfabric_mm_ar_v2/
-  DESIGN.md                        本文件
-  PLAN.md                          研发计划与测试矩阵
-  mf310p_v2_adapter_api.h          ABI v1:布局/本地格偏移常量 + create/launch 声明
-  mf310p_v2_device.asc             8 模板 lanes 内核 + init/probe/quiet,槽分区生产者
-  mf310p_v2_adapter.cpp            create/destroy/geometry/launch 薄壳(链接复用 v1 建池)
-  memfabric_mm_ar_v2_torch_adpt.h  torch 侧校验
-  memfabric_mm_ar_v2_binding.cpp   op 注册(v2_allreduce / v2_shutdown / v2_probe)
-  memfabric_mm_ar_v2_runtime.cpp   路由/生命周期/warmup/graph/毒化
-cmake/memfabric_310p_v2.cmake      bisheng dav-2002 编译 v2 设备库 + 接线
+    DESIGN.md                           本文件
+    PLAN.md                             后续按新方案重编
+    mf310p_v2_device.asc                 单 Kernel：MM + MemFabric + Add
+    mf310p_v2_adapter_api.h              参数和上下文 ABI
+    mf310p_v2_adapter.cpp                MemFabric 公共 Host 适配
+    memfabric_mm_ar_v2_runtime.cpp       M/tiling/route、Graph、生命周期
+    memfabric_mm_ar_v2_binding.cpp       Torch op 注册
+    memfabric_mm_ar_v2_torch_adpt.h      Tensor 合同校验
 ```
+
+**先验证能力，再优化性能**：
+
+| 关口 | 必须回答的问题 | 产物/通过条件 |
+|---|---|---|
+| G0 官方同步 API | dav-2002 能否正确编译、执行 `IBSet/IBWait` 扇入/单发多收；事件多轮复用、MIX/Graph 是否安全 | 最小双向同步 probe + 延迟分布；不能依赖尚未证实的广播合同 |
+| G1 最简串行 | MM 直接写对称区，单邮件 `signal/wait`，Add 正确；波级复用握手安全 | 双 Rank、1～1024 行、跨调用重复 correctness |
+| G2 分核效率 | 1/2/4/8 核 MM 与 Add 的真实增益，N/M 切块、cache clean 成本 | 以 310P3 profiler 分解 MM/同步/Add，选定小 M 路径 |
+| G3 交叠 | 256/512/1024 行 chunk 的 SDMA/计算重叠，不发生跨 Rank 循环等待 | M=2048～8192，逐块时序证明与 profiler 时间线 |
+| G4 跨波及 Graph | `M>windowM` 静态地址复用、尾块、连续 replay、异常处理 | M=8193/16384/65536，graph×1000，双 Rank 长稳 |
+| G5 发布判定 | 真实 Qwen3.6 的 40 层启用后是否优于 V1 与 stock | 层级延迟、Decode ITL、Prefill、输出吞吐、稳定性齐全 |
+
+**P0 风险列表：**
+
+1. `IBSet/IBWait` 的扇入/一对多事件配对、重用与 MIX 模式约束尚未实机证实；必须先 G0。
+2. C0/C1 的 GM/cache 清洁纪律及 Add 的读取可见性必须经过对称内存实机检查。
+3. 交叠中 Core0 同时承担 MM/signal/wait 时可能出现调度阻塞；每条等待边必须有已发布的前驱事件。
+4. 波级 ACK 是「接收区已消费」而非仅传输完成的证明，不可省略；`quiet` 也不可代替。
+5. 单 Kernel 小 M 的阻塞 `wait` 可能暴露之前多 Kernel launch 帮忙掩盖的通信等待，必须与 stock/V1 实测比较。
+
+## 10. 相关源码与证据
+
+- [V1 源码、已验证的 256/512/1024 单次 signal](../memfabric_mm_ar/memfabric310p_device.asc)
+- [V1 实机验证报告：q=1/2/4 正确性与性能](../memfabric_mm_ar/VALIDATION_REPORT.md)
+- [官方 MatmulAllReduceCustom 分核样例](https://gitee.com/ascend/samples/tree/master/operator/ascendc/4_best_practices/23_matmul_all_reduce_custom/MatmulAllReduceCustom)
+- [MemFabric 公共 SDMA API](https://github.com/10wvw01/memfabric_hybrid/blob/wgm-dev-310p/src/smem/include/device/smem_shm_aicore_base_sdma.h)
+
+> **本版决策摘要：** 双引擎单 Kernel、串行/交叠双路线、静态 C0/C1 对称内存、Core0 单生产者、IBSet/IBWait 官方优先、逐 chunk 只发送数据邮件、每 wave 一次复用完成握手、256/512/1024 三档分块候选。原版 8 Lane 直写请求环、tag/ack cell、TAIL proxy、三槽滚动复用等设计全部废弃。
