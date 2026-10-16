@@ -1,8 +1,8 @@
 # memfabric_mm_ar_v2 设计方案：单 Kernel 双引擎融合
 
-> **设计版本：2026-10-16 重构草案；尚未编码和实机验证。**  
+> **设计版本：2026-10-16 双引擎方案；T0 原型源码已创建，尚未编译和实机验证。**  
 > **硬件限定：310P3 / dav-2002，TP=2，CANN 9.1，Qwen3.6-35B-A3B-w8a8。**  
-> V1 `csrc/_310P/memfabric_mm_ar/` 冻结；V2 独立实现，按需复用 V1 已验证的 MemFabric 建池、几何信息和 PyTorch 适配能力。本文**替换**旧版「8 Lane 对称通信、直接改写请求环」方案。**现有 PLAN.md 仍针对旧设计，后续需同步修订，不可据其直接编码。**
+> V1 `csrc/_310P/memfabric_mm_ar/` 冻结；V2 独立实现，按需复用 V1 已验证的 MemFabric 建池、几何信息和 PyTorch 适配能力。本文**替换**旧版「8 Lane 对称通信、直接改写请求环」方案。**PLAN.md 已按双引擎原型重编；T0 尚未通过实机验收。**
 
 ## 1. 设计目标与已确认合同
 
@@ -265,3 +265,13 @@ csrc/_310P/memfabric_mm_ar_v2/
 - [MemFabric 公共 SDMA API](https://github.com/10wvw01/memfabric_hybrid/blob/wgm-dev-310p/src/smem/include/device/smem_shm_aicore_base_sdma.h)
 
 > **本版决策摘要：** 双引擎单 Kernel、串行/交叠双路线、静态 C0/C1 对称内存、Core0 单生产者、IBSet/IBWait 官方优先、逐 chunk 只发送数据邮件、每 wave 一次复用完成握手、256/512/1024 三档分块候选。原版 8 Lane 直写请求环、tag/ack cell、TAIL proxy、三槽滚动复用等设计全部废弃。
+
+
+## 11. 首轮可运行原型与已知限制（T0）
+
+本设计的第一轮**试验代码**参照官方 MatmulAllReduceCustom 的「多核 MM → 同步 → 通信提交」思路，放在本目录的 `mf310p_v2_trial_device.asc` 等文件中，见 [TRIAL.md](TRIAL.md) 和 [PLAN.md](PLAN.md)。**它不是本设计全部能力的交付**：
+
+- 当前仅 `chunkRows=256/512/1024`、`M` 为 CHUNK 正整数倍且 `M<=8192`、8 核 M-split；串行和交叠两种模式可选。
+- Core0 负责一封连续数据邮件/块；官方 `IBSet/IBWait` 负责核间依赖；`quiet + DONE` 负责波级复用。
+- 还没有小 M N-split、任意 M 尾块、多波、自适应核数、PyTorch/vLLM 接线或正式 Graph 验证。
+- **代码未在 310P3 上编译/运行**。首个实机步骤必须是 G0 的 `IBSet/IBWait` 官方 API 契约探针，然后才进行融合正确性和性能测试；现有 V1 路由、参数和行为完全不变。

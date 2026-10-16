@@ -126,6 +126,14 @@ if(DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR} AND
     vllm_ascend_configure_310p_memfabric(vllm_ascend_C)
 endif()
 
+# Experimental V2: only builds the trial native device library and C adapter.
+# No Torch op/model routing is registered. V1 remains the production path.
+if(DEFINED ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2} AND
+   "$ENV{VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2}" STREQUAL "1")
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/memfabric_310p_v2.cmake)
+    vllm_ascend_configure_310p_memfabric_v2_trial(vllm_ascend_C)
+endif()
+
 # Detect aclrtMemcpyBatchAsync availability (CANN 8.5+)
 # Can be overridden via VLLM_ASCEND_ENABLE_BATCH_MEMCPY env var (registered
 # in vllm_ascend/envs.py, forwarded by setup.py as a CMake variable):
