@@ -1,6 +1,6 @@
 # memfabric_mm_ar_v2 设计方案：单 Kernel 双引擎融合
 
-> **设计版本：2026-10-16 双引擎方案；T0 原型源码已创建，尚未编译和实机验证。**  
+> **设计版本：2026-10-16 双引擎方案；T0 已在 2026-10-17 完成 G0/G1/G2 实机验证；T1 小 M N-split 源码待验证。**  
 > **硬件限定：310P3 / dav-2002，TP=2，CANN 9.1，Qwen3.6-35B-A3B-w8a8。**  
 > V1 `csrc/_310P/memfabric_mm_ar/` 冻结；V2 独立实现，按需复用 V1 已验证的 MemFabric 建池、几何信息和 PyTorch 适配能力。本文**替换**旧版「8 Lane 对称通信、直接改写请求环」方案。**PLAN.md 已按双引擎原型重编；T0 尚未通过实机验收。**
 
@@ -275,3 +275,18 @@ csrc/_310P/memfabric_mm_ar_v2/
 - Core0 负责一封连续数据邮件/块；官方 `IBSet/IBWait` 负责核间依赖；`quiet + DONE` 负责波级复用。
 - 还没有小 M N-split、任意 M 尾块、多波、自适应核数、PyTorch/vLLM 接线或正式 Graph 验证。
 - **代码未在 310P3 上编译/运行**。首个实机步骤必须是 G0 的 `IBSet/IBWait` 官方 API 契约探针，然后才进行融合正确性和性能测试；现有 V1 路由、参数和行为完全不变。
+
+
+## 12. T1 小矩阵实验路径（已写代码，**未实机验证**）
+
+2026-10-17 实机报告指出 T0 固定 8 核 M-split 串行在 M=256/512/1024 尚慢于 Stock。因此在**不更改 T0 大 M 路线、V1 或正式模型路由**的前提下，增加 `mf310p_v2_trial_run_small`：
+
+- 8 核沿 N 分列、每核独立的 256 输出列 NZ 权重切片（调用 V1 已存在的 `mf310p_build_weight_slices` 做一次性重排）；T=16/32/64/128/256、M=1..256。
+- MM 直接写 C0/C1 所在对称工作区，但小 M 的 C 使用连续的 `[8,T,256]` blocked 布局，满足一次 `signal` 传输；Add 输出仍是 ND `[M,2048]`。
+- 7→1 MM ready 与单 Core0 发送使用官方 IB；Add 核数动态可测 `1/2/4/8`，1 核 Add 省略 1→7 广播和 Add-done 扇入；波尾仍 `quiet` + 单封 DONE。
+- `T` 尾行仅作为 staged 输入占位、不参与最终 Add；同一个设备 Kernel 包含 MM、MemFabric 交换及 Add，但输入 staged D2D copy 在 Host 侧额外入队。
+- 目标是实测判断**N-split 是否改善小 M 串行**，而非预设单核 Add 一定最优；首次新输出指针 `aclrtSynchronizeDevice` 仍为 T0 已知临时规避，未具备 Graph Capture 安全性。
+
+详细 ABI、测试命令、G0/G1/G2 回归及风险见 [SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)、[bench_small_m.py](bench_small_m.py) 和 [PLAN.md](PLAN.md)。
+
+> 状态声明：T0 的实机验收记录不可冒用为 T1 的正确性或性能证据。
