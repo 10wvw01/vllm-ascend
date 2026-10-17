@@ -1,47 +1,46 @@
-# memfabric_mm_ar_v2 研发计划（2026-10-16 重编）
+# memfabric_mm_ar_v2 研发与验收计划（2026-10-17）
 
-> 依据新版 DESIGN.md。旧版多生产者 Request Ring、TAIL proxy、tag/ACK 每 Lane 的实施任务全部作废。V1 不改动。
+> V1 不修改；V2 原型默认关闭，不接正式模型路由。设计依据：[DESIGN.md](DESIGN.md)，实机 T0 结果：[20261017实机测验及修复.md](20261017实机测验及修复.md)。T1 小矩阵实现及验证指导：[SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)。
 
-## T0：第一版实验原型（源码阶段）
+## 当前状态
 
-参考官方 MatmulAllReduceCustom 的 MM 分核、块完成会合、Commit 后继续计算模式，换用 310P MemFabric 公共 signal/wait/quiet。
+| 阶段 | 工作 | 状态 |
+|---|---|---|
+| G0 | 官方 IBSet/IBWait 双核、8 核和多轮复用 | **2026-10-17 dav-2002 PASS** |
+| G1 | T0 8 核 M-split、单块串行、FP16 位精确 | **PASS**：chunk=256/512/1024 |
+| G2 | T0 多块串行/交叠、M=2048/4096/8192 | **PASS**：18 配置；交叠速度有收益 |
+| T1 | M=1..256 N-split MM + Add 核数 1/2/4/8 | **源码已提交，待 310P 实机编译及验证** |
+| G3 | 无全设备同步、Graph、任意 M、大于 8192 的多波、正式路由 | **未完成** |
 
-**实验边界**：K=N=2048、FP16、NZ 权重、TP=2，M=chunkRows×chunks，chunkRows∈{256,512,1024}、M≤8192；单 Kernel，8 核 M-split，Core0 兼职通信；C0/C1 对称静态空间无 chunk 复用；模式 SERIAL/OVERLAP 切换。每 wave 一次 quiet 和 DONE 对称握手；无 torch 模型路由。
+T0 报告在 M=256/512/1024 的串行耗时分别为 0.581/0.762/0.961ms，仍慢于 Stock 0.364/0.640/0.903ms。G2 的成绩不能外推至 Decode。
 
-- 已新增实验性源文件：mf310p_v2_trial_device.asc、mf310p_v2_trial_adapter.cpp、mf310p_v2_trial_adapter_api.h、cmake/memfabric_310p_v2.cmake。
-- 仅环境变量 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1 时构建，必须同时启用 V1 MemFabric 构建。
-- C API 用于独立双 Rank 试验。**不表示已经编译或实机验证。**
+## T1：本轮小 M 验收（优先）
 
-## G0：官方 IBSet/IBWait 能力验证（先于完整融合）
+测试命令见 [SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)；新增的 `bench_small_m.py` 不依赖服务器 `/tmp/opencode/v2/` 目录。
 
-1. 在 dav-2002 bisheng 编译实验设备库，确认 kernel_operator_block_sync_intf.h 与 KERNEL_TYPE_AICORE 支持 IBSet/IBWait。
-2. 双核单 Kernel 执行 eventID 0/1 往返 1000、10000 次；对应 GM 工作区初始化清零；检查完成计数与两次调用复用。
-3. 检查 8 核 7→1 扇入、Core0 1→7 使用七个不同 eventID 的同步正确性；量化事件时延。
-4. 若 G0 失败，暂停 G1，先查官方 ABI 与核模式；不得转为直写 MemFabric 环。
+1. **构建**：使用现有 `VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1` 和 `..._V2=1` 重新编译；先处理 CANN 编译器报错及 ctypes 导出/链接问题。
+2. **G0 回归**：原 IB 双核 + 8 核探针仍通过；不得用自定义同步代替官方 IB。
+3. **小 M 基线**：M={1,2,4,8,16,32,64,128,255,256}；Add 核数={1,2,4,8}；每项 ≥30 次；测首调用和稳态中位数，比较 stock、V1 N-split。
+4. **正确性**：双 Rank、FP16 NZ、4 种输入 seed + 随机 30 个 M、全配置位精确；每步检查 status=0。
+5. **复用压力**：M=1↔255↔256、Add 1↔8、多权重指针交替、不同输出指针；重复 ≥1000 次，不得旧 IB 事件误消费、cache 污染、mail 序号错乱。
+6. **性能分析**：如单核 Add 慢，使用 profiler 判断是否大量 256-element 的小块 DMA/ND scatter 所致；测 2/4/8 核是否抵消 IB 广播成本，按 M 选择最优值，不能凭理论拍板。
+7. **T0 回归**：重新执行大 M G1/G2；T1 不得破坏已有 256/512/1024 与 M=2048/4096/8192 正确性及交叠收益。
 
-**验收**：编译 0 error、无死锁、全部同步检查通过。
+**T1 完成标准**：编译通过、位精确、压力无死锁、全配置性能表与 P95、有可解释的选核策略，并形成 `T1_SMALL_M_REPORT.md`。**是否真正超过 Stock 要看实测结果，不预先宣称。**
 
-## G1：最小串行正确性
+## 工程加固 P0（与 T1 测试并行分析，修复优先于正式集成）
 
-- 单次 M=256/512/1024、CHUNK 同 M，两个 Rank 各自 MM 写入对应对称 C 段；
-- Core0 signal 一封，双方 wait；8 核 Add 后本波 DONE；检查 bit-exact 和所有邮件字段；
-- 重复调用 1000 次，确认静态 C 段复用、IB event 复用和缓存可见性；
-- 单 Kernel 与 V1 的 stock MatMul+HCCL 单波对照，记录暴露 wait。
+- **首次 MTE3 输出写入丢失**：目前仅由 `aclrtSynchronizeDevice()` 对首次新输出地址规避；排查跨流页面映射/内核初始化/allocator 生命周期的具体原因。不得在 Graph 里直接保留该全设备同步作为最终方案。
+- **KFC 初始化异常**：旧服务器通过已有部署的绕行才完成测试；须在正常健康设备部署路径重验。
+- **可复现性**：T0 `/tmp/opencode/v2/` 辅助程序和完整 profiler 结果应归档仓库，不仅保留报告摘要。
+- **运行时一致性**：V2 context 和 V1 单池互斥、异常 Fail-stop、跨 Rank 调用顺序、销毁前同步；禁止任意多 Stream 并发。
 
-## G2：大 M 交叠
+## 后续 G3（T1 通过后再启动）
 
-- M=2048/4096/8192，chunkRows=256/512/1024；比较 SERIAL 与 OVERLAP；
-- 用 profiler 证实 MM(k+1) 与 SDMA(k) 的重叠；
-- 分解 MM、IB、signal、wait、Add、quiet、DONE；确认 AICore 资源及 UB 足够；
-- 不允许在一个 Rank 的 Core0 等待另一个 Rank 尚不能 signal 的数据。
+- 动态/任意 M、M=257..2047 的路径选择；比较 Stock、V1 N-split、T1 和 T0；
+- 按实测调整 MM 与 Add 核数，调优同步点、C 分块、chunk=256/512/1024 及大 M 的 MM/SDMA 交叠；
+- >8192 的多波静态 arena 安全复用、异常恢复；
+- Torch op + vLLM-Ascend 独立路由开关；Eager/Graph×1000、10min+长稳与真实 Qwen3.6-35B-A3B-w8a8 TP=2 40 层评估；
+- 与 Stock/V1 做 ITL、TTFT、吞吐的端到端 A/B 后决定是否默认启用 V2。
 
-## G3：工程补全和产品化（当前未实现）
-
-1. 增加任意 M 尾块，M>8192 多 wave；
-2. 官方 MatmulBlock 的 M/N 二维分核小 M 优化；MM 1/2/4/8 核与 Add 核数分离；
-3. 增加严格的内核资源检查、错误恢复和 graph replay 状态治理；
-4. 接入 PyTorch/vLLM 的独立显式 feature flag，避免覆盖 V1；
-5. 按 M=1/16/64/255/256/257/512/1024/2048/4096/8192 与真实 Qwen3.6-35B-A3B 的 40 层做 A/B，Graph ×1000 + 10min+ eager/graph 长稳；
-6. 与 V1、stock 比较 ITL/TTFT/tok/s，通过验收后才讨论默认启用。
-
-> 当前 PLAN 的状态是“源码原型，未编译”。发布门槛不允许用静态审视代替 310P3 实机。
+> 本 PLAN 只记录已实际发生的验收结论；T1 和 G3 均不得以静态审视替代 dav-2002 实机运行。
