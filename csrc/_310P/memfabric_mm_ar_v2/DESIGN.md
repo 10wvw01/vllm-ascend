@@ -277,16 +277,21 @@ csrc/_310P/memfabric_mm_ar_v2/
 - **代码未在 310P3 上编译/运行**。首个实机步骤必须是 G0 的 `IBSet/IBWait` 官方 API 契约探针，然后才进行融合正确性和性能测试；现有 V1 路由、参数和行为完全不变。
 
 
-## 12. T1 小矩阵实验路径（已写代码，**未实机验证**）
+## 12. T1 小矩阵主线：原始 NZ / 直接 ND（**未实机验证**）
 
-2026-10-17 实机报告指出 T0 固定 8 核 M-split 串行在 M=256/512/1024 尚慢于 Stock。因此在**不更改 T0 大 M 路线、V1 或正式模型路由**的前提下，增加 `mf310p_v2_trial_run_small`：
+上一版草拟的「照搬 V1 8 核 N-split + NZ 权重分片 + 输入 Staging + Blocked C」**不作为 V2 主线**，相关代码已从 T1 主路径撤除；V1 方案仅保留为独立性能对照，**V1 本身未修改**。
 
-- 8 核沿 N 分列、每核独立的 256 输出列 NZ 权重切片（调用 V1 已存在的 `mf310p_build_weight_slices` 做一次性重排）；T=16/32/64/128/256、M=1..256。
-- MM 直接写 C0/C1 所在对称工作区，但小 M 的 C 使用连续的 `[8,T,256]` blocked 布局，满足一次 `signal` 传输；Add 输出仍是 ND `[M,2048]`。
-- 7→1 MM ready 与单 Core0 发送使用官方 IB；Add 核数动态可测 `1/2/4/8`，1 核 Add 省略 1→7 广播和 Add-done 扇入；波尾仍 `quiet` + 单封 DONE。
-- `T` 尾行仅作为 staged 输入占位、不参与最终 Add；同一个设备 Kernel 包含 MM、MemFabric 交换及 Add，但输入 staged D2D copy 在 Host 侧额外入队。
-- 目标是实测判断**N-split 是否改善小 M 串行**，而非预设单核 Add 一定最优；首次新输出指针 `aclrtSynchronizeDevice` 仍为 T0 已知临时规避，未具备 Graph Capture 安全性。
+T1 主路径参照官方 `MatmulBlock::CalcGMOffset`：对于 `B=NZ,transposed=true`，沿输出 N 的列偏移为 `colOffset×16` 个 FP16 元素；C=ND 时直接定位 `row×2048+colOffset`。具体落地：
 
-详细 ABI、测试命令、G0/G1/G2 回归及风险见 [SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)、[bench_small_m.py](bench_small_m.py) 和 [PLAN.md](PLAN.md)。
+- 小 M 输入 `X[M,2048]` 直接传 MM（`M=1..256`），权重直接采用**原始完整 NZ** `W`，不做 8 MiB 切片、输入 Staging 或 blocked 输出重排。
+- `mmCores∈{1,2,4,8}`，每个 MM 核处理 `N/mmCores` 连续列；单核 static tiling 只计算这一 N 片。通过 `SetOrgShape(M,2048,2048,2048,2048)` 维护 B 的 NZ 原始全列步长与 C 的 ND 行步长；`SetSingleShape(M,2048/mmCores,2048)` 缩到真实 M，避免补齐输入。
+- MM 各核**直接写对称区中最终 ND `[M,2048]` 地址**。每一核只清洁其负责的 64B 对齐列片；Core0 汇总 `IBWait` 后一次 `signal(M×2048×2)`。
+- 收到对端数据后 `addCores∈{1,2,4,8}` 按整行分配工作。Core0 单核 Add 时无需额外释放/完成广播；多核 Add 使用官方 IB 独立事件；所有 Add 都直接按 ND 读写。
+- 单次调用最后由 Core0 做 `quiet` 与波级双向 DONE，避免下一次调用复写当前 C 区。所有 MemFabric API 仍是公共 `signal/wait/quiet`。
+- `SetOrgShape/SetSingleShape` 配合**原始 NZ 子矩阵 + ND 非紧凑行步长**目前属于 **310P3 待验证的关键能力**，不是已证明正确。T1 对应 `mf310p_v2_trial_run_nz_direct_small` 原型只通过源码审视，不接生产路由。
 
-> 状态声明：T0 的实机验收记录不可冒用为 T1 的正确性或性能证据。
+**性能衡量：** stock FP16 MM+HCCL、V1 已验证的小 M N-split、V2 T0 256 行 M-split 均作参考。先 G0 编译与 bit-exact；若官方 Matmul API 在 dav-2002 不能直接写 C(ND) 跨列子块，则记录编译/数值证据，回退至官方支持的 Matmul 分块能力；不得默默引入 V1 blocked 布局替代主设计。
+
+测试及边界：[NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md)、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[PLAN.md](PLAN.md)。
+
+> T0 的 G0/G1/G2 实机通过与 T1 的直接-NZ 正确性是两组独立证据。首次新输出指针 `aclrtSynchronizeDevice` 是旧版已知临时规避，尚非 Graph 安全的产品方案。

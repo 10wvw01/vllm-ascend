@@ -43,21 +43,10 @@
 - 诊断脚手架：`mf310p_v2_trial_diag(h, x, w, y, 0..7, stream)` 提供分级隔离内核（纯 MM / +TQue Add / +IB / +DONE 握手 / 生产内核 / 16 参编组 / 循环结构复刻），供分阶段排障；`mf310p_v2_trial_addresses/ib_addr/status_addr/status_words` 暴露关键地址与状态。
 
 
-## T1 小 M 专项（代码已更新，**尚未实机验证**）
+## T1 小 M / 原始 NZ 直接 ND 原型（未实机测试）
 
-参见 [SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)。独立 C API：
-`mf310p_v2_trial_run_small(handle,x,w_nz,y,M,add_cores,stream)`。
-
-- `M=1..256`，按 `T=16/32/64/128/256` 选择 8 核 N-split MM；
-- 复用 V1 已证明的 `mf310p_build_weight_slices` 预处理 NZ 权重，只需首次/权重指针变更时构建；不更改 V1；
-- `add_cores=1/2/4/8`，每核输出最终 ND `[M,2048]`，供实机选型；
-- MM+SDMA+Add 仍为单 Kernel，Host 侧额外有异步 input staging；
-- 独立程序 `bench_small_m.py` 在建池前计算 Stock HCCL 参考，建池后每步逐位比较。
-
-```bash
-ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/bench_small_m.py \
-  --rows 1 2 4 8 16 32 64 128 255 256 --add-cores 1 2 4 8 --repeat 30
-```
-
-T1 尚无正确性或速度结论，不应引用既有 G0/G1/G2 报告声称已通过。首次 MTE3 缓冲区写丢失的 `aclrtSynchronizeDevice()` 仍是临时规避方案，未解决 Graph 安全问题。
+- C API：`mf310p_v2_trial_run_nz_direct_small(handle,x,w_nz,y,M,mm_cores,add_cores,stream)`。
+- `M=1..256`；`mm_cores/add_cores∈{1,2,4,8}` 相互独立；无权重切片、输入 staging 和 blocked 输出。
+- 官方 `MatmulBlock` NZ B 列偏移规则与 `SetOrgShape/SetSingleShape` 组合尚需 310P3 专项验证。
+- 参考 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) 的阶段性命令及 [bench_nz_direct_small.py](bench_nz_direct_small.py)。
+- 现有 T0 的 G0/G1/G2 实测仍然有效，但**不能证明此 T1 的正确性或性能**。V1 N-split 只保留为独立基线。

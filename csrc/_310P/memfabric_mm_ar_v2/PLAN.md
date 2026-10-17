@@ -1,46 +1,36 @@
 # memfabric_mm_ar_v2 研发与验收计划（2026-10-17）
 
-> V1 不修改；V2 原型默认关闭，不接正式模型路由。设计依据：[DESIGN.md](DESIGN.md)，实机 T0 结果：[20261017实机测验及修复.md](20261017实机测验及修复.md)。T1 小矩阵实现及验证指导：[SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)。
+> V1 代码冻结。2026-10-17 已验证的 T0 报告：[20261017实机测验及修复.md](20261017实机测验及修复.md)。T1 改为官方 MatmulBlock 风格的**原始 NZ + 直接 ND**，细节见 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) / [DESIGN.md](DESIGN.md)。不再以 V1 的切片 / staging / blocked 输出作为 V2 主设计。
 
-## 当前状态
-
-| 阶段 | 工作 | 状态 |
+| 阶段 | 验收内容 | 当前状态 |
 |---|---|---|
-| G0 | 官方 IBSet/IBWait 双核、8 核和多轮复用 | **2026-10-17 dav-2002 PASS** |
-| G1 | T0 8 核 M-split、单块串行、FP16 位精确 | **PASS**：chunk=256/512/1024 |
-| G2 | T0 多块串行/交叠、M=2048/4096/8192 | **PASS**：18 配置；交叠速度有收益 |
-| T1 | M=1..256 N-split MM + Add 核数 1/2/4/8 | **源码已提交，待 310P 实机编译及验证** |
-| G3 | 无全设备同步、Graph、任意 M、大于 8192 的多波、正式路由 | **未完成** |
+| G0 | IBSet/IBWait 官方 2/8 核同步、跨调用复用 | **T0 实机 PASS** |
+| G1 | T0 多核 M-split 串行 FP16 bit-exact | **T0 实机 PASS** |
+| G2 | T0 串行/交叠，M=2048/4096/8192 | **T0 实机 PASS** |
+| T1 | 小 M 原始 NZ + 直接 ND + 1/2/4/8 MM/ADD | **源码完成，未在 310P3 编译验证** |
+| G3 | Graph、任意 M、复用压力、完整模型和正式路由 | **未完成** |
 
-T0 报告在 M=256/512/1024 的串行耗时分别为 0.581/0.762/0.961ms，仍慢于 Stock 0.364/0.640/0.903ms。G2 的成绩不能外推至 Decode。
+## T1 / P0：先证实官方 Matmul 子块能力
 
-## T1：本轮小 M 验收（优先）
+1. CANN 9.1 `bisheng --npu-arch=dav-2002` 编译 20 个 `T×mmCores` 原型模板；如出现静态 tiling / SetSingleShape 不支持，优先针对 API 合同改正，不绕过验证。
+2. 单卡先检查 `M=1,16,17,255,256`，核数 1/2/4/8 的 `W(NZ)` 子矩阵寻址是否与 `F.linear` 一致；特别检查相邻 N 片 512B 行边界、`SetOrgShape` 的 B/C pitch。
+3. G0 双核、8 核 IB probe 保持 PASS，再执行两卡单 Kernel 完整 MM→signal→wait→Add→quiet→DONE。
+4. 小 M 首轮只做 M={1,2,4,8,16,32,64,128,255,256}，MM 核数 {1,2,4,8}×Add 核数 {1,2,4,8}，所有组合 bit-exact、协议状态零。逐次校验。
+5. 追加随机 30 个 M、动态输出指针、同权重与不同权重指针、千次重复；特别检查 1 核 MM+8 核 Add 时无需错误额外 MM 参与。
+6. 同环境分别记录 Stock、V1 N-split、V2 NZ Direct 的首调用、中位数/P95；测试真实 Host 耗时（不误把单 Kernel 当成无 Host 开销），profiling 分解 MM、IB、SDMA、Add、波级 DONE。
+7. 重新回归 T0 原有 G1/G2。将结果保存 `T1_NZ_DIRECT_REPORT.md`，记录编译/数值/性能、BUG 根因、修复和回归。
 
-测试命令见 [SMALL_M_TRIAL.md](SMALL_M_TRIAL.md)；新增的 `bench_small_m.py` 不依赖服务器 `/tmp/opencode/v2/` 目录。
+**禁止把 T0 PASS 误称为 T1 PASS。** 若原始 NZ 列切分不支持，先给出官方 API 约束和实机证据，再讨论备选方案；V1 N-split 仅作独立基线。
 
-1. **构建**：使用现有 `VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1` 和 `..._V2=1` 重新编译；先处理 CANN 编译器报错及 ctypes 导出/链接问题。
-2. **G0 回归**：原 IB 双核 + 8 核探针仍通过；不得用自定义同步代替官方 IB。
-3. **小 M 基线**：M={1,2,4,8,16,32,64,128,255,256}；Add 核数={1,2,4,8}；每项 ≥30 次；测首调用和稳态中位数，比较 stock、V1 N-split。
-4. **正确性**：双 Rank、FP16 NZ、4 种输入 seed + 随机 30 个 M、全配置位精确；每步检查 status=0。
-5. **复用压力**：M=1↔255↔256、Add 1↔8、多权重指针交替、不同输出指针；重复 ≥1000 次，不得旧 IB 事件误消费、cache 污染、mail 序号错乱。
-6. **性能分析**：如单核 Add 慢，使用 profiler 判断是否大量 256-element 的小块 DMA/ND scatter 所致；测 2/4/8 核是否抵消 IB 广播成本，按 M 选择最优值，不能凭理论拍板。
-7. **T0 回归**：重新执行大 M G1/G2；T1 不得破坏已有 256/512/1024 与 M=2048/4096/8192 正确性及交叠收益。
+## 工程加固仍需并行跟进
 
-**T1 完成标准**：编译通过、位精确、压力无死锁、全配置性能表与 P95、有可解释的选核策略，并形成 `T1_SMALL_M_REPORT.md`。**是否真正超过 Stock 要看实测结果，不预先宣称。**
+- 首次新输出 buffer MTE3 写入异常：目前借由 `aclrtSynchronizeDevice()` 规避，未取得官方硅级/驱动确认，Graph 不可据此宣称支持。
+- T0 dev0/1 KFC 初始化曾依赖异常部署绕过，需在健康设备重跑。
+- T0 双卡测试程序和原始 profiler 证据在服务器 `/tmp/opencode/v2/`，应归档提交。
+- 禁止 V1 serving 与 V2 trial 共享单池，禁止未经序列化的同池多 Stream 调用。
 
-## 工程加固 P0（与 T1 测试并行分析，修复优先于正式集成）
+## 下一阶段 G3
 
-- **首次 MTE3 输出写入丢失**：目前仅由 `aclrtSynchronizeDevice()` 对首次新输出地址规避；排查跨流页面映射/内核初始化/allocator 生命周期的具体原因。不得在 Graph 里直接保留该全设备同步作为最终方案。
-- **KFC 初始化异常**：旧服务器通过已有部署的绕行才完成测试；须在正常健康设备部署路径重验。
-- **可复现性**：T0 `/tmp/opencode/v2/` 辅助程序和完整 profiler 结果应归档仓库，不仅保留报告摘要。
-- **运行时一致性**：V2 context 和 V1 单池互斥、异常 Fail-stop、跨 Rank 调用顺序、销毁前同步；禁止任意多 Stream 并发。
+根据实测 M 阈值路由 Stock / T1 / T0；进一步研究 M/N 二维切分、Add 核数、M>8192 多波、动态尾 M、真实 Qwen3.6-35B-A3B-w8a8 的 TP2 40 层 Graph / ITL / TTFT / 吞吐与长稳。
 
-## 后续 G3（T1 通过后再启动）
-
-- 动态/任意 M、M=257..2047 的路径选择；比较 Stock、V1 N-split、T1 和 T0；
-- 按实测调整 MM 与 Add 核数，调优同步点、C 分块、chunk=256/512/1024 及大 M 的 MM/SDMA 交叠；
-- >8192 的多波静态 arena 安全复用、异常恢复；
-- Torch op + vLLM-Ascend 独立路由开关；Eager/Graph×1000、10min+长稳与真实 Qwen3.6-35B-A3B-w8a8 TP=2 40 层评估；
-- 与 Stock/V1 做 ITL、TTFT、吞吐的端到端 A/B 后决定是否默认启用 V2。
-
-> 本 PLAN 只记录已实际发生的验收结论；T1 和 G3 均不得以静态审视替代 dav-2002 实机运行。
+**所有性能选择必须以 310P3 实机测试为依据。**
