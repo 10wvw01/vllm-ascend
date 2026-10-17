@@ -14,6 +14,11 @@ extern "C" int mf310p_v2_ib_probe_async(
     uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_ib_fan_probe_async(
     uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
+extern "C" int mf310p_v2_small_launch_async(
+    uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
 extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes();
 extern "C" int mf310p_v2_diag_mm_async(
     uint64_t, uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
@@ -48,18 +53,47 @@ struct mf310p_v2_trial {
     void* probe_result = nullptr;
     bool ib_probed = false;
     uint64_t warmed_y = 0;
+    void* small_staging = nullptr;
+    void* weight_slices = nullptr;
+    uint64_t sliced_weight_ptr = 0;
+    bool small_symbol_warmed[5] = {};
+
 };
 
 namespace {
 constexpr uint32_t kWindowRows = 8192;
 constexpr uint64_t kPoolSize = 96ULL * 1024 * 1024;
 constexpr uint64_t kStatusSize = 64;
+constexpr uint64_t kSmallStagingBytes = 256ULL * 2048 * sizeof(uint16_t);
+constexpr uint64_t kSmallWeightSlicesBytes = 8ULL * 1024 * 1024;
+constexpr uint64_t kSmallRowBytes = 2048ULL * sizeof(uint16_t);
+uint32_t small_template(uint32_t m)
+{
+    if (m <= 16) return 16;
+    if (m <= 32) return 32;
+    if (m <= 64) return 64;
+    if (m <= 128) return 128;
+    return 256;
+}
+uint32_t small_template_index(uint32_t t)
+{
+    switch (t) {
+    case 16: return 0;
+    case 32: return 1;
+    case 64: return 2;
+    case 128: return 3;
+    default: return 4;
+    }
+}
+
 /* Probe results use one 64B slot per core (dav-2002 has no inter-core L1
  * coherence; packed 4B-per-core stores lose writes at L1 writeback). */
 constexpr uint64_t kProbeResultBytes = 8 * 64;
 
 void free_allocations(mf310p_v2_trial* state)
 {
+    if (state->small_staging) aclrtFree(state->small_staging);
+    if (state->weight_slices) aclrtFree(state->weight_slices);
     if (state->ib) aclrtFree(state->ib);
     if (state->status) aclrtFree(state->status);
     if (state->probe_result) aclrtFree(state->probe_result);
@@ -199,6 +233,104 @@ extern "C" int mf310p_v2_trial_run(
         reinterpret_cast<uint64_t>(s->status),
         l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
         s->chunk_rows, m / s->chunk_rows, overlap, 1, acl_stream);
+}
+
+
+/*
+ * Experimental M <= 256 serial path: the MM, single data mail, Add, and
+ * wave-level DONE handshake remain in ONE AICore kernel.
+ * Weight NZ column re-layout is a one-time stream-ordered preprocess
+ * borrowed from the existing public V1 host adapter (V1 files unchanged).
+ * A staging D2D copy refreshes only the M valid input rows each call.
+ *
+ * add_cores is deliberately tunable (1/2/4/8), not production-selected.
+ * Inputs and weight are assumed immutable during the enqueued operation.
+ */
+extern "C" int mf310p_v2_trial_run_small(
+    mf310p_v2_trial_t* s, uint64_t x, uint64_t w, uint64_t y,
+    uint32_t m, uint32_t add_cores, void* stream)
+{
+    if (!s || !s->ib_probed || !stream || !x || !w || !y ||
+        m == 0 || m > 256 ||
+        (add_cores != 1 && add_cores != 2 &&
+         add_cores != 4 && add_cores != 8)) {
+        return -1;
+    }
+    const auto acl_stream = static_cast<aclrtStream>(stream);
+
+    // Allocate lazily: large-M G2 runs never pay for N-split storage.
+    if (!s->small_staging) {
+        const auto err = aclrtMalloc(
+            &s->small_staging, kSmallStagingBytes,
+            ACL_MEM_MALLOC_HUGE_FIRST);
+        if (err != ACL_SUCCESS) return static_cast<int>(err);
+        const auto zero_err = aclrtMemset(
+            s->small_staging, kSmallStagingBytes, 0,
+            kSmallStagingBytes);
+        if (zero_err != ACL_SUCCESS) return static_cast<int>(zero_err);
+    }
+    if (!s->weight_slices) {
+        const auto err = aclrtMalloc(
+            &s->weight_slices, kSmallWeightSlicesBytes,
+            ACL_MEM_MALLOC_HUGE_FIRST);
+        if (err != ACL_SUCCESS) return static_cast<int>(err);
+    }
+
+    const uint32_t templ = small_template(m);
+    const uint32_t templ_idx = small_template_index(templ);
+    const auto& l = s->layout;
+    const bool rank0 = s->rank == 0;
+    const uint64_t ownC = rank0 ? l.send_arena : l.recv_arena;
+    const uint64_t peerC = rank0 ? l.recv_arena : l.send_arena;
+    const uint64_t peerDst = rank0 ? l.peer_segment : l.peer_recv_arena;
+    const uint64_t expectedRecvDst =
+        rank0 ? l.expected_recv_base :
+                l.expected_recv_base - l.arena_bytes;
+    if (!s->small_symbol_warmed[templ_idx]) {
+        for (int j = 0; j < 2; ++j) {
+            const int rc = mf310p_v2_small_launch_async(
+                l.pool_base, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0,
+                templ, 0, add_cores, 0, acl_stream);
+            if (rc != 0) return rc;
+        }
+        s->small_symbol_warmed[templ_idx] = true;
+    }
+
+    if (s->sliced_weight_ptr != w) {
+        const int ret = mf310p_build_weight_slices(
+            s->v1_pool, w,
+            reinterpret_cast<uint64_t>(s->weight_slices), stream);
+        if (ret != 0) return ret;
+        s->sliced_weight_ptr = w;
+    }
+    const auto copy_err = aclrtMemcpyAsync(
+        s->small_staging, kSmallStagingBytes,
+        reinterpret_cast<const void*>(x),
+        static_cast<uint64_t>(m) * kSmallRowBytes,
+        ACL_MEMCPY_DEVICE_TO_DEVICE, acl_stream);
+    if (copy_err != ACL_SUCCESS) return static_cast<int>(copy_err);
+
+    // Retain the existing dav-2002 first-MTE3-write workaround.
+    // This is not Graph-safe and is NOT considered the final root fix.
+    if (getenv("MF310P_V2_NOWARMUP") == nullptr && s->warmed_y != y) {
+        const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
+        if (sync_err != 0) return sync_err;
+        s->warmed_y = y;
+    }
+    const auto clear_err =
+        aclrtMemsetAsync(s->status, kStatusSize, 0,
+                         kStatusSize, acl_stream);
+    if (clear_err != ACL_SUCCESS) return static_cast<int>(clear_err);
+
+    return mf310p_v2_small_launch_async(
+        l.pool_base, reinterpret_cast<uint64_t>(s->small_staging),
+        reinterpret_cast<uint64_t>(s->weight_slices), y,
+        ownC, peerC, peerDst, expectedRecvDst,
+        reinterpret_cast<uint64_t>(s->ib),
+        reinterpret_cast<uint64_t>(s->status),
+        l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
+        templ, m, add_cores, 1, acl_stream);
 }
 
 extern "C" int mf310p_v2_trial_check_status(
