@@ -54,6 +54,7 @@ Both:   Y[M,2048] = C0 + C1
 **核间同步优先 Ascend C 官方 `IBSet/IBWait`**，不用自写 GM ready-cell/影子计数器作为默认方案。两者在官方产品支持表包含 Atlas 推理系列 AI Core，但 dav-2002、当前混合/单体编译模式与多次复用的具体行为需编译及实机 probe；不是 A2 的硬件 `CrossCoreSetFlag/WaitFlag`。不能混淆核间完成通知与 GM↔SDMA 的缓存可见性。
 
 参考：
+
 - [MemFabric 310P 公共原语](https://github.com/10wvw01/memfabric_hybrid/blob/wgm-dev-310p/src/smem/include/device/smem_shm_aicore_base_sdma.h)
 - [IBSet 官方文档](https://www.hiascend.com/doc_center/source/zh/canncommercial/900/API/ascendcopapi/atlasascendc_api_07_0202.html)
 - [IBWait 官方文档](https://www.hiascend.com/doc_center/source/zh/canncommercial/900/API/ascendcopapi/atlasascendc_api_07_0203.html)
@@ -266,7 +267,6 @@ csrc/_310P/memfabric_mm_ar_v2/
 
 > **本版决策摘要：** 双引擎单 Kernel、串行/交叠双路线、静态 C0/C1 对称内存、Core0 单生产者、IBSet/IBWait 官方优先、逐 chunk 只发送数据邮件、每 wave 一次复用完成握手、256/512/1024 三档分块候选。原版 8 Lane 直写请求环、tag/ack cell、TAIL proxy、三槽滚动复用等设计全部废弃。
 
-
 ## 11. 首轮可运行原型与已知限制（T0）
 
 本设计的第一轮**试验代码**参照官方 MatmulAllReduceCustom 的「多核 MM → 同步 → 通信提交」思路，放在本目录的 `mf310p_v2_trial_device.asc` 等文件中，见 [TRIAL.md](TRIAL.md) 和 [PLAN.md](PLAN.md)。**它不是本设计全部能力的交付**：
@@ -276,8 +276,7 @@ csrc/_310P/memfabric_mm_ar_v2/
 - 还没有小 M N-split、任意 M 尾块、多波、自适应核数、PyTorch/vLLM 接线或正式 Graph 验证。
 - **代码未在 310P3 上编译/运行**。首个实机步骤必须是 G0 的 `IBSet/IBWait` 官方 API 契约探针，然后才进行融合正确性和性能测试；现有 V1 路由、参数和行为完全不变。
 
-
-## 12. T1 小矩阵主线：原始 NZ / 直接 ND（**未实机验证**）
+## 12. T1 小矩阵主线：原始 NZ / 直接 ND（**2026-10-17/18 首轮实机验证 PASS**）
 
 上一版草拟的「照搬 V1 8 核 N-split + NZ 权重分片 + 输入 Staging + Blocked C」**不作为 V2 主线**，相关代码已从 T1 主路径撤除；V1 方案仅保留为独立性能对照，**V1 本身未修改**。
 
@@ -288,10 +287,8 @@ T1 主路径参照官方 `MatmulBlock::CalcGMOffset`：对于 `B=NZ,transposed=t
 - MM 各核**直接写对称区中最终 ND `[M,2048]` 地址**。每一核只清洁其负责的 64B 对齐列片；Core0 汇总 `IBWait` 后一次 `signal(M×2048×2)`。
 - 收到对端数据后 `addCores∈{1,2,4,8}` 按整行分配工作。Core0 单核 Add 时无需额外释放/完成广播；多核 Add 使用官方 IB 独立事件；所有 Add 都直接按 ND 读写。
 - 单次调用最后由 Core0 做 `quiet` 与波级双向 DONE，避免下一次调用复写当前 C 区。所有 MemFabric API 仍是公共 `signal/wait/quiet`。
-- `SetOrgShape/SetSingleShape` 配合**原始 NZ 子矩阵 + ND 非紧凑行步长**目前属于 **310P3 待验证的关键能力**，不是已证明正确。T1 对应 `mf310p_v2_trial_run_nz_direct_small` 原型只通过源码审视，不接生产路由。
+- `SetOrgShape/SetSingleShape` 配合**原始 NZ 子矩阵 + ND 非紧凑行步长**已在 310P3 实机证实可用（单卡 1028/1028 bit-exact）。实机约束：`basicM≤128`（matmul NZ2ND 输出暂存需要 `2×basicM×basicN×dtypeSize` 的本地 UB 工作区，超限在 release 构建下无断言、满块 MTE on-chip read OOB）。
 
-**性能衡量：** stock FP16 MM+HCCL、V1 已验证的小 M N-split、V2 T0 256 行 M-split 均作参考。先 G0 编译与 bit-exact；若官方 Matmul API 在 dav-2002 不能直接写 C(ND) 跨列子块，则记录编译/数值证据，回退至官方支持的 Matmul 分块能力；不得默默引入 V1 blocked 布局替代主设计。
+测试及边界：[NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md)、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[t1_nz_direct_trial.py](t1_nz_direct_trial.py)、[t1_diag_single.py](t1_diag_single.py)、[PLAN.md](PLAN.md)、[T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
 
-测试及边界：[NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md)、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[PLAN.md](PLAN.md)。
-
-> T0 的 G0/G1/G2 实机通过与 T1 的直接-NZ 正确性是两组独立证据。首次新输出指针 `aclrtSynchronizeDevice` 是旧版已知临时规避，尚非 Graph 安全的产品方案。
+> T0 的 G0/G1/G2 实机通过与 T1 的直接-NZ 正确性是两组独立证据。首次新输出指针的 MTE3 丢弃仍在（T0 kernel 需 `aclrtSynchronizeDevice`，T1 kernel 用 launch-stream 同步即可），尚非 Graph 安全的产品方案。

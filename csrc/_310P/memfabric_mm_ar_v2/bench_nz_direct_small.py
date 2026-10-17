@@ -15,6 +15,7 @@ initializing MemFabric, avoiding a concurrent HCCL/MemFabric data plane.
 C timings include enqueue and stream sync; no input staging, weight-slice build or blocked-output transform.
 Compare V1 through the separate V1 benchmark after this process exits.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -61,12 +62,9 @@ def sync() -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--rows", type=int, nargs="+",
-                   default=[1, 2, 4, 8, 16, 32, 64, 128, 255, 256])
-    p.add_argument("--mm-cores", type=int, nargs="+",
-                   choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
-    p.add_argument("--add-cores", type=int, nargs="+",
-                   choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
+    p.add_argument("--rows", type=int, nargs="+", default=[1, 2, 4, 8, 16, 32, 64, 128, 255, 256])
+    p.add_argument("--mm-cores", type=int, nargs="+", choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
+    p.add_argument("--add-cores", type=int, nargs="+", choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
     p.add_argument("--repeat", type=int, default=30)
     p.add_argument("--store-url", default="tcp://127.0.0.1:8581")
     p.add_argument("--chunk-rows", type=int, choices=(256, 512, 1024), default=256)
@@ -85,8 +83,7 @@ def main() -> None:
 
     # The same non-quantized FP16 NZ weight contract as the V1 layer test.
     torch.manual_seed(123 + rank)
-    weight = maybe_trans_nz(
-        torch.randn(2048, 2048, dtype=torch.float16, device=device))
+    weight = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=device))
     xs, refs, stock = {}, {}, {}
     for m in a.rows:
         torch.manual_seed(1200 + rank * 17 + m)
@@ -115,14 +112,11 @@ def main() -> None:
         raise RuntimeError("torch_npu stream has no npu_stream attribute")
     stream_ptr = ctypes.c_void_p(raw_stream)
     handle = ctypes.c_void_p()
-    check(api.mf310p_v2_trial_create(
-        rank, a.store_url.encode(), a.chunk_rows, ctypes.byref(handle)),
-        "trial_create")
+    check(api.mf310p_v2_trial_create(rank, a.store_url.encode(), a.chunk_rows, ctypes.byref(handle)), "trial_create")
     if not handle.value:
         raise RuntimeError("trial_create returned a null handle")
     try:
-        check(api.mf310p_v2_trial_ib_probe(handle, 1000, stream_ptr),
-              "IB probe")
+        check(api.mf310p_v2_trial_ib_probe(handle, 1000, stream_ptr), "IB probe")
         if rank == 0:
             print("M\tMMCores\tAddCores\tstock_ms\tv2_direct_ms\tfirst_ms\tmax_diff\tPASS", flush=True)
         for m in a.rows:
@@ -137,34 +131,41 @@ def main() -> None:
                     first = 0.0
                     for k in range(a.repeat):
                         t0 = time.perf_counter()
-                        check(api.mf310p_v2_trial_run_nz_direct_small(
-                            handle, x.data_ptr(), weight.data_ptr(),
-                            out.data_ptr(), m, mm_cores, add_cores, stream_ptr),
-                            f"direct small M={m} MM={mm_cores} Add={add_cores}")
+                        check(
+                            api.mf310p_v2_trial_run_nz_direct_small(
+                                handle,
+                                x.data_ptr(),
+                                weight.data_ptr(),
+                                out.data_ptr(),
+                                m,
+                                mm_cores,
+                                add_cores,
+                                stream_ptr,
+                            ),
+                            f"direct small M={m} MM={mm_cores} Add={add_cores}",
+                        )
                         sync()
                         ms = (time.perf_counter() - t0) * 1000
                         if k == 0:
                             first = ms
                         else:
                             timings.append(ms)
-                        status = ctypes.c_uint64(0xffffffffffffffff)
-                        check(api.mf310p_v2_trial_check_status(
-                            handle, ctypes.byref(status)), "check_status")
+                        status = ctypes.c_uint64(0xFFFFFFFFFFFFFFFF)
+                        check(api.mf310p_v2_trial_check_status(handle, ctypes.byref(status)), "check_status")
                         if status.value:
-                            raise AssertionError(
-                                f"protocol status={status.value} M={m} "
-                                f"MM={mm_cores} Add={add_cores}")
+                            raise AssertionError(f"protocol status={status.value} M={m} MM={mm_cores} Add={add_cores}")
                         if not torch.equal(out, ref):
                             diff = (out.float() - ref.float()).abs()
                             raise AssertionError(
                                 f"bitwise mismatch M={m} MM={mm_cores} "
                                 f"Add={add_cores} bad={(out != ref).sum().item()} "
-                                f"max_abs={diff.max().item()}")
+                                f"max_abs={diff.max().item()}"
+                            )
                     med = statistics.median(timings)
                     if rank == 0:
-                        print(f"{m}\t{mm_cores}\t{add_cores}\t"
-                              f"{stock[m]:.3f}\t{med:.3f}\t"
-                              f"{first:.3f}\t0\tPASS", flush=True)
+                        print(
+                            f"{m}\t{mm_cores}\t{add_cores}\t{stock[m]:.3f}\t{med:.3f}\t{first:.3f}\t0\tPASS", flush=True
+                        )
         dist.barrier(group=cpu_group)
     finally:
         # Requires the caller's stream to be drained before pool teardown.

@@ -53,6 +53,8 @@ struct mf310p_v2_trial {
     void* probe_result = nullptr;
     bool ib_probed = false;
     uint64_t warmed_y = 0;
+    bool trial_symbol_warmed = false;
+    bool trial_symbol_launched = false;
     bool nz_direct_symbol_warmed[5][4] = {};
 
 };
@@ -208,19 +210,42 @@ extern "C" int mf310p_v2_trial_run(
     const uint64_t peerDst = rank0 ? l.peer_segment : l.peer_recv_arena;
     const uint64_t expectedRecvDst =
         rank0 ? l.expected_recv_base : l.expected_recv_base - l.arena_bytes;
-    /* Measured dav-2002 hazard: the FIRST full launch of the symbol whose
-     * MTE3 (vector-queue) output writes target a buffer allocated after
-     * the MemFabric pool was created silently drops those writes - scalar
-     * stores, the matmul GM writes and the whole mail protocol still land.
-     * Pool memory and pre-pool allocations are immune; a full-device
-     * synchronize before the first launch into a given output buffer makes
-     * it correct (stream syncs, SDMA writes and extra symbol launches
-     * measured: none help). Output buffers change rarely; sync then. */
-    if (getenv("MF310P_V2_NOWARMUP") == nullptr && s->warmed_y != y) {
+    /* T0 BUG #3 guard for the large-M trial kernel, extended by two
+     * measured findings (2026-10-17):
+     *  1. The first MTE3 output write into a buffer allocated after pool
+     *     creation is silently dropped; only a full-device synchronize
+     *     heals it (launch-stream syncs and enable=0 symbol warmups do
+     *     not - G1 first-call regression, y all zeros with status 0).
+     *  2. The FIRST REAL execution of a V2TrialKernel symbol can drop
+     *     its MTE3 output writes even into long-warmed buffers (G2
+     *     chunk=1024 first call into a y written by 200+ prior calls of
+     *     the chunk=256/512 symbols). enable=0 warmups do not prime the
+     *     MTE path, so the first real launch of each symbol also needs
+     *     the device synchronize.
+     * Cost: with the pool active a device synchronize takes a random
+     * 0-15 s (it waits for the AICPU SDMA orchestrator epoch), so this
+     * fires once per trial handle and once per output-buffer change.
+     * Known intermittent risk: a rank-asymmetric slow synchronize can
+     * delay one rank's launch past the peer kernel's in-kernel mail
+     * wait (observed once as an aicore timeout in a 1000-rep G1 run).
+     * The T1 small-M path uses a cheaper stream-sync guard instead. */
+    const bool first_real_symbol_launch = !s->trial_symbol_launched;
+    if (!s->trial_symbol_warmed) {
+        for (int i = 0; i < 2; ++i) {
+            const int rc = mf310p_v2_trial_launch_async(
+                l.pool_base, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                s->chunk_rows, 1, 0, 0, acl_stream);
+            if (rc != 0) return rc;
+        }
+        s->trial_symbol_warmed = true;
+    }
+    if (getenv("MF310P_V2_NOWARMUP") == nullptr &&
+        (first_real_symbol_launch || s->warmed_y != y)) {
         const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
         if (sync_err) return sync_err;
         s->warmed_y = y;
     }
+    s->trial_symbol_launched = true;
     const int clear_err = static_cast<int>(aclrtMemsetAsync(
         s->status, kStatusSize, 0, kStatusSize, acl_stream));
     if (clear_err) return clear_err;
@@ -271,10 +296,12 @@ extern "C" int mf310p_v2_trial_run_nz_direct_small(
         }
         warmed = true;
     }
-    /* The T0-known first-output-MTE3 guard is temporary and NOT
-     * safe for Graph Capture. This path creates no extra buffers. */
+    /* Same first-MTE3-write guard as run(): launch-stream synchronize,
+     * NOT aclrtSynchronizeDevice (measured 0-15 s with the pool active).
+     * Temporary and NOT safe for Graph Capture; callers verify per call. */
     if (getenv("MF310P_V2_NOWARMUP") == nullptr && s->warmed_y != y) {
-        const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
+        const int sync_err = static_cast<int>(aclrtSynchronizeStream(
+            acl_stream));
         if (sync_err) return sync_err;
         s->warmed_y = y;
     }

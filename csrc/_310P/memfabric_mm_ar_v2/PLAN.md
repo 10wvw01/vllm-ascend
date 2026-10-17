@@ -1,13 +1,15 @@
 # memfabric_mm_ar_v2 研发与验收计划（2026-10-17）
 
-> V1 代码冻结。2026-10-17 已验证的 T0 报告：[20261017实机测验及修复.md](20261017实机测验及修复.md)。T1 改为官方 MatmulBlock 风格的**原始 NZ + 直接 ND**，细节见 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) / [DESIGN.md](DESIGN.md)。不再以 V1 的切片 / staging / blocked 输出作为 V2 主设计。
+> V1 代码冻结。2026-10-17 已验证的 T0 报告：[20261017实机测验及修复.md](20261017实机测验及修复.md)。
+> 2026-10-17/18 T1（小 M 原始 NZ + 直接 ND）完成首轮实机验证与修复：[T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
+> T1 细节见 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) / [DESIGN.md](DESIGN.md)。
 
 | 阶段 | 验收内容 | 当前状态 |
 |---|---|---|
-| G0 | IBSet/IBWait 官方 2/8 核同步、跨调用复用 | **T0 实机 PASS** |
-| G1 | T0 多核 M-split 串行 FP16 bit-exact | **T0 实机 PASS** |
-| G2 | T0 串行/交叠，M=2048/4096/8192 | **T0 实机 PASS** |
-| T1 | 小 M 原始 NZ + 直接 ND + 1/2/4/8 MM/ADD | **源码完成，未在 310P3 编译验证** |
+| G0 | IBSet/IBWait 官方 2/8 核同步、跨调用复用 | **T0 实机 PASS（回归复测 PASS）** |
+| G1 | T0 多核 M-split 串行 FP16 bit-exact | **T0 实机 PASS（回归复测 PASS）** |
+| G2 | T0 串行/交叠，M=2048/4096/8192 | **T0 实机 PASS（回归复测 PASS，18 配置）** |
+| T1 | 小 M 原始 NZ + 直接 ND + 1/2/4/8 MM/ADD | **首轮实机验证 PASS（修复 basicM 越界 + 首启 MTE3 丢弃两处缺陷后）** |
 | G3 | Graph、任意 M、复用压力、完整模型和正式路由 | **未完成** |
 
 ## T1 / P0：先证实官方 Matmul 子块能力
@@ -20,13 +22,13 @@
 6. 同环境分别记录 Stock、V1 N-split、V2 NZ Direct 的首调用、中位数/P95；测试真实 Host 耗时（不误把单 Kernel 当成无 Host 开销），profiling 分解 MM、IB、SDMA、Add、波级 DONE。
 7. 重新回归 T0 原有 G1/G2。将结果保存 `T1_NZ_DIRECT_REPORT.md`，记录编译/数值/性能、BUG 根因、修复和回归。
 
-**禁止把 T0 PASS 误称为 T1 PASS。** 若原始 NZ 列切分不支持，先给出官方 API 约束和实机证据，再讨论备选方案；V1 N-split 仅作独立基线。
+**T1 首轮执行结果（2026-10-17/18）：步骤 1-5、7 全部完成 PASS；步骤 6 完成 Stock/V1/V2 三方对比（见报告）。** 修复两项缺陷：`DirectNsplit` basicM=256 的 UB 工作区越界（MTE on-chip read OOB）与 T0 kernel 首启/新 y 首写 MTE3 丢弃的守护策略修正；另发现带池 `aclrtSynchronizeDevice` 随机 0-15s 的代价与一次偶发跨 rank 超时，均已记录于报告遗留问题。
 
 ## 工程加固仍需并行跟进
 
-- 首次新输出 buffer MTE3 写入异常：目前借由 `aclrtSynchronizeDevice()` 规避，未取得官方硅级/驱动确认，Graph 不可据此宣称支持。
+- 首启/新输出缓冲 MTE3 丢弃的硅级机制仍未有官方解释；T0 kernel 路径只能用 `aclrtSynchronizeDevice` 治愈（带池随机 0-15s），T1 kernel 路径 launch-stream 同步即可治愈。Graph 不可据此宣称支持。
 - T0 dev0/1 KFC 初始化曾依赖异常部署绕过，需在健康设备重跑。
-- T0 双卡测试程序和原始 profiler 证据在服务器 `/tmp/opencode/v2/`，应归档提交。
+- 双卡测试程序已归档提交（本目录）；原始运行日志在服务器 `/tmp/opencode/v2/`。
 - 禁止 V1 serving 与 V2 trial 共享单池，禁止未经序列化的同池多 Stream 调用。
 
 ## 下一阶段 G3

@@ -42,11 +42,10 @@
 - Kernel 目前固定 8 核、全 chunk、整波 8192 行；tail、动态 M、graph replay 的错误路径以及多 wave 均未验证。
 - 诊断脚手架：`mf310p_v2_trial_diag(h, x, w, y, 0..7, stream)` 提供分级隔离内核（纯 MM / +TQue Add / +IB / +DONE 握手 / 生产内核 / 16 参编组 / 循环结构复刻），供分阶段排障；`mf310p_v2_trial_addresses/ib_addr/status_addr/status_words` 暴露关键地址与状态。
 
-
-## T1 小 M / 原始 NZ 直接 ND 原型（未实机测试）
+## T1 小 M / 原始 NZ 直接 ND 原型（2026-10-17/18 首轮实机验证 PASS）
 
 - C API：`mf310p_v2_trial_run_nz_direct_small(handle,x,w_nz,y,M,mm_cores,add_cores,stream)`。
 - `M=1..256`；`mm_cores/add_cores∈{1,2,4,8}` 相互独立；无权重切片、输入 staging 和 blocked 输出。
-- 官方 `MatmulBlock` NZ B 列偏移规则与 `SetOrgShape/SetSingleShape` 组合尚需 310P3 专项验证。
-- 参考 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) 的阶段性命令及 [bench_nz_direct_small.py](bench_nz_direct_small.py)。
-- 现有 T0 的 G0/G1/G2 实测仍然有效，但**不能证明此 T1 的正确性或性能**。V1 N-split 只保留为独立基线。
+- 官方 `MatmulBlock` NZ B 列偏移规则与 `SetOrgShape/SetSingleShape` 组合已实机验证（单卡 1028/1028 + 双卡 160 组合位精确）；`basicM` 须 ≤128（UB 工作区合同，见报告 BUG-1）。
+- 参考 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) 的阶段性命令、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[t1_nz_direct_trial.py](t1_nz_direct_trial.py)、[t1_diag_single.py](t1_diag_single.py)。
+- T0 的 G0/G1/G2 实测与 T1 的实机验证是两组独立证据；V1 N-split 只保留为独立基线。结果与遗留问题见 [T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。

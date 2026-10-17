@@ -1,6 +1,7 @@
 # 310P3 V2 T1：原始 NZ 直接 ND，小 M 实机验证
 
-> **代码评审版 / 未编译未实机。** 本试验只验证 V2 小 M 新路线，不接入正式 vLLM 模型、不修改 V1。T0 大 M 的实机正确性结论不等于此路径通过。
+> **2026-10-17/18 首轮实机验证已完成：单卡 MM 隔离 1028/1028 bit-exact；双卡 160 组合矩阵、随机 M/动态指针/4 权重种子/千次复用全部 PASS；修复 `basicM=256` UB 工作区越界一处。详见 [T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。**
+> 本试验只验证 V2 小 M 新路线，不接入正式 vLLM 模型、不修改 V1。T0 大 M 的实机正确性结论不等于此路径通过。
 
 ## 技术主线
 
@@ -57,6 +58,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
 ## 已知工程边界
 
 - T1 仍是仅为实验配置的 C API：`mf310p_v2_trial_run_nz_direct_small`；不会自动路由小 M 到 V2。
-- T0 的 `aclrtSynchronizeDevice` 新输出缓冲首次 MTE3 workaround 仍存在，不能作为 Graph-ready 方案；同一地址释放再分配亦未得到充分证明。
+- `SetOrgShape/SetSingleShape` 配合原始 NZ 子矩阵 + ND 非紧凑行步长已在 dav-2002 实机证实可用；`basicM` 必须 ≤128（`basicM*basicN*2*2 > 可用 UB` 时 release 构建不检查、满块直接 MTE on-chip read OOB）。
+- T1 kernel 首启/新 y 首写的 MTE3 丢弃用 launch-stream 同步守护（<1ms，实测全部治愈）；T0 kernel 路径该法无效，只能 `aclrtSynchronizeDevice`（带池随机 0-15s）。两者都不是 Graph-safe 方案。
 - 当前 V2 不支持同池多 Stream 并发、正式 Qwen 推理路由或大于 8192 多波。
 - 不可修改 MemFabric 私有 ring/TAIL/HEAD，继续使用公开 signal/wait/quiet。
