@@ -22,6 +22,13 @@ int mf310p_v2_trial_run(mf310p_v2_trial_t* handle, uint64_t x,
                         uint32_t overlap, void* acl_stream);
 int mf310p_v2_trial_check_status(mf310p_v2_trial_t* handle,
                                 uint64_t* protocol_status);
+/* Test scaffolding: staged isolation of the fused pipeline.
+ * diag=0: per-core MM of one chunk straight into y (no communication).
+ * diag=1: MM into ownC + single signal/wait exchange + Add, without the
+ *         inter-core IB rendezvous (core0 proceeds after its own MM). */
+int mf310p_v2_trial_diag(mf310p_v2_trial_t* handle, uint64_t x,
+                         uint64_t w, uint64_t y, uint32_t diag,
+                         void* acl_stream);
 int mf310p_v2_trial_destroy(mf310p_v2_trial_t* handle);
 #ifdef __cplusplus
 }

@@ -1,6 +1,6 @@
 # V2 单 Kernel 原型（构建默认关闭）
 
-目的：使用官方 MatmulAllReduceCustom 的计算分核+完成会合调度，并在 310P3 上用 MemFabric 3 个公共通信原语实现双 Rank 全量 AllReduce。当前为实验性代码，**尚未进行 CANN 编译和实机正确性验证，不会影响 V1 serving**。
+目的：使用官方 MatmulAllReduceCustom 的计算分核+完成会合调度，并在 310P3 上用 MemFabric 3 个公共通信原语实现双 Rank 全量 AllReduce。实验性代码，不注册 PyTorch op、不接模型路由；2026-10-17 已在 dav-2002（CANN 9.1，TP=2）完成 G0/G1/G2 实机位精确验证（详见同目录《20261017实机测验及修复.md》）。
 
 ## 构建
 
@@ -27,6 +27,12 @@
 
 传入的 x/w_nz/y 均为 device pointer，x 形状 [M,2048]，w 为已预处理 NZ 权重，y 是独立输出，不得 alias C0/C1；rank=0/1，M 必须是 chunkRows 的正整数倍且不超过 8192。overlap=0 串行；overlap=1 则 MM(k) 掩盖 SDMA(k-1)。
 
+## 首次启动预热（run 内建，调用方无需处理）
+
+实测 dav-2002 平台缺陷：MemFabric 建池**之后**新分配的输出缓冲，其页面对 AICore 的 MTE3（向量队列）写首次访问会被**静默丢弃**——内核其余部分（标量写、Matmul GM 写、IB/SDMA/DONE 全协议）全部正常落地，仅 TQue 输出消失，且无任何错误码。池内存与建池前分配的缓冲不受影响。
+
+因此 `mf310p_v2_trial_run` 内部跟踪输出缓冲指针：y 首次出现（或更换）时先执行一次 `aclrtSynchronizeDevice()`（全设备同步，等待建池后台流完成地址映射）再发射。流级同步、SDMA memset、额外内核发射均无效果（均已实测）。设置环境变量 `MF310P_V2_NOWARMUP=1` 可关闭该行为（仅测试用）。
+
 从 M=256、chunkRows=256、overlap=0 的正确性开始测，千万不要直接用这版替换生产路由。
 
 ## 注意
@@ -34,4 +40,4 @@
 - 一个进程只能启用一套 MemFabric 池：**不可同时运行 V1 serving 和这个实验**。
 - G0 的官方 IBSet/IBWait 探针必须先通过；一旦陷入 hang，优先检查 isAIVOnly 的实际编译模式和 GM/UB workspace 约束。
 - Kernel 目前固定 8 核、全 chunk、整波 8192 行；tail、动态 M、graph replay 的错误路径以及多 wave 均未验证。
-- 本原型没有单独提交可执行 C++ runner；上述 C API 用于下一轮连接最小双 Rank 测试程序。
+- 诊断脚手架：`mf310p_v2_trial_diag(h, x, w, y, 0..7, stream)` 提供分级隔离内核（纯 MM / +TQue Add / +IB / +DONE 握手 / 生产内核 / 16 参编组 / 循环结构复刻），供分阶段排障；`mf310p_v2_trial_addresses/ib_addr/status_addr/status_words` 暴露关键地址与状态。
