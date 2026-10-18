@@ -19,6 +19,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import atexit
 import ctypes
 import os
 import statistics
@@ -49,6 +50,33 @@ def bind_library():
         fn = getattr(lib, name)
         fn.argtypes, fn.restype = args, result
     return lib
+
+
+def optional_test_kfc_bypass():
+    """For the already-broken dev0/dev1 test KFC control plane only.
+
+    This is the same explicit experiment workaround as T1; never enable
+    it in production or count bypassed startup as a healthy deployment.
+    """
+    if os.environ.get("MF_KFC_BYPASS") != "1":
+        return
+    paths = []
+    for index in range(16):
+        path = f"/tmp/mf_kfc_{os.getpid()}_{index}.json"
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600)
+            os.close(fd)
+            paths.append(path)
+        except FileExistsError:
+            continue
+
+    def cleanup():
+        for path in paths:
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+    atexit.register(cleanup)
 
 
 def chk(rc, desc):
@@ -134,6 +162,7 @@ def main():
     torch.npu.synchronize()
     dist.barrier(group=cpu_group)
 
+    optional_test_kfc_bypass()
     lib = bind_library()
     handle = ctypes.c_void_p()
     chk(lib.mf310p_v2_trial_create(
