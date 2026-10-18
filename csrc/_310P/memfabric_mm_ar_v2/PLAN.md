@@ -47,9 +47,15 @@
 
 ## G3 V2 大 M 模型接入（2026-10-18 源码已写，**待实机**）
 
+本期单用户最大输入 4096 tokens、输出测试长度 2048，服务调度参数
+`--max-num-batched-tokens 4096`。因此单次 Forward 的 M 以 4096 为上限；
+M 代表合并请求后的当次 token 总行数，不是单请求输入长度。
+本期只需处理 2048～4096 内非整 Chunk 尾行，不进行 M>8192 多段；
+超出 M=4096 明确拒绝并提示配置错误，原 T0 8192 行独立实测结论不变。
+
 已新增独立 V2 Torch Op/路由与 TP=2 回归脚本，固定 **M<2048=Stock MM+HCCL，M>=2048=V2 T0 融合**。新代码会在池创建前预分配持久输出槽，第一次大 M 时执行所有槽位的真实融合预热；继续保留 T0 首写全设备同步守护，仅尝试把开销转移到初始化阶段。未证明 MTE3 首写已经根治，KFC 正常部署和 Graph 大 M 均未验收。
 
-主文档：[V2_G3_QWEN_E2E_TRIAL.md](V2_G3_QWEN_E2E_TRIAL.md)；门槛依次为构建→2047/2048 路由与 HCCL/MF 同池交替→8193 多段→真实 Qwen 40 层 Eager/Graph→Stock/V2 三会话吞吐/TTFT/TPOT→10min 长稳。大 M Graph 捕获不支持：仅 FULL_DECODE_ONLY，capture sizes 必须 <2048。
+主文档：[V2_G3_QWEN_E2E_TRIAL.md](V2_G3_QWEN_E2E_TRIAL.md)；门槛依次为构建→2047/2048 路由与 HCCL/MF 同池交替→3000/4095 动态尾行→真实 Qwen 40 层 Eager/Graph→Stock/V2 三会话吞吐/TTFT/TPOT→10min 长稳。大 M Graph 捕获不支持：仅 FULL_DECODE_ONLY，capture sizes 必须 <2048。
 
 **收益判据仍然只有 Stock**：单层大 M 快于 Stock 不等价于真实 Qwen 端到端收益。严禁在 P0 同步风险/首写数据破坏尚未排除时将本阶段标成 PASS。
 
