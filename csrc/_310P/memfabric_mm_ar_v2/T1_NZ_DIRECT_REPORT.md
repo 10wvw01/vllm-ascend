@@ -171,3 +171,12 @@ bash run_v1_bench.sh 1 2 4 8 16 32 64 128 255 256 1024 2048 4096 8192
 ```
 
 原始日志：`/tmp/opencode/v2/{t1_quick_try*.log,t1_full*.log,t1_stress*.log,g0_final.log,g1_default.log,g1_final.log,g2_final2.log,v1_bench.log,repo_bench_quick.log,yguard2.log}`。
+
+## 9. 后续代码审视更正（2026-10-18，待补跑）
+
+本次报告中的 **quick/full 与单卡 1028/1028** 正确性结果不受以下问题影响；原始执行记录不作改写。
+
+- 原 `t1_nz_direct_trial.py --mode stress` 在列表推导式内反复构造 `random.Random(20261017)`，导致所谓「随机 30 个 M」实际上只产生一个随机数，加上边界 `1,255,256` 共 **4 个 M**。原记录的 `160/160` 压力调用是这 4 个 M 的有效结果，但**不是** 30 个 M 的覆盖。
+- 原连续 1000 次调用将 `mm/add/weight_seed` 分别绑定同一 `i % 4` 或 `i % 2` 周期，组合覆盖不足，不能据此声称已经充分覆盖所有分核和权重排列。
+- 已更正测试脚本：确定性生成 **30 个不同 M**（包含 `1,255,256`）、独立抽取 `M/mm/add/seed`，并强制检查全部 M 与所有 `mm×add×4 seed` 组合实际出现。静态复核固定 seed 下 1000 次可覆盖全部组合；**新脚本尚待 310P3 实机复测，不能把原 PASS 自动转给更正后的测试**。
+- G3 可靠性与 profiler 分解的下一步验收见 [G3_HARDENING_PLAN.md](G3_HARDENING_PLAN.md)。
