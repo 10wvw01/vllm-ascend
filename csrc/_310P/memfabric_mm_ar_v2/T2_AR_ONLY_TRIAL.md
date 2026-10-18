@@ -1,5 +1,7 @@
 # T2：原生 MM + MemFabric AllReduce（不融合）对照实验
 
+> **实施状态（2026-10-18）**：实验已完成，结果与 7 项平台缺陷修复见 `T2_AR_ONLY_REPORT.md`。与本文设计的主要差异：① B 的 staging 由 D2D `aclrtMemcpyAsync` 改为自定义 `V2ArStageKernel`（拷贝引擎读与 AICore 写不透明、MTE1 可读到陈旧值，见报告 BUG-3/6）；② 为规避 MTE3 空闲窗首发射丢弃，每调用 2 次牺牲发射 + 1 次有效发射（BUG-5）；③ 守护 stream-sync 改为 device-sync 的 64 深度地址集合（BUG-1/2）；④ B 在生产者与 staging 之间强制 host `stream.synchronize()` 并计入 B 计时（BUG-6）。本文其余协议与判据不变。
+>
 > **当前为实验代码，尚未经过 310P3 编译和测试。** 目标不是替代已通过的 T0/T1，而是把 MemFabric 传输价值与算子融合价值拆开。V1 与正式 vLLM 模型路由不修改。
 
 ## 统一三组定义
