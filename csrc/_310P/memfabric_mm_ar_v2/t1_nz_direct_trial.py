@@ -221,10 +221,23 @@ def main():
         add_list = args.add_cores or [1, 8]
         repeat = args.repeat or 5
     else:  # stress
-        rows_list = args.rows or sorted({random.Random(20261017).randint(1, 256) for _ in range(30)} | {1, 255, 256})
+        # A single deterministic RNG must produce DISTINCT interior rows.
+        # Include 1/255/256 explicitly; the full set has 30 unique M.
+        rows_list = args.rows or sorted(
+            set(random.Random(20261017).sample(range(2, 255), 27))
+            | {1, 255, 256}
+        )
         mm_list = args.mm_cores or [1, 2, 4, 8]
         add_list = args.add_cores or [1, 8]
         repeat = args.repeat or 5
+
+    if args.mode == "stress" and rank == 0:
+        print(
+            f"STRESS\tphase=coverage_plan\tunique_m={len(set(rows_list))}\t"
+            f"mm={len(mm_list)}\tadd={len(add_list)}\tweight_seeds=4\t"
+            f"phase1_calls={len(rows_list) * len(mm_list) * len(add_list) * repeat}",
+            flush=True,
+        )
 
     # inputs + HCCL references, pre-pool
     xs, refs = {}, {}
@@ -424,22 +437,41 @@ def run_stress(trial, rank, device, cpu_group, stream, xs, refs, rows_list, mm_l
     if rank == 0:
         print(f"STRESS\tphase=random_m\tcalls={n_calls}\tPASS", flush=True)
 
-    # Phase 2: 1000 sequential verified calls, mixed (m, mm, add, seed).
+    # Phase 2: 1000 independent, rank-identical draws. The old index
+    # modulo pattern coupled MM / Add / weight into four combinations.
+    # A second fixed seed makes this phase reproducible independent of
+    # how many draws Phase 1 consumes.
+    seq_rng = random.Random(20261018)
     n_seq = 1000
+    observed_m = set()
+    observed_mm_add_seed = set()
     for i in range(n_seq):
-        m = rows_list[i % len(rows_list)]
-        mm = mm_list[i % len(mm_list)]
-        add = add_list[i % len(add_list)]
-        s = i % 4
+        m = seq_rng.choice(rows_list)
+        mm = seq_rng.choice(mm_list)
+        add = seq_rng.choice(add_list)
+        s = seq_rng.randrange(4)
+        observed_m.add(m)
+        observed_mm_add_seed.add((mm, add, s))
         x = xs[m]
-        y = ypool[m][i % 2]
+        y = ypool[m][i % len(ypool[m])]
         trial.run_small(x.data_ptr(), _STRESS_WNZ[s].data_ptr(), y.data_ptr(), m, mm, add, stream)
         sync()
         assert trial.check_status() == 0, f"seq status i={i}"
         if not verify(y, _STRESS_REFS[(m, s)], f"seq i={i} m={m} mm={mm} add={add}", rank):
             raise AssertionError("seq bitexact fail")
+
+    expected_combo_count = len(mm_list) * len(add_list) * 4
+    if len(observed_m) != len(rows_list) or len(observed_mm_add_seed) != expected_combo_count:
+        raise AssertionError(
+            f"incomplete stress coverage M={len(observed_m)}/{len(rows_list)} "
+            f"MM/Add/seed={len(observed_mm_add_seed)}/{expected_combo_count}"
+        )
     if rank == 0:
-        print(f"STRESS\tphase=seq_1000\tcalls={n_seq}\tPASS", flush=True)
+        print(
+            f"STRESS\tphase=seq_1000\tcalls={n_seq}\t"
+            f"unique_m={len(observed_m)}\tmm_add_seed={len(observed_mm_add_seed)}\tPASS",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
