@@ -58,7 +58,13 @@ struct mf310p_v2_trial {
     void* status = nullptr;
     void* probe_result = nullptr;
     bool ib_probed = false;
+    // Persistent serving outputs must stay allocated for their whole use.
+    // The previous single-address guard reissued a 0..15s device sync for
+    // every round-robin slot even if that address had already been warmed.
+    // Keep a bounded set; pointer identity alone is NOT a lifetime proof.
     uint64_t warmed_y = 0;
+    uint64_t trial_warmed_ys[64] = {};
+    uint32_t trial_warmed_y_next = 0;
     bool trial_symbol_warmed = false;
     bool trial_symbol_launched = false;
     bool nz_direct_symbol_warmed[5][4] = {};
@@ -257,12 +263,28 @@ extern "C" int mf310p_v2_trial_run(
         }
         s->trial_symbol_warmed = true;
     }
+    bool output_warmed = false;
+    for (uint64_t known : s->trial_warmed_ys) {
+        if (known == y) {
+            output_warmed = true;
+            break;
+        }
+    }
     if (getenv("MF310P_V2_NOWARMUP") == nullptr &&
-        (first_real_symbol_launch || s->warmed_y != y)) {
+        (first_real_symbol_launch || !output_warmed)) {
         const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
         if (sync_err) return sync_err;
-        s->warmed_y = y;
+        // Serving pins registered output allocations for the context's
+        // entire lifetime. Trial callers MUST also keep an address alive
+        // after it has been marked warmed; free/realloc at the same address
+        // is NOT detected by this cache.
+        if (!output_warmed) {
+            s->trial_warmed_ys[s->trial_warmed_y_next] = y;
+            s->trial_warmed_y_next =
+                (s->trial_warmed_y_next + 1) % 64;
+        }
     }
+    s->warmed_y = y;
     s->trial_symbol_launched = true;
     const int clear_err = static_cast<int>(aclrtMemsetAsync(
         s->status, kStatusSize, 0, kStatusSize, acl_stream));

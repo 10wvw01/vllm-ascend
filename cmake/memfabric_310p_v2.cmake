@@ -38,9 +38,11 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
     add_dependencies(${target} mf310p_v2_trial_device_lib)
-    target_sources(${target} PRIVATE "${_dir}/mf310p_v2_trial_adapter.cpp")
+    target_sources(${target} PRIVATE
+        "${_dir}/mf310p_v2_trial_adapter.cpp"
+        "${_dir}/mf310p_v2_serve.cpp")
     target_include_directories(${target} PRIVATE "${_dir}")
     target_link_libraries(${target} PRIVATE "-Wl,--no-as-needed" "${_lib}" "-Wl,--as-needed")
     install(FILES "${_lib}" DESTINATION .)
-    message(WARNING "V2 trial compiled, but it has NO model-router integration: prototype only")
+    message(STATUS "V2 trial and opt-in 310P3 serving op compiled; V2 serving routing remains disabled by default")
 endfunction()

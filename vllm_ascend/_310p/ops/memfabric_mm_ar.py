@@ -160,7 +160,7 @@ def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     quant_method = getattr(layer, "quant_method", None)
     if quant_method is not None:
         method_name = type(quant_method).__name__
-        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricMmArLinearMethod310"):
+        if method_name not in ("AscendUnquantizedLinearMethod", "MemFabricMmArLinearMethod310", "MemFabricMmArV2LinearMethod310"):
             return False
         nested = getattr(quant_method, "quant_method", None)
         if nested is not None and type(nested).__name__ != "AscendUnquantizedLinearMethod":

@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import torch
@@ -130,8 +131,14 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                     )
 
                     install_memfabric_mm_ar_runner_hooks()
-                    cls = make_memfabric_mm_ar_linear_method()
-                    logger.debug("Select %s for %s (layer=LinearBase)", cls.__name__, prefix)
+                    if os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE", "0") == "1":
+                        from vllm_ascend._310p.ops.memfabric_mm_ar_v2_serve import (
+                            make_memfabric_mm_ar_v2_linear_method,
+                        )
+                        cls = make_memfabric_mm_ar_v2_linear_method()
+                    else:
+                        cls = make_memfabric_mm_ar_linear_method()
+                    logger.info("Select %s for %s (layer=LinearBase)", cls.__name__, prefix)
                     return cls()
 
                 logger.debug("Select AscendUnquantizedLinearMethod for %s (layer=%s)", prefix, "LinearBase")

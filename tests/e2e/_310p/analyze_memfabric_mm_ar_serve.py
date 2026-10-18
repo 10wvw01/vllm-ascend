@@ -24,6 +24,8 @@ FIELDS = (
     ("p99_ttft_ms", "ttft_p99"),
     ("mean_itl_ms", "itl_mean"),
     ("median_itl_ms", "itl_med"),
+    ("median_tpot_ms", "tpot_med"),
+    ("p99_tpot_ms", "tpot_p99"),
     ("p99_itl_ms", "itl_p99"),
     ("mean_e2el_ms", "e2e_mean"),
     ("median_e2el_ms", "e2e_med"),
@@ -77,7 +79,9 @@ def main() -> None:
                     f"({delta:+.1f}%), ttft_med {fmt(d.get('median_ttft_ms'))} vs "
                     f"{fmt(stock.get('median_ttft_ms'))} ms, "
                     f"itl_med {fmt(d.get('median_itl_ms'))} vs "
-                    f"{fmt(stock.get('median_itl_ms'))} ms"
+                    f"{fmt(stock.get('median_itl_ms'))} ms, "
+                    f"tpot_med {fmt(d.get('median_tpot_ms'))} vs "
+                    f"{fmt(stock.get('median_tpot_ms'))} ms"
                 )
 
 

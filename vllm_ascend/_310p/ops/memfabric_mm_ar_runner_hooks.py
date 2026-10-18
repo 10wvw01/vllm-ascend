@@ -40,6 +40,8 @@ def install_memfabric_mm_ar_runner_hooks() -> None:
         memfabric_mm_ar_warmup_fallback,
     )
 
+    from vllm_ascend._310p.ops.memfabric_mm_ar_v2_serve import v2_pool_started
+
     # Preserve the DFlash-owned implementations wholesale. The dummy-run
     # wrapper only enables fallback for memory/profile runs. Graph pre-capture
     # eager warmups must execute the fused path so lazy MemFabric state (most
@@ -63,7 +65,7 @@ def install_memfabric_mm_ar_runner_hooks() -> None:
         # The MemFabric orchestrator runs a supervised epoch kernel on its own
         # launch stream for the lifetime of the pool. A device-wide sync would
         # wait on that stream; after pool creation only drain the model stream.
-        if memfabric_mm_ar_pool_started():
+        if memfabric_mm_ar_pool_started() or v2_pool_started():
             torch.npu.current_stream().synchronize()
             return
         # Before pool creation retain the runner's original synchronization

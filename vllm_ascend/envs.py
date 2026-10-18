@@ -156,6 +156,17 @@ env_variables: dict[str, Callable[[], Any]] = {
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK", "0"))
     ),
     # Wave-level host/device trace and slow-call monitor.
+    # V2 T0-based large-M serving experiment (separate from the V1 route).
+    # M<2048 always uses original MM+HCCL; M>=2048 uses the V2 op.
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE": lambda: bool(
+        int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE", "0"))
+    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS", "1024")
+    ),
+    "VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS": lambda: int(
+        os.getenv("VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS", "4")
+    ),
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE": lambda: bool(
         int(os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE", "0"))
     ),

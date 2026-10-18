@@ -53,6 +53,9 @@ FUSED_ENV_KEYS = (
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT",
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK",
     "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_TRACE",
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE",
+    "VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS",
+    "VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS",
 )
 
 GRAPH_COMPILATION_CONFIG = json.dumps({"cudagraph_mode": "FULL_DECODE_ONLY", "cudagraph_capture_sizes": [10]})
@@ -156,6 +159,14 @@ def build_serve_env(fused: bool, batch_basem_count: str = DEFAULT_BATCH_BASEM_CO
 
     if fused:
         env["VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR"] = "1"
+        if os.getenv("MEMFABRIC_MM_AR_E2E_V2", "0") == "1":
+            env["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE"] = "1"
+            env["VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS"] = os.getenv(
+                "MEMFABRIC_MM_AR_E2E_V2_CHUNK_ROWS", "1024"
+            )
+            env["VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS"] = os.getenv(
+                "MEMFABRIC_MM_AR_E2E_V2_OUTPUT_SLOTS", "4"
+            )
         env["VLLM_ASCEND_310P_MEMFABRIC_STORE_URL"] = f"tcp://127.0.0.1:{DEFAULT_STORE_PORT}"
         env["VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES"] = str(96 * 1024 * 1024)
         env["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT"] = str(batch_basem_count)

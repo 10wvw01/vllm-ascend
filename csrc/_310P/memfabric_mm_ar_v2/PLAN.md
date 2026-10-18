@@ -45,6 +45,14 @@
 
 本实验须先验证 B 的 bit-exact / status / MTE3 首写，再测 M=1..8192、chunk 256/512/1024、Add 核数 1/2/4/8 与 max-rank median/P95。当前**未在 310P3 编译或执行**，不能宣称 B 有收益。详见 [T2_AR_ONLY_TRIAL.md](T2_AR_ONLY_TRIAL.md)。
 
+## G3 V2 大 M 模型接入（2026-10-18 源码已写，**待实机**）
+
+已新增独立 V2 Torch Op/路由与 TP=2 回归脚本，固定 **M<2048=Stock MM+HCCL，M>=2048=V2 T0 融合**。新代码会在池创建前预分配持久输出槽，第一次大 M 时执行所有槽位的真实融合预热；继续保留 T0 首写全设备同步守护，仅尝试把开销转移到初始化阶段。未证明 MTE3 首写已经根治，KFC 正常部署和 Graph 大 M 均未验收。
+
+主文档：[V2_G3_QWEN_E2E_TRIAL.md](V2_G3_QWEN_E2E_TRIAL.md)；门槛依次为构建→2047/2048 路由与 HCCL/MF 同池交替→8193 多段→真实 Qwen 40 层 Eager/Graph→Stock/V2 三会话吞吐/TTFT/TPOT→10min 长稳。大 M Graph 捕获不支持：仅 FULL_DECODE_ONLY，capture sizes 必须 <2048。
+
+**收益判据仍然只有 Stock**：单层大 M 快于 Stock 不等价于真实 Qwen 端到端收益。严禁在 P0 同步风险/首写数据破坏尚未排除时将本阶段标成 PASS。
+
 ## 下一阶段 G3
 
 根据实测 M 阈值路由 Stock / T1 / T0；进一步研究 M/N 二维切分、Add 核数、M>8192 多波、动态尾 M、真实 Qwen3.6-35B-A3B-w8a8 的 TP2 40 层 Graph / ITL / TTFT / 吞吐与长稳。

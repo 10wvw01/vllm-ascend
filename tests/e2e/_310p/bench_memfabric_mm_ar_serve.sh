@@ -41,6 +41,7 @@ DFLASH_MODEL=${MEMFABRIC_MM_AR_E2E_DFLASH_MODEL:-/home/models/Qwen/Qwen3.6-35B-A
 DFLASH_TOKENS=${MEMFABRIC_MM_AR_E2E_DFLASH_TOKENS:-7}
 ORCH_JSON=$(ls -v /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v*.json 2>/dev/null | tail -1)
 DEVICES=${MEMFABRIC_MM_AR_E2E_DEVICES:-0,1}
+V2_SERVE=${MEMFABRIC_MM_AR_E2E_V2:-0}
 
 # Refuse to start on a device that already runs someone else's workload.
 # Only rows whose 3rd field looks like a PCI bus id are device rows (this
@@ -106,7 +107,10 @@ for combo in "${COMBOS[@]}"; do
         VLLM_ASCEND_310P_MEMFABRIC_STORE_URL \
         VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES \
         VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT \
-        VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK MF_SDMA_ORCH_JSON
+        VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK \
+        VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE \
+        VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS \
+        VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS MF_SDMA_ORCH_JSON
 
     if [ -f /usr/local/memfabric_hybrid/set_env.sh ]; then
         # shellcheck disable=SC1091
@@ -129,6 +133,11 @@ for combo in "${COMBOS[@]}"; do
         export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
         export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT="$BATCH_BASEM_COUNT"
         export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK=1
+        if [ "$V2_SERVE" = "1" ]; then
+            export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE=1
+            export VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS="${MEMFABRIC_MM_AR_E2E_V2_CHUNK_ROWS:-1024}"
+            export VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS="${MEMFABRIC_MM_AR_E2E_V2_OUTPUT_SLOTS:-4}"
+        fi
         [ -n "$ORCH_JSON" ] && [ -f "$ORCH_JSON" ] && export MF_SDMA_ORCH_JSON="$ORCH_JSON"
     fi
 
@@ -182,7 +191,13 @@ for combo in "${COMBOS[@]}"; do
             --metric-percentiles "50,90,99,99.9" \
             --save-result --save-detailed --result-dir "$OUT_DIR" \
             --result-filename "${TAG}_rep${rep}_run.json" \
-            > >(tee -a "$BENCH_LOG") 2>&1 || echo "[$TAG] bench rep $rep failed"
+            > >(tee -a "$BENCH_LOG") 2>&1 || {
+                echo "[$TAG] bench rep $rep failed" | tee -a "$BENCH_LOG"
+                if [ "$V2_SERVE" = "1" ]; then
+                    kill -TERM -- -"$SERVE_PID" 2>/dev/null || true
+                    exit 1
+                fi
+            }
     done
 
     echo "[$(date +%H:%M:%S)] stopping $TAG server"
