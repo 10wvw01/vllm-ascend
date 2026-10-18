@@ -2,7 +2,7 @@
 """G3 TP=2 mixed-route correctness: native MM+HCCL for M<2048, V2 for M>=2048.
 
 Includes live HCCL *after* V2 MemFabric pool initialization, exact/padded
-tails, and M>8192 multiple V2 calls. Two 310P3 ranks required.
+tails within the 4096-token Forward budget. Two 310P3 ranks required.
 
 This tests the C++ V2 serving op and its run-time protocol status directly;
 the vLLM layer-level routing is separately tested by the serve functional
@@ -26,13 +26,13 @@ from vllm_ascend.utils import maybe_trans_nz
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--rows", type=int, nargs="+",
-                   default=[2047, 2048, 2049, 3073, 4096, 8192, 8193])
+                   default=[2047, 2048, 2049, 3000, 3073, 4095, 4096])
     p.add_argument("--chunk-rows", type=int, choices=(256, 512, 1024),
                    default=1024)
     p.add_argument("--reps", type=int, default=3)
     args = p.parse_args()
-    if any(m < 1 for m in args.rows) or args.reps < 1:
-        p.error("M must be positive and reps >=1")
+    if any(m < 1 or m > 4096 for m in args.rows) or args.reps < 1:
+        p.error("M must be in [1,4096] and reps >=1")
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
         p.error("torchrun --nproc-per-node=2 is required")
     rank, local = int(os.environ["RANK"]), int(os.environ["LOCAL_RANK"])
@@ -43,7 +43,7 @@ def main():
 
     torch.manual_seed(812 + rank)
     w = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=dev))
-    all_m = sorted(set(args.rows + [1, 10, 2047, 2048, 2049, 3073, 4096, 8192, 8193]))
+    all_m = sorted(set(args.rows + [1, 10, 2047, 2048, 2049, 3000, 3073, 4095, 4096]))
     xs, fp32_refs, stock_refs = {}, {}, {}
     # All FP32/HCCL correctness references are computed *before* pool creation.
     # The FP16 Stock baseline is also computed here for subsequent live
@@ -62,7 +62,7 @@ def main():
     torch.npu.current_stream().synchronize()
     dist.barrier(group=group)
 
-    plan = [2048, 1, 2049, 10, 2047, 3073, 4096, 8192, 8193]
+    plan = [2048, 1, 2049, 10, 2047, 3000, 3073, 4095, 4096]
     plan.extend(args.rows)
     plan *= args.reps
     ok = 0
