@@ -13,7 +13,7 @@ Build: both V1/V2 compilation flags enabled (see T2_AR_ONLY_TRIAL.md).
 Example:
   ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
     csrc/_310P/memfabric_mm_ar_v2/bench_ar_only.py \
-    --rows 1 16 64 128 255 256 512 1024 2048 4096 8192 \
+    --rows 1 16 64 128 255 256 257 512 1024 2048 4096 8192 \
     --chunk-rows 1024 --add-cores 1 2 4 8 --repeat 30 --fused
 """
 from __future__ import annotations
@@ -107,7 +107,7 @@ def measure(fn, warmup, repeat):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rows", nargs="+", type=int,
-                    default=[1, 16, 64, 128, 255, 256, 512, 1024, 2048, 4096, 8192])
+                    default=[1, 16, 64, 128, 255, 256, 257, 512, 1024, 2048, 4096, 8192])
     ap.add_argument("--add-cores", nargs="+", type=int, choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
     ap.add_argument("--chunk-rows", type=int, choices=(256, 512, 1024), default=1024)
     ap.add_argument("--repeat", type=int, default=30)
