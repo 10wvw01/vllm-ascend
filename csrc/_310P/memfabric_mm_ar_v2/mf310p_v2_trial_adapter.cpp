@@ -19,6 +19,10 @@ extern "C" int mf310p_v2_nz_direct_small_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t,
     uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+extern "C" int mf310p_v2_ar_only_launch_async(
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
 extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes();
 extern "C" int mf310p_v2_diag_mm_async(
     uint64_t, uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
@@ -56,6 +60,8 @@ struct mf310p_v2_trial {
     bool trial_symbol_warmed = false;
     bool trial_symbol_launched = false;
     bool nz_direct_symbol_warmed[5][4] = {};
+    bool ar_only_symbol_warmed = false;
+    uint64_t ar_only_warmed_y = 0;
 
 };
 
@@ -314,6 +320,79 @@ extern "C" int mf310p_v2_trial_run_nz_direct_small(
         reinterpret_cast<uint64_t>(s->status),
         l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
         templ, m, mm_cores, add_cores, 1, acl_stream);
+}
+
+
+/* T2 transport-isolation benchmark: native MM is an ordinary framework
+ * operator run BEFORE this ABI on the same stream. This routine performs
+ * an explicit D2D copy (native partial -> symmetric C) followed by one
+ * AR-only device kernel; both stages must be included in comparisons
+ * with native MM+HCCL.
+ *
+ * No model routing and no direct-source SDMA assumption. D2D is mandatory
+ * until ordinary torch allocation registration has been separately proved.
+ */
+extern "C" int mf310p_v2_trial_run_ar_only(
+    mf310p_v2_trial_t* s, uint64_t nativePartial, uint64_t y,
+    uint32_t m, uint32_t addCores, void* stream)
+{
+    if (!s || !s->ib_probed || !stream || !nativePartial || !y ||
+        nativePartial == y || m == 0 || m > kWindowRows ||
+        (addCores != 1 && addCores != 2 &&
+         addCores != 4 && addCores != 8))
+        return -1;
+
+    const auto acl_stream = static_cast<aclrtStream>(stream);
+    const auto& l = s->layout;
+    const bool rank0 = s->rank == 0;
+    const uint64_t ownC = rank0 ? l.send_arena : l.recv_arena;
+    const uint64_t peerC = rank0 ? l.recv_arena : l.send_arena;
+    const uint64_t peerDst = rank0 ? l.peer_segment : l.peer_recv_arena;
+    const uint64_t expectedRecvDst =
+        rank0 ? l.expected_recv_base :
+                l.expected_recv_base - l.arena_bytes;
+    constexpr uint64_t kNativeRowBytes = 2048ULL * sizeof(uint16_t);
+    const uint64_t bytes = static_cast<uint64_t>(m) * kNativeRowBytes;
+    if (bytes > l.arena_bytes) return -1;
+
+    if (!s->ar_only_symbol_warmed) {
+        for (int i = 0; i < 2; ++i) {
+            const int rc = mf310p_v2_ar_only_launch_async(
+                l.pool_base, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, s->chunk_rows, addCores, 0, acl_stream);
+            if (rc) return rc;
+        }
+        s->ar_only_symbol_warmed = true;
+    }
+
+    // Experimental first-write guard: known dav-2002 MTE3 output hazard.
+    // For this *new* AR-only symbol, stream-sync has not been proved to
+    // cure the hazard. Never call this Graph-safe / production-ready.
+    if (getenv("MF310P_V2_AR_ONLY_NOWARMUP") == nullptr &&
+        s->ar_only_warmed_y != y) {
+        const int err = static_cast<int>(aclrtSynchronizeStream(acl_stream));
+        if (err) return err;
+        s->ar_only_warmed_y = y;
+    }
+
+    // Native MM has already been enqueued by the caller. Same-stream D2D
+    // automatically depends on that native MM, and the following kernel
+    // depends on the entire staged copy. No Host device-sync is inserted.
+    const auto copy = aclrtMemcpyAsync(
+        reinterpret_cast<void*>(ownC), l.arena_bytes,
+        reinterpret_cast<const void*>(nativePartial), bytes,
+        ACL_MEMCPY_DEVICE_TO_DEVICE, acl_stream);
+    if (copy != ACL_SUCCESS) return static_cast<int>(copy);
+    const auto clear = aclrtMemsetAsync(
+        s->status, kStatusSize, 0, kStatusSize, acl_stream);
+    if (clear != ACL_SUCCESS) return static_cast<int>(clear);
+
+    return mf310p_v2_ar_only_launch_async(
+        l.pool_base, ownC, peerC, y, peerDst, expectedRecvDst,
+        reinterpret_cast<uint64_t>(s->ib),
+        reinterpret_cast<uint64_t>(s->status),
+        l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
+        m, s->chunk_rows, addCores, 1, acl_stream);
 }
 
 extern "C" int mf310p_v2_trial_check_status(

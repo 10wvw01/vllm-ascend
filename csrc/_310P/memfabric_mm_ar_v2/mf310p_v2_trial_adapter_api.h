@@ -33,6 +33,18 @@ MF310P_V2_API int mf310p_v2_trial_run_nz_direct_small(
     mf310p_v2_trial_t* handle, uint64_t x, uint64_t w, uint64_t y,
     uint32_t m, uint32_t mm_cores, uint32_t add_cores,
     void* acl_stream);
+/* T2 non-fused baseline: native framework MM runs first on the SAME ACL
+ * stream and produces contiguous ND FP16 native_partial[M,2048].
+ * AR-only stages it into pool C with D2D memcpy then performs MemFabric
+ * signal/wait + vector Add + wave DONE. M=1..8192, addCores=1/2/4/8.
+ * Asynchronous, experimental; includes mandatory staging cost.
+ * The caller must not alias native_partial and output or run two streams
+ * against the same trial context concurrently.
+ */
+MF310P_V2_API int mf310p_v2_trial_run_ar_only(
+    mf310p_v2_trial_t* handle, uint64_t native_partial, uint64_t output,
+    uint32_t m, uint32_t add_cores, void* acl_stream);
+
 MF310P_V2_API int mf310p_v2_trial_check_status(mf310p_v2_trial_t* handle,
                                 uint64_t* protocol_status);
 /* Test scaffolding: staged isolation of the fused pipeline.
