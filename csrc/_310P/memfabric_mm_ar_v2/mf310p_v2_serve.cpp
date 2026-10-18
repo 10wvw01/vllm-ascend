@@ -36,7 +36,9 @@ void memfabric_mm_ar_v2_shutdown();
 namespace {
 
 constexpr int64_t kWidth = 2048;
-constexpr int64_t kMaxWindowRows = 8192;
+// Current serving scheduler sets --max-num-batched-tokens 4096.
+// This bounds per-forward M; T0's independent 8192-row trial is unchanged.
+constexpr int64_t kMaxWindowRows = 4096;
 constexpr int64_t kThreshold = 2048;
 constexpr int kDefaultPoolSlots = 4;
 
@@ -240,6 +242,11 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
     TORCH_CHECK(x.size(0) >= kThreshold,
                 "V2 invoked on small M: ", x.size(0),
                 " (small M must use native MM + HCCL)");
+    TORCH_CHECK(x.size(0) <= kMaxWindowRows,
+                "V2 serving requires M <=4096 per Forward, but got ",
+                x.size(0), ". Configure vLLM --max-num-batched-tokens "
+                "4096 or lower. This limit is separate from the "
+                "per-request max input tokens.");
     TORCH_CHECK(tp_rank == 0 || tp_rank == 1, "V2 requires TP=2 rank 0/1");
     TORCH_CHECK(chunk_rows == 256 || chunk_rows == 512 ||
                     chunk_rows == 1024,
@@ -257,26 +264,12 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
         init_locked(s, x, weight, tp_rank,
                     static_cast<uint32_t>(chunk_rows), stream);
         const int64_t rows = x.size(0);
-        if (rows <= kMaxWindowRows) {
-            // Use a reusable output allocation whose first device write was
-            // already exercised while initializing the MemFabric context.
-            at::Tensor slot = reserve_slot_locked(s);
-            run_window_locked(s, x, weight, 0, rows, slot, stream);
-            return slot.narrow(0, 0, rows);
-        }
-        // Rare >8192 packed-prefill: sequential windows preserve TP
-        // protocol ordering, and copy to framework-owned contiguous output.
-        // Each window's copy must be enqueued before slot reuse.
-        at::Tensor full = at::empty({rows, kWidth}, x.options());
-        for (int64_t start = 0; start < rows; start += kMaxWindowRows) {
-            const int64_t valid =
-                std::min<int64_t>(kMaxWindowRows, rows - start);
-            at::Tensor slot = reserve_slot_locked(s);
-            run_window_locked(s, x, weight, start, valid, slot, stream);
-            full.narrow(0, start, valid).copy_(
-                slot.narrow(0, 0, valid));
-        }
-        return full;
+        // All requests in the configured serving profile fit one T0 wave.
+        // Unaligned M is padded by run_window_locked(), then narrowed back
+        // to exactly rows. No multi-window scheduling is needed in G3.
+        at::Tensor slot = reserve_slot_locked(s);
+        run_window_locked(s, x, weight, 0, rows, slot, stream);
+        return slot.narrow(0, 0, rows);
     } catch (const std::exception& e) {
         s.poisoned = true;
         s.failure = e.what();
