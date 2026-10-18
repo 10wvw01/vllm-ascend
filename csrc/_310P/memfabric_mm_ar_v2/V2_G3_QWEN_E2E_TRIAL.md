@@ -127,6 +127,29 @@ TTFT、TPOT、峰值显存、冷启动耗时。至少 3 次独立会话，避免
 - 0 死锁、0 507014、0 静默数值错误、0 协议非零、无 KFC 旁路；
 - 增加 DFlash/普通 Qwen 组合 A/B（以项目目标实际部署配置为准）。
 
+## 三次独立 Stock/V2 会话与自动性能判定
+
+已有 serve 脚本中的 REPEAT=3 是**同一 server 的三次测量**，不等于
+三个独立启动会话。为避免误判，推荐每次重启 Stock/V2 且保存独立目录：
+
+    for run in 1 2 3; do
+      MEMFABRIC_MM_AR_E2E_V2=1 MEMFABRIC_MM_AR_E2E_REPEAT=1 \
+        bash tests/e2e/_310p/bench_memfabric_mm_ar_serve.sh \
+        /tmp/mf_v2_g3_session_$run "stock graph" "fused graph"
+    done
+
+    python tests/e2e/_310p/evaluate_v2_g3.py \
+      /tmp/mf_v2_g3_session_1 /tmp/mf_v2_g3_session_2 /tmp/mf_v2_g3_session_3
+
+自动验收要求至少三套独立 Stock/V2 配对结果，且每次请求数全数完成；
+还会检查 fused 服务日志是否有大 M V2 真正执行的证据。三个指标均要求
+三会话中位改善不少于 2% 且至少 2/3 会话方向正确：
+吞吐越高越好，TTFT/TPOT 越低越好；P99 不得有超过 5% 的明显退化。
+2% 为验收用预置防噪阈值，不是由当前 V2 实机数据证明的合理性下限，
+可以在实验前基于 Stock 自身跨会话分布调整，**不能事后调门槛使结果 PASS**。
+任一 FAIL 意味着尚未证明端到端超越 Stock。单独的 Eager/Graph 功能、长稳与
+健康 KFC Gate 仍需独立通过。
+
 ## 验收标准
 
 Stock 是唯一性能收益基线。V2 必须在相同工作负载中同时表现为：
