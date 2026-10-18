@@ -89,15 +89,17 @@ def test_pool_outputs_are_preallocated_and_live_views_not_overwritten():
     assert "trial_warmed_y_next" in adapter
 
 
-def test_large_tail_and_multi_window_keep_full_coverage():
+def test_g3_tail_is_padded_and_multi_window_is_out_of_scope():
     cpp = V2CPP.read_text()
-    assert "kMaxWindowRows = 8192" in cpp
+    assert "kMaxWindowRows = 4096" in cpp
+    assert "V2 serving requires M <=4096 per Forward" in cpp
     assert "std::max<int64_t>(" in cpp
     assert "kThreshold," in cpp
     assert "s.input_stage.narrow(0, 0, rows).copy_(" in cpp
-    assert "for (int64_t start = 0; start < rows; start += kMaxWindowRows)" in cpp
-    assert "full.narrow(0, start, valid).copy_(" in cpp
+    assert "for (int64_t start = 0; start < rows; start += kMaxWindowRows)" not in cpp
+    assert "return slot.narrow(0, 0, rows);" in cpp
     assert "src.narrow(0, 0, rows)" not in cpp
+    assert "--max-num-batched-tokens" in cpp
 
 
 def test_v2_opt_in_is_disabled_by_default():
