@@ -17,6 +17,7 @@ from vllm.logger import logger
 from vllm_ascend import envs
 
 MIN_FUSED_M = 2048
+MAX_FORWARD_M = 4096  # this serving profile sets max_num_batched_tokens=4096
 _pool_started = False
 _logged_stock = False
 _logged_fused = False
@@ -30,6 +31,11 @@ def v2_threshold_route(m: int) -> str:
     """Pure route decision, intentionally independent from V1's q/batch size."""
     if m < 0:
         raise ValueError(f"negative M: {m}")
+    if m > MAX_FORWARD_M:
+        raise ValueError(
+            f"V2 serving Forward M={m} exceeds configured max "
+            f"{MAX_FORWARD_M}; verify --max-num-batched-tokens=4096."
+        )
     return "stock" if m < MIN_FUSED_M else "v2"
 
 
