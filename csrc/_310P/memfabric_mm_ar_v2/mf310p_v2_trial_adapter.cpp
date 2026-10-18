@@ -19,6 +19,8 @@ extern "C" int mf310p_v2_nz_direct_small_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t,
     uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+extern "C" int mf310p_v2_ar_stage_launch_async(
+    uint64_t, uint64_t, uint64_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_ar_only_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
@@ -61,7 +63,17 @@ struct mf310p_v2_trial {
     bool trial_symbol_launched = false;
     bool nz_direct_symbol_warmed[5][4] = {};
     bool ar_only_symbol_warmed = false;
-    uint64_t ar_only_warmed_y = 0;
+    bool ar_only_symbol_launched = false;
+    /* Bounded circular sets of first-write-guard-cleared addresses. The
+     * benchmark rotates several output/staging buffers; a single
+     * last-address cache would re-synchronize (0-15 s) on every rotation.
+     * Known limitation (same as T0): address caching cannot detect a
+     * freed-and-remapped buffer; callers keep buffers alive or accept a
+     * re-warm sync after VMM remap. */
+    uint64_t ar_only_warmed_ys[64] = {};
+    uint32_t ar_only_warmed_y_next = 0;
+    uint64_t ar_only_warmed_partials[64] = {};
+    uint32_t ar_only_warmed_partial_next = 0;
 
 };
 
@@ -362,27 +374,89 @@ extern "C" int mf310p_v2_trial_run_ar_only(
                 0, s->chunk_rows, addCores, 0, acl_stream);
             if (rc) return rc;
         }
+        for (int i = 0; i < 2; ++i) {
+            const int rc = mf310p_v2_ar_stage_launch_async(
+                0, 0, 0, 0, acl_stream);
+            if (rc) return rc;
+        }
         s->ar_only_symbol_warmed = true;
     }
 
-    // Experimental first-write guard: known dav-2002 MTE3 output hazard.
-    // For this *new* AR-only symbol, stream-sync has not been proved to
-    // cure the hazard. Never call this Graph-safe / production-ready.
-    if (getenv("MF310P_V2_AR_ONLY_NOWARMUP") == nullptr &&
-        s->ar_only_warmed_y != y) {
-        const int err = static_cast<int>(aclrtSynchronizeStream(acl_stream));
-        if (err) return err;
-        s->ar_only_warmed_y = y;
+    /* First-write guard, corrected by 2026-10-18 T2 measurements:
+     *  - the FIRST REAL launch of the AR-only symbol drops its MTE3 output
+     *    writes (y keeps its prefill, status=0) and a launch-stream
+     *    synchronize does NOT cure it, exactly like the T0 kernel (unlike
+     *    the T1 kernel, where stream sync was sufficient);
+     *  - a fresh D2D staging source page (nativePartial first allocated
+     *    after pool creation) stages garbage: 42/42 wrong (status=0) with
+     *    the partial guard disabled, 42/42 bit-exact with it enabled.
+     * Use the T0-proven full-device synchronize on the first real launch
+     * and on every output / staging-source address not yet cleared (bounded
+     * 64-entry sets; benchmark rotates 4 y slots + per-M staging buffers).
+     * Known cost: with the pool active a device synchronize can take a
+     * random 0-15 s (AICPU SDMA orchestrator epoch); steady-state calls
+     * with already-cleared addresses pay nothing. NOT Graph-safe,
+     * trial-only. */
+    const bool partial_guard =
+        getenv("MF310P_V2_AR_ONLY_PARTIAL_GUARD") == nullptr;
+    bool y_known = false;
+    for (uint32_t k = 0; k < 64; ++k) {
+        if (s->ar_only_warmed_ys[k] == y) { y_known = true; break; }
     }
+    bool partial_known = !partial_guard;
+    for (uint32_t k = 0; k < 64 && partial_guard; ++k) {
+        if (s->ar_only_warmed_partials[k] == nativePartial) {
+            partial_known = true; break;
+        }
+    }
+    if (getenv("MF310P_V2_AR_ONLY_NOWARMUP") == nullptr &&
+        (!s->ar_only_symbol_launched || !y_known || !partial_known)) {
+        const int err = static_cast<int>(aclrtSynchronizeDevice());
+        if (err) return err;
+        if (!y_known) {
+            s->ar_only_warmed_ys[s->ar_only_warmed_y_next] = y;
+            s->ar_only_warmed_y_next =
+                (s->ar_only_warmed_y_next + 1) % 64;
+        }
+        if (partial_guard && !partial_known) {
+            s->ar_only_warmed_partials[s->ar_only_warmed_partial_next] =
+                nativePartial;
+            s->ar_only_warmed_partial_next =
+                (s->ar_only_warmed_partial_next + 1) % 64;
+        }
+    }
+    s->ar_only_symbol_launched = true;
 
-    // Native MM has already been enqueued by the caller. Same-stream D2D
-    // automatically depends on that native MM, and the following kernel
-    // depends on the entire staged copy. No Host device-sync is inserted.
-    const auto copy = aclrtMemcpyAsync(
-        reinterpret_cast<void*>(ownC), l.arena_bytes,
-        reinterpret_cast<const void*>(nativePartial), bytes,
-        ACL_MEMCPY_DEVICE_TO_DEVICE, acl_stream);
-    if (copy != ACL_SUCCESS) return static_cast<int>(copy);
+    // Native MM has already been enqueued by the caller on this stream.
+    // Staging uses the AICore V2ArStageKernel, NOT aclrtMemcpyAsync:
+    // the copy engine's reads are not coherent with same-stream AICore
+    // writes on this stack (2026-10-18 T2 measurements: stale staging
+    // with varying content, status=0). The stage kernel ends with
+    // CleanLines of ownC so the following AICPU SDMA signal observes the
+    // staged bytes (T0-proven discipline). Same-stream ordering then
+    // guarantees the AR-only kernel starts after staging completes.
+    {
+        /* The first MTE3-storing launch(es) after an idle window can
+         * drop their stores (measured: after the guard's 0-15 s device
+         * synchronize or any per-call stream-sync gap, a single stage
+         * launch can stage nothing — both ranks then reproduce the
+         * PREVIOUS call's result exactly; back-to-back relaunches land).
+         * Two sacrificial launches precede the real one: a measured
+         * 1/128 case at M=1 showed even a pair occasionally both drop.
+         * Same hazard class as T0 BUG#3; enable=0 warmups do not prime
+         * the MTE path. V1's launch-twice discipline, hardened; the
+         * sacrificial output is overwritten by the real launch on the
+         * same stream. */
+        const int sacrificial = mf310p_v2_ar_stage_launch_async(
+            ownC, nativePartial, bytes, 1, acl_stream);
+        if (sacrificial) return sacrificial;
+        const int sacrificial2 = mf310p_v2_ar_stage_launch_async(
+            ownC, nativePartial, bytes, 1, acl_stream);
+        if (sacrificial2) return sacrificial2;
+    }
+    const int stage_err = mf310p_v2_ar_stage_launch_async(
+        ownC, nativePartial, bytes, 1, acl_stream);
+    if (stage_err) return stage_err;
     const auto clear = aclrtMemsetAsync(
         s->status, kStatusSize, 0, kStatusSize, acl_stream);
     if (clear != ACL_SUCCESS) return static_cast<int>(clear);
@@ -401,6 +475,20 @@ extern "C" int mf310p_v2_trial_check_status(
     if (!s || !status) return -1;
     return static_cast<int>(aclrtMemcpy(
         status, sizeof(*status), s->status, sizeof(*status),
+        ACL_MEMCPY_DEVICE_TO_HOST));
+}
+
+/* Test scaffolding: DDR-view readback of this rank's send arena. */
+extern "C" int mf310p_v2_trial_read_send_arena(
+    mf310p_v2_trial_t* s, void* host_dst, uint32_t bytes)
+{
+    if (!s || !host_dst || !bytes ||
+        bytes > static_cast<uint32_t>(s->layout.arena_bytes))
+        return -1;
+    const uint64_t ownC = s->rank == 0 ? s->layout.send_arena
+                                       : s->layout.recv_arena;
+    return static_cast<int>(aclrtMemcpy(
+        host_dst, bytes, reinterpret_cast<void*>(ownC), bytes,
         ACL_MEMCPY_DEVICE_TO_HOST));
 }
 

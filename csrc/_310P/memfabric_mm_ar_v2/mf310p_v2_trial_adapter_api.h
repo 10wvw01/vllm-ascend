@@ -47,6 +47,11 @@ MF310P_V2_API int mf310p_v2_trial_run_ar_only(
 
 MF310P_V2_API int mf310p_v2_trial_check_status(mf310p_v2_trial_t* handle,
                                 uint64_t* protocol_status);
+/* Test scaffolding: synchronous D2H readback of this rank's SEND arena
+ * (where AR-only staging lands). The sync copy reads device DDR, i.e.
+ * exactly the view the MemFabric AICPU SDMA engine observes. */
+MF310P_V2_API int mf310p_v2_trial_read_send_arena(
+    mf310p_v2_trial_t* handle, void* host_dst, uint32_t bytes);
 /* Test scaffolding: staged isolation of the fused pipeline.
  * diag=0: per-core MM of one chunk straight into y (no communication).
  * diag=1: MM into ownC + single signal/wait exchange + Add, without the
