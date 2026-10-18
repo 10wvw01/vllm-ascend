@@ -19,22 +19,37 @@ K_local=N=2048，NZ 权重），固定规则：
 关键代码：csrc/_310P/memfabric_mm_ar_v2/mf310p_v2_serve.cpp，
 vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py，modelslim_config.py。
 
-## 动态 M 与多段
+## 本轮 M 的实际含义：动态行数与 4096 上限
 
-- M=2048/4096/8192：原始输入直传现有 V2 T0 overlap。
-- M=2049/3073/8191：用建池前预分配的 8192-row input stage，复制有效行并补到
-  chunk_rows 的整数倍；仅返回真实 M 行。
-- M>8192：每 8192 行一段、最后不足 2048 的分段按 2048 处理，
-  底层 MM/SDMA/Add 均走 V2；返回框架拥有的连续输出。
-- staging 的额外 Copy 与分段时间必须完整计入最终性能结果。
-- 以上动态尾、多段逻辑均是**新代码**，待真实 310P3 证明正确和高效。
+**用户约束**：每条请求输入最多 4096 tokens；本次性能用例的生成输出为 2048 tokens，并发 10。
+**调度约束**：服务脚本明确设置 `--max-num-batched-tokens 4096`，
+因此本次服务模型单次 Forward 中各请求合并后的有效 token 行数 M
+按 **M≤4096** 验收。一个请求的输入长度和 M 不是同一个量：
+M 是同一次模型 Forward 进入目标 `o_proj/out_proj` MM 的 token 总行数。
+
+“动态 M”只是说每次 Forward 的 M 会变化，例如 Decode 并发 10 时 M≈10；
+一次 Prefill 可以是 M=1024、2048、3000、4096，遵循固定策略：
+
+- M<2048：Stock = 原生 MM + HCCL AR。
+- M=2048、3072、4096：V2 直接执行（chunk_rows=1024 时恰好整块）。
+- M=2049、3000、4095：V2 使用预分配的 input stage，向上补至
+  3072/3072/4096 行，并只返回真实 2049/3000/4095 行；
+  多算的填充行不是有效输出，Staging 的开销计入性能数据。
+
+**本轮不做多段计算**：原先的 M>8192 多次拆分并非当前端到端场景需要，
+已经从 G3 Serving 代码中去除。V2 Serving 限定 2048≤M≤4096；
+如果实际运行出现 M>4096，明确报配置错误并终止该实验，
+先核对 `max-num-batched-tokens`，绝不悄悄切换通信路由。
+T0 独立算子此前 M=8192 的实机正确性及性能数据仍然有效，
+只是不属于本轮 Serving 目标范围。
+
 
 ## 已知问题处理及未消除风险
 
 1. 原 T0 每次换 y 都会触发全设备同步（0～15s 随机）。改为 64 地址有界记录：
    已实际触发守护的持久地址，不因循环槽位轮换而重复 Device Sync。
 2. 服务启动首次大 M：在 MemFabric 池创建**之前**预分配并固定持有
-   4 个（可设 2～16）[8192,2048] FP16 输出，以及 8192-row input stage。
+   4 个（可设 2～16）[4096,2048] FP16 输出，以及 4096-row input stage。
    池创建后执行 IB 探针，并将全部输出槽依次通过真实 MM→SDMA→Add→DONE 预热、
    同步和协议检查；目的是把所有首次 Device Sync 移到初始化窗口。
 3. 输出 Tensor/视图持有的 Storage 未释放之前**严禁槽位复用**；
@@ -72,8 +87,8 @@ vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py，modelslim_config.py。
     export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
 
 Stock serve 须关闭 V1/V2 runtime 使能。V2 route 仅在 V2 Serve flag=1 时选择。
-若需调整输出池槽数，双 rank 参数必须一致。4 槽将额外常驻约 128 MiB
-输出加 32 MiB input stage / rank，独立于 MemFabric 池。
+若需调整输出池槽数，双 rank 参数必须一致。4 槽将额外常驻约 64 MiB
+输出加 16 MiB input stage / rank，独立于 MemFabric 池。
 
 ## 分阶段 310P3 验收
 
@@ -89,11 +104,11 @@ Stock serve 须关闭 V1/V2 runtime 使能。V2 route 仅在 V2 Serve flag=1 时
 
     torchrun --standalone --nproc-per-node=2 \
       tests/e2e/_310p/tp2_v2_mixed_route_correctness.py \
-      --rows 2047 2048 2049 3073 4096 8192 8193 \
+      --rows 2047 2048 2049 3000 3073 4095 4096 \
       --chunk-rows 1024 --reps 3
 
 - 2047 / 1 / 10 = Stock HCCL（MemFabric 池存活后仍然使用 HCCL）。
-- 2048 / 2049 / 3073 / 4096 / 8192 / 8193 = V2；与
+- 2048 / 2049 / 3000 / 3073 / 4095 / 4096 = V2；与
   F.linear(x,w).float() → HCCL AllReduce → FP16 的参考位精确。
 - stream sync 后 V2 status=0；补测 256/512/1024 chunk，多数据 seed、
   持续引用所有输出槽导致正确拒绝复用、动态地址和 TP 偏斜。
@@ -154,7 +169,7 @@ TTFT、TPOT、峰值显存、冷启动耗时。至少 3 次独立会话，避免
 
 Stock 是唯一性能收益基线。V2 必须在相同工作负载中同时表现为：
 **吞吐量更高、TTFT 更低、TPOT 更低**，且改善超过 Stock 本身
-会话波动；不能只靠 M=8192 单层 +22.8% 判通过。尾延迟不能显著退化。
+会话波动；不能只靠 T0 单层的 M=4096/8192 性能收益判通过。尾延迟不能显著退化。
 
 报告：csrc/_310P/memfabric_mm_ar_v2/V2_G3_QWEN_E2E_REPORT.md，
 包括完整命令/环境、两 Rank 首次预热延迟、功能与错误日志、三会话性能矩阵、
