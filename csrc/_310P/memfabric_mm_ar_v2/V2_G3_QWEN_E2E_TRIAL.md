@@ -1,4 +1,4 @@
-# V2 G3：Qwen3.6 大 M 融合 + 小 M Stock 端到端接入
+# V2 G3：Qwen3.6 指定 M 区间融合、其余 M 走 Stock
 
 > 状态：源码待 310P3 实机编译/验证。不要把静态审视称为实机 PASS。
 > 基线：最新 V2 T0/T1/T2 实机报告；V1 核心实现保持不变。
@@ -9,8 +9,8 @@
 self_attn.o_proj + 30 个 GDN linear_attn.out_proj（两类为未量化 FP16，
 K_local=N=2048，NZ 权重），固定规则：
 
-- M < 2048：原生 unquantized Linear MM + HCCL AllReduce；
-- M >= 2048：V2 T0 MM + MemFabric SDMA + FP16 Add 单 Kernel，chunk_rows=1024，
+- M < 2048 或 M > 4096：原生 unquantized Linear MM + HCCL AllReduce；
+- 2048 <= M <= 4096：V2 T0 MM + MemFabric SDMA + FP16 Add 单 Kernel，chunk_rows=1024，
   MM(k) 可覆盖 SDMA(k-1)；
 - 其他模型、层、量化及 TP 形状一律维持原始路径；
 - V2 路由默认 OFF，绝不自动使用旧的 V1 模型推理 Runtime；
@@ -30,16 +30,18 @@ M 是同一次模型 Forward 进入目标 `o_proj/out_proj` MM 的 token 总行�
 “动态 M”只是说每次 Forward 的 M 会变化，例如 Decode 并发 10 时 M≈10；
 一次 Prefill 可以是 M=1024、2048、3000、4096，遵循固定策略：
 
-- M<2048：Stock = 原生 MM + HCCL AR。
+- M<2048 或 M>4096：Stock = 原生 MM + HCCL AR。
 - M=2048、3072、4096：V2 直接执行（chunk_rows=1024 时恰好整块）。
 - M=2049、3000、4095：V2 使用预分配的 input stage，向上补至
   3072/3072/4096 行，并只返回真实 2049/3000/4095 行；
   多算的填充行不是有效输出，Staging 的开销计入性能数据。
 
 **本轮不做多段计算**：原先的 M>8192 多次拆分并非当前端到端场景需要，
-已经从 G3 Serving 代码中去除。V2 Serving 限定 2048≤M≤4096；
-如果实际运行出现 M>4096，明确报配置错误并终止该实验，
-先核对 `max-num-batched-tokens`，绝不悄悄切换通信路由。
+已经从 G3 Serving 代码中去除。V2 融合仅针对 2048≤M≤4096；
+如果运行时意外出现 M>4096，模型路由**明确回退到原生 MM + HCCL AR**，
+不触发 V2、也不拆分成多个融合波次。它属于诊断配置异常的安全回退，
+可记录日志排查 `max-num-batched-tokens`，但不应中断正常请求。
+直接调用底层 V2 Torch Op 仍有 M≤4096 的输入校验，防止绕过模型路由。
 T0 独立算子此前 M=8192 的实机正确性及性能数据仍然有效，
 只是不属于本轮 Serving 目标范围。
 
@@ -104,10 +106,10 @@ Stock serve 须关闭 V1/V2 runtime 使能。V2 route 仅在 V2 Serve flag=1 时
 
     torchrun --standalone --nproc-per-node=2 \
       tests/e2e/_310p/tp2_v2_mixed_route_correctness.py \
-      --rows 2047 2048 2049 3000 3073 4095 4096 \
+      --rows 2047 2048 2049 3000 3073 4095 4096 4097 5000 \
       --chunk-rows 1024 --reps 3
 
-- 2047 / 1 / 10 = Stock HCCL（MemFabric 池存活后仍然使用 HCCL）。
+- 2047 / 1 / 10 / 4097 / 5000 = Stock HCCL（MemFabric 池存活后仍然使用 HCCL）。
 - 2048 / 2049 / 3000 / 3073 / 4095 / 4096 = V2；与
   F.linear(x,w).float() → HCCL AllReduce → FP16 的参考位精确。
 - stream sync 后 V2 status=0；补测 256/512/1024 chunk，多数据 seed、
