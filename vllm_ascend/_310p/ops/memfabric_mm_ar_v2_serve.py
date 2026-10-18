@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Opt-in 310P3 V2 serving route: M<2048 native MM+HCCL, M>=2048 fused.
+"""Opt-in 310P3 V2 serving route: 2048<=M<=4096 fused, otherwise Stock.
 
 V1 serving remains unchanged when this feature is disabled. The native
 large-M op uses the already-tested V2 T0 one-kernel path, with a bounded
@@ -17,7 +17,7 @@ from vllm.logger import logger
 from vllm_ascend import envs
 
 MIN_FUSED_M = 2048
-MAX_FORWARD_M = 4096  # this serving profile sets max_num_batched_tokens=4096
+MAX_FUSED_M = 4096  # the configured 4096-token Forward budget
 _pool_started = False
 _logged_stock = False
 _logged_fused = False
@@ -31,12 +31,10 @@ def v2_threshold_route(m: int) -> str:
     """Pure route decision, intentionally independent from V1's q/batch size."""
     if m < 0:
         raise ValueError(f"negative M: {m}")
-    if m > MAX_FORWARD_M:
-        raise ValueError(
-            f"V2 serving Forward M={m} exceeds configured max "
-            f"{MAX_FORWARD_M}; verify --max-num-batched-tokens=4096."
-        )
-    return "stock" if m < MIN_FUSED_M else "v2"
+    # Forward M may exceed this serving profile's expected 4096-token
+    # budget. Stock must remain a safe, non-fused escape hatch: do NOT
+    # split it into multiple V2 waves or abort normal inference.
+    return "v2" if MIN_FUSED_M <= m <= MAX_FUSED_M else "stock"
 
 
 def make_memfabric_mm_ar_v2_linear_method():
@@ -67,14 +65,14 @@ def make_memfabric_mm_ar_v2_linear_method():
             if bias is not None:
                 raise RuntimeError("310P V2 fused o_proj does not support bias")
 
-            # Profile/dummy-run can be routed to Stock without changing
-            # real-request M>=2048 routing. Small-M decode including graph
-            # capture always uses native MM + HCCL.
+            # Profile/dummy-run and any M outside [2048,4096] go through
+            # the original native MM + HCCL. Decode can still be captured
+            # by the existing FULL_DECODE_ONLY graph route.
             if memfabric_mm_ar_warmup_fallback_active() or (
                 v2_threshold_route(int(x.shape[0])) == "stock"
             ):
                 if not _logged_stock:
-                    logger.info("[mf310p-v2] M=%d <2048 (or dummy warmup): native MM + HCCL", x.shape[0])
+                    logger.info("[mf310p-v2] M=%d outside [2048,4096] (or dummy warmup): native MM + HCCL", x.shape[0])
                     _logged_stock = True
                 from vllm.distributed import tensor_model_parallel_all_reduce
                 partial = super().apply(layer, x, bias)
@@ -98,7 +96,7 @@ def make_memfabric_mm_ar_v2_linear_method():
             )
             _pool_started = True
             if not _logged_fused:
-                logger.info("[mf310p-v2] M=%d >=2048: V2 MM+MemFabric (chunk=%d)", x.shape[0], chunk)
+                logger.info("[mf310p-v2] M=%d within [2048,4096]: V2 MM+MemFabric (chunk=%d)", x.shape[0], chunk)
                 _logged_fused = True
             # The V2 op already performs a TP=2 reduction. Generic HCCL
             # MUST NOT run again on this branch.
