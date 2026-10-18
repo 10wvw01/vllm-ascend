@@ -16,18 +16,19 @@ V2ADAPTER = V2SRC / "mf310p_v2_trial_adapter.cpp"
 V2BUILD = ROOT / "cmake/memfabric_310p_v2.cmake"
 
 
-def test_v2_route_boundary_is_exact_and_uses_stock_for_small_m():
+def test_v2_route_boundary_is_exact_and_uses_stock_outside_fused_interval():
     module = ast.parse(V2PY.read_text())
     func = next(node for node in module.body if isinstance(node, ast.FunctionDef)
                 and node.name == "v2_threshold_route")
-    namespace = {"MIN_FUSED_M": 2048, "MAX_FORWARD_M": 4096}
+    namespace = {"MIN_FUSED_M": 2048, "MAX_FUSED_M": 4096}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[func],
                  type_ignores=[])), str(V2PY), "exec"), namespace)
     route = namespace["v2_threshold_route"]
-    assert [(m, route(m)) for m in (0, 1, 10, 1024, 2047, 2048, 2049, 3073, 4096)] == [
+    assert [(m, route(m)) for m in (0, 1, 10, 1024, 2047, 2048, 2049, 3073, 4096, 4097, 5000, 8192, 8193)] == [
         (0, "stock"), (1, "stock"), (10, "stock"),
         (1024, "stock"), (2047, "stock"),
         (2048, "v2"), (2049, "v2"), (3073, "v2"), (4096, "v2"),
+        (4097, "stock"), (5000, "stock"), (8192, "stock"), (8193, "stock"),
     ]
     try:
         route(-1)
@@ -35,16 +36,12 @@ def test_v2_route_boundary_is_exact_and_uses_stock_for_small_m():
         pass
     else:
         raise AssertionError("negative M must fail")
-    for beyond_budget in (4097, 8192):
-        try:
-            route(beyond_budget)
-        except ValueError:
-            pass
-        else:
-            raise AssertionError("Forward M>4096 must fail fast")
+    # Surprising M>4096 must be an ordinary Stock route, not an
+    # exception or a hidden V2 multi-wave fallback.
+    assert all(route(m) == "stock" for m in (4097, 5000, 8192, 8193))
 
 
-def test_small_m_restores_original_tp_reduce_exactly_once():
+def test_all_stock_shapes_restore_original_tp_reduce_exactly_once():
     code = V2PY.read_text()
     apply = code[code.index("        def apply("):]
     assert "v2_threshold_route(int(x.shape[0])) == \"stock\"" in apply
@@ -54,6 +51,8 @@ def test_small_m_restores_original_tp_reduce_exactly_once():
     assert "return out" in apply
     assert "tensor_model_parallel_all_reduce(out)" not in apply
     assert "MIN_FUSED_M = 2048" in code
+    assert "MAX_FUSED_M = 4096" in code
+    assert "tensor_model_parallel_all_reduce(out)" not in apply
 
 
 def test_v1_route_is_unchanged_without_opt_in():
