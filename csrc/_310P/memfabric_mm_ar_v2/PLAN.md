@@ -24,6 +24,10 @@
 
 **T1 首轮执行结果（2026-10-17/18）：步骤 1-5、7 全部完成 PASS；步骤 6 完成 Stock/V1/V2 三方对比（见报告）。** 修复两项缺陷：`DirectNsplit` basicM=256 的 UB 工作区越界（MTE on-chip read OOB）与 T0 kernel 首启/新 y 首写 MTE3 丢弃的守护策略修正；另发现带池 `aclrtSynchronizeDevice` 随机 0-15s 的代价与一次偶发跨 rank 超时，均已记录于报告遗留问题。
 
+## G3 本轮加固入口（2026-10-18 审视补充）
+
+执行顺序与证据要求见 [G3_HARDENING_PLAN.md](G3_HARDENING_PLAN.md)：先修正版 T1 stress，再隔离 MTE3 首写丢失与 KFC 部署，再测真实 HCCL/MemFabric 共存及设备 profiler。旧 T1 报告的 stress 实际只覆盖 4 个 M，不是声称的随机 30 个；更正见报告第 9 节。新压力脚本尚待实机复测，不能提前标为 PASS。
+
 ## 工程加固仍需并行跟进
 
 - 首启/新输出缓冲 MTE3 丢弃的硅级机制仍未有官方解释；T0 kernel 路径只能用 `aclrtSynchronizeDevice` 治愈（带池随机 0-15s），T1 kernel 路径 launch-stream 同步即可治愈。Graph 不可据此宣称支持。
