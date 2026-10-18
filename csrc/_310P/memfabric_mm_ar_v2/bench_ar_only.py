@@ -16,10 +16,12 @@ Example:
     --rows 1 16 64 128 255 256 257 512 1024 2048 4096 8192 \
     --chunk-rows 1024 --add-cores 1 2 4 8 --repeat 30 --fused
 """
+
 from __future__ import annotations
 
 import argparse
 import atexit
+import contextlib
 import ctypes
 import os
 import statistics
@@ -72,10 +74,9 @@ def optional_test_kfc_bypass():
 
     def cleanup():
         for path in paths:
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 os.unlink(path)
-            except FileNotFoundError:
-                pass
+
     atexit.register(cleanup)
 
 
@@ -106,16 +107,19 @@ def measure(fn, warmup, repeat):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--rows", nargs="+", type=int,
-                    default=[1, 16, 64, 128, 255, 256, 257, 512, 1024, 2048, 4096, 8192])
+    ap.add_argument("--rows", nargs="+", type=int, default=[1, 16, 64, 128, 255, 256, 257, 512, 1024, 2048, 4096, 8192])
     ap.add_argument("--add-cores", nargs="+", type=int, choices=(1, 2, 4, 8), default=[1, 2, 4, 8])
     ap.add_argument("--chunk-rows", type=int, choices=(256, 512, 1024), default=1024)
     ap.add_argument("--repeat", type=int, default=30)
     ap.add_argument("--warmup", type=int, default=3)
-    ap.add_argument("--fused", action="store_true",
-                    help="Also measure the existing V2 small or T0 fused path when shape is eligible")
-    ap.add_argument("--store-url", default=os.environ.get(
-        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
+    ap.add_argument(
+        "--fused",
+        action="store_true",
+        help="Also measure the existing V2 small or T0 fused path when shape is eligible",
+    )
+    ap.add_argument(
+        "--store-url", default=os.environ.get("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581")
+    )
     a = ap.parse_args()
     if any(m < 1 or m > 8192 for m in a.rows):
         ap.error("M must be 1..8192; multi-wave not yet supported")
@@ -152,22 +156,23 @@ def main():
         reference[m] = ref.half()
         stream.synchronize()
 
-        def native_hccl():
+        def native_hccl(x=x):
             local = F.linear(x, weight)
             dist.all_reduce(local)
             return local  # keep allocated tensor alive until stream sync
 
         stock[m] = measure(native_hccl, a.warmup, a.repeat)
-        mm_only[m] = measure(lambda: F.linear(x, weight), a.warmup, a.repeat)
+        mm_only[m] = measure(lambda x=x: F.linear(x, weight), a.warmup, a.repeat)
     torch.npu.synchronize()
     dist.barrier(group=cpu_group)
 
     optional_test_kfc_bypass()
     lib = bind_library()
     handle = ctypes.c_void_p()
-    chk(lib.mf310p_v2_trial_create(
-        rank, a.store_url.encode("utf-8"), a.chunk_rows,
-        ctypes.byref(handle)), "trial_create")
+    chk(
+        lib.mf310p_v2_trial_create(rank, a.store_url.encode("utf-8"), a.chunk_rows, ctypes.byref(handle)),
+        "trial_create",
+    )
     if not handle.value:
         raise RuntimeError("null MemFabric trial context")
 
@@ -177,76 +182,120 @@ def main():
         for m in a.rows:
             x = x_map[m]
             ref = reference[m]
+            # One y per M, reused across add-core variants: fewer fresh
+            # addresses means fewer first-write guard device-syncs, which
+            # are random 0-15 s and can skew one rank's launch past the
+            # peer kernel's 28 s aicore mail-wait watchdog (observed as
+            # an aicore timeout at chunk=256, M=8192).
+            y = torch.empty_like(ref)
             for add in a.add_cores:
-                y = torch.empty_like(ref)
 
-                def native_memfabric():
+                def native_memfabric(x=x, y=y, m=m, add=add):
                     # Native framework MM, not V1/V2 custom MM.
                     partial = F.linear(x, weight)
-                    chk(lib.mf310p_v2_trial_run_ar_only(
-                        handle, partial.data_ptr(), y.data_ptr(), m, add, raw_stream),
-                        f"AR-only m={m} add={add}")
+                    # Platform coherence requirement (2026-10-18 T2
+                    # measurement): the AR-only staging kernel reads the
+                    # MM output through MTE1, which can miss the matmul's
+                    # still-cache-resident stores (stale-by-one-call reads
+                    # measured at small M, e.g. own=v1+peer=v0 mixes).
+                    # A stream synchronize between MM and staging is the
+                    # verified cure (8/8 clean 1024-call runs at M=1) and
+                    # is a mandatory, honestly-counted cost of path B on
+                    # this stack. It is NOT needed by the fused V2 path,
+                    # whose MM reads settled inputs inside the kernel.
+                    stream.synchronize()
+                    chk(
+                        lib.mf310p_v2_trial_run_ar_only(handle, partial.data_ptr(), y.data_ptr(), m, add, raw_stream),
+                        f"AR-only m={m} add={add}",
+                    )
                     # Keep the producer tensor alive until this Stream is
                     # synchronized in the caller. Do not return it to the
                     # caching allocator while the D2D is still pending.
                     return partial
 
-                def run_and_verify():
+                def run_and_verify(m=m, add=add, ref=ref, y=y):
                     partial = native_memfabric()
                     stream.synchronize()
                     status = ctypes.c_uint64(0)
-                    chk(lib.mf310p_v2_trial_check_status(
-                        handle, ctypes.byref(status)), "AR-only protocol status")
+                    chk(lib.mf310p_v2_trial_check_status(handle, ctypes.byref(status)), "AR-only protocol status")
                     if status.value != 0:
                         raise RuntimeError(f"AR-only status={status.value} M={m} add={add}")
                     if not torch.equal(y, ref):
                         bad = int((y != ref).sum().item())
                         diff = float((y.float() - ref.float()).abs().max().item())
-                        raise AssertionError(
-                            f"AR-only bit-exact mismatch M={m} add={add} "
-                            f"bad={bad} max_abs={diff}")
+                        raise AssertionError(f"AR-only bit-exact mismatch M={m} add={add} bad={bad} max_abs={diff}")
                     return partial
 
-                # One correctness run before recording timings.
+                # One correctness run before recording timings; this is also
+                # the FIRST AR-only call for this (m, add): its wall time
+                # includes the first-write guard synchronize and is reported
+                # separately as first_call_ms, never mixed into steady state.
+                t_first_begin = time.perf_counter()
                 run_and_verify()
+                first_call_ms = round((time.perf_counter() - t_first_begin) * 1e3, 5)
                 # Keep tensor lifetime valid across each individual sync;
                 # measure() invokes the closure and synchronizes after it.
                 t = measure(native_memfabric, a.warmup, a.repeat)
                 run_and_verify()
-                rows.append({"m": m, "method": "native_mm+memfabric_stage_ar",
-                             "add": add, **t, "correct": True})
+                rows.append(
+                    {
+                        "m": m,
+                        "method": "native_mm+memfabric_stage_ar",
+                        "add": add,
+                        **t,
+                        "first_call_ms": first_call_ms,
+                        "correct": True,
+                    }
+                )
 
             if a.fused:
-                fused_kind = "V2_T1_nz_direct" if m <= 256 else (
-                    "V2_T0_overlap" if m % a.chunk_rows == 0 and m >= 2*a.chunk_rows
-                    else "V2_T0_serial" if m % a.chunk_rows == 0 else None)
+                fused_kind = (
+                    "V2_T1_nz_direct"
+                    if m <= 256
+                    else (
+                        "V2_T0_overlap"
+                        if m % a.chunk_rows == 0 and m >= 2 * a.chunk_rows
+                        else "V2_T0_serial"
+                        if m % a.chunk_rows == 0
+                        else None
+                    )
+                )
                 if fused_kind:
                     yy = torch.empty_like(ref)
 
-                    def fused():
+                    def fused(m=m, x=x, weight=weight, yy=yy, fused_kind=fused_kind):
                         if m <= 256:
                             add = 1 if m < 255 else 8
-                            chk(lib.mf310p_v2_trial_run_nz_direct_small(
-                                handle, x.data_ptr(), weight.data_ptr(), yy.data_ptr(),
-                                m, 8, add, raw_stream), "V2 T1")
+                            chk(
+                                lib.mf310p_v2_trial_run_nz_direct_small(
+                                    handle, x.data_ptr(), weight.data_ptr(), yy.data_ptr(), m, 8, add, raw_stream
+                                ),
+                                "V2 T1",
+                            )
                         else:
-                            chk(lib.mf310p_v2_trial_run(
-                                handle, x.data_ptr(), weight.data_ptr(), yy.data_ptr(),
-                                m, 1 if fused_kind.endswith("overlap") else 0,
-                                raw_stream), "V2 T0")
+                            chk(
+                                lib.mf310p_v2_trial_run(
+                                    handle,
+                                    x.data_ptr(),
+                                    weight.data_ptr(),
+                                    yy.data_ptr(),
+                                    m,
+                                    1 if fused_kind.endswith("overlap") else 0,
+                                    raw_stream,
+                                ),
+                                "V2 T0",
+                            )
 
                     # Warmup is not a Graph/production-ready guarantee;
                     # T0 may still require device-wide first-output sync.
                     fused()
                     stream.synchronize()
                     status = ctypes.c_uint64(0)
-                    chk(lib.mf310p_v2_trial_check_status(
-                        handle, ctypes.byref(status)), "fused protocol")
+                    chk(lib.mf310p_v2_trial_check_status(handle, ctypes.byref(status)), "fused protocol")
                     if status.value or not torch.equal(yy, ref):
                         raise AssertionError(f"fused mismatch M={m}, status={status.value}")
                     ft = measure(fused, a.warmup, a.repeat)
-                    rows.append({"m": m, "method": fused_kind,
-                                 "add": 1 if m < 255 else 8, **ft, "correct": True})
+                    rows.append({"m": m, "method": fused_kind, "add": 1 if m < 255 else 8, **ft, "correct": True})
 
         dist.barrier(group=cpu_group)
     finally:
@@ -259,23 +308,49 @@ def main():
     dist.all_gather_object(gathered, {"rows": rows, "stock": stock, "mm_only": mm_only}, group=cpu_group)
     if rank == 0:
         mapping = {(r["m"], r["method"], r["add"]): r for r in gathered[1]["rows"]}
-        print("M\tmethod\tadd\tstock_max_ms\tnative_mm_max_ms\tcandidate_max_ms\tcandidate_max_p95\t"
-              "speedup_percent\tcorrect", flush=True)
+        print(
+            "M\tmethod\tadd\tstock_max_ms\tnative_mm_max_ms\tcandidate_max_ms\tcandidate_max_p95\t"
+            "speedup_percent\tcorrect",
+            flush=True,
+        )
         for rr in rows:
             key = (rr["m"], rr["method"], rr["add"])
             other = mapping[key]
             two = max(rr["median"], other["median"])
             p95 = max(rr["p95"], other["p95"])
+            first = max(rr.get("first_call_ms", 0.0), other.get("first_call_ms", 0.0))
             # The TP step completes only after the slower rank.
-            stock_time = max(gathered[0]["stock"][rr["m"]]["median"],
-                             gathered[1]["stock"][rr["m"]]["median"])
-            mm_time = max(gathered[0]["mm_only"][rr["m"]]["median"],
-                          gathered[1]["mm_only"][rr["m"]]["median"])
+            stock_time = max(gathered[0]["stock"][rr["m"]]["median"], gathered[1]["stock"][rr["m"]]["median"])
+            mm_time = max(gathered[0]["mm_only"][rr["m"]]["median"], gathered[1]["mm_only"][rr["m"]]["median"])
             gain = (stock_time - two) / stock_time * 100.0
-            print(f"{rr['m']}\t{rr['method']}\t{rr['add']}\t"
-                  f"{stock_time:.4f}\t{mm_time:.4f}\t{two:.4f}\t{p95:.4f}\t"
-                  f"{gain:.1f}%\t{rr['correct'] and other['correct']}",
-                  flush=True)
+            print(
+                f"{rr['m']}\t{rr['method']}\t{rr['add']}\t"
+                f"{stock_time:.4f}\t{mm_time:.4f}\t{two:.4f}\t{p95:.4f}\t"
+                f"{gain:.1f}%\t{rr['correct'] and other['correct']}",
+                flush=True,
+            )
+            if "first_call_ms" in rr:
+                print(
+                    f"# first_call_max_ms {rr['m']}\t{rr['add']}\t{first:.4f} (includes first-write guard sync)",
+                    flush=True,
+                )
+        dump_path = os.environ.get("T2_RESULT_JSON")
+        if dump_path:
+            import json
+
+            with open(dump_path, "w") as f:
+                json.dump(
+                    {
+                        "rows": gathered[0]["rows"],
+                        "peer_rows": gathered[1]["rows"],
+                        "stock": gathered[0]["stock"],
+                        "peer_stock": gathered[1]["stock"],
+                        "mm_only": gathered[0]["mm_only"],
+                        "peer_mm_only": gathered[1]["mm_only"],
+                    },
+                    f,
+                    indent=1,
+                )
     dist.barrier(group=cpu_group)
     dist.destroy_process_group()
 

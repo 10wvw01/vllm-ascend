@@ -223,10 +223,7 @@ def main():
     else:  # stress
         # A single deterministic RNG must produce DISTINCT interior rows.
         # Include 1/255/256 explicitly; the full set has 30 unique M.
-        rows_list = args.rows or sorted(
-            set(random.Random(20261017).sample(range(2, 255), 27))
-            | {1, 255, 256}
-        )
+        rows_list = args.rows or sorted(set(random.Random(20261017).sample(range(2, 255), 27)) | {1, 255, 256})
         mm_list = args.mm_cores or [1, 2, 4, 8]
         add_list = args.add_cores or [1, 8]
         repeat = args.repeat or 5
