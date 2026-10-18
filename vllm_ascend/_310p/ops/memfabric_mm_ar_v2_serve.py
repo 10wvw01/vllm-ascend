@@ -21,6 +21,7 @@ MAX_FUSED_M = 4096  # the configured 4096-token Forward budget
 _pool_started = False
 _logged_stock = False
 _logged_fused = False
+_logged_oversize_stock = False
 
 
 def v2_pool_started() -> bool:
@@ -58,7 +59,7 @@ def make_memfabric_mm_ar_v2_linear_method():
             x: torch.Tensor,
             bias: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            global _pool_started, _logged_stock, _logged_fused
+            global _pool_started, _logged_stock, _logged_fused, _logged_oversize_stock
 
             if not is_memfabric_mm_ar_configured(layer):
                 return super().apply(layer, x, bias)
@@ -71,6 +72,13 @@ def make_memfabric_mm_ar_v2_linear_method():
             if memfabric_mm_ar_warmup_fallback_active() or (
                 v2_threshold_route(int(x.shape[0])) == "stock"
             ):
+                if x.shape[0] > MAX_FUSED_M and not _logged_oversize_stock:
+                    logger.warning(
+                        "[mf310p-v2] unexpected Forward M=%d > %d; "
+                        "falling back to original MM + HCCL AR (not V2)",
+                        x.shape[0], MAX_FUSED_M,
+                    )
+                    _logged_oversize_stock = True
                 if not _logged_stock:
                     logger.info("[mf310p-v2] M=%d outside [2048,4096] (or dummy warmup): native MM + HCCL", x.shape[0])
                     _logged_stock = True
