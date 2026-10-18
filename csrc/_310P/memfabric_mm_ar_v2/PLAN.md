@@ -35,6 +35,16 @@
 - 双卡测试程序已归档提交（本目录）；原始运行日志在服务器 `/tmp/opencode/v2/`。
 - 禁止 V1 serving 与 V2 trial 共享单池，禁止未经序列化的同池多 Stream 调用。
 
+## T2：原生 MM + MemFabric AR（不融合）对照，待实机
+
+新增独立实验性 AR-only C ABI `mf310p_v2_trial_run_ar_only`、设备 Kernel 和三方案 `bench_ar_only.py`。与 T0/T1 的 MM+AR 融合实现并存，但**不修改 V1 或默认模型路由**。明确比较：
+
+- A：原生 FP16 MM + FP16 HCCL AllReduce（唯一性能收益基线）；
+- B：相同原生 FP16 MM + **完整计入 D2D staging** + MemFabric SDMA+FP16 Add（MM 不进入融合 Kernel）；
+- C：V2 已有融合 MM + MemFabric AR。
+
+本实验须先验证 B 的 bit-exact / status / MTE3 首写，再测 M=1..8192、chunk 256/512/1024、Add 核数 1/2/4/8 与 max-rank median/P95。当前**未在 310P3 编译或执行**，不能宣称 B 有收益。详见 [T2_AR_ONLY_TRIAL.md](T2_AR_ONLY_TRIAL.md)。
+
 ## 下一阶段 G3
 
 根据实测 M 阈值路由 Stock / T1 / T0；进一步研究 M/N 二维切分、Add 核数、M>8192 多波、动态尾 M、真实 Qwen3.6-35B-A3B-w8a8 的 TP2 40 层 Graph / ITL / TTFT / 吞吐与长稳。
