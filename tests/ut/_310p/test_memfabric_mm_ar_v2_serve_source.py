@@ -20,15 +20,14 @@ def test_v2_route_boundary_is_exact_and_uses_stock_for_small_m():
     module = ast.parse(V2PY.read_text())
     func = next(node for node in module.body if isinstance(node, ast.FunctionDef)
                 and node.name == "v2_threshold_route")
-    namespace = {"MIN_FUSED_M": 2048}
+    namespace = {"MIN_FUSED_M": 2048, "MAX_FORWARD_M": 4096}
     exec(compile(ast.fix_missing_locations(ast.Module(body=[func],
                  type_ignores=[])), str(V2PY), "exec"), namespace)
     route = namespace["v2_threshold_route"]
-    assert [(m, route(m)) for m in (0, 1, 10, 1024, 2047, 2048, 2049, 4096, 8192, 8193)] == [
+    assert [(m, route(m)) for m in (0, 1, 10, 1024, 2047, 2048, 2049, 3073, 4096)] == [
         (0, "stock"), (1, "stock"), (10, "stock"),
         (1024, "stock"), (2047, "stock"),
-        (2048, "v2"), (2049, "v2"), (4096, "v2"),
-        (8192, "v2"), (8193, "v2"),
+        (2048, "v2"), (2049, "v2"), (3073, "v2"), (4096, "v2"),
     ]
     try:
         route(-1)
@@ -36,6 +35,13 @@ def test_v2_route_boundary_is_exact_and_uses_stock_for_small_m():
         pass
     else:
         raise AssertionError("negative M must fail")
+    for beyond_budget in (4097, 8192):
+        try:
+            route(beyond_budget)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Forward M>4096 must fail fast")
 
 
 def test_small_m_restores_original_tp_reduce_exactly_once():
