@@ -260,8 +260,8 @@ csrc/_310P/memfabric_mm_ar_v2/
 
 ## 10. 相关源码与证据
 
-- [V1 源码、已验证的 256/512/1024 单次 signal](../memfabric_mm_ar/memfabric310p_device.asc)
-- [V1 实机验证报告：q=1/2/4 正确性与性能](../memfabric_mm_ar/VALIDATION_REPORT.md)
+- [V1 源码、已验证的 256/512/1024 单次 signal](../../memfabric_mm_ar/memfabric310p_device.asc)
+- [V1 实机验证报告：q=1/2/4 正确性与性能](../../memfabric_mm_ar/VALIDATION_REPORT.md)
 - [官方 MatmulAllReduceCustom 分核样例](https://gitee.com/ascend/samples/tree/master/operator/ascendc/4_best_practices/23_matmul_all_reduce_custom/MatmulAllReduceCustom)
 - [MemFabric 公共 SDMA API](https://github.com/10wvw01/memfabric_hybrid/blob/wgm-dev-310p/src/smem/include/device/smem_shm_aicore_base_sdma.h)
 
