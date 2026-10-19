@@ -30,7 +30,7 @@ export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1
 
 ```bash
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/bench_nz_direct_small.py \
+  csrc/_310P/memfabric_mm_ar_v2/test/bench_nz_direct_small.py \
   --rows 1 16 17 255 256 --mm-cores 1 2 4 8 \
   --add-cores 1 8 --repeat 3
 ```
@@ -39,7 +39,7 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
 
 ```bash
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/bench_nz_direct_small.py \
+  csrc/_310P/memfabric_mm_ar_v2/test/bench_nz_direct_small.py \
   --rows 1 2 4 8 16 32 64 128 255 256 \
   --mm-cores 1 2 4 8 --add-cores 1 2 4 8 --repeat 30
 ```

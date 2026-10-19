@@ -7,7 +7,7 @@ Run only with the V2 experimental build enabled; no V1 serving in parallel.
   VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 \
   VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1 \
   torchrun --standalone --nproc-per-node=2 \
-    csrc/_310P/memfabric_mm_ar_v2/bench_nz_direct_small.py \
+    csrc/_310P/memfabric_mm_ar_v2/test/bench_nz_direct_small.py \
     --rows 1 2 4 8 16 32 64 128 255 256 --add-cores 1 2 4 8
 
 Each rank computes the stock FP16 MM + FP32 HCCL sum reference BEFORE

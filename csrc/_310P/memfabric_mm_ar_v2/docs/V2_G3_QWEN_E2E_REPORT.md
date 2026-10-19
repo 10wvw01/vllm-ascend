@@ -297,7 +297,7 @@ export MF_SDMA_ORCH_JSON=/usr/local/memfabric_hybrid/latest/aarch64-linux/hybm/a
 构建：`SOC_VERSION=ascend310p3 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1 python setup.py build_ext --inplace`
 
 - Gate B/C/D/E：`tests/e2e/_310p/test_memfabric_mm_ar_functional.py`、`bench_memfabric_mm_ar_serve.sh` + `evaluate_v2_g3.py`（eager 判定加 `--mode eager`）
-- 全部运维/验证脚本已随报告入库：`csrc/_310P/memfabric_mm_ar_v2/g3_e2e_scripts/`（含冷启动、长稳、回归、A/B 提取、graph 探针与修复尝试快照，说明见其 README）
+- 全部运维/验证脚本已随报告入库：`csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/`（含冷启动、长稳、回归、A/B 提取、graph 探针与修复尝试快照，说明见其 README）
 - 回归：`/tmp/opencode/g3/regression.sh`（T0 g0/g1/g2/stock、T1、T2、V1 bench）
 - 诊断：`/tmp/opencode/g3/{kfc_torch_probe.py,poison_then_create.py,smem_autodeploy_probe.cpp,kfc_stream_probe.c,diag_m2049.py}`
 - 运维：异常终止后按 `pkill -9 -f "VLLM::"; pkill -9 -f EngineCore` 清理残 Worker 并等待 npu-smi 显存回落（<2.5GB）再重启。

@@ -47,7 +47,7 @@ export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1
 python setup.py build_ext --inplace
 
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/bench_ar_only.py \
+  csrc/_310P/memfabric_mm_ar_v2/test/bench_ar_only.py \
   --rows 1 16 64 128 255 256 257 512 1024 2048 4096 8192 \
   --chunk-rows 1024 --add-cores 1 2 4 8 --repeat 30 --fused
 ```

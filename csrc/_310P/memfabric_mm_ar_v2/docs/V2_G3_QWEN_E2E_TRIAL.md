@@ -16,7 +16,7 @@ K_local=N=2048，NZ 权重），固定规则：
 - V2 路由默认 OFF，绝不自动使用旧的 V1 模型推理 Runtime；
 - 资格选层复用 V1 既有 40 层模型检查，V2 的 Torch Op 和上下文独立。
 
-关键代码：csrc/_310P/memfabric_mm_ar_v2/mf310p_v2_serve.cpp，
+关键代码：csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/mf310p_v2_serve.cpp，
 vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py，modelslim_config.py。
 
 ## 本轮 M 的实际含义：动态行数与 4096 上限
@@ -105,7 +105,7 @@ Stock serve 须关闭 V1/V2 runtime 使能。V2 route 仅在 V2 Serve flag=1 时
 ### Gate B：TP=2 混合通信 / shape 正确性
 
     torchrun --standalone --nproc-per-node=2 \
-      tests/e2e/_310p/tp2_v2_mixed_route_correctness.py \
+      csrc/_310P/memfabric_mm_ar_v2/test/e2e/tp2_v2_mixed_route_correctness.py \
       --rows 2047 2048 2049 3000 3073 4095 4096 4097 5000 \
       --chunk-rows 1024 --reps 3
 
@@ -155,7 +155,7 @@ TTFT、TPOT、峰值显存、冷启动耗时。至少 3 次独立会话，避免
         /tmp/mf_v2_g3_session_$run "stock graph" "fused graph"
     done
 
-    python tests/e2e/_310p/evaluate_v2_g3.py \
+    python csrc/_310P/memfabric_mm_ar_v2/test/e2e/evaluate_v2_g3.py \
       /tmp/mf_v2_g3_session_1 /tmp/mf_v2_g3_session_2 /tmp/mf_v2_g3_session_3
 
 自动验收要求至少三套独立 Stock/V2 配对结果，且每次请求数全数完成；

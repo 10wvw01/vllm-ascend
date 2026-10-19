@@ -289,6 +289,6 @@ T1 主路径参照官方 `MatmulBlock::CalcGMOffset`：对于 `B=NZ,transposed=t
 - 单次调用最后由 Core0 做 `quiet` 与波级双向 DONE，避免下一次调用复写当前 C 区。所有 MemFabric API 仍是公共 `signal/wait/quiet`。
 - `SetOrgShape/SetSingleShape` 配合**原始 NZ 子矩阵 + ND 非紧凑行步长**已在 310P3 实机证实可用（单卡 1028/1028 bit-exact）。实机约束：`basicM≤128`（matmul NZ2ND 输出暂存需要 `2×basicM×basicN×dtypeSize` 的本地 UB 工作区，超限在 release 构建下无断言、满块 MTE on-chip read OOB）。
 
-测试及边界：[NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md)、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[t1_nz_direct_trial.py](t1_nz_direct_trial.py)、[t1_diag_single.py](t1_diag_single.py)、[PLAN.md](PLAN.md)、[T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
+测试及边界：[NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md)、[bench_nz_direct_small.py](../test/bench_nz_direct_small.py)、[t1_nz_direct_trial.py](../test/t1_nz_direct_trial.py)、[t1_diag_single.py](../test/t1_diag_single.py)、[PLAN.md](PLAN.md)、[T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
 
 > T0 的 G0/G1/G2 实机通过与 T1 的直接-NZ 正确性是两组独立证据。首次新输出指针的 MTE3 丢弃仍在（T0 kernel 需 `aclrtSynchronizeDevice`，T1 kernel 用 launch-stream 同步即可），尚非 Graph 安全的产品方案。

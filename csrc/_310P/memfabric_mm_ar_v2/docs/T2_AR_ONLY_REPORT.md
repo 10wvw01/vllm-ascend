@@ -217,21 +217,21 @@ export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
 
 # 全矩阵（×3 chunk）
 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/bench_ar_only.py \
+  csrc/_310P/memfabric_mm_ar_v2/test/bench_ar_only.py \
   --rows 1 2 4 8 16 32 64 128 255 256 257 512 1024 2048 4096 8192 \
   --chunk-rows 1024 --add-cores 1 2 4 8 --repeat 30 --fused
 
 # 压力（30 M × 4 seed × 动态 y × 偏斜）
 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/t2_ar_stress.py --chunk-rows 1024 --repeat 1000
+  csrc/_310P/memfabric_mm_ar_v2/test/t2_ar_stress.py --chunk-rows 1024 --repeat 1000
 
 # 变内容专项（M=1/64/257/1024/8192，源新鲜度决定性实验）
 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/t2_freshdata.py --m 1 --calls 1024
+  csrc/_310P/memfabric_mm_ar_v2/test/t2_freshdata.py --m 1 --calls 1024
 
 # profiler 分解（chrome trace，设备侧事件）
 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/t2_prof.py --m 8192 --add 8 --chunk-rows 1024 \
+  csrc/_310P/memfabric_mm_ar_v2/test/t2_prof.py --m 8192 --add 8 --chunk-rows 1024 \
   --iters 20 --out /tmp/prof8192
 
 # 一次性平台探针（源新鲜度扫描 / 隔离，未入库）：/tmp/opencode/t2/

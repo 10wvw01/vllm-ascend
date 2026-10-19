@@ -153,11 +153,11 @@ VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 \
 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1 python setup.py build_ext --inplace
 
 # 单卡 MM 隔离（1028 用例）
-python csrc/_310P/memfabric_mm_ar_v2/t1_diag_single.py   # DIAG_PRESYNC=1
+python csrc/_310P/memfabric_mm_ar_v2/test/t1_diag_single.py   # DIAG_PRESYNC=1
 
 # 双卡矩阵 / 压力 / y-guard / stock（torchrun 2 proc，环境见脚本头注释）
 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/t1_nz_direct_trial.py --mode full
+  csrc/_310P/memfabric_mm_ar_v2/test/t1_nz_direct_trial.py --mode full
 torchrun ... --mode stress
 torchrun ... --mode yguard            # MF310P_V2_NOWARMUP=1
 torchrun ... --mode stock

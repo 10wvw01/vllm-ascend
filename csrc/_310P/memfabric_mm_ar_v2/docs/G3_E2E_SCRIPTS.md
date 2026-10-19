@@ -1,6 +1,6 @@
 # G3 E2E 实机验证脚本归档（2026-10-19）
 
-本目录归档 `V2_G3_QWEN_E2E_REPORT.md` 所用的全部运维/验证驱动脚本（原运行位置
+测试目录 `../test/g3_e2e_scripts/` 归档 `V2_G3_QWEN_E2E_REPORT.md` 所用的全部运维/验证驱动脚本（原运行位置
 `/tmp/opencode/g3/`，入库以便复现）。均为一次性实机验证驱动，非 CI 测试；
 运行前须满足报告 §13 的部署前置（/dev/shm 扩容、CANN/MemFabric env、
 `ASCEND_RT_VISIBLE_DEVICES=0,1`、设备显存 <2.5GB 排空）。
@@ -24,3 +24,9 @@
    `tests/ut/_310p/`，并先清除 `~/.cache/vllm/torch_compile_cache`（报告 §11.4）。
 3. 间歇性 aicore timeout（§8）未定位，长稳脚本可能触发不可恢复挂死，
    运行后注意按报告 §13 清理 `VLLM::` 残留进程。
+
+
+> 整理后的执行入口：`../test/g3_e2e_scripts/regression.sh`。
+> T0 独立 `v2_trial.py` 驱动并未随 G3 归档，只有显式设置
+> `MF310P_V2_DIAG_DRIVER_DIR` 后才会运行其 G0/G1/G2；
+> T1/T2 使用本仓库 `test/` 脚本。原始实机日志路径保留历史含义。

@@ -1,5 +1,7 @@
 # V2 单 Kernel 原型（构建默认关闭）
 
+**历史 T0/T1 原型说明（归档资料）**：下文“尚未注册 PyTorch Op / 未接模型”描述的是 2026-10-17 的原型状态。当前服务接入请阅读 [G3 实机报告](V2_G3_QWEN_E2E_REPORT.md) 与 [目录说明](README.md)。
+
 目的：使用官方 MatmulAllReduceCustom 的计算分核+完成会合调度，并在 310P3 上用 MemFabric 3 个公共通信原语实现双 Rank 全量 AllReduce。实验性代码，不注册 PyTorch op、不接模型路由；2026-10-17 已在 dav-2002（CANN 9.1，TP=2）完成 G0/G1/G2 实机位精确验证（详见同目录《20261017实机测验及修复.md》）。
 
 ## 构建
@@ -47,5 +49,5 @@
 - C API：`mf310p_v2_trial_run_nz_direct_small(handle,x,w_nz,y,M,mm_cores,add_cores,stream)`。
 - `M=1..256`；`mm_cores/add_cores∈{1,2,4,8}` 相互独立；无权重切片、输入 staging 和 blocked 输出。
 - 官方 `MatmulBlock` NZ B 列偏移规则与 `SetOrgShape/SetSingleShape` 组合已实机验证（单卡 1028/1028 + 双卡 160 组合位精确）；`basicM` 须 ≤128（UB 工作区合同，见报告 BUG-1）。
-- 参考 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) 的阶段性命令、[bench_nz_direct_small.py](bench_nz_direct_small.py)、[t1_nz_direct_trial.py](t1_nz_direct_trial.py)、[t1_diag_single.py](t1_diag_single.py)。
+- 参考 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) 的阶段性命令、[bench_nz_direct_small.py](../test/bench_nz_direct_small.py)、[t1_nz_direct_trial.py](../test/t1_nz_direct_trial.py)、[t1_diag_single.py](../test/t1_diag_single.py)。
 - T0 的 G0/G1/G2 实测与 T1 的实机验证是两组独立证据；V1 N-split 只保留为独立基线。结果与遗留问题见 [T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
