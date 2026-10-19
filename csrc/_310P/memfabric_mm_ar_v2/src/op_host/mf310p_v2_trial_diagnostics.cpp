@@ -2,6 +2,10 @@
 #include "mf310p_v2_trial_internal.h"
 #include "mf310p_v2_trial_diagnostics_api.h"
 #include <cstdlib>
+extern "C" int mf310p_v2_trial_launch_async(
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_nz_direct_small_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
