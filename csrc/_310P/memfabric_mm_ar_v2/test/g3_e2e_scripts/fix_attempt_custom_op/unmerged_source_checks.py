@@ -7,7 +7,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[5]
+ROOT = Path(__file__).resolve().parents[6]
 V2PY = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py"
 V1PY = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar.py"
 ROUTER = ROOT / "vllm_ascend/_310p/quantization/modelslim_config.py"
