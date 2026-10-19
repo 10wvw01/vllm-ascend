@@ -138,6 +138,34 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
     TORCH_CHECK(tail_sync == ACL_SUCCESS,
                 "V2 staged-tail prewarm sync failed: ", tail_sync);
     check_protocol(s, "staged-tail prewarm");
+
+    // Depth sweep: run one staged wave at EVERY chunk multiple in the
+    // serving window [2048, 4096]. The 2026-10-19 cold-cycle incident
+    // (cycle 17: first 3-chunk staged wave corrupted with status=0 after
+    // the 2-chunk prewarm above had passed) shows first-use-at-a-new-wave-
+    // count is an independent cold hazard; the stage is wrap-filled from x
+    // so the sweep needs no more rows than the first call provides, and
+    // the transport never interprets payload content.
+    const int64_t stage_rows = s.input_stage.size(0);
+    for (int64_t off = 0; off < stage_rows; off += x.size(0)) {
+        const int64_t n = std::min<int64_t>(x.size(0), stage_rows - off);
+        s.input_stage.narrow(0, off, n).copy_(x.narrow(0, 0, n));
+    }
+    for (int64_t m = kThreshold; m <= kMaxWindowRows;
+         m += static_cast<int64_t>(s.chunk_rows)) {
+        checked(mf310p_v2_trial_run(
+                    s.handle,
+                    reinterpret_cast<uint64_t>(s.input_stage.const_data_ptr()),
+                    weight,
+                    reinterpret_cast<uint64_t>(s.output_slots.front().data_ptr()),
+                    static_cast<uint32_t>(m), 1,
+                    reinterpret_cast<void*>(stream)),
+                "depth-sweep prewarm");
+        const aclError sweep_sync = aclrtSynchronizeStream(stream);
+        TORCH_CHECK(sweep_sync == ACL_SUCCESS,
+                    "V2 depth-sweep prewarm sync failed: ", sweep_sync);
+        check_protocol(s, "depth-sweep prewarm");
+    }
 }
 
 void init_locked(V2ServeState& s, const at::Tensor& x,

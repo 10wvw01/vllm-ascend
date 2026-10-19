@@ -119,7 +119,11 @@ for combo in "${COMBOS[@]}"; do
 
     EXTRA=(--enforce-eager)
     if [ "$GRAPH" = "graph" ]; then
-        EXTRA=(--compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[10]}')
+        # compile_ranges_endpoints split at MIN_FUSED_M-1: isolates stock/fused
+        # compile-cache artifacts (cache key ignores the plugin module - arms
+        # with identical configs silently share artifacts, found 2026-10-19)
+        # and prepares the graph-mode V2 fix (report 4.6; not yet effective).
+        EXTRA=(--compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[10],"compile_ranges_endpoints":[2047,4096]}')
     fi
 
     SPEC_ARGS=()

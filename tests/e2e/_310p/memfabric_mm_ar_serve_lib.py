@@ -58,7 +58,18 @@ FUSED_ENV_KEYS = (
     "VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS",
 )
 
-GRAPH_COMPILATION_CONFIG = json.dumps({"cudagraph_mode": "FULL_DECODE_ONLY", "cudagraph_capture_sizes": [10]})
+GRAPH_COMPILATION_CONFIG = json.dumps(
+    {
+        "cudagraph_mode": "FULL_DECODE_ONLY",
+        "cudagraph_capture_sizes": [10],
+        # Split at MIN_FUSED_M-1: (a) isolates the stock/fused compile-cache
+        # artifacts (the cache key does not cover the plugin linear-method
+        # module, so identical configs silently share artifacts across arms
+        # - found 2026-10-19); (b) preparation for the graph-mode V2 fix
+        # (see V2_G3_QWEN_E2E_REPORT.md 4.6 - not yet effective on its own).
+        "compile_ranges_endpoints": [2047, 4096],
+    }
+)
 
 
 def build_serve_cmd(
@@ -161,12 +172,8 @@ def build_serve_env(fused: bool, batch_basem_count: str = DEFAULT_BATCH_BASEM_CO
         env["VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR"] = "1"
         if os.getenv("MEMFABRIC_MM_AR_E2E_V2", "0") == "1":
             env["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE"] = "1"
-            env["VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS"] = os.getenv(
-                "MEMFABRIC_MM_AR_E2E_V2_CHUNK_ROWS", "1024"
-            )
-            env["VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS"] = os.getenv(
-                "MEMFABRIC_MM_AR_E2E_V2_OUTPUT_SLOTS", "4"
-            )
+            env["VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS"] = os.getenv("MEMFABRIC_MM_AR_E2E_V2_CHUNK_ROWS", "1024")
+            env["VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS"] = os.getenv("MEMFABRIC_MM_AR_E2E_V2_OUTPUT_SLOTS", "4")
         env["VLLM_ASCEND_310P_MEMFABRIC_STORE_URL"] = f"tcp://127.0.0.1:{DEFAULT_STORE_PORT}"
         env["VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES"] = str(96 * 1024 * 1024)
         env["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT"] = str(batch_basem_count)

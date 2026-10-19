@@ -91,7 +91,11 @@ def _run_combo(graph: bool, tmpdir: str) -> None:
     )
 
     batched_mismatches = [i for i, (s, f) in enumerate(zip(stock_batched, fused_batched)) if s != f]
-    assert not batched_mismatches, f"batched decode mismatch at indices {batched_mismatches}"
+    assert not batched_mismatches, (
+        f"batched decode mismatch at indices {batched_mismatches}: "
+        f"stock={[stock_batched[i] for i in batched_mismatches]} "
+        f"fused={[fused_batched[i] for i in batched_mismatches]}"
+    )
 
 
 def test_fused_matches_stock_eager(tmp_path_factory: pytest.TempPathFactory) -> None:
