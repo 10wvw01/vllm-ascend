@@ -13,7 +13,10 @@ HOOKS = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar_runner_hooks.py"
 V2SRC = ROOT / "csrc/_310P/memfabric_mm_ar_v2/src"
 V2CPP = V2SRC / "torch_adapter/mf310p_v2_serve.cpp"
 V2ADAPTER = V2SRC / "op_host/mf310p_v2_trial_adapter.cpp"
-V2DEVICE = V2SRC / "op_kernel/mf310p_v2_trial_device.asc"
+V2DEVICE = V2SRC / "op_kernel/mf310p_v2_kernel.asc"
+V2DIAG = V2SRC / "op_kernel/mf310p_v2_diagnostics.asc"
+V2SHARED = V2SRC / "op_kernel/mf310p_v2_kernel_common.h"
+V2HOSTINTERNAL = V2SRC / "op_host/mf310p_v2_trial_internal.h"
 V2MANIFEST = V2SRC / "CMakeLists.txt"
 V2BUILD = ROOT / "cmake/memfabric_310p_v2.cmake"
 
@@ -74,7 +77,10 @@ def test_v2_native_op_is_separately_compiled_and_graph_fail_closed():
     manifest = V2MANIFEST.read_text()
     assert "mf310p_v2_serve.cpp" in manifest
     assert "mf310p_v2_trial_adapter.cpp" in manifest
-    assert "mf310p_v2_trial_device.asc" in manifest
+    assert "mf310p_v2_kernel.asc" in manifest
+    assert "mf310p_v2_diagnostics.asc" in manifest
+    assert "VLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS" in manifest
+    assert V2DIAG.exists() and V2SHARED.exists()
     assert V2DEVICE.exists()
     assert "memfabric_mm_ar_v2_allreduce(Tensor x, Tensor weight" in cpp
     assert "currentStreamCaptureStatusMayInitCtx" in cpp
@@ -105,8 +111,8 @@ def test_pool_outputs_are_preallocated_and_live_views_not_overwritten():
     assert "output_slots.clear()" in cpp
     assert "memfabric_mm_ar_v2_shutdown()" in cpp
     adapter = V2ADAPTER.read_text()
-    assert "trial_warmed_ys[64]" in adapter
-    assert "trial_warmed_y_next" in adapter
+    assert "trial_warmed_ys[64]" in V2HOSTINTERNAL.read_text()
+    assert "trial_warmed_y_next" in V2HOSTINTERNAL.read_text()
 
 
 def test_first_fused_call_is_numerically_verified_per_shape_class():
@@ -140,3 +146,4 @@ def test_v2_opt_in_is_disabled_by_default():
     assert 'VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS' in envs
     assert 'VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS' in envs
     assert 'os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE", "0")' in envs
+

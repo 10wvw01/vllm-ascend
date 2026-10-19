@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "mf310p_v2_trial_adapter_api.h"
+#include "mf310p_v2_serve_internal.h"
 
 namespace vllm_ascend {
 void memfabric_mm_ar_v2_shutdown();
@@ -28,25 +28,11 @@ constexpr int64_t kMaxWindowRows = 4096;
 constexpr int64_t kThreshold = 2048;
 constexpr int kDefaultPoolSlots = 4;
 
-struct V2ServeState {
-    std::mutex mutex;
-    mf310p_v2_trial_t* handle = nullptr;
-    int rank = -1;
-    uint32_t chunk_rows = 0;
-    aclrtStream execution_stream = nullptr;
-    bool poisoned = false;
-    std::string failure;
-    // 每个输出槽的内存分配贯穿建池前后整个生命周期。返回的 narrow
-    // 视图会额外持有 StorageImpl 引用，模型仍引用输出时
-    // 禁止回收该槽，否则会覆盖尚未消费的结果。
-    std::vector<at::Tensor> output_slots;
-    at::Tensor input_stage;
-};
+
 
 V2ServeState& state()
 {
-    static V2ServeState s;
-    return s;
+    return v2_serve_state();
 }
 
 int configured_slot_count()
@@ -262,6 +248,12 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
 
 }  // 匿名命名空间
 
+V2ServeState& v2_serve_state()
+{
+    static V2ServeState s;
+    return s;
+}
+
 at::Tensor memfabric_mm_ar_v2_allreduce(
     const at::Tensor& x, const at::Tensor& weight, int64_t tp_rank,
     int64_t chunk_rows)
@@ -315,23 +307,6 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
     }
 }
 
-int64_t memfabric_mm_ar_v2_debug_status()
-{
-    auto& s = state();
-    std::lock_guard<std::mutex> guard(s.mutex);
-    TORCH_CHECK(s.handle != nullptr, "V2 diagnostic requires an initialized pool");
-    const aclError sync = aclrtSynchronizeStream(s.execution_stream);
-    TORCH_CHECK(sync == ACL_SUCCESS, "V2 diagnostic stream sync failed: ", sync);
-    uint64_t protocol = ~0ULL;
-    checked(mf310p_v2_trial_check_status(s.handle, &protocol),
-            "debug status read");
-    if (protocol != 0) {
-        s.poisoned = true;
-        s.failure = "device protocol status " + std::to_string(protocol);
-    }
-    return static_cast<int64_t>(protocol);
-}
-
 void memfabric_mm_ar_v2_shutdown()
 {
     auto& s = state();
@@ -354,10 +329,6 @@ TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
         "int tp_rank, int chunk_rows) -> Tensor");
     ops.impl("memfabric_mm_ar_v2_allreduce", torch::kPrivateUse1,
              &vllm_ascend::memfabric_mm_ar_v2_allreduce);
-    ops.def("memfabric_mm_ar_v2_debug_status() -> int");
-    ops.impl("memfabric_mm_ar_v2_debug_status",
-             c10::DispatchKey::CompositeExplicitAutograd,
-             &vllm_ascend::memfabric_mm_ar_v2_debug_status);
     ops.def("memfabric_mm_ar_v2_shutdown() -> ()");
     ops.impl("memfabric_mm_ar_v2_shutdown",
              c10::DispatchKey::CompositeExplicitAutograd,

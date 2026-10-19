@@ -16,6 +16,23 @@
 - `../test/e2e/`：V2 TP2 路由测试、Stock/V2 三会话评估；
 - `../test/g3_e2e_scripts/`：G3 实机验证驱动及未合入的 Graph 实验快照。
 
+## 正式算子与诊断模块的源码隔离
+
+| 子目录 | 正式运行代码 | 调试、诊断及验证代码 | 共享的内部头文件 |
+|---|---|---|---|
+| `op_kernel/` | `mf310p_v2_kernel.asc`：T0 MM+MemFabric+Add 和 Serving 需要的 IB 自检 | `mf310p_v2_diagnostics.asc`：阶段诊断、T1 NZ 小 M、T2 AR-only、参数探针 | `mf310p_v2_kernel_common.h` |
+| `op_host/` | `mf310p_v2_trial_adapter.cpp`：建池、运行、状态、清理 | `mf310p_v2_trial_diagnostics.cpp`：T1/T2 Host 入口、地址及数据探针 | `mf310p_v2_trial_internal.h`；对应独立 C ABI 头文件 |
+| `torch_adapter/` | `mf310p_v2_serve.cpp`：真实 Qwen V2 Serving Torch Op | `mf310p_v2_serve_diagnostics.cpp`：主动读取协议状态的 Torch 调试 Op | `mf310p_v2_serve_internal.h` |
+
+正式入口保持原 ABI 与符号，诊断代码不再嵌入正式实现文件。**IB 安全自检保留在正式 Kernel**，因为真实 Serving 初始化必须运行该检查，不能依赖可选诊断模块。
+
+构建开关 `VLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS` **默认 ON**，以兼容历史 G0/G1/T1/T2/G3 测试。使用干净的构建目录时，可指定
+`-DVLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS=OFF` 验证正式算子最小构建；
+此时不会导出 T1/T2、扩展探针和 `memfabric_mm_ar_v2_debug_status`。
+OFF 不代表完成生产验收，必须先在 310P3 实机编译和回归。
+
+原始实验报告与问题结论保持归档状态，本次只拆分实现文件和构建清单，不处理先前的 Graph 旁路、Eager 负收益或偶发双卡等待超时。
+
 ## 为什么不直接迁成 ACLNN 算子包？
 
 这是**CANN AscendC Kernel 直调工程**，设备侧自编译成

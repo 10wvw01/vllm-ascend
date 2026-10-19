@@ -26,7 +26,7 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
         OUTPUT "${_lib}"
         COMMAND ${_v2_bisheng}
             --npu-arch=dav-2002 -O2 -std=c++17 -w
-            -shared -fPIC -x asc "${MF310P_V2_KERNEL_SOURCE}"
+            -shared -fPIC -x asc ${MF310P_V2_KERNEL_SOURCES}
             -x none -o "${_lib}"
             -I${ASCEND_HOME_PATH}/aarch64-linux/include
             -I${ASCEND_HOME_PATH}/aarch64-linux/ascendc/include
@@ -34,8 +34,9 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
             -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
             -lascendcl -lruntime -ldl -pthread -lm
             -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
-        DEPENDS "${MF310P_V2_KERNEL_SOURCE}"
-        COMMENT "Building experimental 310P V2 single-kernel MM+AR (dav-2002)"
+        DEPENDS ${MF310P_V2_KERNEL_SOURCES}
+            "${_dir}/op_kernel/mf310p_v2_kernel_common.h"
+        COMMENT "构建 310P3 V2 正式 MM+AR Kernel 和可选诊断 Kernel (dav-2002)"
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
     add_dependencies(${target} mf310p_v2_trial_device_lib)
