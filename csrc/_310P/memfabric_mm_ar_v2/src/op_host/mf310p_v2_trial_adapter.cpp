@@ -1,4 +1,4 @@
-/* Standalone V2 trial adapter: public V1 MemFabric pool host API only. */
+/* 独立 V2 试验适配层：仅复用 V1 的 MemFabric 对称内存公共 Host API。 */
 #include "mf310p_v2_trial_adapter_api.h"
 #include "../../../memfabric_mm_ar/memfabric310p_adapter_api.h"
 #include <acl/acl_rt.h>
@@ -58,10 +58,10 @@ struct mf310p_v2_trial {
     void* status = nullptr;
     void* probe_result = nullptr;
     bool ib_probed = false;
-    // Persistent serving outputs must stay allocated for their whole use.
-    // The previous single-address guard reissued a 0..15s device sync for
-    // every round-robin slot even if that address had already been warmed.
-    // Keep a bounded set; pointer identity alone is NOT a lifetime proof.
+    // 服务输出缓冲区必须在整个使用期间持续存活。
+    // 旧版本只记录上一次输出地址，每次槽位轮换都会
+    // 再次触发长达 0～15 秒的设备同步，即使地址已预热。
+    // 改为有界地址集合；仅凭地址相同不能保证分配生命周期一致。
     uint64_t warmed_y = 0;
     uint64_t trial_warmed_ys[64] = {};
     uint32_t trial_warmed_y_next = 0;
@@ -70,12 +70,7 @@ struct mf310p_v2_trial {
     bool nz_direct_symbol_warmed[5][4] = {};
     bool ar_only_symbol_warmed = false;
     bool ar_only_symbol_launched = false;
-    /* Bounded circular sets of first-write-guard-cleared addresses. The
-     * benchmark rotates several output/staging buffers; a single
-     * last-address cache would re-synchronize (0-15 s) on every rotation.
-     * Known limitation (same as T0): address caching cannot detect a
-     * freed-and-remapped buffer; callers keep buffers alive or accept a
-     * re-warm sync after VMM remap. */
+    /* 使用有界循环集合记录完成首写保护的地址。测试会轮换多个输出和暂存缓冲区，单地址缓存导致每轮重复同步。限制：缓存无法识别已释放后又复映射的地址；调用方必须保持缓冲区存活，必要时重新执行预热同步。 */
     uint64_t ar_only_warmed_ys[64] = {};
     uint32_t ar_only_warmed_y_next = 0;
     uint64_t ar_only_warmed_partials[64] = {};
@@ -111,8 +106,7 @@ uint32_t small_ni(uint32_t cores)
     return 3;
 }
 
-/* Probe results use one 64B slot per core (dav-2002 has no inter-core L1
- * coherence; packed 4B-per-core stores lose writes at L1 writeback). */
+/* 探针为每核分配 64B 结果槽。dav-2002 缺少跨核 L1 一致性，压缩的每核 4B 写入会在缓存回写时丢失。 */
 constexpr uint64_t kProbeResultBytes = 8 * 64;
 
 void free_allocations(mf310p_v2_trial* state)
@@ -139,9 +133,7 @@ extern "C" int mf310p_v2_trial_create(
                            chunk_rows, &s->v1_pool);
     if (!err) err = mf310p_control_barrier(s->v1_pool);
     if (!err) err = mf310p_exchange_geometry(s->v1_pool);
-    /* Layout must be (re)read AFTER exchange_geometry: expected_recv_base /
-     * expected_credit_dst carry peer-space GVAs filled only by the exchange
-     * (mirrors the V1 runtime's post-exchange geometry refresh). */
+    /* exchange_geometry 完成之后才可以读取最新布局；expected_recv_base 和 expected_credit_dst 是交换过程中填入的对端 GVA，遵循 V1 交换后的布局刷新纪律。 */
     if (!err) err = mf310p_get_layout(s->v1_pool, &s->layout);
     if (!err) {
         err = static_cast<int>(aclrtMalloc(
@@ -187,14 +179,14 @@ extern "C" int mf310p_v2_trial_ib_probe(
         reinterpret_cast<uint64_t>(s->probe_result),
         repetitions, 1, acl_stream);
     if (!err) err = static_cast<int>(aclrtSynchronizeStream(acl_stream));
-    uint32_t slots[8 * 16] = {};  /* 8 cores x 64B slot = 16 uint32 each */
+    uint32_t slots[8 * 16] = {};  /* 8 个核各占 64B，即每核 16 个 uint32。 */
     if (!err) err = static_cast<int>(aclrtMemcpy(
         slots, sizeof(slots), s->probe_result, sizeof(slots),
         ACL_MEMCPY_DEVICE_TO_HOST));
     if (!err && (slots[0] != repetitions || slots[16] != repetitions))
         return -2;
-    // The real MM kernel uses 8->1 ready, 1->7 release, 7->1 done.
-    // Warm this distinct device symbol twice before enabling.
+    // 真实 MM Kernel 执行 8→1 就绪、1→7 释放、7→1 完成会合。
+    // 启用前需单独对该设备符号进行两次预热。
     if (!err) err = mf310p_v2_ib_fan_probe_async(
         reinterpret_cast<uint64_t>(s->ib),
         reinterpret_cast<uint64_t>(s->probe_result), 0, 0, acl_stream);
@@ -228,31 +220,13 @@ extern "C" int mf310p_v2_trial_run(
     auto acl_stream = static_cast<aclrtStream>(stream);
     const auto& l = s->layout;
     const bool rank0 = s->rank == 0;
-    // Symmetric logical output: C0 at offset 0, C1 at offset arena_bytes.
+    // 逻辑对称输出：C0 从偏移 0 开始，C1 从 arena_bytes 开始。
     const uint64_t ownC = rank0 ? l.send_arena : l.recv_arena;
     const uint64_t peerC = rank0 ? l.recv_arena : l.send_arena;
     const uint64_t peerDst = rank0 ? l.peer_segment : l.peer_recv_arena;
     const uint64_t expectedRecvDst =
         rank0 ? l.expected_recv_base : l.expected_recv_base - l.arena_bytes;
-    /* T0 BUG #3 guard for the large-M trial kernel, extended by two
-     * measured findings (2026-10-17):
-     *  1. The first MTE3 output write into a buffer allocated after pool
-     *     creation is silently dropped; only a full-device synchronize
-     *     heals it (launch-stream syncs and enable=0 symbol warmups do
-     *     not - G1 first-call regression, y all zeros with status 0).
-     *  2. The FIRST REAL execution of a V2TrialKernel symbol can drop
-     *     its MTE3 output writes even into long-warmed buffers (G2
-     *     chunk=1024 first call into a y written by 200+ prior calls of
-     *     the chunk=256/512 symbols). enable=0 warmups do not prime the
-     *     MTE path, so the first real launch of each symbol also needs
-     *     the device synchronize.
-     * Cost: with the pool active a device synchronize takes a random
-     * 0-15 s (it waits for the AICPU SDMA orchestrator epoch), so this
-     * fires once per trial handle and once per output-buffer change.
-     * Known intermittent risk: a rank-asymmetric slow synchronize can
-     * delay one rank's launch past the peer kernel's in-kernel mail
-     * wait (observed once as an aicore timeout in a 1000-rep G1 run).
-     * The T1 small-M path uses a cheaper stream-sync guard instead. */
+    /* T0 BUG#3 首写保护及 2026-10-17 实测补充：建池后新分配缓冲区的首次 MTE3 输出可能静默丢失；只有 aclrtSynchronizeDevice 能缓解，Stream 同步和 enable=0 预热无效。此外，V2TrialKernel 的首次真实发射即使写入长期预热的 y 也可能丢失结果，因此每个符号首次真实执行也需设备同步。建池后全设备同步可能耗时 0～15 秒，双 Rank 偏斜曾引发 AICore 等待超时。T1 小 M 路径使用开销较小的 Stream 级守护。 */
     const bool first_real_symbol_launch = !s->trial_symbol_launched;
     if (!s->trial_symbol_warmed) {
         for (int i = 0; i < 2; ++i) {
@@ -274,10 +248,10 @@ extern "C" int mf310p_v2_trial_run(
         (first_real_symbol_launch || !output_warmed)) {
         const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
         if (sync_err) return sync_err;
-        // Serving pins registered output allocations for the context's
-        // entire lifetime. Trial callers MUST also keep an address alive
-        // after it has been marked warmed; free/realloc at the same address
-        // is NOT detected by this cache.
+        // 服务为该上下文的整个生命周期固定输出分配。
+        // 试验调用方也必须保证已标记为预热的地址保持存活，
+        // 释放后重新分配到相同地址的情况不能
+        // 由该地址缓存识别。
         if (!output_warmed) {
             s->trial_warmed_ys[s->trial_warmed_y_next] = y;
             s->trial_warmed_y_next =
@@ -298,11 +272,7 @@ extern "C" int mf310p_v2_trial_run(
 }
 
 
-/* T1: original full NZ weight, exact-M direct ND symmetric output.
- * No NZ weight-slice cache; no input staging or output scatter.
- * mm_cores and add_cores are independent {1,2,4,8} parameters.
- * A single public SDMA mail carries M*2048*2 bytes.
- */
+/* T1：直接使用完整 NZ 权重，将精确 M 行结果写入对称 ND 输出；不切分缓存权重、不暂存输入、不散排输出。MM 核数与 Add 核数独立设置为 1/2/4/8。一次公共 SDMA 消息传输 M*2048*2 字节。 */
 extern "C" int mf310p_v2_trial_run_nz_direct_small(
     mf310p_v2_trial_t* s, uint64_t x, uint64_t w, uint64_t y,
     uint32_t m, uint32_t mm_cores, uint32_t add_cores, void* stream)
@@ -336,9 +306,7 @@ extern "C" int mf310p_v2_trial_run_nz_direct_small(
         }
         warmed = true;
     }
-    /* Same first-MTE3-write guard as run(): launch-stream synchronize,
-     * NOT aclrtSynchronizeDevice (measured 0-15 s with the pool active).
-     * Temporary and NOT safe for Graph Capture; callers verify per call. */
+    /* 与 run() 使用同类首次 MTE3 写保护，但仅同步启动 Stream，不使用池存活时可能耗时 0～15 秒的 aclrtSynchronizeDevice。临时试验机制，不适用于 Graph 捕获；调用方须逐次验证。 */
     if (getenv("MF310P_V2_NOWARMUP") == nullptr && s->warmed_y != y) {
         const int sync_err = static_cast<int>(aclrtSynchronizeStream(
             acl_stream));
@@ -357,15 +325,7 @@ extern "C" int mf310p_v2_trial_run_nz_direct_small(
 }
 
 
-/* T2 transport-isolation benchmark: native MM is an ordinary framework
- * operator run BEFORE this ABI on the same stream. This routine performs
- * an explicit D2D copy (native partial -> symmetric C) followed by one
- * AR-only device kernel; both stages must be included in comparisons
- * with native MM+HCCL.
- *
- * No model routing and no direct-source SDMA assumption. D2D is mandatory
- * until ordinary torch allocation registration has been separately proved.
- */
+/* T2 传输隔离基线：同一 Stream 先运行框架原生 MM，再由该 ABI 将局部结果搬到对称 C，启动独立 AR-only 内核。D2D 与 AR 两阶段都必须计入与 Stock 的性能比较。尚未验证普通 PyTorch Tensor 可直接用作 SDMA 源，因此保留必要暂存，且不接入模型路由。 */
 extern "C" int mf310p_v2_trial_run_ar_only(
     mf310p_v2_trial_t* s, uint64_t nativePartial, uint64_t y,
     uint32_t m, uint32_t addCores, void* stream)
@@ -404,21 +364,7 @@ extern "C" int mf310p_v2_trial_run_ar_only(
         s->ar_only_symbol_warmed = true;
     }
 
-    /* First-write guard, corrected by 2026-10-18 T2 measurements:
-     *  - the FIRST REAL launch of the AR-only symbol drops its MTE3 output
-     *    writes (y keeps its prefill, status=0) and a launch-stream
-     *    synchronize does NOT cure it, exactly like the T0 kernel (unlike
-     *    the T1 kernel, where stream sync was sufficient);
-     *  - a fresh D2D staging source page (nativePartial first allocated
-     *    after pool creation) stages garbage: 42/42 wrong (status=0) with
-     *    the partial guard disabled, 42/42 bit-exact with it enabled.
-     * Use the T0-proven full-device synchronize on the first real launch
-     * and on every output / staging-source address not yet cleared (bounded
-     * 64-entry sets; benchmark rotates 4 y slots + per-M staging buffers).
-     * Known cost: with the pool active a device synchronize can take a
-     * random 0-15 s (AICPU SDMA orchestrator epoch); steady-state calls
-     * with already-cleared addresses pay nothing. NOT Graph-safe,
-     * trial-only. */
+    /* 2026-10-18 T2 实测首写守护：AR-only 符号首次真实执行会丢失 MTE3 输出，Stream 同步无效；建池后新分配的原生 MM 暂存源可能读到垃圾数据，协议 status 仍为零。沿用 T0 已验证的全设备同步，在首次真实运行以及出现未保护的输出/暂存地址时触发；使用 64 项有界地址集合。建池后可能耗时 0～15 秒，稳定地址无重复成本。仅供试验，不兼容 Graph。 */
     const bool partial_guard =
         getenv("MF310P_V2_AR_ONLY_PARTIAL_GUARD") == nullptr;
     bool y_known = false;
@@ -449,26 +395,16 @@ extern "C" int mf310p_v2_trial_run_ar_only(
     }
     s->ar_only_symbol_launched = true;
 
-    // Native MM has already been enqueued by the caller on this stream.
-    // Staging uses the AICore V2ArStageKernel, NOT aclrtMemcpyAsync:
-    // the copy engine's reads are not coherent with same-stream AICore
-    // writes on this stack (2026-10-18 T2 measurements: stale staging
-    // with varying content, status=0). The stage kernel ends with
-    // CleanLines of ownC so the following AICPU SDMA signal observes the
-    // staged bytes (T0-proven discipline). Same-stream ordering then
-    // guarantees the AR-only kernel starts after staging completes.
+    // 原生 MM 已由调用方入队到当前 Stream。
+    // 暂存采用 AICore V2ArStageKernel，不使用 aclrtMemcpyAsync：
+    // 该平台拷贝引擎的读取与同 Stream AICore
+    // 写入并非一致（T2 曾复现旧数据，status=0）。暂存内核结尾
+    // 通过 CleanLines 清理 ownC，使后续 AICPU SDMA signal 能看到
+    // 新暂存数据，遵循 T0 已验证的规则。同 Stream 顺序
+    // 还保证 AR-only 内核在暂存完成后才启动。
+    // 因此必须保持上述暂存与通信 Kernel 的串行依赖。
     {
-        /* The first MTE3-storing launch(es) after an idle window can
-         * drop their stores (measured: after the guard's 0-15 s device
-         * synchronize or any per-call stream-sync gap, a single stage
-         * launch can stage nothing — both ranks then reproduce the
-         * PREVIOUS call's result exactly; back-to-back relaunches land).
-         * Two sacrificial launches precede the real one: a measured
-         * 1/128 case at M=1 showed even a pair occasionally both drop.
-         * Same hazard class as T0 BUG#3; enable=0 warmups do not prime
-         * the MTE path. V1's launch-twice discipline, hardened; the
-         * sacrificial output is overwritten by the real launch on the
-         * same stream. */
+        /* 空闲窗口后的首次 MTE3 写可能被丢弃：设备同步或长 Stream 同步间隔后，单次暂存启动可无写出，导致两个 Rank 复现上一轮结果。连续启动更可靠，故在真实执行之前添加两次牺牲性启动；M=1 曾发现两次仍偶发失败。该行为属于 T0 BUG#3 同类风险，enable=0 预热无效。牺牲性输出会被同 Stream 的真实启动覆盖。 */
         const int sacrificial = mf310p_v2_ar_stage_launch_async(
             ownC, nativePartial, bytes, 1, acl_stream);
         if (sacrificial) return sacrificial;
@@ -500,7 +436,7 @@ extern "C" int mf310p_v2_trial_check_status(
         ACL_MEMCPY_DEVICE_TO_HOST));
 }
 
-/* Test scaffolding: DDR-view readback of this rank's send arena. */
+/* 测试辅助：以 DDR 视图读取本 Rank 的发送区。 */
 extern "C" int mf310p_v2_trial_read_send_arena(
     mf310p_v2_trial_t* s, void* host_dst, uint32_t bytes)
 {
@@ -514,10 +450,9 @@ extern "C" int mf310p_v2_trial_read_send_arena(
         ACL_MEMCPY_DEVICE_TO_HOST));
 }
 
-/* Test scaffolding: expose key symmetric addresses for diagnostics. */
+/* 测试辅助：暴露对称内存关键地址供诊断。 */
 extern "C" int mf310p_v2_trial_addresses(
-    mf310p_v2_trial_t* s, uint64_t* out /* pool_base, send_arena, recv_arena,
-        peer_segment, peer_recv_arena, expected_recv_base, arena_bytes */)
+    mf310p_v2_trial_t* s, uint64_t* out /* 地址字段：pool_base、send_arena、recv_arena、peer_segment、peer_recv_arena、expected_recv_base、arena_bytes。 */)
 {
     if (!s || !out) return -1;
     const mf310p_layout_t& l = s->layout;
@@ -531,7 +466,7 @@ extern "C" int mf310p_v2_trial_addresses(
     return 0;
 }
 
-/* Test scaffolding: device addresses of the IB workspace and status buffer. */
+/* 测试辅助：返回 IB 工作区和状态缓冲区的设备地址。 */
 extern "C" uint64_t mf310p_v2_trial_ib_addr(mf310p_v2_trial_t* s)
 {
     return s ? reinterpret_cast<uint64_t>(s->ib) : 0;
@@ -542,7 +477,7 @@ extern "C" uint64_t mf310p_v2_trial_status_addr(mf310p_v2_trial_t* s)
     return s ? reinterpret_cast<uint64_t>(s->status) : 0;
 }
 
-/* Test scaffolding: read the full 64B status region (8 words). */
+/* 测试辅助：读取完整 64B 状态区（8 个字）。 */
 extern "C" int mf310p_v2_trial_status_words(
     mf310p_v2_trial_t* s, uint64_t* out8)
 {
@@ -553,7 +488,7 @@ extern "C" int mf310p_v2_trial_status_words(
 }
 
 namespace {
-/* Symmetric-region address computation shared by run() and diag(). */
+/* 计算对称区地址的公共逻辑，供 run() 与 diag() 复用。 */
 struct SymmetricAddr {
     uint64_t ownC, ownPeerC, peerDst, expectedRecvDst;
 };
@@ -569,7 +504,7 @@ SymmetricAddr symmetric_addr(const mf310p_layout_t& l, uint32_t rank)
         rank0 ? l.expected_recv_base : l.expected_recv_base - l.arena_bytes;
     return a;
 }
-} // namespace
+} // 匿名命名空间
 
 extern "C" int mf310p_v2_trial_diag(
     mf310p_v2_trial_t* s, uint64_t x, uint64_t w, uint64_t y,
@@ -630,8 +565,7 @@ extern "C" int mf310p_v2_trial_diag(
         return l6(1);
     }
     if (diag == 5) {
-        /* Launch the REAL V2TrialKernel through the production launcher
-         * with the same one-chunk serial shape the IbDone diag uses. */
+        /* 通过正式启动入口执行真正的 V2TrialKernel，使用与 IbDone 诊断相同的单 Chunk 串行形状。 */
         const SymmetricAddr a5 = symmetric_addr(s->layout, s->rank);
         for (int i = 0; i < 2; ++i) {
             const int rc = mf310p_v2_trial_launch_async(

@@ -1,18 +1,4 @@
-/*
- * Experimental TP=2 Qwen V2 serving bridge.
- *
- * No V1 runtime or device kernel is modified. The already device-validated
- * V2 trial MM+SDMA+Add kernel is wrapped as one PyTorch op, with an explicit
- * >=2048-token routing contract handled by the Python linear method.
- *
- * IMPORTANT: first-write MTE3 mitigation is provisional, not silicon fix.
- * Pool outputs are allocated BEFORE MemFabric creation and remain pinned for
- * this worker lifetime. Each output address is exercised with a real two-rank
- * wave during eager initialization; T0's device-sync guard runs ONLY during
- * this initialization, not repeatedly as the four pinned slots rotate.
- * The current platform may still fail for a new kernel/runtime combination:
- * correctness and startup skew MUST be tested on 310P3.
- */
+/* Qwen TP=2 的 V2 实验服务桥接层。保持 V1 Runtime 与设备 Kernel 原样，通过独立 PyTorch Op 调用已实机验证的 V2 MM+SDMA+Add。Python LinearMethod 负责 M 区间路由。MTE3 首写保护只是工程规避：所有输出在建池前分配并在整个 Worker 生命周期固定存活；Eager 初始化逐槽执行真实两卡通信波与设备同步。新的设备内核组合仍必须实机验证首写正确性和双 Rank 启动偏斜。 */
 #include <ATen/ATen.h>
 #include <c10/util/Exception.h>
 #include <torch/extension.h>
@@ -36,8 +22,8 @@ void memfabric_mm_ar_v2_shutdown();
 namespace {
 
 constexpr int64_t kWidth = 2048;
-// Current serving scheduler sets --max-num-batched-tokens 4096.
-// This bounds per-forward M; T0's independent 8192-row trial is unchanged.
+// 本服务的调度参数设置 --max-num-batched-tokens=4096。
+// 因此每次 Forward 的 M≤4096；T0 独立 8192 行实测能力不受影响。
 constexpr int64_t kMaxWindowRows = 4096;
 constexpr int64_t kThreshold = 2048;
 constexpr int kDefaultPoolSlots = 4;
@@ -50,9 +36,9 @@ struct V2ServeState {
     aclrtStream execution_stream = nullptr;
     bool poisoned = false;
     std::string failure;
-    // Each slot has a fixed pre-pool allocator lifetime. A returned narrow
-    // view owns a StorageImpl ref; a slot may be reused only after all views
-    // have gone. Reusing still-live outputs is a correctness bug.
+    // 每个输出槽的内存分配贯穿建池前后整个生命周期。返回的 narrow
+    // 视图会额外持有 StorageImpl 引用，模型仍引用输出时
+    // 禁止回收该槽，否则会覆盖尚未消费的结果。
     std::vector<at::Tensor> output_slots;
     at::Tensor input_stage;
 };
@@ -98,8 +84,8 @@ void check_protocol(V2ServeState& s, const char* where)
 void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                           const at::Tensor& w, aclrtStream stream)
 {
-    // m >= 2048 is guaranteed by the public serving API. Limit the warm
-    // wave to two chunks: use the same real MM/SMM protocol as steady state.
+    // 服务 API 保证 M≥2048；初始化真实预热限制为两块，
+    // 使用与稳定运行一致的 MM/SDMA 通信协议。
     const uint32_t warm_rows = 2u * s.chunk_rows;
     TORCH_CHECK(x.size(0) >= static_cast<int64_t>(warm_rows),
                 "V2 bootstrap requires at least two complete chunks");
@@ -116,12 +102,12 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                     "V2 prewarm stream sync failed: ", sync);
         check_protocol(s, "prewarm");
     }
-    // Also exercise the unaligned-tail staging path once during init: the
-    // first staged copy_ + padded wave (and the first MM read of the stage
-    // pages) must not fall on a live request. The 2026-10-18 cold-pool
-    // incident (garbage M=2049 output, status=0, only on the first loads
-    // of a freshly deployed orchestrator kernel) showed the staged path
-    // can be the first thing to break; warm it explicitly here.
+    // 初始化时还要覆盖非对齐尾行的暂存路径，
+    // 首次 stage.copy_、补齐后的通信波和阶段缓冲区
+    // 第一次被 MM 读取，不得发生于用户请求。2026-10-18
+    // 冷池事件中 M=2049 首次输出损坏且 status=0，
+    // 只有新部署 orchestrator Kernel 的最初若干次加载异常，
+    // 因此在初始化时明确触发该路径。
     const int64_t tail_rows = static_cast<int64_t>(warm_rows) - 1;
     s.input_stage.narrow(0, 0, tail_rows)
         .copy_(x.narrow(0, 0, tail_rows));
@@ -139,13 +125,13 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                 "V2 staged-tail prewarm sync failed: ", tail_sync);
     check_protocol(s, "staged-tail prewarm");
 
-    // Depth sweep: run one staged wave at EVERY chunk multiple in the
-    // serving window [2048, 4096]. The 2026-10-19 cold-cycle incident
-    // (cycle 17: first 3-chunk staged wave corrupted with status=0 after
-    // the 2-chunk prewarm above had passed) shows first-use-at-a-new-wave-
-    // count is an independent cold hazard; the stage is wrap-filled from x
-    // so the sweep needs no more rows than the first call provides, and
-    // the transport never interprets payload content.
+    // 深度扫描：对 [2048,4096] 内所有 Chunk 整倍数
+    // 逐一执行暂存通信波。2026-10-19 冷启动第 17 轮
+    // 曾出现两块预热通过而首次三块输出损坏，status=0；
+    // 说明新波深度也存在独立首用风险。暂存缓冲区
+    // 采用 x 循环填充，不要求首次输入超过实际行数，
+    // 且每次调用所需补齐行数都可由暂存区覆盖，
+    // 传输机制不解析具体数据内容。
     const int64_t stage_rows = s.input_stage.size(0);
     for (int64_t off = 0; off < stage_rows; off += x.size(0)) {
         const int64_t n = std::min<int64_t>(x.size(0), stage_rows - off);
@@ -181,9 +167,9 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
         return;
     }
 
-    // Output slots and the padded input are allocated *before* create().
-    // This is a platform first-MTE3-write mitigation, not a proven cure.
-    // All allocations are pinned in this state until worker shutdown.
+    // 输出槽与补齐输入区都必须在 create() 之前分配。
+    // 这是平台 MTE3 首写问题的缓解，不代表根因已修复。
+    // 所有分配保持固定存活直至 Worker 退出。
     const int count = configured_slot_count();
     s.output_slots.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -191,7 +177,7 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
             at::empty({kMaxWindowRows, kWidth}, x.options()));
     }
     s.input_stage = at::zeros({kMaxWindowRows, kWidth}, x.options());
-    // Ensure all pre-pool buffer preparations are actually complete.
+    // 确保建池前的所有缓冲区初始化与准备都已经完成。
     const aclError init_sync = aclrtSynchronizeStream(stream);
     TORCH_CHECK(init_sync == ACL_SUCCESS,
                 "V2 pre-pool allocation/init sync failed ", init_sync);
@@ -217,12 +203,12 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
 at::Tensor reserve_slot_locked(V2ServeState& s)
 {
     for (auto& slot : s.output_slots) {
-        // Idle baseline on torch 2.10: exactly one StorageImpl reference,
-        // held by this state's vector entry (TensorBase::storage() returns
-        // const Storage&, adding no temporary). A narrow/reshape view
-        // returned to model code holds a second reference, so any count
-        // above 1 means the slot is still in flight.
-        // Never return an in-use slot, including across layer calls.
+        // torch 2.10 空闲槽 StorageImpl 的引用计数恰好是 1，
+        // 仅由状态对象里的 Tensor 持有；TensorBase::storage() 返回
+        // const Storage&，不会增加临时引用。返回的 narrow/reshape
+        // 视图会使引用数至少为 2，因此大于 1 表示还在使用。
+        // 超过 1 个引用的输出槽仍处于在途状态。
+        // 即使跨不同层调用，也绝不可复用仍被引用的槽。
         if (slot.storage().use_count() == 1) {
             return slot;
         }
@@ -232,7 +218,7 @@ at::Tensor reserve_slot_locked(V2ServeState& s)
         " slots are still referenced by model tensors. Increase "
         "VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS (max 16), "
         "or reduce in-flight requests. Refusing unsafe alias/reuse.");
-    return at::Tensor();  // unreachable after TORCH_CHECK; satisfy C++ diagnostics
+    return at::Tensor();  // TORCH_CHECK 已终止流程；此返回值仅用于满足 C++ 编译诊断。
 }
 
 void run_window_locked(V2ServeState& s, const at::Tensor& x,
@@ -245,16 +231,16 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
          s.chunk_rows) * s.chunk_rows);
     TORCH_CHECK(padded >= kThreshold && padded <= kMaxWindowRows,
                 "V2 invalid padded window size ", padded);
-    // For an aligned, contiguous full window, avoid staging entirely.
-    // For unaligned tails, use the resident stage tensor (row-local MM
-    // semantics: stale data above rows is never returned to the caller).
+    // 若输入行数已对齐且连续，则跳过暂存。
+    // 非对齐尾块使用常驻暂存 Tensor；MM 以行为单位独立，
+    // 有效行之后的旧内容永远不返回调用方。
     at::Tensor source;
     if (rows == padded) {
         source = x.narrow(0, start, rows);
     } else {
-        // A torch NPU vector copy is used instead of raw aclrtMemcpyAsync;
-        // T2 showed the latter can observe stale producer data on 310P3.
-        // This stage is same-stream and serialized before the V2 kernel.
+        // 这里使用 torch NPU 向量拷贝，不直接调用 aclrtMemcpyAsync，
+        // 因为 T2 实测后者在 310P3 可读到过时的上游数据。
+        // 暂存与 V2 Kernel 在同一 Stream 上串行。
         s.input_stage.narrow(0, 0, rows).copy_(
             x.narrow(0, start, rows));
         source = s.input_stage;
@@ -268,13 +254,13 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
                 reinterpret_cast<void*>(stream)),
             "MM+MemFabric overlap");
 
-    // Status is surfaced by the device fail-stop path asynchronously.
-    // Host synchronization on every invocation would destroy the measured
-    // overlap and Graph compatibility; the test harness must drain and
-    // inspect status explicitly under stress and before process shutdown.
+    // 设备端失败会异步暴露在协议状态中。
+    // 逐调用执行 Host 同步会破坏交叠性能，
+    // 也不利于 Graph 运行；测试压力阶段及退出前必须
+    // 主动同步并检查协议 status。
 }
 
-}  // namespace
+}  // 匿名命名空间
 
 at::Tensor memfabric_mm_ar_v2_allreduce(
     const at::Tensor& x, const at::Tensor& weight, int64_t tp_rank,
@@ -316,9 +302,9 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
         init_locked(s, x, weight, tp_rank,
                     static_cast<uint32_t>(chunk_rows), stream);
         const int64_t rows = x.size(0);
-        // All requests in the configured serving profile fit one T0 wave.
-        // Unaligned M is padded by run_window_locked(), then narrowed back
-        // to exactly rows. No multi-window scheduling is needed in G3.
+        // 本服务固定预算内的所有请求都能在一个 T0 波内执行。
+        // 非对齐 M 由 run_window_locked() 补齐，
+        // 返回时再裁剪到精确的有效行数，无需多段调度。
         at::Tensor slot = reserve_slot_locked(s);
         run_window_locked(s, x, weight, 0, rows, slot, stream);
         return slot.narrow(0, 0, rows);
@@ -359,7 +345,7 @@ void memfabric_mm_ar_v2_shutdown()
     s.output_slots.clear();
 }
 
-}  // namespace vllm_ascend
+}  // vllm_ascend 命名空间
 
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {

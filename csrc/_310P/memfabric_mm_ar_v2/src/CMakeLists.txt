@@ -1,13 +1,13 @@
-# 310P3 V2 Ascend C direct-invoke source manifest.
-# Loaded from the parent vllm_ascend cmake integration. This project is
-# NOT a conventional aclnn custom-op package: shape/kernel registration and
-# torch binding are owned by the existing vllm-ascend extension. Turning this
-# into npu_op_package() would change the ABI and invalidate hardware results.
+# 310P3 V2 Ascend C 直调工程源码清单。
+# 由上层 vllm_ascend CMake 集成加载；本项目
+# 不是常规 ACLNN 自定义算子包，形状及内核注册与
+# Torch 绑定归原有 vllm-ascend 扩展负责，强行改成
+# npu_op_package() 会改变 ABI 并使已验证结果失效。
 #
-# Standard CANN engineering split:
-#   op_kernel/    Ascend C device kernel, bisheng dav-2002
-#   op_host/      MemFabric public host API bridge + ABI declaration
-#   torch_adapter/ PyTorch/Torch Library vLLM-facing entrypoint
+# 遵循 CANN 标准的工程目录分层：
+# op_kernel/：Ascend C 设备内核，由 bisheng 编译至 dav-2002。
+# op_host/：MemFabric 公共 Host API 及 ABI 声明。
+# torch_adapter/：供 vLLM 使用的 PyTorch/Torch Library 接入层。
 set(MF310P_V2_KERNEL_SOURCE
     "${CMAKE_CURRENT_LIST_DIR}/op_kernel/mf310p_v2_trial_device.asc")
 set(MF310P_V2_HOST_SOURCES
