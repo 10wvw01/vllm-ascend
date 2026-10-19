@@ -1,6 +1,6 @@
 /* Standalone V2 trial adapter: public V1 MemFabric pool host API only. */
 #include "mf310p_v2_trial_adapter_api.h"
-#include "../memfabric_mm_ar/memfabric310p_adapter_api.h"
+#include "../../../memfabric_mm_ar/memfabric310p_adapter_api.h"
 #include <acl/acl_rt.h>
 #include <cstdint>
 #include <cstdlib>

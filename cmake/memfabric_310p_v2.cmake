@@ -6,7 +6,8 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
     if(NOT SOC_VERSION MATCHES "ascend310p.*")
         message(FATAL_ERROR "V2 trial is restricted to ascend310p*")
     endif()
-    set(_dir "${CMAKE_SOURCE_DIR}/csrc/_310P/memfabric_mm_ar_v2")
+    set(_dir "${CMAKE_SOURCE_DIR}/csrc/_310P/memfabric_mm_ar_v2/src")
+    include("${_dir}/CMakeLists.txt")
     set(_mf_home "$ENV{MEMFABRIC_HYBRID_HOME_PATH}")
     set(_arch "${CMAKE_SYSTEM_PROCESSOR}-linux")
     find_path(_v2_mf_device_inc NAMES smem_shm_aicore_base_sdma.h
@@ -25,7 +26,7 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
         OUTPUT "${_lib}"
         COMMAND ${_v2_bisheng}
             --npu-arch=dav-2002 -O2 -std=c++17 -w
-            -shared -fPIC -x asc "${_dir}/mf310p_v2_trial_device.asc"
+            -shared -fPIC -x asc "${MF310P_V2_KERNEL_SOURCE}"
             -x none -o "${_lib}"
             -I${ASCEND_HOME_PATH}/aarch64-linux/include
             -I${ASCEND_HOME_PATH}/aarch64-linux/ascendc/include
@@ -33,15 +34,13 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
             -L${ASCEND_HOME_PATH}/aarch64-linux/lib64
             -lascendcl -lruntime -ldl -pthread -lm
             -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
-        DEPENDS "${_dir}/mf310p_v2_trial_device.asc"
+        DEPENDS "${MF310P_V2_KERNEL_SOURCE}"
         COMMENT "Building experimental 310P V2 single-kernel MM+AR (dav-2002)"
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
     add_dependencies(${target} mf310p_v2_trial_device_lib)
-    target_sources(${target} PRIVATE
-        "${_dir}/mf310p_v2_trial_adapter.cpp"
-        "${_dir}/mf310p_v2_serve.cpp")
-    target_include_directories(${target} PRIVATE "${_dir}")
+    target_sources(${target} PRIVATE ${MF310P_V2_HOST_SOURCES})
+    target_include_directories(${target} PRIVATE ${MF310P_V2_HOST_INCLUDE_DIRS})
     target_link_libraries(${target} PRIVATE "-Wl,--no-as-needed" "${_lib}" "-Wl,--as-needed")
     install(FILES "${_lib}" DESTINATION .)
     message(STATUS "V2 trial and opt-in 310P3 serving op compiled; V2 serving routing remains disabled by default")

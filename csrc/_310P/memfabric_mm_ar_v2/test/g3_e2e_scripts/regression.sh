@@ -37,7 +37,7 @@ echo "t1 rc=$?" | tee -a "$OUT/status.txt"
 sleep 45
 # T2 AR-only stress (bit-exact + status; staged AICore path)
 timeout 1200 torchrun --standalone --nproc-per-node=2 \
-  csrc/_310P/memfabric_mm_ar_v2/t2_ar_stress.py --chunk-rows 1024 --repeat 100 \
+  csrc/_310P/memfabric_mm_ar_v2/test/t2_ar_stress.py --chunk-rows 1024 --repeat 100 \
   > "$OUT/t2.log" 2>&1
 echo "t2 rc=$?" | tee -a "$OUT/status.txt"
 sleep 45

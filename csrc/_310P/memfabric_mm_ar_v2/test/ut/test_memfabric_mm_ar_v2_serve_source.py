@@ -5,14 +5,16 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 V2PY = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py"
 V1PY = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar.py"
 ROUTER = ROOT / "vllm_ascend/_310p/quantization/modelslim_config.py"
 HOOKS = ROOT / "vllm_ascend/_310p/ops/memfabric_mm_ar_runner_hooks.py"
-V2SRC = ROOT / "csrc/_310P/memfabric_mm_ar_v2"
-V2CPP = V2SRC / "mf310p_v2_serve.cpp"
-V2ADAPTER = V2SRC / "mf310p_v2_trial_adapter.cpp"
+V2SRC = ROOT / "csrc/_310P/memfabric_mm_ar_v2/src"
+V2CPP = V2SRC / "torch_adapter/mf310p_v2_serve.cpp"
+V2ADAPTER = V2SRC / "op_host/mf310p_v2_trial_adapter.cpp"
+V2DEVICE = V2SRC / "op_kernel/mf310p_v2_trial_device.asc"
+V2MANIFEST = V2SRC / "CMakeLists.txt"
 V2BUILD = ROOT / "cmake/memfabric_310p_v2.cmake"
 
 
@@ -68,7 +70,12 @@ def test_v1_route_is_unchanged_without_opt_in():
 def test_v2_native_op_is_separately_compiled_and_graph_fail_closed():
     cpp = V2CPP.read_text()
     cmake = V2BUILD.read_text()
-    assert "mf310p_v2_serve.cpp" in cmake
+    assert 'include("${_dir}/CMakeLists.txt")' in cmake
+    manifest = V2MANIFEST.read_text()
+    assert "mf310p_v2_serve.cpp" in manifest
+    assert "mf310p_v2_trial_adapter.cpp" in manifest
+    assert "mf310p_v2_trial_device.asc" in manifest
+    assert V2DEVICE.exists()
     assert "memfabric_mm_ar_v2_allreduce(Tensor x, Tensor weight" in cpp
     assert "currentStreamCaptureStatusMayInitCtx" in cpp
     assert "FULL_DECODE_ONLY" in cpp

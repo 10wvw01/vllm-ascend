@@ -17,7 +17,7 @@ export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL="tcp://127.0.0.1:${STORE_PORT}"
 pass=0; fail=0
 for i in $(seq 1 "$CYCLES"); do
     timeout 600 torchrun --standalone --nproc-per-node=2 \
-        tests/e2e/_310p/tp2_v2_mixed_route_correctness.py \
+        csrc/_310P/memfabric_mm_ar_v2/test/e2e/tp2_v2_mixed_route_correctness.py \
         --rows 2048 2049 3073 4095 4097 --chunk-rows 1024 --reps 1 \
         > "$OUT_DIR/cycle_$i.log" 2>&1
     rc=$?
