@@ -8,6 +8,13 @@ pre-pool output buffer lease and exact-M tail padding at the C++ boundary.
 Current safety contract: only FULL_DECODE_ONLY graph (capture sizes <2048)
 is supported; large-M fused prefill is eager. Production enablement still
 requires G3 first-write, KFC and TP skew evidence from real 310P3 tests.
+
+The first fused call of each tail shape class (chunk-aligned vs padded)
+is verified bit-exact against the stock MM + HCCL path. A mismatch raises
+immediately (fail-stop) instead of letting a cold-pool wave silently
+corrupt model outputs: the 2026-10-18 cold-orchestrator incident produced
+garbage outputs with protocol status 0 on the first loads of a freshly
+deployed kernel.
 """
 from __future__ import annotations
 
@@ -22,6 +29,8 @@ _pool_started = False
 _logged_stock = False
 _logged_fused = False
 _logged_oversize_stock = False
+_verified_aligned = False
+_verified_padded = False
 
 
 def v2_pool_started() -> bool:
@@ -59,7 +68,8 @@ def make_memfabric_mm_ar_v2_linear_method():
             x: torch.Tensor,
             bias: torch.Tensor | None = None,
         ) -> torch.Tensor:
-            global _pool_started, _logged_stock, _logged_fused, _logged_oversize_stock
+            global _pool_started, _logged_stock, _logged_fused
+            global _logged_oversize_stock, _verified_aligned, _verified_padded
 
             if not is_memfabric_mm_ar_configured(layer):
                 return super().apply(layer, x, bias)
@@ -106,6 +116,36 @@ def make_memfabric_mm_ar_v2_linear_method():
             if not _logged_fused:
                 logger.info("[mf310p-v2] M=%d within [2048,4096]: V2 MM+MemFabric (chunk=%d)", x.shape[0], chunk)
                 _logged_fused = True
+
+            # Numerical gate for the first fused call of each tail shape
+            # class. Both ranks run this symmetrically; the 2-rank FP16 sum
+            # is order-independent, so bit-exact equality with the stock
+            # path is the expected steady-state behavior (proven by the
+            # TP=2 mixed-route test). A cold pool/transport must fail
+            # loudly here instead of silently corrupting model outputs.
+            aligned = (int(x.shape[0]) % chunk) == 0
+            needs_verify = (aligned and not _verified_aligned) or (
+                (not aligned) and not _verified_padded)
+            if needs_verify:
+                from vllm.distributed import tensor_model_parallel_all_reduce
+                reference = tensor_model_parallel_all_reduce(
+                    super().apply(layer, x, bias))
+                if not torch.equal(out, reference):
+                    bad = int((out != reference).sum().item())
+                    raise RuntimeError(
+                        "[mf310p-v2] first fused call verification FAILED "
+                        f"(M={x.shape[0]}, aligned={aligned}, mismatched "
+                        f"elements={bad}). The MemFabric pool is in a cold/"
+                        "corrupted state; restart BOTH TP=2 workers (and "
+                        "re-check the orchestrator kernel deployment)."
+                    )
+                if aligned:
+                    _verified_aligned = True
+                else:
+                    _verified_padded = True
+                logger.info(
+                    "[mf310p-v2] first fused call verified bit-exact vs "
+                    "stock (M=%d, aligned=%s)", x.shape[0], aligned)
             # The V2 op already performs a TP=2 reduction. Generic HCCL
             # MUST NOT run again on this branch.
             return out

@@ -82,16 +82,36 @@ def test_pool_outputs_are_preallocated_and_live_views_not_overwritten():
     before = cpp.index("s.output_slots.reserve(")
     create = cpp.index("mf310p_v2_trial_create(")
     assert before < create
-    assert "slot.storage().use_count() == 2" in cpp
+    # torch 2.10: TensorBase::storage() returns const Storage& (no
+    # temporary ref), so an idle slot's StorageImpl count is exactly 1
+    # (the state vector entry); any view held by model code raises it.
+    assert "slot.storage().use_count() == 1" in cpp
+    assert "use_count() == 2" not in cpp
     assert "V2 pooled outputs exhausted" in cpp
     assert "warm_outputs_locked(s, x, w, stream)" in cpp
     assert "check_protocol(s, \"prewarm\")" in cpp
+    # The unaligned-tail staging path must also be warmed during init:
+    # the cold-orchestrator incident hit the first staged wave first.
+    assert "check_protocol(s, \"staged-tail prewarm\")" in cpp
+    assert "s.input_stage.narrow(0, 0, tail_rows)" in cpp
     assert "std::atexit(&memfabric_mm_ar_v2_shutdown)" in cpp
     assert "output_slots.clear()" in cpp
     assert "memfabric_mm_ar_v2_shutdown()" in cpp
     adapter = V2ADAPTER.read_text()
     assert "trial_warmed_ys[64]" in adapter
     assert "trial_warmed_y_next" in adapter
+
+
+def test_first_fused_call_is_numerically_verified_per_shape_class():
+    code = V2PY.read_text()
+    assert "_verified_aligned = False" in code
+    assert "_verified_padded = False" in code
+    assert "torch.equal(out, reference)" in code
+    assert "first fused call verification FAILED" in code
+    # Verification recomputes the stock path (native MM + HCCL AR) once
+    # per shape class and must not turn into a per-call tax.
+    assert code.count("needs_verify") >= 2
+    assert "super().apply(layer, x, bias))" in code
 
 
 def test_g3_tail_is_padded_and_multi_window_is_out_of_scope():

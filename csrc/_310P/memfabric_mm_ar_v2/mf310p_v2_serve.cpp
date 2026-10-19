@@ -96,7 +96,7 @@ void check_protocol(V2ServeState& s, const char* where)
 }
 
 void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
-                         const at::Tensor& w, aclrtStream stream)
+                          const at::Tensor& w, aclrtStream stream)
 {
     // m >= 2048 is guaranteed by the public serving API. Limit the warm
     // wave to two chunks: use the same real MM/SMM protocol as steady state.
@@ -116,6 +116,28 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                     "V2 prewarm stream sync failed: ", sync);
         check_protocol(s, "prewarm");
     }
+    // Also exercise the unaligned-tail staging path once during init: the
+    // first staged copy_ + padded wave (and the first MM read of the stage
+    // pages) must not fall on a live request. The 2026-10-18 cold-pool
+    // incident (garbage M=2049 output, status=0, only on the first loads
+    // of a freshly deployed orchestrator kernel) showed the staged path
+    // can be the first thing to break; warm it explicitly here.
+    const int64_t tail_rows = static_cast<int64_t>(warm_rows) - 1;
+    s.input_stage.narrow(0, 0, tail_rows)
+        .copy_(x.narrow(0, 0, tail_rows));
+    checked(mf310p_v2_trial_run(
+                s.handle,
+                reinterpret_cast<uint64_t>(s.input_stage.const_data_ptr()),
+                weight,
+                reinterpret_cast<uint64_t>(s.output_slots.front().data_ptr()),
+                static_cast<uint32_t>(
+                    std::max<int64_t>(kThreshold, warm_rows)),
+                1, reinterpret_cast<void*>(stream)),
+            "staged-tail prewarm");
+    const aclError tail_sync = aclrtSynchronizeStream(stream);
+    TORCH_CHECK(tail_sync == ACL_SUCCESS,
+                "V2 staged-tail prewarm sync failed: ", tail_sync);
+    check_protocol(s, "staged-tail prewarm");
 }
 
 void init_locked(V2ServeState& s, const at::Tensor& x,
@@ -167,11 +189,13 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
 at::Tensor reserve_slot_locked(V2ServeState& s)
 {
     for (auto& slot : s.output_slots) {
-        // storage() returns a temporary Storage handle: its extra ref
-        // brings the idle count to exactly two (state slot + temporary).
-        // A narrow/reshape result held by model code increments that count.
+        // Idle baseline on torch 2.10: exactly one StorageImpl reference,
+        // held by this state's vector entry (TensorBase::storage() returns
+        // const Storage&, adding no temporary). A narrow/reshape view
+        // returned to model code holds a second reference, so any count
+        // above 1 means the slot is still in flight.
         // Never return an in-use slot, including across layer calls.
-        if (slot.storage().use_count() == 2) {
+        if (slot.storage().use_count() == 1) {
             return slot;
         }
     }
