@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""310P3 TP=2 experimental V2 original-NZ direct-ND small-M benchmark.
+"""310P3 TP=2 下 V2 原始 NZ 直接 ND 的小 M 实验基准。
 
-Run only with the V2 experimental build enabled; no V1 serving in parallel.
+仅在启用 V2 实验编译的环境中运行，不得并行启动 V1 Serving。
 
   ASCEND_RT_VISIBLE_DEVICES=0,1 \
   VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 \
@@ -10,10 +10,10 @@ Run only with the V2 experimental build enabled; no V1 serving in parallel.
     csrc/_310P/memfabric_mm_ar_v2/test/bench_nz_direct_small.py \
     --rows 1 2 4 8 16 32 64 128 255 256 --add-cores 1 2 4 8
 
-Each rank computes the stock FP16 MM + FP32 HCCL sum reference BEFORE
-initializing MemFabric, avoiding a concurrent HCCL/MemFabric data plane.
-C timings include enqueue and stream sync; no input staging, weight-slice build or blocked-output transform.
-Compare V1 through the separate V1 benchmark after this process exits.
+两个 Rank 都在 MemFabric 建池之前计算 FP16 原生 MM + FP32 HCCL 求和参考，
+避免本次实验中同时运行 HCCL/MemFabric 数据面。
+方案 C 的计时含发射与 Stream 同步，不含输入暂存、切分权重或块输出转换。
+V1 比较应在本进程结束后通过独立 V1 基准完成。
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def main() -> None:
     dist.init_process_group("hccl")
     cpu_group = dist.new_group(backend="gloo")
 
-    # The same non-quantized FP16 NZ weight contract as the V1 layer test.
+    # 采用与 V1 层级测试相同的未量化 FP16 NZ 权重合同。
     torch.manual_seed(123 + rank)
     weight = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=device))
     xs, refs, stock = {}, {}, {}
@@ -124,8 +124,8 @@ def main() -> None:
             ref = refs[m]
             for mm_cores in a.mm_cores:
                 for add_cores in a.add_cores:
-                    # Deliberately allocate y AFTER MemFabric creation;
-                    # retain T0's first-output guard as a separate finding.
+                    # 故意在 MemFabric 建池之后分配 y；
+                    # 将 T0 首次输出保护作为独立的实验观察项。
                     out = torch.empty_like(ref)
                     timings = []
                     first = 0.0
@@ -168,7 +168,7 @@ def main() -> None:
                         )
         dist.barrier(group=cpu_group)
     finally:
-        # Requires the caller's stream to be drained before pool teardown.
+        # 池销毁前要求调用方已完成 Stream 同步。
         sync()
         check(api.mf310p_v2_trial_destroy(handle), "trial_destroy")
     dist.barrier(group=cpu_group)

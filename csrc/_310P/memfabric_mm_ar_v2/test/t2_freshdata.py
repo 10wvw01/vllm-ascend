@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Decisive test: does the REAL B path (F.linear output -> staging -> AR kernel)
-read STALE staging data when the input content changes every call?
+"""验证完整 B 路径（F.linear 输出→暂存→AR Kernel）在输入
+每轮变化时是否错误读取过时的暂存数据。
 
-Pre-pool: N inputs + HCCL references for one fixed M.
-Post-pool: cycle through the inputs with FIXED warm addresses (y slot +
-allocator-reused partial), per-call bit-exact verify. Any stale read of the
-staging source (previous call's partial) fails immediately because
-content differs per call.
+建池前：为固定 M 生成 N 组输入及 HCCL 参考。
+建池后：轮换输入，复用已预热的 y 与局部结果内存地址，
+逐次进行位精确校验。由于每轮输入不同，只要暂存误读
+上轮局部结果便会立刻产生校验失败。
 """
 
 from __future__ import annotations
@@ -94,7 +93,7 @@ def main():
         xs.append(x)
         refs.append(local.to(torch.float16))
     y = torch.empty_like(refs[0])
-    # deterministic own partials + gathered peer partials for classification
+    # 创建确定性本端局部结果，并收集对端结果以定位错误来源。
     owns = [F.linear(x, weight) for x in xs]
     peer_all = [None] * dist.get_world_size()
     dist.all_gather_object(peer_all, [o.cpu() for o in owns], group=cpu_group)
@@ -120,7 +119,7 @@ def main():
             x, ref = xs[v], refs[v]
             partial = F.linear(x, weight)
             if os.environ.get("T2_SYNC_BEFORE_AR") == "1":
-                stream.synchronize()  # make MM output DDR/L2-visible
+                stream.synchronize()  # 确保 MM 输出对 DDR/L2 读取方可见
             rc = lib.mf310p_v2_trial_run_ar_only(handle, partial.data_ptr(), y.data_ptr(), a.m, a.add, raw_stream)
             assert rc == 0
             stream.synchronize()
@@ -145,8 +144,8 @@ def main():
                         prev = j
                     runs.append((start, prev - start + 1))
                 runs = runs[:4]
-                # region-vintage classification: for each bad run, find
-                # which vintage explains the wrong bytes.
+                # 按不同调用代际对错误片段分类，判断
+                # 哪一轮数据可以解释实际读到的错误字节。
                 cls = []
                 flat_y = y.flatten()
                 for rs, rl in runs:

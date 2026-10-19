@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
-# Single-card T1 MM isolation: mf310p_v2_diag_nzdirect_mm_async vs F.linear
-# (original-NZ N-split + direct-ND SetOrgShape/SetSingleShape contract).
-# No MemFabric pool, no distributed, no IB/SDMA - pure matmul correctness.
-# Set DIAG_PRESYNC=1 to heal the first-MTE3-write drop hazard (see
-# T1_NZ_DIRECT_REPORT.md); without it, fresh-buffer results are unreliable.
-# Usage: python t1_diag_single.py [m ...]   (default boundary sweep)
-# Single-card T1 MM isolation: mf310p_v2_diag_nzdirect_mm_async vs F.linear.
-# No MemFabric pool, no distributed, no IB/SDMA - pure matmul correctness of
-# the original-NZ N-split + direct-ND SetOrgShape/SetSingleShape path.
+# T1 单卡 MM 隔离：对照 mf310p_v2_diag_nzdirect_mm_async 与 F.linear。
+# 验证原始 NZ 沿 N 分核、ND 直接输出的 SetOrgShape/SetSingleShape。
+# 不创建 MemFabric 池，不使用分布式、IB 或 SDMA，仅验证矩阵计算。
+# 设置 DIAG_PRESYNC=1 可缓解首次 MTE3 输出丢失，
+# 详见 T1_NZ_DIRECT_REPORT.md；否则新缓冲结果可能不可靠。
+# 用法：python t1_diag_single.py [m ...]，默认测试边界 M。
+# T1 单卡 MM 隔离：比较原始 NZ 直接 ND 与 F.linear。
+# 不使用 MemFabric、分布式、IB 或 SDMA，
+# 仅验证 SetOrgShape/SetSingleShape 的计算合同。
 import ctypes
 import os
 import sys
@@ -54,7 +54,7 @@ def main():
                 return t
         raise ValueError(m)
 
-    # order: safe values first, known-crash (m=256, mm=1) last
+    # 先测安全 M，最后再测已知可能崩溃的 m=256、mm=1。
     plan = []
     for m in [int(a) for a in sys.argv[1:]] or [16, 32, 64, 128, 1, 2, 3, 15, 17, 31, 33, 63, 65, 127, 129, 254, 255]:
         for mm in (1, 2, 4, 8):
@@ -70,10 +70,10 @@ def main():
         ref = F.linear(x, w)
         y = torch.zeros(m, 2048, dtype=torch.float16, device=device)
         if os.environ.get("DIAG_PRESYNC"):
-            # T0 BUG#3 hazard probe: heal first-MTE3-write drops into a
-            # freshly allocated y with an explicit pre-launch sync.
+            # T0 BUG#3 风险探针：首次向新分配的 y 写入 MTE3 数据前，
+            # 显式同步以缓解首写丢失。
             torch.npu.current_stream().synchronize()
-        # symbol warmup x2 (enable=0), then the real launch
+        # 符号空启动两次（enable=0）后再真实运行。
         for _ in range(2):
             rc = lib.mf310p_v2_diag_nzdirect_mm_async(x.data_ptr(), w_nz.data_ptr(), y.data_ptr(), t, m, mm, 0, stream)
             assert rc == 0, f"launch rc={rc} (warm)"

@@ -1,19 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-"""T2 AR-only stress: 1000 sequential calls, 30 distinct M, rotating
-x-seeds / add-cores / dynamic y pointers (reuse + fresh), bounded
-inter-rank skew, per-call protocol status + bit-exact verification.
+"""T2 AR-only 压力测试：1000 次串行调用、30 种不同 M、轮换
+输入种子、Add 核数和动态 y 地址（含复用与新分配），
+施加有界 Rank 偏斜，并逐调用检查协议状态和位精确输出。
 
-All HCCL references are computed BEFORE MemFabric pool creation.
+所有 HCCL 参考在 MemFabric 建池前生成。
 
-D2D staging source: the harness stages through one PRE-WARMED, fixed
-per-M staging buffer (stage.copy_(F.linear(...))) so the allocator does
-not churn fresh addresses per call (each churned address forces the
-load-bearing first-touch device-sync guard, ~5-15 s each, making a
-1000-call sweep take hours). The REAL B path (D2D directly from a fresh
-native-MM output) is covered bit-exactly by the full matrix (192 first
-calls with fresh partials + guard) and by the srcsweep probe (42/42 with
-guard, 42/42 wrong without guard). This stress targets protocol/chunk/
-add-core/y-dynamic/skew robustness under repetition.
+为避免每次新分配输出导致耗时 5～15 秒的首触设备同步，
+测试使用每 M 一个建池前预热的固定暂存缓冲：
+stage.copy_(F.linear(...))，避免反复触发地址首写守护。
+真正的 B 路径（直接使用新生成的原生 MM 输出）另由
+192 组首次调用矩阵及 srcsweep 探针覆盖：
+有保护 42/42 位精确，无保护 42/42 失败。
+本测试重点验证持续调用中的协议、分块、核数、输出地址
+轮换和 Rank 偏斜健壮性。
 """
 
 from __future__ import annotations
@@ -33,8 +32,8 @@ import vllm_ascend.vllm_ascend_C as extension
 
 from vllm_ascend.utils import maybe_trans_nz
 
-# 30 distinct M values incl. boundaries 1/255/256/257/8192 and multi-chunk
-# shapes; deterministic on both ranks.
+# 构造 30 个不同 M，包含 1/255/256/257/8192 和跨 Chunk 边界；
+# 两个 Rank 使用一致的确定性输入序列。
 STRESS_M = [
     1,
     2,
@@ -126,8 +125,8 @@ def main():
     torch.manual_seed(7865 + rank)
     weight = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=device))
 
-    # Pre-pool: inputs, HCCL references, per-M staging buffers (written once
-    # so their pages settle before pool creation) and y slots.
+    # 建池前创建输入、HCCL 参考、每个 M 的暂存缓冲和 y 槽位；
+    # 先写一次暂存缓冲，使其页面在 MemFabric 建池前完成初始化。
     xs, refs, stages = {}, {}, {}
     for m in STRESS_M:
         for s in range(X_SEEDS):
@@ -172,8 +171,8 @@ def main():
         x = xs[(m, s)]
         ref = refs[(m, s)]
 
-        # Bounded inter-rank skew: rank0 stalls its HOST before enqueue;
-        # the device kernel mail-waits must tolerate this without timeout.
+        # 有限 Rank 偏斜：Rank0 在设备入队前故意暂停 Host，
+        # 设备侧通信等待应能容忍该偏斜而不触发超时。
         if rank == 0 and i % 211 == 0:
             time.sleep(skew_ms_cycle[(i // 211) % len(skew_ms_cycle)] / 1000.0)
 
@@ -185,10 +184,10 @@ def main():
 
         stage = stages[m]
         stage.copy_(F.linear(x, weight))
-        # Platform coherence requirement (see bench_ar_only.py): the
-        # staging kernel's MTE1 reads can miss the producer's
-        # cache-resident stores; a stream sync between producer and
-        # staging is the verified cure and part of B's real cost.
+        # 平台一致性要求详见 bench_ar_only.py：
+        # 暂存核的 MTE1 读取可能看不到上游生产者
+        # 仍驻留缓存的写入；生产者和暂存之间同步 Stream，
+        # 是已验证的缓解措施，其开销属于 B 路径的实际成本。
         stream.synchronize()
         rc = lib.mf310p_v2_trial_run_ar_only(handle, stage.data_ptr(), y.data_ptr(), m, add, raw_stream)
         assert rc == 0, f"call {i} rc={rc}"

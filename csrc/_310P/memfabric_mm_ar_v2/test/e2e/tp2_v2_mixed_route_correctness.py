@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-"""G3 TP=2 route: Stock for M<2048 or M>4096, V2 for 2048..4096.
+"""G3 TP=2 混合路由：M<2048 或 M>4096 走 Stock，2048～4096 走 V2。
 
-Includes live HCCL *after* V2 MemFabric pool initialization, exact/padded
-tails in 2048..4096 and unexpected larger M Stock fallback. TP=2 only.
+覆盖 V2 MemFabric 建池后仍执行 HCCL、区间内对齐及补齐尾块，
+以及 M 超过 4096 时的 Stock 安全回退。仅支持 TP=2。
 
-This tests the C++ V2 serving op and its run-time protocol status directly;
-the vLLM layer-level routing is separately tested by the serve functional
-test with MEMFABRIC_MM_AR_E2E_V2=1.
+本脚本直接验证 C++ V2 Serving Op 和运行时协议状态；
+vLLM 模型层路由另由设置 MEMFABRIC_MM_AR_E2E_V2=1 的
+Serving 功能测试验证。
 """
 from __future__ import annotations
 
@@ -46,9 +46,9 @@ def main():
     w = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=dev))
     all_m = sorted(set(args.rows + [1, 10, 2047, 2048, 2049, 3000, 3073, 4095, 4096, 4097, 5000]))
     xs, fp32_refs, stock_refs = {}, {}, {}
-    # All FP32/HCCL correctness references are computed *before* pool creation.
-    # The FP16 Stock baseline is also computed here for subsequent live
-    # post-pool Stock/HCCL coexistence validation.
+    # 全部 FP32/HCCL 正确性参考均在 MemFabric 建池之前生成。
+    # 同时预先生成 FP16 Stock 基线，供稍后在池已存在时
+    # 检查 Stock/HCCL 的共存和输出一致性。
     for m in all_m:
         torch.manual_seed(6300 + rank * 67 + m)
         x = torch.randn(m, 2048, dtype=torch.float16, device=dev)
@@ -98,14 +98,14 @@ def main():
             if rank == 0:
                 print(f"PASS i={iteration} M={m} route={path}", flush=True)
             del out
-            # Ensure previous pooled output views really go out of scope.
+            # 确保之前返回的池内输出视图已释放，槽位才可复用。
             gc.collect()
         dist.barrier(group=group)
         if rank == 0:
             print(f"TP2 V2 mixed-route PASS: {ok} calls including live HCCL", flush=True)
     finally:
         torch.npu.current_stream().synchronize()
-        # No V1 serving context exists in this process.
+        # 该进程未创建 V1 Serving 上下文。
         torch.ops._C_ascend.memfabric_mm_ar_v2_shutdown()
         dist.destroy_process_group()
 

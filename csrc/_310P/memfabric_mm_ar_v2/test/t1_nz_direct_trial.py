@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-# 310P3 TP=2 V2 T1 harness: correctness matrix / stress / y-guard probe /
-# stock baseline for mf310p_v2_trial_run_nz_direct_small.
+# 310P3 TP=2 V2 T1 测试驱动：正确性矩阵、压力、y 首写保护探针、
+# 以及 mf310p_v2_trial_run_nz_direct_small 的 Stock 性能基线。
 #
-# Modes (torchrun --nproc-per-node=2):
-#   quick  - M={1,16,17,255,256} x MM={1,2,4,8} x Add={1,8}, repeat 3
-#   full   - M={1,2,4,8,16,32,64,128,255,256} x MM x Add in {1,2,4,8}^2
-#   stress - random M, 4 weight seeds, rotating output pointers, 1000 seq
-#   yguard - first-MTE3-write drop-rate probe (needs MF310P_V2_NOWARMUP=1)
-#   stock  - stock F.linear + HCCL AR timing only (no pool)
+# 测试模式（torchrun --nproc-per-node=2）：
+# quick：M={1,16,17,255,256}，MM 核数 1/2/4/8，Add 核数 1/8，重复 3 次。
+# full：M={1,2,4,8,16,32,64,128,255,256}，MM/Add 组合各为 1/2/4/8。
+# stress：随机 M、4 组权重种子、轮换输出地址、1000 次连续调用。
+# yguard：首次 MTE3 丢写概率探针，需设置 MF310P_V2_NOWARMUP=1。
+# stock：只测原生 F.linear+HCCL AR，不创建 MemFabric 池。
 #
-# Environment (see NZ_DIRECT_TRIAL.md): source memfabric set_env.sh,
-# ASCEND_RT_VISIBLE_DEVICES=0,1, MF_KFC_BYPASS=1 while the device KFC
-# channel is broken, VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://...
+# 环境要求见 NZ_DIRECT_TRIAL.md：先 source MemFabric set_env.sh，
+# 设置 ASCEND_RT_VISIBLE_DEVICES=0,1；早期设备 KFC 失效时
+# 曾使用 MF_KFC_BYPASS=1；目前须优先验证正常部署。
 import argparse
 import contextlib
 import ctypes
@@ -32,12 +32,12 @@ try:
     import vllm_ascend.vllm_ascend_C as _ascend_ext
 
     _DEFAULT_LIB = _ascend_ext.__file__
-except Exception:  # standalone host library built by tools/build_host.sh
+except Exception:  # 尝试加载 tools/build_host.sh 构建的独立 Host 库
     _DEFAULT_LIB = "/tmp/opencode/v2/libmf310p_v2_trial_host.so"
 HOST_LIB = os.environ.get("V2_HOST_LIB", _DEFAULT_LIB)
 STORE_URL = os.environ.get("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581")
 
-# stress-mode pre-pool artifacts
+# 压力模式使用的建池前参考数据。
 _STRESS_REFS = {}
 _STRESS_WNZ = []
 
@@ -175,7 +175,7 @@ def main():
     cpu_group = dist.new_group(backend="gloo")
     stream = torch.npu.current_stream().npu_stream
 
-    # Weight + stock reference computed BEFORE MemFabric init (HCCL first).
+    # 在 MemFabric 初始化前计算权重和 Stock/HCCL 正确性参考。
     w_plain, w_nz = nz_weight(4242, device)
 
     if args.mode == "stock":
@@ -220,9 +220,9 @@ def main():
         mm_list = args.mm_cores or [1, 2, 4, 8]
         add_list = args.add_cores or [1, 8]
         repeat = args.repeat or 5
-    else:  # stress
-        # A single deterministic RNG must produce DISTINCT interior rows.
-        # Include 1/255/256 explicitly; the full set has 30 unique M.
+    else:  # 压力测试
+        # 必须用同一个确定性随机数生成器抽取不同的内部 M 值。
+        # 显式加入 1/255/256，最终应覆盖 30 个唯一 M。
         rows_list = args.rows or sorted(set(random.Random(20261017).sample(range(2, 255), 27)) | {1, 255, 256})
         mm_list = args.mm_cores or [1, 2, 4, 8]
         add_list = args.add_cores or [1, 8]
@@ -236,7 +236,7 @@ def main():
             flush=True,
         )
 
-    # inputs + HCCL references, pre-pool
+    # 输入与 HCCL 参考均在建池之前准备。
     xs, refs = {}, {}
     for m in sorted(set(rows_list)):
         torch.manual_seed(1200 + rank * 17 + m)
@@ -249,7 +249,7 @@ def main():
     torch.npu.synchronize()
     barrier(cpu_group)
 
-    # stock timing (pre-pool)
+    # Stock 性能基线在建池前测量。
     stock_ms = {}
     for m in sorted(set(rows_list)):
         x = xs[m]
@@ -268,7 +268,7 @@ def main():
     global _STRESS_REFS, _STRESS_WNZ
     _STRESS_REFS, _STRESS_WNZ = {}, []
     if args.mode == "stress":
-        # 4 weight seeds with HCCL references, all computed pre-pool.
+        # 4 组权重种子的 HCCL 参考全部在建池之前生成。
         for s in range(4):
             wp, wn = nz_weight(9000 + 17 * s, device)
             _STRESS_WNZ.append(wn)
@@ -310,9 +310,11 @@ def main():
 
 
 def run_yguard(trial, rank, cpu_group, stream, xs, refs, rows_list, mm_list, add_list, w_nz, w_plain):
-    """First-MTE3-write drop-rate probe for fresh output buffers, with the
-    adapter's device-sync guard disabled (MF310P_V2_NOWARMUP=1 required).
-    Variants: none / stream / fill / fillsync."""
+    """在关闭适配层设备同步首写保护时测量新输出缓冲的 MTE3 丢写概率。
+
+    必须设置 MF310P_V2_NOWARMUP=1。
+    测试方式：none、stream、fill、fillsync。
+    """
     if os.environ.get("MF310P_V2_NOWARMUP") != "1":
         raise RuntimeError("yguard mode requires MF310P_V2_NOWARMUP=1")
     m = 128
@@ -335,8 +337,8 @@ def run_yguard(trial, rank, cpu_group, stream, xs, refs, rows_list, mm_list, add
         ptrs = set()
         t_start = time.perf_counter()
         for i in range(n_iter):
-            # keep every buffer alive: each iteration gets a truly fresh,
-            # never-written allocation (no caching-allocator pointer reuse)
+            # 必须保持全部输出缓冲存活，确保每次分配的地址真正全新，
+            # 不会被缓存分配器回收后复用。
             y = torch.empty(m, N_OUT, dtype=torch.float16, device=x.device)
             ptrs.add(y.data_ptr())
             if variant in ("fill", "fillsync"):
@@ -407,14 +409,16 @@ def run_matrix(trial, rank, cpu_group, stream, xs, refs, rows_list, mm_list, add
 
 
 def run_stress(trial, rank, device, cpu_group, stream, xs, refs, rows_list, mm_list, add_list, repeat, w_plain):
-    """Random M, 4 weight seeds, dynamic y pointers, 1000 verified calls.
-    All references are gathered via HCCL BEFORE the MemFabric pool existed
-    (refs2 was computed pre-pool in main())."""
-    rng = random.Random(777)  # rank-independent: weights must match on TP=2
-    # 4 rotating y buffers per M: genuinely distinct output pointers.
+    """使用随机 M、4 组权重种子和动态 y 地址，连续验证 1000 次。
+
+    全部正确性参考均在 MemFabric 建池前通过 HCCL 收集；
+    refs2 在 main() 的建池前阶段已经生成。
+    """
+    rng = random.Random(777)  # 两个 Rank 使用一致的随机数序列，确保 TP=2 权重匹配
+    # 每个 M 使用 4 个轮换 y 缓冲，保证输出地址各不相同。
     ypool = {m: [torch.empty(m, N_OUT, dtype=torch.float16, device=device) for _ in range(4)] for m in rows_list}
 
-    # Phase 1: random M across all mm/add combos, rotating y pointers.
+    # 第一阶段：遍历随机 M、全部 MM/Add 核数组合及轮换输出。
     n_calls = 0
     for m in rows_list:
         x = xs[m]
@@ -434,10 +438,10 @@ def run_stress(trial, rank, device, cpu_group, stream, xs, refs, rows_list, mm_l
     if rank == 0:
         print(f"STRESS\tphase=random_m\tcalls={n_calls}\tPASS", flush=True)
 
-    # Phase 2: 1000 independent, rank-identical draws. The old index
-    # modulo pattern coupled MM / Add / weight into four combinations.
-    # A second fixed seed makes this phase reproducible independent of
-    # how many draws Phase 1 consumes.
+    # 第二阶段：独立抽样 1000 次，两个 Rank 的随机序列一致。
+    # 旧版取模索引会使 MM/Add/权重种子仅形成四个相关组合。
+    # 采用新的固定种子，使第二阶段结果不依赖第一阶段耗用
+    # 的随机数数量。
     seq_rng = random.Random(20261018)
     n_seq = 1000
     observed_m = set()

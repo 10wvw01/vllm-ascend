@@ -1,16 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-"""T2 non-fused transport benchmark for Ascend 310P3 TP=2.
+"""310P3 TP=2 下 T2 非融合传输路径性能基准。
 
-A = torch_npu native F.linear + FP16 HCCL all_reduce
-B = the SAME F.linear + D2D stage + MemFabric signal/wait + vector Add
-C = V2 fused MM + MemFabric AR (eligible shapes only; optional)
+A：torch_npu 原生 F.linear + FP16 HCCL all_reduce。
+B：同一个 F.linear + D2D 暂存 + MemFabric signal/wait + Vector Add。
+C：V2 融合 MM + MemFabric AR（仅适用形状，可选）。
 
-All HCCL work, including FP32 correctness references, completes BEFORE
-MemFabric pool creation: co-running HCCL and MemFabric in a live serving
-process is a separate G3 safety gate, NOT validated by this benchmark.
+所有 HCCL 工作（包括 FP32 正确性参考）都在 MemFabric 建池之前完成。
+本测试不能证明 HCCL 与 MemFabric 在真实 Serving 中并行共存安全；
+共存需要独立的 G3 验收。
 
-Build: both V1/V2 compilation flags enabled (see T2_AR_ONLY_TRIAL.md).
-Example:
+构建时须同时启用 V1/V2 开关（见 T2_AR_ONLY_TRIAL.md）。
+示例：
   ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
     csrc/_310P/memfabric_mm_ar_v2/test/bench_ar_only.py \
     --rows 1 16 64 128 255 256 257 512 1024 2048 4096 8192 \
@@ -55,10 +55,10 @@ def bind_library():
 
 
 def optional_test_kfc_bypass():
-    """For the already-broken dev0/dev1 test KFC control plane only.
+    """仅用于 dev0/dev1 已知损坏的试验 KFC 控制面。
 
-    This is the same explicit experiment workaround as T1; never enable
-    it in production or count bypassed startup as a healthy deployment.
+    该方法沿用 T1 显式启用的临时绕过，不得在生产启用，
+    也不得将绕过后的初始化当作正常部署验收通过。
     """
     if os.environ.get("MF_KFC_BYPASS") != "1":
         return
@@ -143,9 +143,9 @@ def main():
     weight = maybe_trans_nz(torch.randn(2048, 2048, dtype=torch.float16, device=device))
     x_map, reference, stock, mm_only = {}, {}, {}, {}
 
-    # Stock measurement matches deployed FP16 HCCL AR (NOT FP32 AR).
-    # Correctness reference is a SEPARATE FP32 TP sum -> FP16.
-    # Neither HCCL measurement runs while MemFabric owns the pool.
+    # Stock 的性能口径为实际部署的 FP16 HCCL AllReduce，而不是 FP32。
+    # 正确性参考独立使用 FP32 跨 TP 求和，再转回 FP16。
+    # 所有 HCCL 测量均在 MemFabric 建池之前完成。
     for m in a.rows:
         torch.manual_seed(2500 + rank * 103 + m)
         x = torch.randn(m, 2048, device=device, dtype=torch.float16)
@@ -159,7 +159,7 @@ def main():
         def native_hccl(x=x):
             local = F.linear(x, weight)
             dist.all_reduce(local)
-            return local  # keep allocated tensor alive until stream sync
+            return local  # 保持分配对象存活，直到 Stream 同步完成
 
         stock[m] = measure(native_hccl, a.warmup, a.repeat)
         mm_only[m] = measure(lambda x=x: F.linear(x, weight), a.warmup, a.repeat)
@@ -182,35 +182,35 @@ def main():
         for m in a.rows:
             x = x_map[m]
             ref = reference[m]
-            # One y per M, reused across add-core variants: fewer fresh
-            # addresses means fewer first-write guard device-syncs, which
-            # are random 0-15 s and can skew one rank's launch past the
-            # peer kernel's 28 s aicore mail-wait watchdog (observed as
-            # an aicore timeout at chunk=256, M=8192).
+            # 每个 M 复用同一个 y，并在不同 Add 核数方案间轮换；
+            # 这样可以减少首次写保护引发的设备级同步次数，
+            # 因为其耗时随机为 0～15 秒，并可能造成两 Rank 发射偏斜，
+            # 使对端通信核超过约 28 秒的 AICore 邮件等待看门狗时限，
+            # 曾在 chunk=256、M=8192 时观察到超时。
             y = torch.empty_like(ref)
             for add in a.add_cores:
 
                 def native_memfabric(x=x, y=y, m=m, add=add):
-                    # Native framework MM, not V1/V2 custom MM.
+                    # 这里使用框架原生 MM，不是 V1/V2 定制 MM。
                     partial = F.linear(x, weight)
-                    # Platform coherence requirement (2026-10-18 T2
-                    # measurement): the AR-only staging kernel reads the
-                    # MM output through MTE1, which can miss the matmul's
-                    # still-cache-resident stores (stale-by-one-call reads
-                    # measured at small M, e.g. own=v1+peer=v0 mixes).
-                    # A stream synchronize between MM and staging is the
-                    # verified cure (8/8 clean 1024-call runs at M=1) and
-                    # is a mandatory, honestly-counted cost of path B on
-                    # this stack. It is NOT needed by the fused V2 path,
-                    # whose MM reads settled inputs inside the kernel.
+                    # 2026-10-18 T2 实测平台缓存一致性约束：
+                    # AR-only 暂存核通过 MTE1 读取 MM 输出，
+                    # 可能漏读 MatMul 尚驻留缓存的写入，
+                    # 导致小 M 数据滞后一轮，
+                    # 例如混合读到本端第 1 轮、对端第 0 轮。
+                    # MM 与暂存之间同步 Stream 是实测有效的处理，
+                    # M=1 已通过八组千次验证；该同步开销必须
+                    # 真实计入非融合 B 路径的总时间，
+                    # 不能从基线中剔除；融合 V2 则无需此暂存成本，
+                    # 因为 MM 在单 Kernel 内直接读取已准备的输入。
                     stream.synchronize()
                     chk(
                         lib.mf310p_v2_trial_run_ar_only(handle, partial.data_ptr(), y.data_ptr(), m, add, raw_stream),
                         f"AR-only m={m} add={add}",
                     )
-                    # Keep the producer tensor alive until this Stream is
-                    # synchronized in the caller. Do not return it to the
-                    # caching allocator while the D2D is still pending.
+                    # 生产者 Tensor 必须保留至调用方同步完成，
+                    # D2D 尚未结束时禁止将其内存返回缓存分配器，
+                    # 以免异步搬运读取被提前复用的内存。
                     return partial
 
                 def run_and_verify(m=m, add=add, ref=ref, y=y):
@@ -226,15 +226,15 @@ def main():
                         raise AssertionError(f"AR-only bit-exact mismatch M={m} add={add} bad={bad} max_abs={diff}")
                     return partial
 
-                # One correctness run before recording timings; this is also
-                # the FIRST AR-only call for this (m, add): its wall time
-                # includes the first-write guard synchronize and is reported
-                # separately as first_call_ms, never mixed into steady state.
+                # 正式计时前先执行一次正确性检查，该调用
+                # 也是该 (M,Add) 组合的首次 AR-only 发射，
+                # 其耗时包含首次写保护同步，应单独记录为
+                # first_call_ms，不得混入稳定态计时。
                 t_first_begin = time.perf_counter()
                 run_and_verify()
                 first_call_ms = round((time.perf_counter() - t_first_begin) * 1e3, 5)
-                # Keep tensor lifetime valid across each individual sync;
-                # measure() invokes the closure and synchronizes after it.
+                # 每次调用保持 Tensor 的有效生命周期直至同步完成；
+                # measure() 会调用闭包并等待 Stream 同步。
                 t = measure(native_memfabric, a.warmup, a.repeat)
                 run_and_verify()
                 rows.append(
@@ -286,8 +286,8 @@ def main():
                                 "V2 T0",
                             )
 
-                    # Warmup is not a Graph/production-ready guarantee;
-                    # T0 may still require device-wide first-output sync.
+                    # 完成预热不代表满足 Graph 或生产安全条件；
+                    # T0 首次输出仍可能需要设备全局同步。
                     fused()
                     stream.synchronize()
                     status = ctypes.c_uint64(0)
@@ -302,8 +302,8 @@ def main():
         stream.synchronize()
         chk(lib.mf310p_v2_trial_destroy(handle), "trial_destroy")
 
-    # Both ranks report latencies; performance is gated by the slower
-    # rank, not whichever rank prints to stdout.
+    # 收集两个 Rank 的耗时，TP 完成时间应取较慢一侧，
+    # 不能只使用打印输出的那个 Rank。
     gathered = [None, None]
     dist.all_gather_object(gathered, {"rows": rows, "stock": stock, "mm_only": mm_only}, group=cpu_group)
     if rank == 0:
@@ -319,7 +319,7 @@ def main():
             two = max(rr["median"], other["median"])
             p95 = max(rr["p95"], other["p95"])
             first = max(rr.get("first_call_ms", 0.0), other.get("first_call_ms", 0.0))
-            # The TP step completes only after the slower rank.
+            # TP 的单次计算仅在两个 Rank 都完成时才算结束。
             stock_time = max(gathered[0]["stock"][rr["m"]]["median"], gathered[1]["stock"][rr["m"]]["median"])
             mm_time = max(gathered[0]["mm_only"][rr["m"]]["median"], gathered[1]["mm_only"][rr["m"]]["median"])
             gain = (stock_time - two) / stock_time * 100.0

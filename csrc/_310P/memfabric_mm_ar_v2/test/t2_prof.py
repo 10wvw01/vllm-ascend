@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
-"""T2 profiler decomposition: capture chrome traces for
-A (stock), B (native MM + staging + AR-only kernel) and optionally C (fused).
+"""T2 Profiler 分解测试：采集 Chrome 时间线，对比
+A（Stock）、B（原生 MM+暂存+AR-only Kernel）和可选的
+C（融合 Kernel）。
 
-Emits per-iteration device timeline stats: matmul kernel time, D2D memcpy
-time, AR-only kernel time, HCCL kernel time.
+逐次输出设备时间统计：MatMul Kernel、D2D 拷贝、
+AR-only Kernel 和 HCCL Kernel 的耗时。
 """
 
 from __future__ import annotations
@@ -132,7 +133,7 @@ def main():
     torch.npu.synchronize()
     dist.barrier(group=cpu_group)
 
-    # A: stock under profiler (pre-pool)
+    # A 路径：建池前采集 Stock 的设备时间线。
     if rank == 0:
         print(f"=== profiling A stock M={a.m} ===", flush=True)
     with profile(
@@ -164,14 +165,14 @@ def main():
 
     def run_b():
         p = F.linear(x, weight)
-        # mandatory producer->staging sync (see bench_ar_only.py)
+        # 生产者到暂存 Kernel 之间必须同步 Stream（参见 bench_ar_only.py）。
         stream.synchronize()
         rc = lib.mf310p_v2_trial_run_ar_only(handle, p.data_ptr(), y.data_ptr(), a.m, a.add, raw_stream)
         assert rc == 0
         stream.synchronize()
         return p
 
-    run_b()  # warm + guard
+    run_b()  # 预热并执行首写保护
     run_b()
     status = ctypes.c_uint64(0)
     assert lib.mf310p_v2_trial_check_status(handle, ctypes.byref(status)) == 0

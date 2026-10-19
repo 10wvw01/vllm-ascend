@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Gate E (EAGER variant): 10+ min continuous load against a fused EAGER serve.
-# 500+ requests, alternating prefill shapes (4096/2048/random small) at
-# concurrency 10, then checks outputs/requests/errors and protocol status.
+# Gate E：对 Stock Eager 服务执行至少 10 分钟的对照负载。
+# 至少 500 个请求，Prefill 形状包含 4096、2048 和随机小值，
+# 并发数 10；结束后核查完成数与错误。
 set -uo pipefail
 export OUT_DIR=${1:-/tmp/opencode/g3/gate_e}
 mkdir -p "$OUT_DIR"
@@ -49,7 +49,7 @@ until curl -sf "http://127.0.0.1:${PORT}/health" > /dev/null 2>&1; do
 done
 echo "[$(date +%H:%M:%S)] healthy; layers=$(grep -c 'Enable 310P3 TP=2 MemFabric unquantized mm_ar' "$LOG" || true)"
 
-# Continuous load: vllm bench serve with rolling random requests.
+# 持续负载使用 vllm bench serve 的滚动随机请求。
 END=$((SECONDS + DURATION_S))
 REP=0
 while [ $SECONDS -lt $END ]; do
@@ -66,7 +66,7 @@ done
 echo "[$(date +%H:%M:%S)] load done after $REP reps"
 
 sleep 5
-# Stop the server and inspect.
+# 停止服务后检查结果与日志。
 kill -TERM -- -"$SERVE_PID" 2>/dev/null || true
 wait "$SERVE_PID" 2>/dev/null || true
 

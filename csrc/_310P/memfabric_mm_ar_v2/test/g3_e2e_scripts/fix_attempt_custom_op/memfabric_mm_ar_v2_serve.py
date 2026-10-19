@@ -1,20 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Opt-in 310P3 V2 serving route: 2048<=M<=4096 fused, otherwise Stock.
+"""310P3 V2 Serving 的可选路由实验：2048≤M≤4096 走融合，其余走 Stock。
 
-V1 serving remains unchanged when this feature is disabled. The native
-large-M op uses the already-tested V2 T0 one-kernel path, with a bounded
-pre-pool output buffer lease and exact-M tail padding at the C++ boundary.
+关闭特性时 V1 Serving 不变；大 M 使用已测过的 V2 T0 单 Kernel，
+在 C++ 层管理有界持久输出缓冲和精确 M 的尾块补齐。
+当前安全范围仅允许 FULL_DECODE_ONLY Graph 捕获小 M，
+大 M 融合 Prefill 采用 Eager。生产启用仍需实机证明首写、
+KFC 初始化与 TP 偏斜稳定性。
 
-Current safety contract: only FULL_DECODE_ONLY graph (capture sizes <2048)
-is supported; large-M fused prefill is eager. Production enablement still
-requires G3 first-write, KFC and TP skew evidence from real 310P3 tests.
-
-The first fused call of each tail shape class (chunk-aligned vs padded)
-is verified bit-exact against the stock MM + HCCL path. A mismatch raises
-immediately (fail-stop) instead of letting a cold-pool wave silently
-corrupt model outputs: the 2026-10-18 cold-orchestrator incident produced
-garbage outputs with protocol status 0 on the first loads of a freshly
-deployed kernel.
+每种尾块形状类别（对齐和补齐）的首次融合调用都会以
+原生 MM+HCCL 参考进行位精确校验。若不匹配便 Fail-stop，
+阻止冷池首波坏数据进入模型结果。2026-10-18 的冷
+orchestrator 事件中，新部署 Kernel 的首次读取产生
+垃圾输出而协议 status 仍为 0。
 """
 
 from __future__ import annotations
@@ -25,7 +22,7 @@ from vllm.logger import logger
 from vllm_ascend import envs
 
 MIN_FUSED_M = 2048
-MAX_FUSED_M = 4096  # the configured 4096-token Forward budget
+MAX_FUSED_M = 4096  # 服务配置的 4096-token 单次 Forward 预算
 _pool_started = False
 _logged_stock = False
 _logged_fused = False
@@ -39,30 +36,28 @@ def v2_pool_started() -> bool:
 
 
 def v2_threshold_route(m: int) -> str:
-    """Pure route decision, intentionally independent from V1's q/batch size."""
+    """纯 M 区间路由判断，与 V1 的 q 和 batch 配置独立。"""
     if m < 0:
         raise ValueError(f"negative M: {m}")
-    # Forward M may exceed this serving profile's expected 4096-token
-    # budget. Stock must remain a safe, non-fused escape hatch: do NOT
-    # split it into multiple V2 waves or abort normal inference.
+    # 即使本服务预期 Forward M≤4096，也可能收到更大的 M，
+    # 此时 Stock 必须提供安全的非融合回退，不能
+    # 把输入拆成多波 V2，也不能直接终止正常推理。
     return "v2" if MIN_FUSED_M <= m <= MAX_FUSED_M else "stock"
 
 
 @torch.library.custom_op("vllm_ascend::memfabric_v2_routed_linear", mutates_args=())
 def memfabric_v2_routed_linear(x: torch.Tensor, weight: torch.Tensor, tp_rank: int, chunk: int) -> torch.Tensor:
-    """Opaque per-call routing boundary between Stock and the V2 fused op.
+    """Stock 与 V2 融合之间逐次调用的不透明路由边界。
 
-    torch.compile / ACL graph capture must never bake the routing branch:
-    the compiled backbone is one symbolic-M artifact traced while a dummy
-    run is in flight (warmup fallback active, small example M), and with
-    guard evaluation disabled that artifact serves every M at replay time
-    (found 2026-10-19: the first graph-mode runs traced the stock branch
-    for the whole range - the cache artifacts contained 123 all_reduce
-    calls and zero memfabric ops, and the "fused" A/B was stock-vs-stock).
-    A custom op is opaque to the compiler, so its Python body executes on
-    every runtime call - including inside compiled prefill graphs - and
-    during FULL_DECODE_ONLY capture the body records only its stock branch
-    (unquantized_gemm + HCCL AR), keeping decode capture-safe.
+    torch.compile/ACL Graph 不能把该路由条件静态固化：
+    其编译 backbone 采用符号化 M，dummy 追踪时预热回退生效，
+    若关闭动态 Guard，Stock 分支会覆盖所有回放 M。
+    2026-10-19 发现编译产物含大量 all_reduce 调用却没有
+    MemFabric Op，所谓融合对比实际上变成 Stock 对 Stock。
+    custom-op 对编译器不透明，使 Python Body 在运行期
+    每次调用都重新判断 M。FULL_DECODE_ONLY 捕获时仅记录
+    Stock 分支（unquantized_gemm+HCCL），从而保持 Decode
+    Graph 捕获安全。
     """
     global _pool_started, _logged_stock, _logged_fused
     global _logged_oversize_stock, _verified_aligned, _verified_padded
@@ -72,8 +67,8 @@ def memfabric_v2_routed_linear(x: torch.Tensor, weight: torch.Tensor, tp_rank: i
         memfabric_mm_ar_warmup_fallback_active,
     )
 
-    # Eager dummy/profile warmup runs and every M outside [2048,4096] go
-    # through the original native MM + HCCL path.
+    # Eager 启动期的 dummy/profile 与全部区间外 M 都
+    # 执行原生 MM+HCCL。
     if memfabric_mm_ar_warmup_fallback_active() or v2_threshold_route(int(x.shape[0])) == "stock":
         if x.shape[0] > MAX_FUSED_M and not _logged_oversize_stock:
             logger.warning(
@@ -101,13 +96,13 @@ def memfabric_v2_routed_linear(x: torch.Tensor, weight: torch.Tensor, tp_rank: i
         logger.info("[mf310p-v2] M=%d within [2048,4096]: V2 MM+MemFabric (chunk=%d)", x.shape[0], chunk)
         _logged_fused = True
 
-    # Numerical gate for the first fused call of each tail shape class.
-    # Both ranks run this symmetrically; the 2-rank FP16 sum is
-    # order-independent, so bit-exact equality with the stock path is the
-    # expected steady-state behavior (proven by the TP=2 mixed-route
-    # test). A cold pool/transport must fail loudly here instead of
-    # silently corrupting model outputs. This runs on real prefills even
-    # under torch.compile because the custom-op body executes per call.
+    # 针对不同尾块形状类别，首次 V2 调用设置数值校验门。
+    # 两个 Rank 对称执行；TP=2 下两卡 FP16 求和
+    # 与输入顺序无关，预期与 Stock 位精确一致，
+    # 已经由混合路由测试实机证明。冷池或传输故障
+    # 须在此立即显式失败，而不是让坏数据静默
+    # 进入模型输出。custom-op 的 Python 实现在真实 Prefill 时
+    # 逐次调用，因此编译模式下也会执行该校验。
     aligned = (int(x.shape[0]) % chunk) == 0
     needs_verify = (aligned and not _verified_aligned) or ((not aligned) and not _verified_padded)
     if needs_verify:
@@ -130,8 +125,8 @@ def memfabric_v2_routed_linear(x: torch.Tensor, weight: torch.Tensor, tp_rank: i
             x.shape[0],
             aligned,
         )
-    # The V2 op already performs a TP=2 reduction. Generic HCCL
-    # MUST NOT run again on this branch.
+    # V2 Op 内已完成 TP=2 AllReduce，不允许在
+    # 此分支再次执行框架 HCCL，避免重复规约。
     return out
 
 
@@ -148,7 +143,7 @@ def make_memfabric_mm_ar_v2_linear_method():
     from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
 
     class MemFabricMmArV2LinearMethod310(AscendUnquantizedLinearMethod):
-        """Only selected FP16 RowParallelLinear o_proj/out_proj are routed."""
+        """仅对选定 FP16 RowParallelLinear o_proj/out_proj 执行路由。"""
 
         def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
             super().process_weights_after_loading(layer)

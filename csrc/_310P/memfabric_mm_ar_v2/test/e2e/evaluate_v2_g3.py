@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Strict G3 V2-vs-Stock performance gate (never declares PASS from op microbench).
+"""G3 V2 与 Stock 的严格性能验收：不能仅凭单算子微基准宣称通过。
 
-Use three independent stock/fused graph serve sessions, each in a separate
-result directory, before judging throughput, TTFT, TPOT.
+评估吞吐、TTFT 和 TPOT 之前，必须采集至少三次独立
+Stock/V2 Graph Serving 会话，每次放在独立结果目录。
 """
 from __future__ import annotations
 

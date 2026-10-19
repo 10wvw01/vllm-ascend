@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# 20 fresh torchrun cycles of the TP2 mixed-route test: cold-start robustness.
-# Records per-cycle pass/fail; used to characterize first-load behavior of a
-# freshly deployed orchestrator kernel and steady-state cold-start stability.
+# TP2 混合路由测试连续新建 torchrun 进程 20 轮，验证冷启动健壮性。
+# 逐轮记录通过/失败，区分 orchestrator Kernel 初次部署与
+# 稳定使用阶段的建池初始化表现。
 set -uo pipefail
 OUT_DIR=${1:-/tmp/opencode/g3/cold_cycles}
 DEVS=${DEVS:-2,3}
@@ -21,10 +21,10 @@ for i in $(seq 1 "$CYCLES"); do
         --rows 2048 2049 3073 4095 4097 --chunk-rows 1024 --reps 1 \
         > "$OUT_DIR/cycle_$i.log" 2>&1
     rc=$?
-    # The per-device fixed-address meta region is exclusive and releases
-    # asynchronously after process exit (observed 2026-10-18: back-to-back
-    # cycles self-sustain MetaSetDeviceAccess 507018/507899 failures).
-    # Drain between cycles so the next pool creation starts clean.
+    # 每设备固定地址的 meta 区为独占资源，进程退出后
+    # 由运行时异步释放；2026-10-18 发现紧邻启动会
+    # 连续触发 MetaSetDeviceAccess 507018/507899 错误。
+    # 两轮之间必须等待资源排空再创建新池。
     sleep 75
     if [ $rc -eq 0 ] && grep -q "TP2 V2 mixed-route PASS" "$OUT_DIR/cycle_$i.log"; then
         pass=$((pass+1)); echo "cycle $i: PASS" | tee -a "$OUT_DIR/summary.txt"

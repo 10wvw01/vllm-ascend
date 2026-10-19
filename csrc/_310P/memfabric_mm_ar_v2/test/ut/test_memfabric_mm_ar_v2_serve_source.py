@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Import-free G3 regressions for the opt-in V2 large-M Qwen serving path."""
+"""不依赖外部模块导入的 G3 V2 Qwen 大 M Serving 源码回归测试。"""
 from __future__ import annotations
 
 import ast
@@ -38,8 +38,8 @@ def test_v2_route_boundary_is_exact_and_uses_stock_outside_fused_interval():
         pass
     else:
         raise AssertionError("negative M must fail")
-    # Surprising M>4096 must be an ordinary Stock route, not an
-    # exception or a hidden V2 multi-wave fallback.
+    # 运行时意外收到 M>4096 应回退普通 Stock 路由，
+    # 而不是抛异常或隐式拆分为多个 V2 波。
     assert all(route(m) == "stock" for m in (4097, 5000, 8192, 8193))
 
 
@@ -89,16 +89,16 @@ def test_pool_outputs_are_preallocated_and_live_views_not_overwritten():
     before = cpp.index("s.output_slots.reserve(")
     create = cpp.index("mf310p_v2_trial_create(")
     assert before < create
-    # torch 2.10: TensorBase::storage() returns const Storage& (no
-    # temporary ref), so an idle slot's StorageImpl count is exactly 1
-    # (the state vector entry); any view held by model code raises it.
+    # torch 2.10 的 TensorBase::storage() 返回 const Storage&，
+    # 不增加临时引用，因此空闲 StorageImpl 计数为 1，
+    # 即状态向量独占持有；模型视图会增加引用计数。
     assert "slot.storage().use_count() == 1" in cpp
     assert "use_count() == 2" not in cpp
     assert "V2 pooled outputs exhausted" in cpp
     assert "warm_outputs_locked(s, x, w, stream)" in cpp
     assert "check_protocol(s, \"prewarm\")" in cpp
-    # The unaligned-tail staging path must also be warmed during init:
-    # the cold-orchestrator incident hit the first staged wave first.
+    # 非对齐尾行暂存路径也需要初始化预热，
+    # 此前冷 orchestrator 首次暂存波曾发生数据损坏。
     assert "check_protocol(s, \"staged-tail prewarm\")" in cpp
     assert "s.input_stage.narrow(0, 0, tail_rows)" in cpp
     assert "std::atexit(&memfabric_mm_ar_v2_shutdown)" in cpp
@@ -115,8 +115,8 @@ def test_first_fused_call_is_numerically_verified_per_shape_class():
     assert "_verified_padded = False" in code
     assert "torch.equal(out, reference)" in code
     assert "first fused call verification FAILED" in code
-    # Verification recomputes the stock path (native MM + HCCL AR) once
-    # per shape class and must not turn into a per-call tax.
+    # 按形状类别仅首次运行重算 Stock 参考（原生 MM+HCCL），
+    # 该正确性门不能变成每次调用都付费的固定成本。
     assert code.count("needs_verify") >= 2
     assert "super().apply(layer, x, bias))" in code
 

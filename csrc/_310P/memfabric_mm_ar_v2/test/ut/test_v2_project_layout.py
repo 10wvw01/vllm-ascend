@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Import-free V2 CANN direct-invoke project layout contract (G3 archive).
+"""V2 CANN 直调工程目录合同测试，不需要导入硬件扩展。
 
-This test validates packaging/layout only, not hardware correctness.
-Run from repo root:
+只验证目录及构建路径的结构，不证明设备正确性。
+从仓库根目录执行：
   pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/
 """
 from __future__ import annotations
@@ -45,7 +45,7 @@ def test_cann_direct_invoke_source_manifest_and_kernel_identity() -> None:
     assert "--npu-arch=dav-2002" in parent
     assert "MF310P_V2_KERNEL_SOURCE" in parent
     assert "MF310P_V2_HOST_SOURCES" in parent
-    assert "npu_op_package(" not in manifest  # deliberate direct-invoke ABI
+    assert "npu_op_package(" not in manifest  # 有意保留已验证的直调 ABI
 
 
 def test_host_relative_include_and_torch_abi_resolve() -> None:
