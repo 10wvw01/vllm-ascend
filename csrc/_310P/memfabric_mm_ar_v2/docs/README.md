@@ -46,6 +46,7 @@ tiling 系统与独立 run 包会改变已验证的调用 ABI 和 SDMA 生命周
 ## 文档索引
 
 - [阶段归档](ARCHIVE_20261019_G3.md)
+- [目录重构实机回归报告](V2_REFACTOR_REGRESSION_20261019.md)
 - [G3 原始实机报告](V2_G3_QWEN_E2E_REPORT.md)
 - [G3 目标与实机验证规范](V2_G3_QWEN_E2E_TRIAL.md)
 - [T2 原生 MM+MemFabric 对照](T2_AR_ONLY_REPORT.md)
