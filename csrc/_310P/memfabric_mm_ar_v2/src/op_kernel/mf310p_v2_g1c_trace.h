@@ -28,7 +28,7 @@ constexpr uint32_t kG1CDoneSignalExit = 91;
 constexpr uint32_t kG1CDoneWaitEnter = 100;
 constexpr uint32_t kG1CDoneWaitExit = 101;
 constexpr uint32_t kG1CExit = 110;
-// 8×64B：GM 槽 [magic,u64 seq,u64 chunk,u64 phase,u64 core,u64 step,0,0]。
+// 8×64B：GM 槽 [magic,seq,chunk,phase,core,step,checksum,~checksum]。
 // 只写本人独立缓存行；打印由 Host 线程完成，设备核不能使用 printf。
 __aicore__ inline void G1CMark(
     __gm__ uint8_t* trace, uint64_t launchSeq, uint32_t core,
@@ -43,6 +43,12 @@ __aicore__ inline void G1CMark(
     words[3] = phase;
     words[4] = core;
     words[5] = step;
+    // Host 可能在设备写入期间取快照，双校验词用于丢弃撕裂样本。
+    const uint64_t check = kG1CMagic ^ launchSeq ^
+        (static_cast<uint64_t>(chunk) << 32) ^ phase ^
+        (static_cast<uint64_t>(core) << 48) ^ step;
+    words[6] = check;
+    words[7] = ~check;
     AscendC::GlobalTensor<int32_t> g;
     g.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(slot), 16);
     AscendC::DataCacheCleanAndInvalid<int32_t,
