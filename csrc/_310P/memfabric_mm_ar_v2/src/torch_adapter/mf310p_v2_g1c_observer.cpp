@@ -4,6 +4,7 @@
 #include <acl/acl_rt.h>
 #include <c10/util/Exception.h>
 #include <array>
+#include <algorithm>
 #include <chrono>
 #include <cerrno>
 #include <cstdint>
@@ -131,6 +132,12 @@ void g1c_log_submit(V2ServeState& s, uint32_t rows, uint32_t padded,
 {
     if (s.g1c_fd < 0) return;
     const uint64_t seq = mf310p_v2_trial_g1c_sequence(s.handle);
+    const auto it = std::find(s.g1c_layer_weights.begin(),
+                              s.g1c_layer_weights.end(), weight);
+    const size_t layerOrdinal = it == s.g1c_layer_weights.end()
+        ? s.g1c_layer_weights.size()
+        : static_cast<size_t>(it - s.g1c_layer_weights.begin());
+    if (it == s.g1c_layer_weights.end()) s.g1c_layer_weights.push_back(weight);
     int slot = -1;
     for (size_t i = 0; i < s.output_slots.size(); ++i)
         if (reinterpret_cast<uint64_t>(s.output_slots[i].data_ptr()) == output) {
@@ -139,10 +146,10 @@ void g1c_log_submit(V2ServeState& s, uint32_t rows, uint32_t padded,
         }
     dprintf(s.g1c_fd,
             "{\"type\":\"submit\",\"time_ms\":%llu,\"rank\":%d,\"seq\":%llu,"
-            "\"rows\":%u,\"padded\":%u,\"chunk_rows\":%u,"
+            "\"rows\":%u,\"padded\":%u,\"chunk_rows\":%u,\"weight_ordinal\":%zu,"
             "\"weight\":%llu,\"output\":%llu,\"slot\":%d,\"stream\":%llu}\n",
             static_cast<unsigned long long>(wall_ms()), s.rank,
-            static_cast<unsigned long long>(seq), rows, padded, s.chunk_rows,
+            static_cast<unsigned long long>(seq), rows, padded, s.chunk_rows, layerOrdinal,
             static_cast<unsigned long long>(weight),
             static_cast<unsigned long long>(output), slot,
             static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(stream)));
