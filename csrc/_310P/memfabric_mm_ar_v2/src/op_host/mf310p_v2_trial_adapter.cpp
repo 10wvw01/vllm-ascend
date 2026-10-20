@@ -2,6 +2,11 @@
 #include "mf310p_v2_trial_internal.h"
 #include <cstdlib>
 #include <new>
+#ifdef MF310P_V2_G1C_TRACE
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#endif
 
 extern "C" int mf310p_v2_trial_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
@@ -16,6 +21,10 @@ extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes();
 namespace {
 void free_allocations(mf310p_v2_trial* state)
 {
+#ifdef MF310P_V2_G1C_TRACE
+    state->g1c_stop.store(true);
+    if (state->g1c_sampler.joinable()) state->g1c_sampler.join();
+#endif
     if (state->ib) aclrtFree(state->ib);
     if (state->status) aclrtFree(state->status);
     if (state->probe_result) aclrtFree(state->probe_result);
@@ -45,14 +54,25 @@ extern "C" int mf310p_v2_trial_create(
             ACL_MEM_MALLOC_HUGE_FIRST));
     }
     if (!err) err = static_cast<int>(aclrtMalloc(
-        &s->status, kStatusSize, ACL_MEM_MALLOC_HUGE_FIRST));
+        &s->status,
+#ifdef MF310P_V2_G1C_TRACE
+        kStatusSize + 8 * 64,
+#else
+        kStatusSize,
+#endif
+        ACL_MEM_MALLOC_HUGE_FIRST));
     if (!err) err = static_cast<int>(aclrtMalloc(
         &s->probe_result, kProbeResultBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     if (!err) err = static_cast<int>(aclrtMemset(
         s->ib, mf310p_v2_trial_ib_workspace_bytes(), 0,
         mf310p_v2_trial_ib_workspace_bytes()));
     if (!err) err = static_cast<int>(aclrtMemset(
-        s->status, kStatusSize, 0, kStatusSize));
+        s->status,
+#ifdef MF310P_V2_G1C_TRACE
+        kStatusSize + 8 * 64, 0, kStatusSize + 8 * 64));
+#else
+        kStatusSize, 0, kStatusSize));
+#endif
     if (!err) err = static_cast<int>(aclrtMemset(
         s->probe_result, kProbeResultBytes, 0, kProbeResultBytes));
     if (!err) err = static_cast<int>(aclrtMemset(
@@ -62,6 +82,62 @@ extern "C" int mf310p_v2_trial_create(
         delete s;
         return err;
     }
+#ifdef MF310P_V2_G1C_TRACE
+    // Host 只读进度快照不插入执行流同步，仅诊断编译 + 环境变量启用。
+    const char* trace_env = std::getenv("MF310P_V2_G1C_TRACE");
+    if (trace_env && std::strcmp(trace_env, "1") == 0) {
+        aclrtContext context = nullptr;
+        if (aclrtGetCurrentContext(&context) != ACL_SUCCESS || !context) {
+            free_allocations(s);
+            delete s;
+            return -4;
+        }
+        try {
+            s->g1c_sampler = std::thread([s, context]() {
+                const aclError bound = aclrtSetCurrentContext(context);
+                if (bound != ACL_SUCCESS) {
+                    std::fprintf(stderr, "[V2_G1C] rank=%u bind_context_failed=%d\n",
+                                 s->rank, static_cast<int>(bound));
+                    std::fflush(stderr);
+                    return;
+                }
+                uint64_t last[8] = {};
+                while (!s->g1c_stop.load()) {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                    if (s->g1c_stop.load()) break;
+                    uint64_t cells[8 * 8] = {};
+                    const aclError rc = aclrtMemcpy(
+                        cells, sizeof(cells),
+                        static_cast<const uint8_t*>(s->status) + kStatusSize,
+                        sizeof(cells), ACL_MEMCPY_DEVICE_TO_HOST);
+                    if (rc != ACL_SUCCESS) {
+                        std::fprintf(stderr, "[V2_G1C] rank=%u snapshot_error=%d\n",
+                                     s->rank, static_cast<int>(rc));
+                    } else {
+                        bool changed = false;
+                        for (uint32_t core = 0; core < 8; ++core) {
+                            if (last[core] != cells[core * 8]) changed = true;
+                            last[core] = cells[core * 8];
+                        }
+                        std::fprintf(stderr,
+                            "[V2_G1C] rank=%u changed=%d core0=%llx core1=%llx "
+                            "core2=%llx core3=%llx core4=%llx core5=%llx "
+                            "core6=%llx core7=%llx\n", s->rank, changed,
+                            (unsigned long long)last[0], (unsigned long long)last[1],
+                            (unsigned long long)last[2], (unsigned long long)last[3],
+                            (unsigned long long)last[4], (unsigned long long)last[5],
+                            (unsigned long long)last[6], (unsigned long long)last[7]);
+                    }
+                    std::fflush(stderr);
+                }
+            });
+        } catch (...) {
+            free_allocations(s);
+            delete s;
+            return -5;
+        }
+    }
+#endif
     *out = s;
     return 0;
 }
