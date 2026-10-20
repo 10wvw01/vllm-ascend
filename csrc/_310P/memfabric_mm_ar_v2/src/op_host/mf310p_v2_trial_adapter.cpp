@@ -119,14 +119,16 @@ extern "C" int mf310p_v2_trial_create(
                             if (last[core] != cells[core * 8]) changed = true;
                             last[core] = cells[core * 8];
                         }
-                        std::fprintf(stderr,
-                            "[V2_G1C] rank=%u changed=%d core0=%llx core1=%llx "
-                            "core2=%llx core3=%llx core4=%llx core5=%llx "
-                            "core6=%llx core7=%llx\n", s->rank, changed,
-                            (unsigned long long)last[0], (unsigned long long)last[1],
-                            (unsigned long long)last[2], (unsigned long long)last[3],
-                            (unsigned long long)last[4], (unsigned long long)last[5],
-                            (unsigned long long)last[6], (unsigned long long)last[7]);
+                        std::fprintf(stderr, "[V2_G1C] rank=%u changed=%d", s->rank, changed);
+                        for (uint32_t core = 0; core < 8; ++core) {
+                            const uint64_t packed = cells[core * 8];
+                            const uint64_t generation = cells[core * 8 + 1];
+                            std::fprintf(stderr, " c%u=%llu:%u:%u", core,
+                                         (unsigned long long)generation,
+                                         static_cast<uint32_t>(packed >> 32),
+                                         static_cast<uint32_t>(packed));
+                        }
+                        std::fprintf(stderr, "\n");
                     }
                     std::fflush(stderr);
                 }
