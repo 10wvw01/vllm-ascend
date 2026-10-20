@@ -79,12 +79,14 @@ def main():
         print(f"{name}: serve={count_or_zero(serve, regex)} bench={count_or_zero(bench, regex)}")
     print(f"bench 致命字样: {count_or_zero(bench, r'failed|exception|timeout|error')}")
     print(f"runner 异常字样: {count_or_zero(runner, r'failed|timeout|error|exited early')}")
+    bench_failed = count_or_zero(runner, r"bench rep [0-9]+ failed") > 0
+    print(f"bench 子测试失败: {bench_failed}")
     print("注意：日志行数不是设备事件数，且不代表每一轮实际启用了 V2。")
     print("须人工核查 40 目标层启用、双 rank V2 实际执行、HTTP 负载及设备原始日志。")
     print("初筛:", end=" ")
     if readable == 0 or rc == "UNKNOWN" or corrupt or unknown_errors:
         print("UNKNOWN（结果不全或错误数不可判定）")
-    elif rc != "0" or failed or count_or_zero(serve, PATTERNS["aicore_timeout"]):
+    elif rc != "0" or failed or bench_failed or count_or_zero(serve, PATTERNS["aicore_timeout"]):
         print("FAIL（需保留现场）")
     elif total == 0:
         print("UNKNOWN（没有完成请求）")
