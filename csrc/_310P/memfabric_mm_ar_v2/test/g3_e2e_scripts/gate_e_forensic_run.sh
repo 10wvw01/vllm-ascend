@@ -19,6 +19,22 @@ if [[ -e "$OUT_DIR" ]]; then
 fi
 mkdir -p "${OUT_DIR}/samples" "${OUT_DIR}/evidence"
 export OUT_DIR
+export V2_WORKTREE="${V2_WORKTREE:-$REPO_ROOT}"
+if [[ "${MF310P_G1C_TRACE:-0}" == "1" ]]; then
+  if [[ "$MODE" != fused ]]; then
+    echo "G1-C 设备阶段戳只允许 fused 实验，防止 Stock 对照无意加载诊断库" >&2
+    exit 2
+  fi
+  if [[ "$(cd "$V2_WORKTREE" && pwd)" != "$(cd "$REPO_ROOT" && pwd)" ]]; then
+    echo "G1-C 必须使用本诊断分支工作树 V2_WORKTREE=$REPO_ROOT" >&2
+    exit 2
+  fi
+  # 避免 editable 安装指向原始基线，保留既有 CANN PYTHONPATH。
+  export PYTHONPATH="$REPO_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+  export MF310P_G1C_TRACE_DIR="$OUT_DIR/g1c"
+  mkdir -p "$MF310P_G1C_TRACE_DIR"
+  export PYTHONUNBUFFERED=1
+fi
 
 # 不导出所有环境变量（可能包含令牌），只记录必要的可复核版本、设备及路径。
 {
@@ -31,6 +47,9 @@ export OUT_DIR
   echo "model=${GATE_E_MODEL:-/home/models/Qwen/Qwen3.6-35B-A3B-w8a8}"
   echo "duration_s=${GATE_E_DURATION_S:-620}"
   echo "mf_host_diag=${MF_SDMA_ORCH_DIAG:-unset}"
+  echo "g1c_phase_trace=${MF310P_G1C_TRACE:-unset}"
+  echo "g1c_trace_dir=${MF310P_G1C_TRACE_DIR:-unset}"
+  echo "v2_worktree=$V2_WORKTREE"
   echo "mf_epoch_budget=${MF_SDMA_ORCH_EPOCH_BUDGET_S:-default}"
   # 实机布局：/usr/local/memfabric_hybrid/latest -> 1.2.0，库在 aarch64-linux/lib64；
   # vLLM 进程实际经 site-packages ctypes 加载包内 lib/libmf_hybm_core.so，两处都取哈希。
