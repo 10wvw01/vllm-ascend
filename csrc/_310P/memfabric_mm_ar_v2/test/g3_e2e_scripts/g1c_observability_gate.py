@@ -28,6 +28,12 @@ def gate(directory: pathlib.Path) -> dict:
             failures.append(file.name + ": fewer than 2 D2H reads")
         if data["polls_failed"] or data["polls_over_1000ms"]:
             failures.append(file.name + ": D2H failed or took over 1000ms")
+        if data["intermediate_snapshots"] < 1:
+            failures.append(file.name + ": 没有观察到仍在执行的中间阶段；不能证明运行中可读")
+        if data["cores"]["0"] is not None and (
+            data["unique_sequences_observed_by_core"]["0"] < 2
+        ):
+            failures.append(file.name + ": Core0 阶段序号未持续推进，需延长短测或调整采样")
         if data["unfinished_last_poll"]:
             failures.append(file.name + ": observer stuck in last D2H")
         if data["invalid_lines"] or data["errors"]:
