@@ -4,6 +4,8 @@
 #include "../../../memfabric_mm_ar/memfabric310p_adapter_api.h"
 #include <acl/acl_rt.h>
 #include <cstdint>
+#include <atomic>
+#include <thread>
 struct mf310p_v2_trial {
     mf310p_context_t* v1_pool = nullptr;
     mf310p_layout_t layout{};
@@ -11,6 +13,10 @@ struct mf310p_v2_trial {
     uint32_t chunk_rows = 0;
     void* ib = nullptr;
     void* status = nullptr;
+#ifdef MF310P_V2_G1C_TRACE
+    std::atomic<bool> g1c_stop{false};
+    std::thread g1c_sampler;
+#endif
     void* probe_result = nullptr;
     bool ib_probed = false;
     // 服务输出缓冲区必须在整个使用期间持续存活。
