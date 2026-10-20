@@ -10,6 +10,7 @@ set(MF310P_V2_KERNEL_SOURCE
 set(MF310P_V2_KERNEL_SOURCES ${MF310P_V2_KERNEL_SOURCE})
 set(MF310P_V2_HOST_SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/op_host/mf310p_v2_trial_adapter.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/op_host/mf310p_v2_g1c_flight_recorder.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/torch_adapter/mf310p_v2_serve.cpp")
 set(MF310P_V2_HOST_INCLUDE_DIRS
     "${CMAKE_CURRENT_LIST_DIR}/op_host"
