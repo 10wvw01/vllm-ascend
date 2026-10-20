@@ -9,6 +9,11 @@ struct mf310p_v2_trial {
     mf310p_layout_t layout{};
     uint32_t rank = 0;
     uint32_t chunk_rows = 0;
+#ifdef MF310P_G1C_TRACE
+    // G1-C 独立设备诊断槽，由 Serving 在建池前分配；不由 Trial Context 释放。
+    uint64_t g1c_trace_addr = 0;
+    uint64_t g1c_trace_seq = 0;
+#endif
     void* ib = nullptr;
     void* status = nullptr;
     void* probe_result = nullptr;
