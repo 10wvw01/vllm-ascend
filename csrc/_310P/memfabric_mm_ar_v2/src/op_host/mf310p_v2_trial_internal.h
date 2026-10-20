@@ -51,3 +51,11 @@ constexpr uint64_t kPoolSize = 96ULL * 1024 * 1024;
 constexpr uint64_t kStatusSize = 64;
 constexpr uint64_t kProbeResultBytes = 8 * 64;
 } // 公共常量仍采用内部链接，避免生成额外导出符号
+
+/* G1-C 飞行记录器：不扩展原 Trial C ABI，相关功能仅由内部 Host 实现使用。 */
+int mf310p_g1c_prepare(mf310p_v2_trial* s);
+int mf310p_g1c_start(mf310p_v2_trial* s);
+void mf310p_g1c_submit(mf310p_v2_trial* s, uint64_t seq,
+                       uint64_t input, uint64_t weight, uint64_t output,
+                       uint32_t m, uint32_t overlap);
+void mf310p_g1c_stop(mf310p_v2_trial* s);
