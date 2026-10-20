@@ -1,0 +1,315 @@
+{
+ "meta": {
+  "purpose": "1024 边界专项核查（reqSeq/到达槽位/对应 Rank）；observed=日志直录，derived=带推导链的算术结论，unknown=日志未记录且不可推导",
+  "source_constants": {
+   "ARR_SLOTS": {
+    "value": 1024,
+    "source": "memfabric_hybrid src/smem/include/device/smem_shm_sdma_layout.h:52"
+   },
+   "REQ_SLOTS": {
+    "value": 64,
+    "source": "同上 :45"
+   },
+   "QUIET_SLOTS": {
+    "value": 64,
+    "source": "同上 :49"
+   },
+   "SQE_PER_MAIL": {
+    "value": 3,
+    "source": "hybm_sdma_orch_kernel.cc issueMailSqes（载荷→到达戳→完成戳）"
+   },
+   "SQ_DEPTH": {
+    "value": 1024,
+    "source": "运行时 [MF_G1C] sqDepth 字段"
+   },
+   "stamp_semantics": "1 基（stamp=seq+1，0 表空）——smem_shm_aicore_base_sdma.h wait_at"
+  }
+ },
+ "B02": {
+  "observed": {
+   "final_ticks": {
+    "0": {
+     "final_reqHead": 6146,
+     "final_reqTail": 6146,
+     "final_reqPending": 0
+    },
+    "1": {
+     "final_reqHead": 6145,
+     "final_reqTail": 6145,
+     "final_reqPending": 0
+    }
+   },
+   "epoch_exit_totals": {
+    "0": {
+     "total_consumed": 6146,
+     "final_sqHeadAfter": 6,
+     "last_exit_epoch": 25
+    },
+    "1": {
+     "total_consumed": 6145,
+     "final_sqHeadAfter": 3,
+     "last_exit_epoch": 25
+    }
+   },
+   "last_consuming_epoch": {
+    "0": {
+     "epoch": 22
+    },
+    "1": {
+     "epoch": 22
+    }
+   }
+  },
+  "derived": [
+   {
+    "id": "D-b02-cursor-0",
+    "claim": "dev0 死亡时共消费 6146 封（最后 seq=6145，槽 1）；SQ 终值 6 = 3*6146 mod 1024 = 6（不变量成立）",
+    "basis": [
+     "[MF_DIAG] exit 行 consumed/sqHeadAfter 聚合",
+     "3 SQE/邮件不变量（issueMailSqes）"
+    ]
+   },
+   {
+    "id": "D-b02-cursor-1",
+    "claim": "dev1 死亡时共消费 6145 封（最后 seq=6144，槽 0）；SQ 终值 3 = 3*6145 mod 1024 = 3（不变量成立）",
+    "basis": [
+     "[MF_DIAG] exit 行 consumed/sqHeadAfter 聚合",
+     "3 SQE/邮件不变量（issueMailSqes）"
+    ]
+   }
+  ],
+  "unknown": [
+   "B02 无 V2 阶段戳：停滞内核的代际/chunk/等待点不可知",
+   "在途未到达邮件的 seq 与到达槽位：不可推导（仅知终态游标）",
+   "F01/F02R1 无 MF 记录：游标状态不可知"
+  ]
+ },
+ "C2R1": {
+  "observed": {
+   "final_mf_g1c": {
+    "0": {
+     "final_reqSeq": 15027,
+     "final_shadowTail": 25,
+     "final_hwHead_hwTail": [
+      25,
+      25
+     ]
+    },
+    "1": {
+     "final_reqSeq": 15027,
+     "final_shadowTail": 25,
+     "final_hwHead_hwTail": [
+      25,
+      25
+     ]
+    }
+   },
+   "total_consumed": {
+    "0": 15027,
+    "1": 15027
+   }
+  },
+  "derived": [
+   {
+    "id": "D-c2r1-0",
+    "claim": "dev0 健康终态消费 15027 封（跨 14 次 ARR wrap，末封槽 690）；shadowTail=25 = 3*15027 mod 1024（不变量成立）",
+    "basis": [
+     "[MF_G1C]/[MF_DIAG] 聚合"
+    ]
+   },
+   {
+    "id": "D-c2r1-1",
+    "claim": "dev1 健康终态消费 15027 封（跨 14 次 ARR wrap，末封槽 690）；shadowTail=25 = 3*15027 mod 1024（不变量成立）",
+    "basis": [
+     "[MF_G1C]/[MF_DIAG] 聚合"
+    ]
+   }
+  ],
+  "unknown": [
+   "C2R1 各 wrap 时刻的精确游标序列（1Hz 采样，穿越多发生在采样间隙）"
+  ]
+ },
+ "C2R2": {
+  "observed": {
+   "v2_final_frames": {
+    "0": {
+     "generation": 208,
+     "core0_chunk_field": 1,
+     "core0_stage": 50,
+     "core0_stage_name": "mail_wait_before",
+     "cores_1_7_stage": [
+      60
+     ],
+     "stalled": true
+    },
+    "1": {
+     "generation": 208,
+     "core0_chunk_field": 3,
+     "core0_stage": 50,
+     "core0_stage_name": "mail_wait_before",
+     "cores_1_7_stage": [
+      60
+     ],
+     "stalled": true
+    }
+   },
+   "mf_final": {
+    "0": {
+     "reqSeq": 1025,
+     "shadowTail": 3,
+     "sqDepth": 1024,
+     "hwHeadLast": 3,
+     "hwTailLast": 3,
+     "query_rc": [
+      0,
+      0
+     ],
+     "phase": 8
+    },
+    "1": {
+     "reqSeq": 1026,
+     "shadowTail": 6,
+     "sqDepth": 1024,
+     "hwHeadLast": 6,
+     "hwTailLast": 6,
+     "query_rc": [
+      0,
+      0
+     ],
+     "phase": 8
+    }
+   },
+   "chunks_per_call_inferred": 4,
+   "geometry_candidates": [
+    {
+     "mode": "overlap",
+     "signal_counts": {
+      "0": 3,
+      "1": 4
+     },
+     "baselines": {
+      "0": 1022,
+      "1": 1022
+     },
+     "lockstep_consistent": true
+    },
+    {
+     "mode": "no_overlap",
+     "signal_counts": {
+      "0": 2,
+      "1": 4
+     },
+     "baselines": {
+      "0": 1023,
+      "1": 1022
+     },
+     "lockstep_consistent": false
+    }
+   ]
+  },
+  "derived": [
+   {
+    "id": "D-geometry",
+    "claim": "停滞几何判别为 overlap 模式：signal 数 {'0': 3, '1': 4}，停滞前基线 {'0': 1022, '1': 1022}",
+    "basis": [
+     "双 rank 锁步约束（同层同 M，完成代双方各发满 4 封 ⇒ 基线相等）",
+     "终态 reqSeq {0: 1025, 1: 1026} 与各候选 n 逐一检验",
+     "观测 chunks/call=4（stage40/41 chunk 字段最大值+1）"
+    ]
+   },
+   {
+    "id": "D-seq",
+    "claim": "停滞代 signal seq 映射（请求环 FIFO 游标，0 基）= {'0': {'chunk0': 1022, 'chunk1': 1023, 'chunk2': 1024}, '1': {'chunk0': 1022, 'chunk1': 1023, 'chunk2': 1024, 'chunk3': 1025}}",
+    "basis": [
+     "issueMailSqes/consumeOneMail: seq = 请求环 FIFO 游标",
+     "signal 顺序 = chunk 升序（内核循环）",
+     "每核内核串行化 + FIFO ⇒ 停滞代的 signal 位于环尾部"
+    ]
+   },
+   {
+    "id": "D-loss",
+    "claim": "唯一无法解释的等待（丢失邮件）：rank0 等待 rank1 的 chunk1 邮件",
+    "basis": [
+     "等待方 stage50 + 源方该 chunk 的 signal 已被消费（请求环排空）⇒ SQE 链已执行",
+     "另侧等待的邮件源方从未投递 ⇒ 归类为下游等待"
+    ]
+   },
+   {
+    "id": "D-wrap-0",
+    "claim": "丢失邮件 seq=1023，到达槽位 1023，期望戳 1024；SQE 链止于源设备 SQ 槽 1023；同代下一封 seq=1024 为 wrap 邮件（槽 0）",
+    "basis": [
+     "ARR_SLOTS=SQ 深度=1024 且 3 SQE/邮件 ⇒ seq≡1023(mod 1024) 的邮件同时占据 ARR 末槽与 SQ 末槽（算术锁定）",
+     "wrap 邮件（seq≡0）在反方向的健康到达由 rank1 通过 prev=2 等待证明"
+    ]
+   },
+   {
+    "id": "D-inv-0",
+    "claim": "dev0: shadowTail=3 == 3*reqSeq(1025) mod 1024 = 3（成立）",
+    "basis": [
+     "[MF_G1C] 终态采样 + 3 SQE/邮件不变量"
+    ]
+   },
+   {
+    "id": "D-inv-1",
+    "claim": "dev1: shadowTail=6 == 3*reqSeq(1026) mod 1024 = 6（成立）",
+    "basis": [
+     "[MF_G1C] 终态采样 + 3 SQE/邮件不变量"
+    ]
+   }
+  ],
+  "unknown": [
+   "arrHead（等待设备到达环游标）运行时值：日志未记录；仅可由等待参数推导（D-loss）",
+   "到达槽位的实际内存内容/戳值：停滞时未转储，无法区分'未写入'与'写入不可见'",
+   "丢失邮件之后的同代邮件（wrap 邮件等）在等待方到达环的实际落地状态：等待核未消费，不可观察",
+   "设备侧硬件 SQ 消费每个 SQE 的精确时刻：仅有 1Hz 低频采样（phase8/32 邮件边界）",
+   "B02 在途邮件 seq/槽位：无 V2 阶段戳，不可推导（仅终态游标）"
+  ],
+  "derived_summary": {
+   "geometry_mode": "overlap",
+   "signal_counts_stalled_gen": {
+    "0": 3,
+    "1": 4
+   },
+   "pre_stall_baseline_counts": {
+    "0": 1022,
+    "1": 1022
+   },
+   "stalled_gen_mail_seqs": {
+    "0": {
+     "chunk0": 1022,
+     "chunk1": 1023,
+     "chunk2": 1024
+    },
+    "1": {
+     "chunk0": 1022,
+     "chunk1": 1023,
+     "chunk2": 1024,
+     "chunk3": 1025
+    }
+   },
+   "lost_mail": {
+    "0": {
+     "waiting_rank": "0",
+     "source_rank": "1",
+     "waited_chunk": 1,
+     "seq_in_source_dev_request_ring": 1023,
+     "arrival_slot_on_waiting_dev": 1023,
+     "stamp_value_expected": 1024,
+     "sq_slots_on_source_dev": [
+      1021,
+      1022,
+      1023
+     ]
+    }
+   },
+   "downstream_waits": {
+    "1": {
+     "waiting_rank": "1",
+     "source_rank": "0",
+     "waited_chunk": 3,
+     "note": "源 rank0 停滞前仅 signal 到 chunk2，chunk3 从未投递 —— 该等待为停滞的下游结果，非邮件丢失"
+    }
+   }
+  }
+ }
+}
