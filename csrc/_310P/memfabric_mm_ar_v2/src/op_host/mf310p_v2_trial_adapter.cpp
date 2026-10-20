@@ -7,6 +7,14 @@ extern "C" int mf310p_v2_trial_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+#ifdef MF310P_G1C_TRACE
+// 专项诊断 Kernel 与正式发射入口分离，避免污染已回归的生产代码。
+extern "C" int mf310p_v2_g1c_launch_async(
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+    uint64_t, uint64_t, aclrtStream);
+#endif
 extern "C" int mf310p_v2_ib_probe_async(
     uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_ib_fan_probe_async(
@@ -167,6 +175,19 @@ extern "C" int mf310p_v2_trial_run(
     const int clear_err = static_cast<int>(aclrtMemsetAsync(
         s->status, kStatusSize, 0, kStatusSize, acl_stream));
     if (clear_err) return clear_err;
+#ifdef MF310P_G1C_TRACE
+    if (s->g1c_trace_addr != 0) {
+        // 一次真实发射对应一个单调序号；追踪缓冲区允许跨多次启动复用。
+        const uint64_t seq = ++s->g1c_trace_seq;
+        return mf310p_v2_g1c_launch_async(
+            l.pool_base, x, w, y, ownC, peerC, peerDst, expectedRecvDst,
+            reinterpret_cast<uint64_t>(s->ib),
+            reinterpret_cast<uint64_t>(s->status),
+            l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
+            s->chunk_rows, m / s->chunk_rows, overlap, 1,
+            s->g1c_trace_addr, seq, acl_stream);
+    }
+#endif
     return mf310p_v2_trial_launch_async(
         l.pool_base, x, w, y, ownC, peerC, peerDst, expectedRecvDst,
         reinterpret_cast<uint64_t>(s->ib),
@@ -192,3 +213,20 @@ extern "C" int mf310p_v2_trial_destroy(mf310p_v2_trial_t* s)
     delete s;
     return 0;
 }
+
+#ifdef MF310P_G1C_TRACE
+extern "C" int mf310p_v2_trial_g1c_bind(
+    mf310p_v2_trial_t* s, uint64_t trace_addr)
+{
+    if (!s || !s->ib_probed || trace_addr == 0 || s->g1c_trace_addr != 0)
+        return -1;
+    s->g1c_trace_addr = trace_addr;
+    s->g1c_trace_seq = 0;
+    return 0;
+}
+extern "C" uint64_t mf310p_v2_trial_g1c_sequence(
+    const mf310p_v2_trial_t* s)
+{
+    return s ? s->g1c_trace_seq : 0;
+}
+#endif
