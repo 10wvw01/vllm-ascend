@@ -95,6 +95,21 @@ G1-C 核心问题：找到最早未继续推进的 *AI Core 阶段 / AICPU SQ �
 - 恢复时停止所有相关进程后，按备份哈希恢复 Host core.so 的 /usr/local 与 site-packages 两处；原 v11 不动。核对 `SHA256SUMS`、运行时加载路径、KVER JSON 和进程退出，无残留诊断环境变量。
 - 实验日志只留服务器 `tmp/opencode/`，不提交公网 GitHub。原 F01/B02 证据与原 worktree 均不可覆盖。
 
-## 7. 阶段状态
+## 7. 两轮静态审视记录（2026-10-20）
+
+**第一轮：协议/布局与观测链审视**
+
+- V2 8 核 trace 槽各占 64B；原 status 0..63、IB workspace、MemFabric 请求环和到达环未更动。Kernel 的原有 MM、signal/wait/quiet、Add 顺序与调用条件保留。
+- AICPU trace 占 workspace +0x100 独立 64B，不与 result/overflow/stop/heartbeat 重叠；Host/D2H 仅读，SQE 三连配方、Epoch 重拉算法未更动。
+- 发现并修正：Host SQ 快照最初放在 `exitReason==RUNNING` 的 `continue` **之后**，会丢失 Epoch 运行期间每秒样本；已移到判断之前。
+
+**第二轮：反误判、跨版本、边界回归审视**
+
+- V2 stage 增加每核真实入口代际，避免上次 stage120 冒充本轮完成；1Hz 快照包含 8 核全部 64B。
+- AICPU 设备 `HEAD/TAIL` 改成保存最近一次 HAL 采样，不拿启动时的 `ctx.sqHead` 冒充实时值；批处理采样使用 **跨越 32 封请求边界** 判断，避免批量步长错过 `head%32==0`。
+- 源码静态断言检查：V2 trace 编译默认 OFF、诊断 device SO 独立名；MemFabric trace 默认 OFF、编译需 v12；`#if/#endif` 平衡、双库 Host D2H 观测入口以及已有 `CheckOrTrap` 错误路径保留，均通过源码级检查。
+- 新增 CPU-only pytest：V2 source/layout 与离线日志解析测试；MemFabric G1-C 设备/Host/CMake 合同检查。**测试代码已提交，但此环境无法直接执行 repo 的 pytest 或 CANN 设备编译，不能宣称测试 PASS。**
+
+## 8. 阶段状态
 
 源代码取证埋点和 import-free UT 已写入两仓库的独立 G1-C 分支。暂无 CANN 9.1 / dav-2002 实机构建记录，也暂无 Gate C1/C2 的真实设备结果；这两项必须由 310P3 OpenCode 在受控部署环境执行。
