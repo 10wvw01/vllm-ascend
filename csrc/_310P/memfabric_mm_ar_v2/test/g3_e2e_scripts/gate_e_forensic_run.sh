@@ -98,6 +98,20 @@ echo "$RC" > "${OUT_DIR}/runner_exit_code.txt"
 
 # 保持历史证据：本脚本不强杀、清空或重建其他运行中的设备进程。
 python3 "${SCRIPT_DIR}/gate_e_forensic_summary.py" "$OUT_DIR" > "${OUT_DIR}/evidence/summary.txt" 2>&1 || true
+
+# 独立验收的退出码不能被原 Runner 的 0 覆盖。
+# F01 只完成 29/多轮应判 FAIL；不依赖 vllm bench 是否设置非零退出码。
+PROMPTS_PER_REP=25
+if [[ "$MODE" = stock_dflash ]]; then PROMPTS_PER_REP=50; fi
+VERDICT_RC=0
+python3 "${SCRIPT_DIR}/gate_e_forensic_verdict.py" "$OUT_DIR" \
+    --prompts-per-rep "$PROMPTS_PER_REP" \
+    --json-output "$OUT_DIR/evidence/verdict.json" \
+    > "$OUT_DIR/evidence/verdict.stdout.json" 2> "$OUT_DIR/evidence/verdict.stderr" || VERDICT_RC=$?
+if [[ "$VERDICT_RC" -gt 2 ]]; then
+  echo "判定器执行失败: rc=$VERDICT_RC" >> "$OUT_DIR/evidence/verdict.stderr"
+  VERDICT_RC=2
+fi
 {
   echo "原始 runner 退出码: $RC"
   echo "若负载发生 hang/timeout，请在恢复设备前保全对应时段的 plog、slog、aicore 错误日志。"
@@ -108,5 +122,7 @@ python3 "${SCRIPT_DIR}/gate_e_forensic_summary.py" "$OUT_DIR" > "${OUT_DIR}/evid
     fi
   done
 } > "${OUT_DIR}/evidence/device_log_inventory.txt"
-echo "[$(date -u '+%FT%TZ')] 退出码=$RC，报告见 $OUT_DIR/evidence/summary.txt" | tee -a "${OUT_DIR}/runner.log"
-exit "$RC"
+FINAL_RC="$VERDICT_RC"
+if [[ "$RC" -ne 0 ]]; then FINAL_RC=1; fi
+echo "[$(date -u '+%FT%TZ')] runner原始码=$RC，离线判定码=$VERDICT_RC，最终码=$FINAL_RC，报告见 $OUT_DIR/evidence/verdict.json" | tee -a "${OUT_DIR}/runner.log"
+exit "$FINAL_RC"
