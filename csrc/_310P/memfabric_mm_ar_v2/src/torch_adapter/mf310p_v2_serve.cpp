@@ -187,6 +187,15 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     checked(mf310p_v2_trial_create(s.rank, configured_store_url(),
                                    chunk_rows, &s.handle),
             "pool create / geometry exchange");
+#ifdef MF310P_G1C_TRACE
+    if (traceEnabled) {
+        // 在任何首次真实预热波之前绑定，确保额外的 traced Kernel 符号
+        // 同样经 enable=0 两次预热，不让首调风险落入用户长稳。
+        checked(mf310p_v2_trial_g1c_bind(
+            s.handle, reinterpret_cast<uint64_t>(s.g1c_trace_storage.data_ptr())),
+            "G1-C bind phase slots");
+    }
+#endif
     static bool shutdown_hook_registered = false;
     if (!shutdown_hook_registered) {
         TORCH_CHECK(std::atexit(&memfabric_mm_ar_v2_shutdown) == 0,
@@ -199,9 +208,6 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     warm_outputs_locked(s, x, w, stream);
 #ifdef MF310P_G1C_TRACE
     if (traceEnabled) {
-        checked(mf310p_v2_trial_g1c_bind(
-            s.handle, reinterpret_cast<uint64_t>(s.g1c_trace_storage.data_ptr())),
-            "G1-C bind phase slots");
         g1c_start_observer(s);
     }
 #endif
