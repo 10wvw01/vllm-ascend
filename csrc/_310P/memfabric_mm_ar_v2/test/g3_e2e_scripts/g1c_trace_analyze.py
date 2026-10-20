@@ -32,6 +32,7 @@ def analyze(text: str) -> dict:
     polls = []
     errors = []
     all_snapshots = 0
+    intermediate_snapshots = 0
     invalid_lines = 0
     dangling_polls = 0
     for line_no, line in enumerate(text.splitlines(), 1):
@@ -72,6 +73,8 @@ def analyze(text: str) -> dict:
             latest[core]["phase_name"] = PHASES[phase]
             progressed[core].add(seq)
             all_snapshots += 1
+            if phase != 110:
+                intermediate_snapshots += 1
         elif kind == "invalid_slot":
             errors.append({"type": "invalid_slot_magic", "line": line_no, "core": obj.get("core")})
         elif kind == "invalid_snapshot":
@@ -86,8 +89,12 @@ def analyze(text: str) -> dict:
                   if isinstance(p["duration_ms"], int) and p["duration_ms"] > 1000]
     failed_polls = [p for p in complete_polls if p["rc"] != 0]
     last_seq = max(submits) if submits else 0
-    last_time = max((p["time_ms"] for p in complete_polls
-                     if isinstance(p["time_ms"], int)), default=None)
+    last_time = max(
+        [p["time_ms"] for p in complete_polls if isinstance(p["time_ms"], int)]
+        + [item["time_ms"] for item in latest.values()
+           if isinstance(item.get("time_ms"), int)],
+        default=None,
+    )
     # 只有最后一次已经持久化的可信快照可用于有限的“候选首停点”推断。
     uncertain = []
     if last_time is None:
@@ -117,6 +124,7 @@ def analyze(text: str) -> dict:
         "last_submitted_seq": last_seq,
         "submit_count": len(submits),
         "snapshots": all_snapshots,
+        "intermediate_snapshots": intermediate_snapshots,
         "polls_started": len(polls),
         "polls_completed": len(complete_polls),
         "polls_failed": len(failed_polls),
