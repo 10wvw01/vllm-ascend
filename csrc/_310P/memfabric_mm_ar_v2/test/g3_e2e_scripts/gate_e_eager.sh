@@ -4,13 +4,18 @@
 # 至少 500 个请求，Prefill 形状包含 4096、2048 和随机小值，
 # 并发数 10；结束后核查输出、请求错误和协议状态。
 set -uo pipefail
-export OUT_DIR=${1:-/tmp/opencode/g3/gate_e}
+V2_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export OUT_DIR=${1:-"${V2_ROOT}/tmp/opencode/gate_e_forensics/manual_$(date -u +%Y%m%dT%H%M%SZ)"}
 mkdir -p "$OUT_DIR"
-cd /home/w00804146/310P/vllm-ascend
+cd "${V2_WORKTREE:-/home/w00804146/310P/vllm-ascend}"
 
-MODEL=/home/models/Qwen/Qwen3.6-35B-A3B-w8a8
-PORT=8000
-DEVICES=0,1
+MODEL=${GATE_E_MODEL:-/home/models/Qwen/Qwen3.6-35B-A3B-w8a8}
+PORT=${GATE_E_PORT:-8000}
+DEVICES=${GATE_E_DEVICES:-0,1}
+if [[ "${MF_SDMA_ORCH_EPOCH_BUDGET_S:-}" == "4294967295" ]]; then
+    echo "禁止在 Gate E 使用常驻 Epoch；请取消 MF_SDMA_ORCH_EPOCH_BUDGET_S=4294967295" >&2
+    exit 2
+fi
 DURATION_S=${GATE_E_DURATION_S:-620}
 
 export ASCEND_RT_VISIBLE_DEVICES=$DEVICES
@@ -29,8 +34,10 @@ export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK=1
 export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE=1
 export VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS=1024
 export VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS=4
-ORCH_JSON=$(ls -v /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v*.json 2>/dev/null | tail -1)
-[ -n "$ORCH_JSON" ] && export MF_SDMA_ORCH_JSON="$ORCH_JSON"
+# 固定 KVER=11，不使用模糊匹配最新 v*.json，避免误载历史或新诊断版本。
+ORCH_JSON=$(ls /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json 2>/dev/null | head -1)
+if [[ -z "$ORCH_JSON" ]]; then echo "缺少 KVER=11 launch JSON" >&2; exit 2; fi
+export MF_SDMA_ORCH_JSON="$ORCH_JSON"
 
 LOG="$OUT_DIR/serve.log"
 echo "[$(date +%H:%M:%S)] starting fused EAGER serve"
@@ -83,7 +90,7 @@ REQS=$(python - <<'EOF'
 import glob, json, os
 total = 0
 errs = 0
-for f in sorted(glob.glob(os.environ.get("OUT_DIR", "/tmp/opencode/g3/gate_e_eager") + "/stability_rep*.json")):
+for f in sorted(glob.glob(os.environ["OUT_DIR"] + "/stability_rep*.json")):
     d = json.load(open(f))
     total += d.get("completed", 0)
     errs += d.get("errors", 0) if isinstance(d.get("errors"), int) else 0
