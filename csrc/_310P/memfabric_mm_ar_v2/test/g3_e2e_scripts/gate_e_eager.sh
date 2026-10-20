@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Gate E：对融合 Eager 服务施加至少 10 分钟连续负载。
-# 至少 500 个请求，Prefill 形状包含 4096、2048 和随机小值，
-# 并发数 10；结束后核查输出、请求错误和协议状态。
+# 原 G3 复现工况：random input=4096/output=256，25 prompts/轮，
+# 并发数 10；持续 620s（可配置），不虚构完成请求数量。
 set -uo pipefail
 V2_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export OUT_DIR=${1:-"${V2_ROOT}/tmp/opencode/gate_e_forensics/manual_$(date -u +%Y%m%dT%H%M%SZ)"}
