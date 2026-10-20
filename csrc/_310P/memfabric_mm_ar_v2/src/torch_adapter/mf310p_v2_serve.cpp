@@ -156,6 +156,19 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     // 输出槽与补齐输入区都必须在 create() 之前分配。
     // 这是平台 MTE3 首写问题的缓解，不代表根因已修复。
     // 所有分配保持固定存活直至 Worker 退出。
+#ifndef MF310P_G1C_TRACE
+    // 环境变量已开但二进制不含埋点：禁止安静退化成无记录器的长稳测试。
+    TORCH_CHECK(std::getenv("MF310P_G1C_TRACE") == nullptr ||
+                std::string(std::getenv("MF310P_G1C_TRACE")) != "1",
+                "MF310P_G1C_TRACE=1 requires CMake -DVLLM_ASCEND_310P_G1C_TRACE=ON");
+#else
+    const char* traceEnv = std::getenv("MF310P_G1C_TRACE");
+    const bool traceEnabled = traceEnv != nullptr && std::string(traceEnv) == "1";
+    if (traceEnabled) {
+        // 必须在 create() 前分配，避开已有 MTE3 首写问题。
+        s.g1c_trace_storage = at::zeros({8, 64}, x.options().dtype(at::kByte));
+    }
+#endif
     const int count = configured_slot_count();
     s.output_slots.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -184,6 +197,14 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
                                      reinterpret_cast<void*>(stream)),
             "8-core IB probe");
     warm_outputs_locked(s, x, w, stream);
+#ifdef MF310P_G1C_TRACE
+    if (traceEnabled) {
+        checked(mf310p_v2_trial_g1c_bind(
+            s.handle, reinterpret_cast<uint64_t>(s.g1c_trace_storage.data_ptr())),
+            "G1-C bind phase slots");
+        g1c_start_observer(s);
+    }
+#endif
 }
 
 at::Tensor reserve_slot_locked(V2ServeState& s)
@@ -239,6 +260,12 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
                 static_cast<uint32_t>(padded), 1,
                 reinterpret_cast<void*>(stream)),
             "MM+MemFabric overlap");
+#ifdef MF310P_G1C_TRACE
+    g1c_log_submit(s, static_cast<uint32_t>(rows),
+                   static_cast<uint32_t>(padded),
+                   reinterpret_cast<uint64_t>(w.const_data_ptr()),
+                   reinterpret_cast<uint64_t>(output.data_ptr()), stream);
+#endif
 
     // 设备端失败会异步暴露在协议状态中。
     // 逐调用执行 Host 同步会破坏交叠性能，
@@ -312,11 +339,18 @@ void memfabric_mm_ar_v2_shutdown()
     auto& s = state();
     std::lock_guard<std::mutex> guard(s.mutex);
     if (!s.handle) return;
+#ifdef MF310P_G1C_TRACE
+    // 观察线程的 GM 引用必须早于 context/输出槽销毁停止。
+    g1c_stop_observer(s);
+#endif
     if (s.execution_stream != nullptr)
         (void)aclrtSynchronizeStream(s.execution_stream);
     (void)mf310p_v2_trial_destroy(s.handle);
     s.handle = nullptr;
     s.input_stage.reset();
+#ifdef MF310P_G1C_TRACE
+    s.g1c_trace_storage.reset();
+#endif
     s.output_slots.clear();
 }
 
