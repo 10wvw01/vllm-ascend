@@ -167,6 +167,8 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     if (traceEnabled) {
         // 必须在 create() 前分配，避开已有 MTE3 首写问题。
         s.g1c_trace_storage = at::zeros({8, 64}, x.options().dtype(at::kByte));
+        TORCH_CHECK(reinterpret_cast<uintptr_t>(s.g1c_trace_storage.data_ptr()) % 64 == 0,
+                    "G1-C trace GM must be 64B aligned per core");
     }
 #endif
     const int count = configured_slot_count();
