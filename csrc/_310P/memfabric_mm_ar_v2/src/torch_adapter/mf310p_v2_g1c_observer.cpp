@@ -5,6 +5,8 @@
 #include <c10/util/Exception.h>
 #include <array>
 #include <chrono>
+#include <cerrno>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
