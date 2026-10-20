@@ -4,10 +4,23 @@
 #include "../../../memfabric_mm_ar/memfabric310p_adapter_api.h"
 #include <acl/acl_rt.h>
 #include <cstdint>
+#include <atomic>
+#include <cstdio>
+#include <mutex>
+#include <thread>
 struct mf310p_v2_trial {
     mf310p_context_t* v1_pool = nullptr;
     mf310p_layout_t layout{};
     uint32_t rank = 0;
+    // G1-C 按环境变量启用的独立飞行记录器；默认不申请资源/不创建线程。
+    // 每 Core 专属 64B GM，最后进度由后台线程直接落到磁盘文件。
+    void* g1c_trace_gm = nullptr;
+    uint32_t g1c_device_id = 0;
+    std::atomic<bool> g1c_stop{false};
+    std::atomic<uint64_t> g1c_seq{0};
+    std::thread g1c_monitor;
+    std::mutex g1c_file_mutex;
+    FILE* g1c_file = nullptr;
     uint32_t chunk_rows = 0;
     void* ib = nullptr;
     void* status = nullptr;
