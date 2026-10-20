@@ -29,4 +29,6 @@ option(VLLM_ASCEND_310P_G1C_TRACE
 if(VLLM_ASCEND_310P_G1C_TRACE)
     list(APPEND MF310P_V2_KERNEL_SOURCES
         "${CMAKE_CURRENT_LIST_DIR}/op_kernel/mf310p_v2_g1c_kernel.asc")
+    list(APPEND MF310P_V2_HOST_SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/torch_adapter/mf310p_v2_g1c_observer.cpp")
 endif()
