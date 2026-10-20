@@ -7,6 +7,11 @@ extern "C" int mf310p_v2_trial_launch_async(
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+extern "C" int mf310p_v2_trial_launch_trace_async(
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint32_t, uint32_t, uint32_t, uint32_t,
+    uint64_t, uint64_t, aclrtStream);
 extern "C" int mf310p_v2_ib_probe_async(
     uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v2_ib_fan_probe_async(
@@ -16,6 +21,8 @@ extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes();
 namespace {
 void free_allocations(mf310p_v2_trial* state)
 {
+    // 必须先退出采样线程再释放其 GM 源和文件资源。
+    mf310p_g1c_stop(state);
     if (state->ib) aclrtFree(state->ib);
     if (state->status) aclrtFree(state->status);
     if (state->probe_result) aclrtFree(state->probe_result);
@@ -33,8 +40,10 @@ extern "C" int mf310p_v2_trial_create(
     if (!s) return -2;
     s->rank = static_cast<uint32_t>(rank);
     s->chunk_rows = chunk_rows;
-    int err = mf310p_create(rank, 2, store_url, kPoolSize, kWindowRows,
-                           chunk_rows, &s->v1_pool);
+    // 提前分配诊断 GM（建池前），降低平台首写异常对追踪的影响。
+    int err = mf310p_g1c_prepare(s);
+    if (!err) err = mf310p_create(rank, 2, store_url, kPoolSize, kWindowRows,
+                                  chunk_rows, &s->v1_pool);
     if (!err) err = mf310p_control_barrier(s->v1_pool);
     if (!err) err = mf310p_exchange_geometry(s->v1_pool);
     /* exchange_geometry 完成之后才可以读取最新布局；expected_recv_base 和 expected_credit_dst 是交换过程中填入的对端 GVA，遵循 V1 交换后的布局刷新纪律。 */
@@ -57,6 +66,7 @@ extern "C" int mf310p_v2_trial_create(
         s->probe_result, kProbeResultBytes, 0, kProbeResultBytes));
     if (!err) err = static_cast<int>(aclrtMemset(
         reinterpret_cast<void*>(s->layout.ack_slot), 8, 0, 8));
+    if (!err) err = mf310p_g1c_start(s);
     if (err) {
         free_allocations(s);
         delete s;
@@ -167,6 +177,17 @@ extern "C" int mf310p_v2_trial_run(
     const int clear_err = static_cast<int>(aclrtMemsetAsync(
         s->status, kStatusSize, 0, kStatusSize, acl_stream));
     if (clear_err) return clear_err;
+    if (s->g1c_trace_gm) {
+        const uint64_t seq = s->g1c_seq.fetch_add(1, std::memory_order_acq_rel) + 1;
+        mf310p_g1c_submit(s, seq, x, w, y, m, overlap);
+        return mf310p_v2_trial_launch_trace_async(
+            l.pool_base, x, w, y, ownC, peerC, peerDst, expectedRecvDst,
+            reinterpret_cast<uint64_t>(s->ib),
+            reinterpret_cast<uint64_t>(s->status),
+            l.ack_slot, l.peer_ack_slot, l.expected_credit_dst,
+            s->chunk_rows, m / s->chunk_rows, overlap, 1,
+            reinterpret_cast<uint64_t>(s->g1c_trace_gm), seq, acl_stream);
+    }
     return mf310p_v2_trial_launch_async(
         l.pool_base, x, w, y, ownC, peerC, peerDst, expectedRecvDst,
         reinterpret_cast<uint64_t>(s->ib),
