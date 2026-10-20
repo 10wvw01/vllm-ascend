@@ -11,6 +11,14 @@ __aicore__ inline void G1cStage(__gm__ uint8_t* status, uint32_t core,
 {
     __gm__ uint8_t* slot = status + kG1cTraceOffset +
                           static_cast<uint64_t>(core) * kG1cTraceSlotBytes;
+    // slot+8 为每核调用代际，仅在实际进入 kernel 时递增；可区分上次已完成
+    // 的阶段 120 和本次尚未启动、正在排队的 Kernel。
+    if (stage == 10) {
+        CleanLines(slot, kG1cTraceSlotBytes);
+        __gm__ volatile uint64_t* generation =
+            reinterpret_cast<__gm__ volatile uint64_t*>(slot + 8);
+        *generation = *generation + 1;
+    }
     // 单一对齐 8B 阶段字：高 32 位 chunk，下 32 位 stage；每核独占缓存行。
     *reinterpret_cast<__gm__ volatile uint64_t*>(slot) =
         (static_cast<uint64_t>(chunk) << 32) | stage;
