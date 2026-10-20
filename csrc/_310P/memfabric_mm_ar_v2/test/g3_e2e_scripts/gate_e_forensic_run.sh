@@ -19,6 +19,11 @@ if [[ -e "$OUT_DIR" ]]; then
 fi
 mkdir -p "${OUT_DIR}/samples" "${OUT_DIR}/evidence"
 export OUT_DIR
+if [[ "${MF310P_G1C_TRACE:-0}" == "1" ]]; then
+  export MF310P_G1C_TRACE_DIR="${OUT_DIR}/evidence/g1c_trace"
+  mkdir -p "$MF310P_G1C_TRACE_DIR"
+  echo "G1-C 追踪开启，独立目录: $MF310P_G1C_TRACE_DIR"
+fi
 
 # 不导出所有环境变量（可能包含令牌），只记录必要的可复核版本、设备及路径。
 {
@@ -31,6 +36,8 @@ export OUT_DIR
   echo "model=${GATE_E_MODEL:-/home/models/Qwen/Qwen3.6-35B-A3B-w8a8}"
   echo "duration_s=${GATE_E_DURATION_S:-620}"
   echo "mf_host_diag=${MF_SDMA_ORCH_DIAG:-unset}"
+  echo "g1c_trace=${MF310P_G1C_TRACE:-unset}"
+  echo "g1c_trace_dir=${MF310P_G1C_TRACE_DIR:-unset}"
   echo "mf_epoch_budget=${MF_SDMA_ORCH_EPOCH_BUDGET_S:-default}"
   # 实机布局：/usr/local/memfabric_hybrid/latest -> 1.2.0，库在 aarch64-linux/lib64；
   # vLLM 进程实际经 site-packages ctypes 加载包内 lib/libmf_hybm_core.so，两处都取哈希。
@@ -98,6 +105,11 @@ echo "$RC" > "${OUT_DIR}/runner_exit_code.txt"
 
 # 保持历史证据：本脚本不强杀、清空或重建其他运行中的设备进程。
 python3 "${SCRIPT_DIR}/gate_e_forensic_summary.py" "$OUT_DIR" > "${OUT_DIR}/evidence/summary.txt" 2>&1 || true
+if [[ "${MF310P_G1C_TRACE:-0}" == "1" ]]; then
+  python3 "${SCRIPT_DIR}/g1c_trace_summary.py" "$MF310P_G1C_TRACE_DIR" \
+      --output "$OUT_DIR/evidence/g1c_trace_summary.json" \
+      > "$OUT_DIR/evidence/g1c_trace_summary.stdout.json" 2>&1 || true
+fi
 
 # 独立验收的退出码不能被原 Runner 的 0 覆盖。
 # F01 只完成 29/多轮应判 FAIL；不依赖 vllm bench 是否设置非零退出码。
