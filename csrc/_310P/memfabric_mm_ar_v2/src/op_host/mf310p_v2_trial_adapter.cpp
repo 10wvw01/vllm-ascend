@@ -142,9 +142,20 @@ extern "C" int mf310p_v2_trial_run(
     const bool first_real_symbol_launch = !s->trial_symbol_launched;
     if (!s->trial_symbol_warmed) {
         for (int i = 0; i < 2; ++i) {
-            const int rc = mf310p_v2_trial_launch_async(
-                l.pool_base, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                s->chunk_rows, 1, 0, 0, acl_stream);
+            int rc = 0;
+#ifdef MF310P_G1C_TRACE
+            if (s->g1c_trace_addr != 0) {
+                // 独立诊断符号与正式符号必须分别预热，enable=0 不读写诊断槽。
+                rc = mf310p_v2_g1c_launch_async(
+                    l.pool_base, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    s->chunk_rows, 1, 0, 0, s->g1c_trace_addr, 1, acl_stream);
+            } else
+#endif
+            {
+                rc = mf310p_v2_trial_launch_async(
+                    l.pool_base, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    s->chunk_rows, 1, 0, 0, acl_stream);
+            }
             if (rc != 0) return rc;
         }
         s->trial_symbol_warmed = true;
