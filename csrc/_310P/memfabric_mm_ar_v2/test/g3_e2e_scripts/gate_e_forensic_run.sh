@@ -25,6 +25,10 @@ if [[ "${MF310P_G1C_TRACE:-0}" == "1" ]]; then
     echo "G1-C 不允许与 G1-B Host 飞行记录器同时启用：请 unset MF_SDMA_ORCH_DIAG" >&2
     exit 2
   fi
+  if [[ -n "${MF310P_V2_NOWARMUP:-}" ]]; then
+    echo "G1-C 禁止跳过诊断 Kernel 首用预热：请 unset MF310P_V2_NOWARMUP" >&2
+    exit 2
+  fi
   if [[ "$MODE" != fused ]]; then
     echo "G1-C 设备阶段戳只允许 fused 实验，防止 Stock 对照无意加载诊断库" >&2
     exit 2
