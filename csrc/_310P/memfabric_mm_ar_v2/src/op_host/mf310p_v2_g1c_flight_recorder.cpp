@@ -87,11 +87,15 @@ int mf310p_g1c_prepare(mf310p_v2_trial* s)
     if (n < 0 || static_cast<size_t>(n) >= sizeof(path)) return -802;
     s->g1c_file = std::fopen(path, "wx"); // 防意外覆盖历史证据
     if (!s->g1c_file) return -803;
-    if (aclrtGetDevice(reinterpret_cast<int32_t*>(&s->g1c_device_id)) != ACL_SUCCESS)
+    int32_t current_device = -1;
+    if (aclrtGetDevice(&current_device) != ACL_SUCCESS || current_device < 0)
         return -804;
+    s->g1c_device_id = static_cast<uint32_t>(current_device);
     const aclError alloc = aclrtMalloc(
         &s->g1c_trace_gm, MF310P_G1C_TRACE_BYTES, ACL_MEM_MALLOC_HUGE_FIRST);
     if (alloc != ACL_SUCCESS) return -805;
+    if ((reinterpret_cast<uintptr_t>(s->g1c_trace_gm) & 63u) != 0u)
+        return -808; // 非 64B 对齐时不得使用跨核进度槽
     if (aclrtMemset(s->g1c_trace_gm, MF310P_G1C_TRACE_BYTES,
                     0, MF310P_G1C_TRACE_BYTES) != ACL_SUCCESS)
         return -806;
