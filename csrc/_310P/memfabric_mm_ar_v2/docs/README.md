@@ -45,6 +45,10 @@ tiling 系统与独立 run 包会改变已验证的调用 ABI 和 SDMA 生命周
 
 ## 文档索引
 
+- **[仓库、Fork、GitCode、分支与服务器运行库关系总览（2026-10-20）](310P3_仓库分支拓扑与版本归档_20261020.md)**：新成员或实机执行前建议先读
+- [服务器版本溯源与资产保全报告](310P3_版本溯源与资产保全报告_20261020.md)
+- [G1-A 长稳首故障点取证报告](G1_GATE_E_FORENSICS_REPORT_20261020.md)
+- [G1-B Host 飞行记录器诊断补遗](G1_GATE_E_FORENSICS_G1B_ADDENDUM_20261020.md)
 - [阶段归档](ARCHIVE_20261019_G3.md)
 - [目录重构实机回归报告](V2_REFACTOR_REGRESSION_20261019.md)
 - [G3 原始实机报告](V2_G3_QWEN_E2E_REPORT.md)
