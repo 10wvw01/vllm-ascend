@@ -22,3 +22,11 @@ if(VLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS)
         "${CMAKE_CURRENT_LIST_DIR}/op_host/mf310p_v2_trial_diagnostics.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/torch_adapter/mf310p_v2_serve_diagnostics.cpp")
 endif()
+
+# G1-C 设备阶段戳是完全独立的实验 Kernel，默认不进入正式产物。
+option(VLLM_ASCEND_310P_G1C_TRACE
+    "Build opt-in 310P3 G1-C phase-trace kernel and host observer" OFF)
+if(VLLM_ASCEND_310P_G1C_TRACE)
+    list(APPEND MF310P_V2_KERNEL_SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/op_kernel/mf310p_v2_g1c_kernel.asc")
+endif()
