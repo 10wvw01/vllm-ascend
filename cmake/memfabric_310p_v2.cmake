@@ -36,12 +36,16 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
             -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
         DEPENDS ${MF310P_V2_KERNEL_SOURCES}
             "${_dir}/op_kernel/mf310p_v2_kernel_common.h"
+            "${_dir}/op_kernel/mf310p_v2_g1c_trace.h"
         COMMENT "构建 310P3 V2 正式 MM+AR Kernel 和可选诊断 Kernel (dav-2002)"
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
     add_dependencies(${target} mf310p_v2_trial_device_lib)
     target_sources(${target} PRIVATE ${MF310P_V2_HOST_SOURCES})
     target_include_directories(${target} PRIVATE ${MF310P_V2_HOST_INCLUDE_DIRS})
+    if(VLLM_ASCEND_310P_G1C_TRACE)
+        target_compile_definitions(${target} PRIVATE MF310P_G1C_TRACE=1)
+    endif()
     target_link_libraries(${target} PRIVATE "-Wl,--no-as-needed" "${_lib}" "-Wl,--as-needed")
     install(FILES "${_lib}" DESTINATION .)
     message(STATUS "V2 trial and opt-in 310P3 serving op compiled; V2 serving routing remains disabled by default")
