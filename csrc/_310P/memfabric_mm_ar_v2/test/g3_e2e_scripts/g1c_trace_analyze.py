@@ -74,6 +74,9 @@ def analyze(text: str) -> dict:
             all_snapshots += 1
         elif kind == "invalid_slot":
             errors.append({"type": "invalid_slot_magic", "line": line_no, "core": obj.get("core")})
+        elif kind == "invalid_snapshot":
+            errors.append({"type": "torn_or_invalid_snapshot", "line": line_no,
+                           "core": obj.get("core")})
         elif kind == "observer_start" and obj.get("device_rc") != 0:
             errors.append({"type": "observer_device_failure", "line": line_no})
     if polls and polls[-1]["rc"] is None:
