@@ -20,6 +20,8 @@ DURATION_S=${GATE_E_DURATION_S:-620}
 
 export ASCEND_RT_VISIBLE_DEVICES=$DEVICES
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
+# 保留调用方显式指定的 launch JSON（G1-C 诊断指向独立 v12，不覆盖现网 v11）。
+G1C_ORCH_JSON="${MF_SDMA_ORCH_JSON:-}"
 unset VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR VLLM_ASCEND_310P_MEMFABRIC_STORE_URL \
       VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT \
       VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE \
@@ -34,10 +36,15 @@ export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK=1
 export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE=1
 export VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS=1024
 export VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS=4
-# 固定 KVER=11，不使用模糊匹配最新 v*.json，避免误载历史或新诊断版本。
-ORCH_JSON=$(ls /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json 2>/dev/null | head -1)
-if [[ -z "$ORCH_JSON" ]]; then echo "缺少 KVER=11 launch JSON" >&2; exit 2; fi
-export MF_SDMA_ORCH_JSON="$ORCH_JSON"
+# 固定 KVER=11，不使用模糊匹配最新 v*.json，避免误载历史或新诊断版本；
+# 仅当调用方显式提供（G1-C v12 取证）时才使用非 v11 的 launch JSON。
+if [[ -n "$G1C_ORCH_JSON" ]]; then
+    export MF_SDMA_ORCH_JSON="$G1C_ORCH_JSON"
+else
+    ORCH_JSON=$(ls /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json 2>/dev/null | head -1)
+    if [[ -z "$ORCH_JSON" ]]; then echo "缺少 KVER=11 launch JSON" >&2; exit 2; fi
+    export MF_SDMA_ORCH_JSON="$ORCH_JSON"
+fi
 
 LOG="$OUT_DIR/serve.log"
 echo "[$(date +%H:%M:%S)] starting fused EAGER serve"

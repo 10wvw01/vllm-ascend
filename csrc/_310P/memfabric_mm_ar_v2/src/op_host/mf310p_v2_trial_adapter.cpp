@@ -119,16 +119,28 @@ extern "C" int mf310p_v2_trial_create(
                             if (last[core] != cells[core * 8]) changed = true;
                             last[core] = cells[core * 8];
                         }
-                        std::fprintf(stderr, "[V2_G1C] rank=%u changed=%d", s->rank, changed);
-                        for (uint32_t core = 0; core < 8; ++core) {
+                        // 单次 fprintf 输出整行：双 rank 共享 stderr 时避免
+                        // 逐字段 fprintf 被另一进程穿插，导致证据行不可解析。
+                        char line[512];
+                        int off = std::snprintf(line, sizeof(line),
+                                                "[V2_G1C] rank=%u changed=%d",
+                                                s->rank, changed);
+                        for (uint32_t core = 0; core < 8 && off > 0; ++core) {
                             const uint64_t packed = cells[core * 8];
                             const uint64_t generation = cells[core * 8 + 1];
-                            std::fprintf(stderr, " c%u=%llu:%u:%u", core,
-                                         (unsigned long long)generation,
-                                         static_cast<uint32_t>(packed >> 32),
-                                         static_cast<uint32_t>(packed));
+                            const int wrote = std::snprintf(
+                                line + off, sizeof(line) - static_cast<size_t>(off),
+                                " c%u=%llu:%u:%u", core,
+                                (unsigned long long)generation,
+                                static_cast<uint32_t>(packed >> 32),
+                                static_cast<uint32_t>(packed));
+                            if (wrote < 0) { off = -1; break; }
+                            off += wrote;
+                            if (off >= static_cast<int>(sizeof(line)) - 1) break;
                         }
-                        std::fprintf(stderr, "\n");
+                        if (off > 0) {
+                            std::fprintf(stderr, "%s\n", line);
+                        }
                     }
                     std::fflush(stderr);
                 }

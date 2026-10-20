@@ -34,11 +34,12 @@ def summarize(lines):
         v = V2_LINE.search(line)
         if v:
             rank = v.group(1)
+            item = ranks[rank]
             core_entries = CORE.findall(v.group(3))
             # 只有 8 个核均有一个代际/阶段时才算作完整采样。
+            # 不完整帧仍保留 rank 条目（计数为 0），证明见过该 rank 但不作为证据。
             if len(core_entries) != 8 or len({c for c, _, _, _ in core_entries}) != 8:
                 continue
-            item = ranks[rank]
             item["v2_samples"] += 1
             item["v2_last"] = {
                 f"core{c}": {
