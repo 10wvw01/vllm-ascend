@@ -31,6 +31,8 @@ struct V2ServeState {
     std::atomic<bool> g1c_stop{false};
     int g1c_fd = -1;
     int g1c_device = -1;
+    // 同一 Rank 内按照首次出现的 weight 指针分配稳定序号（不是模型绝对层号）。
+    std::vector<uint64_t> g1c_layer_weights;
 #endif
 };
 V2ServeState& v2_serve_state();
