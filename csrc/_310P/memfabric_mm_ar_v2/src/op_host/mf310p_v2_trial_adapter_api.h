@@ -23,6 +23,13 @@ MF310P_V2_API int mf310p_v2_trial_run(mf310p_v2_trial_t* handle, uint64_t x,
                         uint32_t overlap, void* acl_stream);
 MF310P_V2_API int mf310p_v2_trial_check_status(mf310p_v2_trial_t* handle,
                                 uint64_t* protocol_status);
+#ifdef MF310P_G1C_TRACE
+// G1-C 仅内部研发构建：绑定提前分配的独立 GM 缓冲（每核 64B）。
+MF310P_V2_API int mf310p_v2_trial_g1c_bind(
+    mf310p_v2_trial_t* handle, uint64_t trace_addr);
+MF310P_V2_API uint64_t mf310p_v2_trial_g1c_sequence(
+    const mf310p_v2_trial_t* handle);
+#endif
 MF310P_V2_API int mf310p_v2_trial_destroy(mf310p_v2_trial_t* handle);
 #ifdef __cplusplus
 }
