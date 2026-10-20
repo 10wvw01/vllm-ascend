@@ -5,7 +5,7 @@
 set -Eeuo pipefail
 
 MODE="${1:-}"
-case "$MODE" in fused|stock) ;; *) echo "用法: bash $0 fused|stock [实验编号]" >&2; exit 2 ;; esac
+case "$MODE" in fused|stock|stock_dflash) ;; *) echo "用法: bash $0 fused|stock|stock_dflash [实验编号]" >&2; exit 2 ;; esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 V2_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REPO_ROOT="$(git -C "$V2_ROOT" rev-parse --show-toplevel)"
@@ -32,11 +32,18 @@ export OUT_DIR
   echo "duration_s=${GATE_E_DURATION_S:-620}"
   echo "mf_host_diag=${MF_SDMA_ORCH_DIAG:-unset}"
   echo "mf_epoch_budget=${MF_SDMA_ORCH_EPOCH_BUDGET_S:-default}"
+  # 实机布局：/usr/local/memfabric_hybrid/latest -> 1.2.0，库在 aarch64-linux/lib64；
+  # vLLM 进程实际经 site-packages ctypes 加载包内 lib/libmf_hybm_core.so，两处都取哈希。
+  MF_HOME=/usr/local/memfabric_hybrid/latest
+  MF_SITE=$(python3 -c "import memfabric_hybrid,os;print(os.path.dirname(memfabric_hybrid.__file__))" 2>/dev/null || true)
   for file in \
-      /usr/local/memfabric_hybrid/version.info \
-      /usr/local/memfabric_hybrid/lib64/libmf_hybm_core.so \
-      /usr/local/memfabric_hybrid/lib64/orch_deploy_helper; do
-    if [[ -f "$file" ]]; then
+      "${MF_HOME}/version.info" \
+      "${MF_HOME}/aarch64-linux/lib64/libmf_hybm_core.so" \
+      "${MF_HOME}/aarch64-linux/lib64/orch_deploy_helper" \
+      "${MF_HOME}/aarch64-linux/lib64/libmf_smem.so" \
+      "${MF_HOME}/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.so" \
+      "${MF_SITE}/lib/libmf_hybm_core.so"; do
+    if [[ -n "$file" && -f "$file" ]]; then
       stat -c '%n %s bytes %y' "$file"
       sha256sum "$file"
     fi
@@ -77,6 +84,8 @@ trap cleanup EXIT
 
 if [[ "$MODE" = fused ]]; then
   RUNNER="${SCRIPT_DIR}/gate_e_eager.sh"
+elif [[ "$MODE" = stock_dflash ]]; then
+  RUNNER="${SCRIPT_DIR}/gate_e_stock_dflash.sh"
 else
   RUNNER="${SCRIPT_DIR}/gate_e_eager_stock.sh"
 fi
