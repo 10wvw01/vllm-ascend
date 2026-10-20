@@ -66,6 +66,9 @@ def analyze(path: pathlib.Path) -> dict:
                 "seq": int(seq), "phase": int(phase), "phase_name": PHASES.get(int(phase), "UNKNOWN"),
                 "chunk": int(chunk), "step": int(step),
             }
+        # 单条磁盘日志可能在进程终止时截断；只接受完整的八核成功快照。
+        if int(rc) == 0 and len(cores) != 8:
+            continue
         snapshots.append({
             "ms": int(ms), "submitted_seq": int(latest), "rc": int(rc),
             "cores": cores,
