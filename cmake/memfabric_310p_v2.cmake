@@ -21,11 +21,19 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
     if(NOT _v2_mf_device_inc OR NOT _v2_bisheng)
         message(FATAL_ERROR "V2 trial needs bisheng and installed MemFabric SDMA public header")
     endif()
-    set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device.so")
+    # G1-C 设备侧 trace 需重新编译专用诊断 SO，不能复用正式产物。
+    set(_g1c_bisheng_def "")
+    if(VLLM_ASCEND_310P_V2_G1C_TRACE)
+        set(_g1c_bisheng_def "-DMF310P_V2_G1C_TRACE=1")
+        target_compile_definitions(${target} PRIVATE MF310P_V2_G1C_TRACE=1)
+        set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device_g1c.so")
+    else()
+        set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device.so")
+    endif()
     add_custom_command(
         OUTPUT "${_lib}"
         COMMAND ${_v2_bisheng}
-            --npu-arch=dav-2002 -O2 -std=c++17 -w
+            --npu-arch=dav-2002 -O2 -std=c++17 -w ${_g1c_bisheng_def}
             -shared -fPIC -x asc ${MF310P_V2_KERNEL_SOURCES}
             -x none -o "${_lib}"
             -I${ASCEND_HOME_PATH}/aarch64-linux/include
@@ -36,6 +44,7 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
             -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
         DEPENDS ${MF310P_V2_KERNEL_SOURCES}
             "${_dir}/op_kernel/mf310p_v2_kernel_common.h"
+            "${_dir}/op_kernel/mf310p_v2_g1c_trace.h"
         COMMENT "构建 310P3 V2 正式 MM+AR Kernel 和可选诊断 Kernel (dav-2002)"
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
