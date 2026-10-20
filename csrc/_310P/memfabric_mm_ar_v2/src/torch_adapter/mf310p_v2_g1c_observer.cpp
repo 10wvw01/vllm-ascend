@@ -67,7 +67,7 @@ void observe_loop(V2ServeState* s) noexcept
                                            v[3] ^ (v[4] << 48) ^ v[5];
                     if (v[6] != check || v[7] != ~check || v[4] != c) {
                         dprintf(s->g1c_fd,
-                                "{\\"type\\":\\"invalid_snapshot\\",\\"time_ms\\":%llu,\\"core\\":%u}\\n",
+                            "{\"type\":\"invalid_snapshot\",\"time_ms\":%llu,\"core\":%u}\n",
                                 static_cast<unsigned long long>(wall_ms()), c);
                         continue;
                     }
