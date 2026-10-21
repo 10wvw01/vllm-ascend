@@ -16,7 +16,7 @@ G1-C C2R2 双 Rank 处于第 208 代；rank0 core0 为 stage50/chunk1；rank1 co
 
 - G1-D V2 `stage=50`：wait 前；`stage=52`：wait 返回、尚未检查；`stage=53`：邮件校验失败、Trap 前；`stage=51`：正常校验通过。
 - `[V2_G1D]` 只在返回邮件的采集代际等于当前代际时提供 `mailSeq/mailDst/mailLen/mailImm/mailStatus`；如果从未返回，这一条应标记“无结果”，不能擅自填零。
-- `[MF_G1D]` 从**本端对称段保留区**采集 `ArrHead`、`stamp[1020..1023]`、`stamp[0..2]`、`mail[1023]`、`mail[0]`、`quiet[60..63]`、`quiet[0..1]`，分别采双 Rank；按 1Hz 周期，采集非原子，不代表同一个硬件瞬间。
+- `[MF_G1D]` 从**本端对称段保留区**采集 `ArrHead`、当前 `ArrHead%1024` 对应的 `headStamp/headMail`，以及`stamp[1020..1023]`、`stamp[0..2]`、`mail[1023]`、`mail[0]`、`quiet[60..63]`、`quiet[0..1]`，分别采双 Rank；按 1Hz 周期，采集非原子，不代表同一个硬件瞬间。
 - 结合 G1-C `[MF_G1C]` 设备 SQ 查询与历史 `[MF_DIAG]` 游标记录判读：**SQ 当前为空不证明每条 SQE 正确完成**；只有 direct GM/AICore 观察支持时才认为具体槽位有异常。
 - 关键内存布局：到达戳末 4 槽与 `mail[0]` 共 64B Cache Line（`0x2A00`）；`mail[1023]` 与 `ArrHead` 共 64B（`0xAA00`）；quiet 后 2 槽与 reserved 交接区邻接。这个共享关系本身**不是缓存丢写证明**。
 
@@ -71,6 +71,9 @@ bash csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/g1d_run.sh preflight
 
 # 需要 OpenCode 先完成 build、SO 双路径备份和部署，并锁定 JSON 实际 SHA。
 export MF_SDMA_ORCH_JSON=/绝对路径/libmf_sdma_orch_v12.json
+# 以下两个哈希须来自 OpenCode D0 已审计的离线清单，不是随手信任当前路径。
+export G1D_HOST_SHA256_EXPECTED=/替换为新编译并核验的Host_SO_SHA256
+export G1D_V12_JSON_SHA256_EXPECTED=/替换为验证过的v12_JSON_SHA256
 export G1D_PYINJ=/绝对路径/已验证的sitecustomize目录
 bash csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/g1d_run.sh c1
 
@@ -105,7 +108,7 @@ python3 csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/g1d_evidence_summary.p
 | 取证发现 | 允许的结论 | 尚需核查 |
 |---|---|---|
 | Core0 stage50 且本端 ARR 戳不匹配 | 到达/读取交接区间异常 | 需区分 SQE 未写、写错、跨 die 可见性、读到旧缓存 |
-| 本端 GM 戳正确但 Core0 stage50 | 与缓存可见性/读游标相关 | D2H 与 AI Core 不同视角，需更低扰动 AICore 原位捕捉 |
+| 本端当前 headStamp 正确但 Core0 stage50 | 与缓存可见性/读游标相关 | D2H 与 AI Core 不同视角，需更低扰动 AICore 原位捕捉 |
 | stage52/53 或返回邮件值错误 | wait 已返回或 mail 校验失败 | 错误 seq/target/imm 的源头及 Trap 证据 |
 | quiet[63] 落地但 ARR[1023] 错 | 已观察发送侧末 SQE 结果，支持调查到达戳写入链 | 不能仅据此认定 SQE2 未执行，需驱动 FIFO/地址与内存一致性证据 |
 | seq 非边界也复现 | 原“只在 1024 边界失败”假设遭反证 | 改查共同并发/缓存/协议条件 |
