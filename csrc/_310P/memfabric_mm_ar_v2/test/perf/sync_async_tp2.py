@@ -11,6 +11,7 @@
 40 次独立目标层调用是连续提交压力包络，并非真实 Qwen 40 层
 依赖图；真实模型的层间数据依赖不能被这份脚本假装消失。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,6 +28,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import torch_npu  # noqa: F401
 import vllm_ascend.vllm_ascend_C as extension
+
 from vllm_ascend.ops import linear as _linear_registration  # noqa: F401
 from vllm_ascend.utils import maybe_trans_nz
 
@@ -60,9 +62,7 @@ def emit(rank: int, phase: str, **data: object) -> None:
     # torchrun 下两个 Rank 共享同一个 stdout 文件描述符；print 在非缓冲
     # stdout 上会把文本与换行拆成两次 write，跨进程交错后两条 JSON 记录
     # 会挤在同一物理行。含换行的单次 os.write 使每条记录原子落盘。
-    line = json.dumps({
-        "tag": "V2_SYNC_ASYNC", "rank": rank, "phase": phase, **data
-    }, ensure_ascii=False) + "\n"
+    line = json.dumps({"tag": "V2_SYNC_ASYNC", "rank": rank, "phase": phase, **data}, ensure_ascii=False) + "\n"
     sys.stdout.flush()
     os.write(sys.stdout.fileno(), line.encode("utf-8"))
 
@@ -91,18 +91,15 @@ def stock_forward(x: torch.Tensor, w: torch.Tensor):
 
 
 class V2Context:
-    def __init__(self, lib, rank, raw_stream, rows, chunk, store, outputs, x, w,
-                 refs, ctrl):
+    def __init__(self, lib, rank, raw_stream, rows, chunk, store, outputs, x, w, refs, ctrl):
         self.lib = lib
         self.handle = ctypes.c_void_p()
         self.raw_stream = raw_stream
         self.rows = rows
         self.outputs = outputs
-        checked(lib.mf310p_v2_trial_create(
-            rank, store.encode(), chunk, ctypes.byref(self.handle)), "trial_create")
+        checked(lib.mf310p_v2_trial_create(rank, store.encode(), chunk, ctypes.byref(self.handle)), "trial_create")
         fail_if_not(bool(self.handle.value), "null V2 context")
-        checked(lib.mf310p_v2_trial_ib_probe(
-            self.handle, 1000, raw_stream), "ib_probe")
+        checked(lib.mf310p_v2_trial_ib_probe(self.handle, 1000, raw_stream), "ib_probe")
         # 每个输出地址的首写保护可能触发 0-15 秒 device sync。
         # 分槽交替 Rank 会合，避免首写保护形成双 Rank 过大偏斜。
         for slot, y in enumerate(outputs):
@@ -115,14 +112,16 @@ class V2Context:
             dist.barrier(group=ctrl)
 
     def launch(self, x, w, y):
-        checked(self.lib.mf310p_v2_trial_run(
-            self.handle, x.data_ptr(), w.data_ptr(), y.data_ptr(),
-            self.rows, 1, self.raw_stream), "trial_run")
+        checked(
+            self.lib.mf310p_v2_trial_run(
+                self.handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), self.rows, 1, self.raw_stream
+            ),
+            "trial_run",
+        )
 
     def check(self):
         status = ctypes.c_uint64(0)
-        checked(self.lib.mf310p_v2_trial_check_status(
-            self.handle, ctypes.byref(status)), "check_status")
+        checked(self.lib.mf310p_v2_trial_check_status(self.handle, ctypes.byref(status)), "check_status")
         fail_if_not(status.value == 0, f"V2 status={status.value}")
 
     def close(self):
@@ -132,8 +131,7 @@ class V2Context:
             self.handle = ctypes.c_void_p()
 
 
-def execute_window(arm, context, x_list, w_list, outputs, expected, start,
-                   stop, verify):
+def execute_window(arm, context, x_list, w_list, outputs, expected, start, stop, verify):
     works = []
     pending = []
     t_launch = 0.0
@@ -157,22 +155,20 @@ def execute_window(arm, context, x_list, w_list, outputs, expected, start,
         for index, y in pending:
             if not torch.equal(y, expected[index]):
                 bad = int(torch.count_nonzero(y != expected[index]).item())
-                raise AssertionError(
-                    f"{arm}: rank={dist.get_rank()} index={index} mismatch={bad}")
+                raise AssertionError(f"{arm}: rank={dist.get_rank()} index={index} mismatch={bad}")
     # CPU Tensor 引用在窗口内一直有效；退出本函数后方可复用。
     del pending, works
     return t_launch * 1000.0
 
 
-def run_sequence(arm, context, x_list, w_list, outputs, expected, window,
-                 verify):
+def run_sequence(arm, context, x_list, w_list, outputs, expected, window, verify):
     n = len(x_list)
     start_wall = time.perf_counter()
     enqueue_ms = 0.0
     for start in range(0, n, window):
         enqueue_ms += execute_window(
-            arm, context, x_list, w_list, outputs, expected, start,
-            min(n, start + window), verify)
+            arm, context, x_list, w_list, outputs, expected, start, min(n, start + window), verify
+        )
     return (time.perf_counter() - start_wall) * 1000, enqueue_ms
 
 
@@ -186,16 +182,21 @@ def main():
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--repeat", type=int, default=8)
     parser.add_argument("--seed", type=int, default=4400)
-    parser.add_argument("--store-url", default=os.environ.get(
-        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
+    parser.add_argument(
+        "--store-url", default=os.environ.get("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581")
+    )
     args = parser.parse_args()
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
         parser.error("必须 torchrun --nproc-per-node=2")
-    if (not 1 <= args.steps <= 40 or not 1 <= args.repeat <= 100
-            or not 1 <= args.warmup <= 30 or not args.windows
-            or any(not 1 <= v <= min(args.steps, 16) for v in args.windows)
-            or len(set(args.windows)) != len(args.windows)
-            or args.rows % args.chunk_rows != 0):
+    if (
+        not 1 <= args.steps <= 40
+        or not 1 <= args.repeat <= 100
+        or not 1 <= args.warmup <= 30
+        or not args.windows
+        or any(not 1 <= v <= min(args.steps, 16) for v in args.windows)
+        or len(set(args.windows)) != len(args.windows)
+        or args.rows % args.chunk_rows != 0
+    ):
         parser.error("1<=steps<=40; windows 唯一且 <=min(steps,16); 行数须整除 chunk")
     if os.getenv("MF_KFC_BYPASS") == "1":
         parser.error("禁止使用 MF_KFC_BYPASS 规避控制面错误")
@@ -212,12 +213,20 @@ def main():
     if expected_repo:
         actual_so = str(Path(extension.__file__).resolve())
         root = str(Path(expected_repo).resolve())
-        fail_if_not(os.path.commonpath([actual_so, root]) == root,
-                    f"wrong extension origin: {actual_so}; expected under {root}")
-    emit(rank, "environment", arm=args.arm, rows=args.rows,
-         steps=args.steps, windows=args.windows,
-         chunk_rows=args.chunk_rows, extension=str(Path(extension.__file__).resolve()),
-         expansion_mode=os.getenv("HCCL_OP_EXPANSION_MODE", "<unset>"))
+        fail_if_not(
+            os.path.commonpath([actual_so, root]) == root, f"wrong extension origin: {actual_so}; expected under {root}"
+        )
+    emit(
+        rank,
+        "environment",
+        arm=args.arm,
+        rows=args.rows,
+        steps=args.steps,
+        windows=args.windows,
+        chunk_rows=args.chunk_rows,
+        extension=str(Path(extension.__file__).resolve()),
+        expansion_mode=os.getenv("HCCL_OP_EXPANSION_MODE", "<unset>"),
+    )
     ctx = None
     try:
         # 所有 Tensor 在 V2 建池之前分配，符合历史 MTE3 首写安全约束。
@@ -227,10 +236,10 @@ def main():
         for layer in range(args.steps):
             torch.manual_seed(args.seed + rank * 103 + layer * 17)
             x_list.append(torch.randn(args.rows, WIDTH, dtype=torch.float16, device=device))
-            w_list.append(maybe_trans_nz(torch.randn(
-                WIDTH, WIDTH, dtype=torch.float16, device=device)))
-        outputs = [torch.empty((args.rows, WIDTH), dtype=torch.float16, device=device)
-                   for _ in range(max(args.windows))]
+            w_list.append(maybe_trans_nz(torch.randn(WIDTH, WIDTH, dtype=torch.float16, device=device)))
+        outputs = [
+            torch.empty((args.rows, WIDTH), dtype=torch.float16, device=device) for _ in range(max(args.windows))
+        ]
         # FP32 SUM参考，必须在池创建前构造；不计入基准。
         expected = []
         for x, w in zip(x_list, w_list):
@@ -242,16 +251,33 @@ def main():
 
         if args.arm == "v2":
             lib = bind_v2()
-            ctx = V2Context(lib, rank, raw_stream, args.rows, args.chunk_rows,
-                            args.store_url, outputs, x_list, w_list, expected, ctrl)
+            ctx = V2Context(
+                lib,
+                rank,
+                raw_stream,
+                args.rows,
+                args.chunk_rows,
+                args.store_url,
+                outputs,
+                x_list,
+                w_list,
+                expected,
+                ctrl,
+            )
         for window in args.windows:
             # 先通过全部 40 调用逐窗口位精确测试，再进行无核验计时。
             dist.barrier(group=ctrl)
-            elapsed_ms, _ = run_sequence(
-                args.arm, ctx, x_list, w_list, outputs, expected, window, True)
-            emit(rank, "correctness", arm=args.arm, rows=args.rows, window=window,
-                 steps=args.steps, pass_bit_exact=True,
-                 validation_wall_ms=round(elapsed_ms, 4))
+            elapsed_ms, _ = run_sequence(args.arm, ctx, x_list, w_list, outputs, expected, window, True)
+            emit(
+                rank,
+                "correctness",
+                arm=args.arm,
+                rows=args.rows,
+                window=window,
+                steps=args.steps,
+                pass_bit_exact=True,
+                validation_wall_ms=round(elapsed_ms, 4),
+            )
             for _ in range(args.warmup):
                 run_sequence(args.arm, ctx, x_list, w_list, outputs, expected, window, False)
             if ctx is not None:
@@ -260,18 +286,26 @@ def main():
             wall_samples = []
             enqueue_samples = []
             for _ in range(args.repeat):
-                wall, enqueue = run_sequence(
-                    args.arm, ctx, x_list, w_list, outputs, expected, window, False)
+                wall, enqueue = run_sequence(args.arm, ctx, x_list, w_list, outputs, expected, window, False)
                 wall_samples.append(wall)
                 enqueue_samples.append(enqueue)
             # 计时窗口结束后再次对所有步执行一次真实性校验。
             run_sequence(args.arm, ctx, x_list, w_list, outputs, expected, window, True)
-            emit(rank, "result", arm=args.arm, rows=args.rows,
-                 chunk_rows=args.chunk_rows, steps=args.steps, window=window,
-                 warmup=args.warmup, repeat=args.repeat, validated=True,
-                 wall=quantiles(wall_samples), enqueue=quantiles(enqueue_samples),
-                 wall_per_call_median_ms=round(
-                     statistics.median(wall_samples) / args.steps, 6))
+            emit(
+                rank,
+                "result",
+                arm=args.arm,
+                rows=args.rows,
+                chunk_rows=args.chunk_rows,
+                steps=args.steps,
+                window=window,
+                warmup=args.warmup,
+                repeat=args.repeat,
+                validated=True,
+                wall=quantiles(wall_samples),
+                enqueue=quantiles(enqueue_samples),
+                wall_per_call_median_ms=round(statistics.median(wall_samples) / args.steps, 6),
+            )
         emit(rank, "complete", arm=args.arm, status="PASS")
         dist.barrier(group=ctrl)
     finally:
