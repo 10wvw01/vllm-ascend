@@ -6,6 +6,11 @@ option(VLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS
     "Build V2 optional diagnostic kernels, adapters and Torch debug op" ON)
 option(VLLM_ASCEND_310P_V2_G1C_TRACE
     "Enable invasive G1-C per-core progress stamps (diagnosis only)" OFF)
+option(VLLM_ASCEND_310P_V2_G1D_TRACE
+    "Enable G1-D wait-return/mail-validation evidence (requires G1-C trace)" OFF)
+if(VLLM_ASCEND_310P_V2_G1D_TRACE AND NOT VLLM_ASCEND_310P_V2_G1C_TRACE)
+    message(FATAL_ERROR "G1-D trace requires VLLM_ASCEND_310P_V2_G1C_TRACE=ON")
+endif()
 if(VLLM_ASCEND_310P_V2_G1C_TRACE AND NOT VLLM_ASCEND_310P_V2_BUILD_DIAGNOSTICS)
     message(FATAL_ERROR "G1-C trace requires diagnostics build")
 endif()
