@@ -1,5 +1,7 @@
 # V2 MTE2/Scalar 专项 Gate B：真实 4-Chunk 关键路径取证设计（2026-10-22）
 
+> **2026-10-22 能力核验更新**：`GetSystemCycle()` 已实机判定为 310P3 编译可过/运行恒 0，本设计的"新设备埋点"路线确认 No-Go，走 §6 受控隔离矩阵；详见 `V2_MTE2_SCALAR_GATE_AB_VERIFICATION_REPORT_20261022.md`。
+
 > **设计及两轮静态逻辑审视完成；尚未编写新的设备埋点，也未在 310P3 验证任何新时间戳 API。**  
 > 基线：`feat/310p-memfabric-public-api` 的正式 `src/op_kernel/mf310p_v2_kernel.asc`；取证从本分支独立、受控构建，不更改正式默认产物。  
 > 前序：`V2_MTE2_SCALAR_GATE_A_EVIDENCE_AUDIT_20261022.md`。待现场关闭 Gate A 的加载路径、跨 Rank 校时、拷贝归属三项缺口前，**不启动会改变内核执行语义的测量**。

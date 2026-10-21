@@ -1,0 +1,25 @@
+{
+  "question": "does CANN 9.1 / Ascend 310P3 (dav-2002) provide a reliable in-kernel timestamp for AI Core kernels?",
+  "verdict": "NO - GetSystemCycle() is a compile-pass/run-zero stub on this SoC; no other documented low-overhead AI Core timestamp exists for the inference series; Gate B device-instrumentation route stays No-Go",
+  "evidence": {
+    "compile_stage": {
+      "toolchain": "bisheng (CANN 9.1.0, /usr/local/Ascend/cann-9.1.0/bin/bisheng) --npu-arch=dav-2002, same flags as production libmf310p_v2_trial_device.so build",
+      "getsystemcycle_compiles": true,
+      "negative_control": "a deliberately undefined function under the same -D guard fails compilation, proving the probe path is exercised",
+      "implication": "compile success alone would have produced a false 'supported' answer; runtime probe was mandatory"
+    },
+    "runtime_stage": {
+      "probe": "mf_timing_probe_kernel<<<8,0,stream>>> on idle dev0 (card 5664); each core reads GetSystemCycle() 3 times around a 200k-iteration loop, writes 64B slot + cache clean; 6 launches, 200ms apart, <2s total",
+      "execution_proof": "magic 0xC0DE2026 and loop accumulator 19999900000 returned correctly from all 8 cores on all 6 launches",
+      "result": "c0=c1=c2=0 on ALL cores, ALL launches (see raw_probe/getsystemcycle_probe_result.json)",
+      "monotonicity": "undecidable (constant zero)",
+      "units": "none observable",
+      "cross_core_coherence": "none observable"
+    },
+    "documentation_alignment": "CANN 9.1 public API matrix lists GetSystemCycle(ISASI) / PrintTimeStamp as unsupported for the Atlas inference-series AI Core; the observed zero-return matches the doc",
+    "printtimestamp": "not runtime-tested this round; doc-marked unsupported; irrelevant as a numeric source regardless",
+    "register_guessing": "prohibited by Gate B design; not attempted"
+  },
+  "consequence_for_gate_b": "no per-phase in-kernel timestamps will be produced; the controlled-isolation variant route (existing diagnostics + external profiler, relative deltas only) is the only admissible measurement style",
+  "side_observation": "profiler attribution artifact identified while auditing: the V2 arm's single ~15s 'aclnnInplaceCopy' Device Self Duration equals the persistent HybmSdmaOrchEpoch AI_CPU kernel duration to ~1us - artifact, not a blocking copy"
+}

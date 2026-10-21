@@ -1,5 +1,7 @@
 # V2 MTE2/Scalar 专项 Gate A：Prefill 证据与统计口径审计（2026-10-22）
 
+> **2026-10-22 现场核验更新**：本审计的待办项已由 `V2_MTE2_SCALAR_GATE_AB_VERIFICATION_REPORT_20261022.md` 在服务器上执行并关闭（拷贝归因结论被修正、跨 Rank 校时裁定为真实偏斜）。
+
 > 状态：**GitHub 公开证据离线审计完成；服务器运行态核验待现场执行**。不把静态审计标成新一轮实机 PASS。  
 > 审计分支：`diag/310p-v2-mte2-scalar-gate-ab-20261022`，从 `perf/310p-v2-prefill-attribution-20261021@5701ec3f` 建立。  
 > 性能证据来源：`evidence/v2_prefill_attribution_20261021/`，以及该分支中的 `V2_PREFILL_ATTRIBUTION_REPORT_20261021.md`。  

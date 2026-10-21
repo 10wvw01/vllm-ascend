@@ -1,0 +1,58 @@
+{
+  "gate": "A/B on-site verification",
+  "date": "2026-10-22",
+  "branch": "diag/310p-v2-mte2-scalar-gate-ab-20261022",
+  "device_occupancy": {
+    "target_card": "5664 die pair (dev 0/1) idle at verification start and end",
+    "other_cards": "processes on cards 38144/43520 unrelated to this verification"
+  },
+  "host_binaries": {
+    "site_packages_libmf_hybm_core_so": {
+      "path": "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so",
+      "sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+      "matches_prefill_provenance": true
+    },
+    "usr_local_libmf_hybm_core_so": {
+      "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so",
+      "sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+      "note": "same content as site-packages; set_env.sh adds this dir to LD_LIBRARY_PATH"
+    },
+    "load_chain": "import memfabric_hybrid -> __init__.py ctypes.CDLL(<pkg>/lib/libmf_hybm_core.so, RTLD_GLOBAL); serve processes ended, /proc maps unavailable, in-place files verified only",
+    "wheel_metadata_vs_binary": "wheel VERSION git=2f59dedb; actual .so is a build of fix-310p-kfc-deploy-helper@131ee5ff hot-replaced 2026-10-19 02:15 (documented in 310P3 asset audit 20261020); version.info therefore understates the deployed fix line",
+    "w1_w4_diagnostic_so_6e9dc2d6": "absent from all host paths (restored state confirmed)"
+  },
+  "kver11": {
+    "orch_json": {
+      "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+      "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+      "content": "HybmSdmaOrchEpoch, opKernelLib=KFCKernel, kernelSo=libmf_sdma_orch_v11.so",
+      "matches_prefill_provenance": true
+    },
+    "capture_script_binding": "v2_prefill_capture.sh ORCH_JSON resolves to this exact file via ls -v /usr/local/memfabric_hybrid/*/...; only version dir present is 1.2.0",
+    "device_side_so": "libmf_sdma_orch_v11.so not present on host filesystem (expected: deployed on device FS via KFC); host cannot mount device FS, direct SHA not verifiable this round",
+    "indirect_evidence": "HybmSdmaOrchEpoch AI_CPU kernel present exactly once per rank in both V2 raw traces (dur 14924831.1us r0 / 15021038.1us r1), absent from Stock traces"
+  },
+  "plugin": {
+    "vllm_ascend_C_so": {
+      "import_path": "/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so (editable install)",
+      "sha256": "929b53c20553f1b7c03fb41fc6577a75784582f4b05f10d0f84d6ba986ad3fd5",
+      "matches_prefill_provenance": true
+    }
+  },
+  "v12_residue_check": {
+    "installed_v12": "none in /usr/local, site-packages, or /opt run-package dirs",
+    "staging_dirs": "/tmp/opencode/g1c|g1d/kernel_v12_stage exist but inert (no MF_SDMA_ORCH_JSON pointing at them)",
+    "stale_kfc_bypass_files": "/tmp/mf_kfc_<dead-pid>_*.json from Oct 17 only; per-PID names cannot affect new processes",
+    "current_shell_mf_env": "unset"
+  },
+  "historical_version_difference_ruling": [
+    "G1-D original/restored Host SO 88d39285 == prefill round == current in-place (fix-310p-kfc-deploy-helper build)",
+    "W1/W4 ABBA sessions ran a different diagnostic Host SO 6e9dc2d6, later fully removed",
+    "Therefore prefill Stock/V2 same-session comparison is internally consistent; it must not be described as byte-identical to the W1/W4 environment, and W1/W4 absolute numbers are not comparable to prefill numbers"
+  ],
+  "raw_trace_integrity": "see trace_sha256.json in this directory",
+  "unresolved": [
+    "device-side (AICPU) v11 kernel binary SHA: unknown from host; re-verify at next device session via deploy-helper 'kernel already present' log or fresh trace",
+    "historical /proc/<pid>/maps of the ended serve processes: not recoverable"
+  ]
+}
