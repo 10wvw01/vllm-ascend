@@ -44,6 +44,53 @@ class EvidenceSummaryTests(unittest.TestCase):
         self.assertEqual(d["ranks"], {})
         self.assertEqual(d["evidence_level"], "OBSERVATION_ONLY")
 
+    def test_tail_frame_write_landed_branch(self):
+        # 环冻结于 arrHead=8632：t1=槽439，stamp==arrHead → 最后落地封写已落
+        # （读可见）。若此时 AICore 等待仍不返回 → 读不可见分支。
+        lines = [
+            "[MF_G1D_TAIL] devId: 0 epoch: 30 arrHead: 8632 "
+            "t1Slot: 439 t1Stamp: 8632 t1Seq: 8632 t1Dst: 0x1000 "
+            "t1Len: 4194304 t1Imm: 0x4d46 "
+            "t2Slot: 438 t2Stamp: 8631 t2Seq: 8631 t2Dst: 0x1000 "
+            "t2Len: 4194304 t2Imm: 0x4d46 "
+            "t3Slot: 437 t3Stamp: 8630 t3Seq: 8630 t3Dst: 0x1000 "
+            "t3Len: 4194304 t3Imm: 0x4d46 "
+            "t4Slot: 436 t4Stamp: 8629 t4Seq: 8629 t4Dst: 0x1000 "
+            "t4Len: 4194304 t4Imm: 0x4d46",
+        ]
+        d = analyze(lines)
+        t = d["ranks"]["0"]["last_tail"]
+        self.assertEqual(d["ranks"]["0"]["tail_frames"], 1)
+        self.assertTrue(t["t1_matches_arrHead"])
+        self.assertEqual(t["t1_lag"], 0)
+        self.assertEqual(t["t1Seq"], 8632)
+
+    def test_tail_frame_write_loss_branch(self):
+        # 同一冻结点：t1Stamp 仍持上圈旧值(7608) → 最后封写入从未落地。
+        lines = [
+            "[MF_G1D_TAIL] devId: 0 epoch: 30 arrHead: 8632 "
+            "t1Slot: 439 t1Stamp: 7608 t1Seq: 7608 t1Dst: 0x1000 "
+            "t1Len: 4194304 t1Imm: 0x4d46 "
+            "t2Slot: 438 t2Stamp: 8631 t2Seq: 8631 t2Dst: 0x1000 "
+            "t2Len: 4194304 t2Imm: 0x4d46 "
+            "t3Slot: 437 t3Stamp: 8630 t3Seq: 8630 t3Dst: 0x1000 "
+            "t3Len: 4194304 t3Imm: 0x4d46 "
+            "t4Slot: 436 t4Stamp: 8629 t4Seq: 8629 t4Dst: 0x1000 "
+            "t4Len: 4194304 t4Imm: 0x4d46",
+        ]
+        d = analyze(lines)
+        t = d["ranks"]["0"]["last_tail"]
+        self.assertFalse(t["t1_matches_arrHead"])
+        self.assertEqual(t["t1_lag"], 1024)
+
+    def test_tail_snapshot_error_counts(self):
+        lines = [
+            "[MF_G1D_TAIL] devId: 1 epoch: 3 snapshotError: 0,-1,0,0,0,0,0,0",
+        ]
+        d = analyze(lines)
+        self.assertEqual(d["ranks"]["1"]["tail_errors"], 1)
+        self.assertEqual(d["ranks"]["1"]["tail_frames"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

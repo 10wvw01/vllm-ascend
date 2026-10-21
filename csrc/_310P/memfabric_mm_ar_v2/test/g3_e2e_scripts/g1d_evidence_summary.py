@@ -9,6 +9,7 @@ from collections import defaultdict
 from pathlib import Path
 
 MF = re.compile(r"\[MF_G1D\].*?devId:\s*(\d+).*?epoch:\s*(\d+)(.*)")
+MFT = re.compile(r"\[MF_G1D_TAIL\].*?devId:\s*(\d+).*?epoch:\s*(\d+)(.*)")
 V2 = re.compile(r"\[V2_G1D\]\s+rank=(\d+)\s+generation=(\d+)(.*)")
 FIELD = re.compile(r"\b([A-Za-z][A-Za-z0-9]*):\s*(0x[0-9a-fA-F]+|\d+)")
 KV = re.compile(r"\b([A-Za-z][A-Za-z0-9]*)=(0x[0-9a-fA-F]+|\d+)")
@@ -27,7 +28,9 @@ def analyze(lines):
     }
     by_rank = defaultdict(lambda: {"mf_frames": 0, "v2_returns": 0,
                                    "mf_errors": 0, "near_boundary": [],
-                                   "mail_returns": [], "head_snapshots": [], "last_mf": {}})
+                                   "mail_returns": [], "head_snapshots": [],
+                                   "tail_frames": 0, "tail_errors": 0,
+                                   "last_tail": {}, "last_mf": {}})
     for i, line in enumerate(lines, 1):
         match = MF.search(line)
         if match:
@@ -75,6 +78,28 @@ def analyze(lines):
             r["v2_returns"] += 1
             r["mail_returns"].append({"line": i, "generation": int(v.group(2)), **f})
             r["mail_returns"] = r["mail_returns"][-16:]
+        t = MFT.search(line)
+        if t:
+            rank = t.group(1)
+            r = by_rank[rank]
+            if "snapshotError" in t.group(3):
+                r["tail_errors"] += 1
+                continue
+            fields = {k: int(v, 0) if v.lower().startswith("0x") else int(v)
+                      for k, v in FIELD.findall(t.group(3))}
+            if "arrHead" not in fields or "t1Stamp" not in fields:
+                r["tail_errors"] += 1
+                continue
+            r["tail_frames"] += 1
+            # t1=最近已写槽(head-1)。环冻结(停滞)时被等邮件应位于 t1；
+            # t1Stamp==arrHead 表示最后落地封的 stamp 已写入(读可见)。
+            r["last_tail"] = {
+                "line": i, "epoch": int(t.group(2)),
+                "t1_matches_arrHead": fields.get("t1Stamp") == fields.get("arrHead"),
+                "t1_lag": (fields.get("arrHead", 0) - fields.get("t1Stamp", 0)),
+                **{k: fields[k] for k in fields if k.startswith("t1")
+                   or k.startswith("t2") or k == "arrHead"},
+            }
     result["ranks"] = dict(sorted(by_rank.items(), key=lambda x: int(x[0])))
     return result
 
