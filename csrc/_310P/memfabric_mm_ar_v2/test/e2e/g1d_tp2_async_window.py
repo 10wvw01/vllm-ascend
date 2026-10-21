@@ -77,6 +77,14 @@ def main() -> None:
                 completed += 1
             pending.clear()
             del out
+            # 窗口=输出槽数时，验证循环变量 result 仍持有上一窗口最后一个
+            # 池视图；配合单次 gc 不足以让 StorageImpl 引用计数回落，会在
+            # 下一窗口首调触发保护性槽耗尽（实测 window=4 calls=256 第 5
+            # 调失败）。显式解绑并二次 gc 后实测通过。此为测试侧残留引用，
+            # 非 V2 池缺陷；保护性拒绝复用行为本身正确。
+            result = None
+            i = None
+            gc.collect()
             gc.collect()
             if args.add_stock:
                 stock = F.linear(x, w)
