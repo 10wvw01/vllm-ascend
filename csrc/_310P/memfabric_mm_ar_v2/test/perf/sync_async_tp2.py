@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import ctypes
-import hashlib
 import json
 import os
 import statistics
@@ -146,9 +145,9 @@ def execute_window(arm, context, x_list, w_list, outputs, expected, start,
     for work in works:
         work.wait()
     torch.npu.current_stream().synchronize()
-    if context is not None:
-        context.check()
     if verify:
+        if context is not None:
+            context.check()
         for index, y in pending:
             if not torch.equal(y, expected[index]):
                 bad = int(torch.count_nonzero(y != expected[index]).item())
@@ -202,6 +201,13 @@ def main():
     ctrl = dist.new_group(backend="gloo")
     stream = torch.npu.current_stream()
     raw_stream = ctypes.c_void_p(stream.npu_stream)
+    # 避免导入了机器上另一份已安装的旧扩展造成伪性能结果。
+    expected_repo = os.getenv("V2_SYNC_ASYNC_REPO_ROOT")
+    if expected_repo:
+        actual_so = str(Path(extension.__file__).resolve())
+        root = str(Path(expected_repo).resolve())
+        fail_if_not(os.path.commonpath([actual_so, root]) == root,
+                    f"wrong extension origin: {actual_so}; expected under {root}")
     emit(rank, "environment", arm=args.arm, rows=args.rows,
          steps=args.steps, windows=args.windows,
          chunk_rows=args.chunk_rows, extension=str(Path(extension.__file__).resolve()),
@@ -242,6 +248,8 @@ def main():
                  validation_wall_ms=round(elapsed_ms, 4))
             for _ in range(args.warmup):
                 run_sequence(args.arm, ctx, x_list, w_list, outputs, expected, window, False)
+            if ctx is not None:
+                ctx.check()  # 预热结束后验状态；不能计入稳态耗时
             dist.barrier(group=ctrl)
             wall_samples = []
             enqueue_samples = []
