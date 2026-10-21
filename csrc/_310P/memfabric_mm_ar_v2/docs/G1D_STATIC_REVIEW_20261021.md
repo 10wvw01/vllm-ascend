@@ -9,7 +9,7 @@
 | G1-D 默认 OFF，编译需同时启用 G1-C | 源码确认；V2 G1-D header 有编译期约束 |
 | V2 两处 wait 语义 | 均保留原 wait/邮件字段校验/CheckOrTrap，只在返回和失败前加阶段记录 |
 | MemFabric Host 与设备分工 | 仅 Host Supervisor 新增本端保留区只读快照，不改 AICPU SQE、Doorbell 和 Epoch |
-| 缓存行精确边界 | 0x2A00=STAMP[1020..1023]+MAIL[0]；0xAA00=MAIL[1023]+ArrHead，Host 新增 static_assert |
+| 缓存行精确边界 | 0x2A00=STAMP[1020..1023]+MAIL[0]；0xAA00=MAIL[1023]+ArrHead，Host 新增 static_assert，另按 ArrHead%1024 动态读取当前 Mail/Stamp 防边界盲区 |
 | request/arrival/quiet 布局 | 依赖原布局常量，不写控制区、不改游标、未新增 ABI |
 | 诊断 SO 保护 | V2 独立 g1d SO；MemFabric AICPU 沿用 G1-C v12 哈希产物，需实际部署核验 |
 | 取证等级 | D2H 非原子、设备与 AICore 缓存观察不一致、SQ 排空非正确完成证明均已写入解析器/计划 |
