@@ -30,6 +30,10 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
     else()
         set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device.so")
     endif()
+    if(VLLM_ASCEND_310P_V2_G1D_TRACE)
+        string(APPEND _g1c_bisheng_def " -DMF310P_V2_G1D_TRACE=1")
+        target_compile_definitions(${target} PRIVATE MF310P_V2_G1D_TRACE=1)
+    endif()
     add_custom_command(
         OUTPUT "${_lib}"
         COMMAND ${_v2_bisheng}
@@ -45,6 +49,7 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
         DEPENDS ${MF310P_V2_KERNEL_SOURCES}
             "${_dir}/op_kernel/mf310p_v2_kernel_common.h"
             "${_dir}/op_kernel/mf310p_v2_g1c_trace.h"
+            "${_dir}/op_kernel/mf310p_v2_g1d_trace.h"
         COMMENT "构建 310P3 V2 正式 MM+AR Kernel 和可选诊断 Kernel (dav-2002)"
         VERBATIM)
     add_custom_target(mf310p_v2_trial_device_lib DEPENDS "${_lib}")
