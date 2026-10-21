@@ -1,0 +1,88 @@
+{
+  "evidence_level": "TP2_MICROBENCH_CONTROLLED",
+  "estimator": "max of per-rank session medians, not median of per-repetition max",
+  "limits": [
+    "40 independent calls are a bounded async submission envelope, not Qwen's 40 sequential dependent layers",
+    "arm runs in separate processes; ABBA balances time order but not all thermal/network variance",
+    "host end-to-end wall includes enqueue, work.wait, stream synchronize and Python/launch costs",
+    "no profiler in timed runs; benchmark cannot independently attribute MM/SDMA/HCCL cache effects",
+    "rank medians do not establish statistical confidence or production stability"
+  ],
+  "rows": {
+    "4096": {
+      "1": {
+        "paired_runs": [
+          {
+            "round": 1,
+            "stock_max_rank_median_ms": 138.40133,
+            "v2_max_rank_median_ms": 108.79693,
+            "v2_latency_gain_pct": 21.3903,
+            "stock_max_rank_p95_ms": 139.44249,
+            "v2_max_rank_p95_ms": 109.59613
+          },
+          {
+            "round": 2,
+            "stock_max_rank_median_ms": 138.74337,
+            "v2_max_rank_median_ms": 107.82633,
+            "v2_latency_gain_pct": 22.2836,
+            "stock_max_rank_p95_ms": 150.2886,
+            "v2_max_rank_p95_ms": 108.39137
+          }
+        ],
+        "median_gain_pct": 21.837,
+        "min_gain_pct": 21.3903,
+        "max_gain_pct": 22.2836,
+        "both_positive": true
+      },
+      "2": {
+        "paired_runs": [
+          {
+            "round": 1,
+            "stock_max_rank_median_ms": 112.48149,
+            "v2_max_rank_median_ms": 108.07857,
+            "v2_latency_gain_pct": 3.9144,
+            "stock_max_rank_p95_ms": 113.61501,
+            "v2_max_rank_p95_ms": 108.81164
+          },
+          {
+            "round": 2,
+            "stock_max_rank_median_ms": 113.23298,
+            "v2_max_rank_median_ms": 107.10707,
+            "v2_latency_gain_pct": 5.41,
+            "stock_max_rank_p95_ms": 115.23804,
+            "v2_max_rank_p95_ms": 107.37276
+          }
+        ],
+        "median_gain_pct": 4.6622,
+        "min_gain_pct": 3.9144,
+        "max_gain_pct": 5.41,
+        "both_positive": true
+      },
+      "4": {
+        "paired_runs": [
+          {
+            "round": 1,
+            "stock_max_rank_median_ms": 101.70462,
+            "v2_max_rank_median_ms": 107.24033,
+            "v2_latency_gain_pct": -5.4429,
+            "stock_max_rank_p95_ms": 102.64512,
+            "v2_max_rank_p95_ms": 107.61884
+          },
+          {
+            "round": 2,
+            "stock_max_rank_median_ms": 100.79155,
+            "v2_max_rank_median_ms": 105.66456,
+            "v2_latency_gain_pct": -4.8347,
+            "stock_max_rank_p95_ms": 101.63069,
+            "v2_max_rank_p95_ms": 106.21449
+          }
+        ],
+        "median_gain_pct": -5.1388,
+        "min_gain_pct": -5.4429,
+        "max_gain_pct": -4.8347,
+        "both_positive": false
+      },
+      "window4_minus_window1_gain_pp": -26.9758
+    }
+  }
+}

@@ -1,6 +1,8 @@
 # 310P3 V2 同步与连续异步执行性能差异专项验证（2026-10-21）
 
-> 状态：GitHub 测试代码与首轮静态审视准备中；**尚未在 310P3 上运行**。本文件定义验证条件与验收结果，不将编译通过视为设备实测完成。
+> 状态：**2026-10-21 已执行完毕**，结论与全部实机数据见
+> [V2_SYNC_ASYNC_EXECUTION_REPORT.md](V2_SYNC_ASYNC_EXECUTION_REPORT.md)
+> 与 `../evidence/v2_sync_async_20261021/`。本文件定义验证条件与验收结果，不将编译通过视为设备实测完成。
 >
 > 不切换 `10wvw01/memfabric_hybrid@wgm-dev-310p`；继续使用已知镜像修复线的 **KVER11** Host + AICPU；不修改 MemFabric 协议/设备库。V2 从 `feat/310p-memfabric-public-api` 派生独立 `perf/310p-v2-sync-async-value-20261021` 测试分支。
 
