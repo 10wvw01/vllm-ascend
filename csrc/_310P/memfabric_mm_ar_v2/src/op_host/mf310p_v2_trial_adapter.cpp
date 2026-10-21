@@ -148,11 +148,13 @@ extern "C" int mf310p_v2_trial_create(
                             cells[2] != 0 && cells[2] == cells[1]) {
                             std::fprintf(stderr,
                                 "[V2_G1D] rank=%u generation=%llu captured=1 mailSeq=%llu"
-                                " mailDst=0x%llx mailLen=%llu mailImm=0x%llx mailStatus=%llu\n",
+                                " waitChunk=%u mailDst=0x%llx mailLen=%llu mailImm=0x%llx mailStatus=%u\n",
                                 s->rank, (unsigned long long)cells[1],
-                                (unsigned long long)cells[3], (unsigned long long)cells[4],
+                                (unsigned long long)cells[3],
+                                static_cast<uint32_t>(cells[7] >> 32),
+                                (unsigned long long)cells[4],
                                 (unsigned long long)cells[5], (unsigned long long)cells[6],
-                                (unsigned long long)cells[7]);
+                                static_cast<uint32_t>(cells[7]));
                         }
 #endif
                     }
