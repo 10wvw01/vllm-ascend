@@ -13,20 +13,27 @@ import statistics
 from pathlib import Path
 
 
-def extract(text: str, *, rows: int, arm: str, windows: set[int]) -> dict:
-    records = []
+def iter_records(text: str):
+    """逐个解析文本中的 JSON 对象，容忍两 Rank 记录交错拼接在同一行。"""
+    decoder = json.JSONDecoder()
     for line in text.splitlines():
-        if '"V2_SYNC_ASYNC"' not in line:
-            continue
-        pos = line.find("{")
-        if pos < 0:
-            continue
-        try:
-            row = json.loads(line[pos:])
-        except json.JSONDecodeError:
-            continue
-        if row.get("tag") == "V2_SYNC_ASYNC":
-            records.append(row)
+        idx = 0
+        while True:
+            pos = line.find("{", idx)
+            if pos < 0:
+                break
+            try:
+                obj, end = decoder.raw_decode(line, pos)
+            except json.JSONDecodeError:
+                idx = pos + 1
+                continue
+            yield obj
+            idx = end
+
+
+def extract(text: str, *, rows: int, arm: str, windows: set[int]) -> dict:
+    records = [obj for obj in iter_records(text)
+               if obj.get("tag") == "V2_SYNC_ASYNC"]
     result = {}
     for rank in (0, 1):
         rs = [x for x in records if x.get("rank") == rank]

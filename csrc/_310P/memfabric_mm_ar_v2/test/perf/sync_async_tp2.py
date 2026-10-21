@@ -18,6 +18,7 @@ import ctypes
 import json
 import os
 import statistics
+import sys
 import time
 from pathlib import Path
 
@@ -56,9 +57,14 @@ def quantiles(values: list[float]) -> dict[str, float]:
 
 
 def emit(rank: int, phase: str, **data: object) -> None:
-    print(json.dumps({
+    # torchrun 下两个 Rank 共享同一个 stdout 文件描述符；print 在非缓冲
+    # stdout 上会把文本与换行拆成两次 write，跨进程交错后两条 JSON 记录
+    # 会挤在同一物理行。含换行的单次 os.write 使每条记录原子落盘。
+    line = json.dumps({
         "tag": "V2_SYNC_ASYNC", "rank": rank, "phase": phase, **data
-    }, ensure_ascii=False), flush=True)
+    }, ensure_ascii=False) + "\n"
+    sys.stdout.flush()
+    os.write(sys.stdout.fileno(), line.encode("utf-8"))
 
 
 def bind_v2():

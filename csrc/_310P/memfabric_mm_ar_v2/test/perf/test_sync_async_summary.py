@@ -51,6 +51,19 @@ class SummaryTests(unittest.TestCase):
             extract(make_log("stock", 2048, 100.0),
                     rows=4096, arm="stock", windows={1, 4})
 
+    def test_concatenated_rank_records_accepted(self):
+        # 回归 2026-10-21 实机 smoke：两 Rank 共享 stdout fd 时，记录
+        # 交错拼接在同一物理行，逐行 json.loads 会同时丢失两条记录。
+        lines = make_log("stock", 4096, 100.0).splitlines()
+        joined = []
+        for i in range(0, len(lines), 2):
+            joined.append(lines[i] + lines[i + 1]
+                          if i + 1 < len(lines) else lines[i])
+        text = "\n\n".join(joined) + "\n"
+        a = extract(text, rows=4096, arm="stock", windows={1, 4})
+        self.assertAlmostEqual(a[1]["max_rank_median_ms"], 105)
+        self.assertAlmostEqual(a[4]["max_rank_median_ms"], 73.5)
+
     def test_abba_and_gain_sign(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)

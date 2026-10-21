@@ -29,6 +29,29 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def iter_records(text: str):
+    """逐个解析文本中的 JSON 对象。
+
+    两 Rank 共享 stdout fd 时，记录可能交错拼接在同一物理行
+    （2026-10-21 实机 smoke r2_stock 出现 5 处），必须用
+    raw_decode 流式解析而不是对整行做一次 json.loads。
+    """
+    decoder = json.JSONDecoder()
+    for line in text.splitlines():
+        idx = 0
+        while True:
+            pos = line.find("{", idx)
+            if pos < 0:
+                break
+            try:
+                obj, end = decoder.raw_decode(line, pos)
+            except json.JSONDecodeError:
+                idx = pos + 1
+                continue
+            yield obj
+            idx = end
+
+
 def run_case(root: Path, output: Path, env: dict[str, str], round_no: int,
              arm: str, rows: int, windows: list[int], args) -> None:
     name = f"r{round_no}_{arm}_m{rows}.log"
@@ -57,21 +80,12 @@ def run_case(root: Path, output: Path, env: dict[str, str], round_no: int,
                 process.wait()
             rc = 124
     raw = path.read_text(errors="replace")
-    complete = []
-    for line in raw.splitlines():
-        if '"V2_SYNC_ASYNC"' not in line or '"complete"' not in line:
-            continue
-        pos = line.find("{")
-        if pos < 0:
-            continue
-        try:
-            obj = json.loads(line[pos:])
-        except json.JSONDecodeError:
-            continue
+    complete = [
+        obj.get("rank") for obj in iter_records(raw)
         if (obj.get("tag") == "V2_SYNC_ASYNC" and
-                obj.get("phase") == "complete" and obj.get("status") == "PASS"
-                and obj.get("arm") == arm):
-            complete.append(obj.get("rank"))
+            obj.get("phase") == "complete" and obj.get("status") == "PASS"
+            and obj.get("arm") == arm)
+    ]
     with (output / "run_index.jsonl").open("a") as f:
         f.write(json.dumps({
             "name": name, "rc": rc, "sha256": sha256(path),
