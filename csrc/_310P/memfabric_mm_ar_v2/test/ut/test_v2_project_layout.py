@@ -18,8 +18,10 @@ CMAKE = ROOT / "cmake/memfabric_310p_v2.cmake"
 
 
 def test_v2_root_has_only_docs_src_test() -> None:
+    # evidence/ 为 G1-C/G1-D 诊断分支入库的脱敏证据包（839241717/86e660edc），
+    # 属分支交付物而非目录污染；正式主线分支不含该目录。
     assert {p.name for p in V2.iterdir() if not p.name.startswith(".")} == {
-        "docs", "src", "test",
+        "docs", "src", "test", "evidence",
     }
     assert (DOCS / "ARCHIVE_20261019_G3.md").is_file()
     assert (DOCS / "V2_G3_QWEN_E2E_REPORT.md").is_file()
