@@ -27,7 +27,7 @@ def analyze(lines):
     }
     by_rank = defaultdict(lambda: {"mf_frames": 0, "v2_returns": 0,
                                    "mf_errors": 0, "near_boundary": [],
-                                   "mail_returns": [], "last_mf": {}})
+                                   "mail_returns": [], "head_snapshots": [], "last_mf": {}})
     for i, line in enumerate(lines, 1):
         match = MF.search(line)
         if match:
@@ -45,6 +45,15 @@ def analyze(lines):
             r["last_mf"] = {"line": i, "epoch": int(match.group(2)), **fields}
             head = fields["arrHead"]
             slot = head % 1024
+            if "headSlot" in fields and "headStamp" in fields:
+                r["head_snapshots"].append({
+                    "line": i, "arrHead": head, "slot": fields["headSlot"],
+                    "headStamp": fields["headStamp"],
+                    "headMailSeq": fields.get("headMailSeq"),
+                    "matches_expect": fields["headStamp"] == head + 1,
+                    "note": "non-atomic D2H; no proof of persistent loss",
+                })
+                r["head_snapshots"] = r["head_snapshots"][-80:]
             if slot in {1020, 1021, 1022, 1023, 0, 1, 2}:
                 key = "stamp" + str(slot)
                 stamp = fields.get(key)
