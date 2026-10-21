@@ -141,6 +141,20 @@ extern "C" int mf310p_v2_trial_create(
                         if (off > 0) {
                             std::fprintf(stderr, "%s\n", line);
                         }
+#ifdef MF310P_V2_G1D_TRACE
+                        // G1-D 只解释与当前代际匹配的 Core0 邮件返回值。
+                        const char* d1 = std::getenv("MF310P_V2_G1D_TRACE");
+                        if (d1 && std::strcmp(d1, "1") == 0 &&
+                            cells[2] != 0 && cells[2] == cells[1]) {
+                            std::fprintf(stderr,
+                                "[V2_G1D] rank=%u generation=%llu captured=1 mailSeq=%llu"
+                                " mailDst=0x%llx mailLen=%llu mailImm=0x%llx mailStatus=%llu\n",
+                                s->rank, (unsigned long long)cells[1],
+                                (unsigned long long)cells[3], (unsigned long long)cells[4],
+                                (unsigned long long)cells[5], (unsigned long long)cells[6],
+                                (unsigned long long)cells[7]);
+                        }
+#endif
                     }
                     std::fflush(stderr);
                 }
