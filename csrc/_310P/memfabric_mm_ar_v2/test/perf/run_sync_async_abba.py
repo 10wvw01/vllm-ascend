@@ -113,6 +113,22 @@ def main() -> None:
     mf_json = Path(os.environ.get("MF_SDMA_ORCH_JSON", ""))
     if mf_json.name != "libmf_sdma_orch_v11.json" or not mf_json.is_file():
         parser.error("必须显式提供仍在现行基线的 KVER11 JSON，不能换 wgm-dev-310p")
+    # 当前机器可能同时存在全局和 Python 包内两份 Host SO；若两份不一致，
+    # 拒绝做可能混杂 runtime 的性能结论。仅核对，不改动任何库。
+    import importlib.util
+    host_paths = [
+        Path("/usr/local/memfabric_hybrid/latest/aarch64-linux/lib64/libmf_hybm_core.so")
+    ]
+    package = importlib.util.find_spec("memfabric_hybrid")
+    if package is not None and package.origin:
+        host_paths.append(
+            Path(package.origin).resolve().parent / "lib" / "libmf_hybm_core.so"
+        )
+    host_hashes = {str(x): sha256(x) for x in host_paths if x.is_file()}
+    if not host_hashes:
+        parser.error("找不到当前已安装的 MemFabric Host SO；拒绝基线不明")
+    if len(set(host_hashes.values())) > 1:
+        parser.error(f"全局/包内 MemFabric Host SO 不一致: {host_hashes}")
     args.out.mkdir(parents=True, mode=0o700)
     env = dict(os.environ)
     env["ASCEND_RT_VISIBLE_DEVICES"] = "0,1"
@@ -127,6 +143,7 @@ def main() -> None:
         "repo_branch": BRANCH,
         "memfabric_json_path": str(mf_json.resolve()),
         "memfabric_json_sha256": sha256(mf_json),
+        "memfabric_host_sha256": host_hashes,
         "hccl_expansion_mode": env.get("HCCL_OP_EXPANSION_MODE", "<unset>"),
         "device_map": env["ASCEND_RT_VISIBLE_DEVICES"],
         "rows": args.rows, "steps": args.steps, "windows": args.windows,
