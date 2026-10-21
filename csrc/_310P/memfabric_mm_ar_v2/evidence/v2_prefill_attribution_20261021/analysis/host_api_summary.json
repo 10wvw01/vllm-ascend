@@ -1,0 +1,356 @@
+{
+ "stock": [
+  {
+   "api": "launch",
+   "count": 17480,
+   "total_ms": 9564.5,
+   "avg_us": 547.2,
+   "max_us": 29945.9
+  },
+  {
+   "api": "aclrtLaunchKernelWithHostArgs",
+   "count": 16770,
+   "total_ms": 8558.7,
+   "avg_us": 510.4,
+   "max_us": 29943.8
+  },
+  {
+   "api": "aclnnInplaceZero",
+   "count": 750,
+   "total_ms": 2331.9,
+   "avg_us": 3109.3,
+   "max_us": 29939.0
+  },
+  {
+   "api": "aclnnCat",
+   "count": 1260,
+   "total_ms": 2113.0,
+   "avg_us": 1677.0,
+   "max_us": 29954.5
+  },
+  {
+   "api": "aclrtSynchronizeEvent",
+   "count": 20,
+   "total_ms": 1575.2,
+   "avg_us": 78759.0,
+   "max_us": 315598.6
+  },
+  {
+   "api": "aclnnNeg",
+   "count": 150,
+   "total_ms": 1552.3,
+   "avg_us": 10348.8,
+   "max_us": 20161.3
+  },
+  {
+   "api": "aclnnInplaceCopy",
+   "count": 3040,
+   "total_ms": 1087.3,
+   "avg_us": 357.7,
+   "max_us": 28280.4
+  },
+  {
+   "api": "SelfAttentionOperation::Execute",
+   "count": 50,
+   "total_ms": 820.2,
+   "avg_us": 16403.3,
+   "max_us": 20040.9
+  },
+  {
+   "api": "aclnnAdd",
+   "count": 750,
+   "total_ms": 599.8,
+   "avg_us": 799.8,
+   "max_us": 7202.9
+  },
+  {
+   "api": "aclrtRecordEvent",
+   "count": 2300,
+   "total_ms": 277.7,
+   "avg_us": 120.8,
+   "max_us": 27426.2
+  },
+  {
+   "api": "aclnnRmsNorm",
+   "count": 955,
+   "total_ms": 237.5,
+   "avg_us": 248.7,
+   "max_us": 18984.1
+  },
+  {
+   "api": "aclnnAdds",
+   "count": 505,
+   "total_ms": 169.5,
+   "avg_us": 335.6,
+   "max_us": 19148.7
+  },
+  {
+   "api": "hcom_allReduce_",
+   "count": 405,
+   "total_ms": 115.2,
+   "avg_us": 284.4,
+   "max_us": 1085.9
+  },
+  {
+   "api": "aclnnMatmulWeightNz",
+   "count": 1105,
+   "total_ms": 109.7,
+   "avg_us": 99.3,
+   "max_us": 19154.0
+  },
+  {
+   "api": "aclnnSigmoid",
+   "count": 400,
+   "total_ms": 81.4,
+   "avg_us": 203.6,
+   "max_us": 17483.4
+  },
+  {
+   "api": "aclnnMatmul",
+   "count": 200,
+   "total_ms": 44.2,
+   "avg_us": 221.0,
+   "max_us": 19649.9
+  },
+  {
+   "api": "aclnnSilu",
+   "count": 150,
+   "total_ms": 42.5,
+   "avg_us": 283.6,
+   "max_us": 23170.4
+  },
+  {
+   "api": "aclnnSwiGlu",
+   "count": 400,
+   "total_ms": 38.0,
+   "avg_us": 95.1,
+   "max_us": 18997.8
+  },
+  {
+   "api": "aclnnContiguous",
+   "count": 200,
+   "total_ms": 37.5,
+   "avg_us": 187.3,
+   "max_us": 19173.2
+  },
+  {
+   "api": "aclnnCausalConv1dV310",
+   "count": 150,
+   "total_ms": 36.6,
+   "avg_us": 243.8,
+   "max_us": 19205.0
+  },
+  {
+   "api": "aclnnLog1p",
+   "count": 150,
+   "total_ms": 35.2,
+   "avg_us": 234.5,
+   "max_us": 6512.9
+  },
+  {
+   "api": "aclnnMoeGatingTopKSoftmax",
+   "count": 800,
+   "total_ms": 29.2,
+   "avg_us": 36.5,
+   "max_us": 18844.5
+  },
+  {
+   "api": "aclnnIndexPutImpl",
+   "count": 150,
+   "total_ms": 27.8,
+   "avg_us": 185.3,
+   "max_us": 23298.3
+  },
+  {
+   "api": "aclnnQuantGroupedMatmulDequantWeightNZ",
+   "count": 400,
+   "total_ms": 23.0,
+   "avg_us": 57.5,
+   "max_us": 18813.7
+  },
+  {
+   "api": "aclnnSWhere",
+   "count": 300,
+   "total_ms": 21.3,
+   "avg_us": 70.9,
+   "max_us": 1315.3
+  }
+ ],
+ "v2": [
+  {
+   "api": "launch",
+   "count": 17280,
+   "total_ms": 9633.9,
+   "avg_us": 557.5,
+   "max_us": 72526.9
+  },
+  {
+   "api": "aclrtLaunchKernelWithHostArgs",
+   "count": 16770,
+   "total_ms": 9201.5,
+   "avg_us": 548.7,
+   "max_us": 72523.0
+  },
+  {
+   "api": "aclnnInplaceCopy",
+   "count": 3040,
+   "total_ms": 4327.7,
+   "avg_us": 1423.6,
+   "max_us": 72537.6
+  },
+  {
+   "api": "aclrtSynchronizeDeviceWithTimeout",
+   "count": 1,
+   "total_ms": 3471.6,
+   "avg_us": 3471605.6,
+   "max_us": 3471605.6
+  },
+  {
+   "api": "aclnnInplaceZero",
+   "count": 750,
+   "total_ms": 1668.0,
+   "avg_us": 2224.0,
+   "max_us": 20199.3
+  },
+  {
+   "api": "aclrtSynchronizeEvent",
+   "count": 20,
+   "total_ms": 1607.0,
+   "avg_us": 80352.1,
+   "max_us": 322496.6
+  },
+  {
+   "api": "aclnnMul",
+   "count": 555,
+   "total_ms": 1588.0,
+   "avg_us": 2861.2,
+   "max_us": 22960.4
+  },
+  {
+   "api": "aclnnLog1p",
+   "count": 150,
+   "total_ms": 593.8,
+   "avg_us": 3958.7,
+   "max_us": 7217.6
+  },
+  {
+   "api": "aclnnCat",
+   "count": 1260,
+   "total_ms": 334.4,
+   "avg_us": 265.4,
+   "max_us": 32074.4
+  },
+  {
+   "api": "ReshapeAndCacheOperation::Execute",
+   "count": 50,
+   "total_ms": 315.9,
+   "avg_us": 6318.9,
+   "max_us": 7186.3
+  },
+  {
+   "api": "aclrtRecordEvent",
+   "count": 1700,
+   "total_ms": 183.5,
+   "avg_us": 107.9,
+   "max_us": 20084.3
+  },
+  {
+   "api": "aclnnInnerMoeTokenUnpermute",
+   "count": 200,
+   "total_ms": 90.5,
+   "avg_us": 452.3,
+   "max_us": 17759.8
+  },
+  {
+   "api": "aclnnSWhere",
+   "count": 300,
+   "total_ms": 88.8,
+   "avg_us": 295.9,
+   "max_us": 17717.3
+  },
+  {
+   "api": "aclnnAdd",
+   "count": 750,
+   "total_ms": 68.6,
+   "avg_us": 91.5,
+   "max_us": 17926.2
+  },
+  {
+   "api": "aclnnMatmulWeightNz",
+   "count": 905,
+   "total_ms": 63.8,
+   "avg_us": 70.5,
+   "max_us": 18965.0
+  },
+  {
+   "api": "aclnnInnerApplyRotaryPosEmb",
+   "count": 50,
+   "total_ms": 61.4,
+   "avg_us": 1227.8,
+   "max_us": 3866.2
+  },
+  {
+   "api": "aclnnMatmul",
+   "count": 200,
+   "total_ms": 55.5,
+   "avg_us": 277.7,
+   "max_us": 22674.0
+  },
+  {
+   "api": "hcom_allReduce_",
+   "count": 205,
+   "total_ms": 54.1,
+   "avg_us": 263.9,
+   "max_us": 410.4
+  },
+  {
+   "api": "aclnnMoeGatingTopKSoftmax",
+   "count": 800,
+   "total_ms": 46.7,
+   "avg_us": 58.4,
+   "max_us": 18375.4
+  },
+  {
+   "api": "aclnnAbs",
+   "count": 200,
+   "total_ms": 42.4,
+   "avg_us": 211.9,
+   "max_us": 23769.1
+  },
+  {
+   "api": "aclnnQuantGroupedMatmulDequantWeightNZ",
+   "count": 400,
+   "total_ms": 36.9,
+   "avg_us": 92.2,
+   "max_us": 17695.2
+  },
+  {
+   "api": "aclnnIndexPutImpl",
+   "count": 150,
+   "total_ms": 33.5,
+   "avg_us": 223.6,
+   "max_us": 28767.4
+  },
+  {
+   "api": "aclnnRmsNorm",
+   "count": 955,
+   "total_ms": 24.1,
+   "avg_us": 25.2,
+   "max_us": 6054.7
+  },
+  {
+   "api": "aclnnSigmoid",
+   "count": 400,
+   "total_ms": 21.6,
+   "avg_us": 54.1,
+   "max_us": 9279.3
+  },
+  {
+   "api": "aclnnExp",
+   "count": 300,
+   "total_ms": 21.3,
+   "avg_us": 71.0,
+   "max_us": 18375.3
+  }
+ ]
+}
