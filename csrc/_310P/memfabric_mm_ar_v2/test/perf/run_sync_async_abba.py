@@ -10,6 +10,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -92,6 +93,7 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--repeat", type=int, default=8)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--cooldown-seconds", type=int, default=45)
     args = parser.parse_args()
     if (not args.out.is_absolute() or args.out.exists()
             or not args.rows or not args.windows
@@ -99,6 +101,7 @@ def main() -> None:
             or any(w < 1 or w > min(16, args.steps) for w in args.windows)
             or len(set(args.windows)) != len(args.windows)
             or not 1 <= args.steps <= 40 or args.timeout < 60
+            or not 30 <= args.cooldown_seconds <= 600
             or args.chunk_rows not in (256, 512, 1024)):
         parser.error("非法参数：out 必须是不存在的绝对目录，M 2048/3072/4096")
     root = Path(__file__).resolve().parents[5]
@@ -153,11 +156,19 @@ def main() -> None:
     (args.out / "provenance.json").write_text(
         json.dumps(provenance, ensure_ascii=False, indent=2) + "\n")
     try:
+        schedule = []
         for m in args.rows:
-            run_case(root, args.out, env, 1, "stock", m, args.windows, args)
-            run_case(root, args.out, env, 1, "v2", m, args.windows, args)
-            run_case(root, args.out, env, 2, "v2", m, args.windows[::-1], args)
-            run_case(root, args.out, env, 2, "stock", m, args.windows[::-1], args)
+            schedule.extend([
+                (1, "stock", m, args.windows),
+                (1, "v2", m, args.windows),
+                (2, "v2", m, args.windows[::-1]),
+                (2, "stock", m, args.windows[::-1]),
+            ])
+        for index, (round_no, arm, m, windows) in enumerate(schedule):
+            run_case(root, args.out, env, round_no, arm, m, windows, args)
+            if index + 1 < len(schedule):
+                # 沿用 G3/G1-C 的进程资源清退冷却间隔；不是计时内容。
+                time.sleep(args.cooldown_seconds)
         command = [
             sys.executable, str(Path(__file__).parent / "summarize_sync_async.py"),
             str(args.out), "--rows", *map(str, args.rows),
