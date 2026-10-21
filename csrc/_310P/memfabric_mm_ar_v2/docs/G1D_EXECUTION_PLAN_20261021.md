@@ -44,7 +44,7 @@ G1-C C2R2 双 Rank 处于第 208 代；rank0 core0 为 stage50/chunk1；rank1 co
 | `src/op_kernel/mf310p_v2_kernel.asc` | 两处等待均增加 stage52/53；正式 signal、wait、mail 匹配与 Add 原样保留 |
 | `src/op_host/mf310p_v2_trial_adapter.cpp` | 同代邮件日志 `[V2_G1D]`，仅在双开关启用时输出 |
 | `src/CMakeLists.txt` 与 `cmake/memfabric_310p_v2.cmake` | 增加 G1D 编译开关并要求 G1C；G1D 设备库独立名称 |
-| MemFabric `src/hybm/csrc/entity/hybm_sdma_orchestrator.cpp` | 每秒 5 次短 D2H，从本端保留区读取边界槽，只记录快照，不修改 SQE/doorbell/epoch |
+| MemFabric `src/hybm/csrc/entity/hybm_sdma_orchestrator.cpp` | 每秒最多 7 次短 D2H，从本端保留区读取边界槽和当前 ArrHead 动态槽，只记录快照，不修改 SQE/doorbell/epoch |
 | `test/g3_e2e_scripts/g1d_preflight.sh` | 只读 Git/安装库溯源；输出目录不可覆盖 |
 | `test/g3_e2e_scripts/g1d_run.sh` | 逐 Gate 启动，校验分支/KVER12 JSON/设备号，不执行 install 和回退 |
 | `test/e2e/g1d_tp2_async_window.py` | 可控连续异步窗口与 Stock/HCCL 交替，按窗口同步、位精确 |
@@ -93,7 +93,7 @@ python3 csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/g1d_evidence_summary.p
 
 ## 4. STOP/GO 判定、取证和恢复纪律
 
-**D0 停止条件**：当前安装 Host/设备二进制 SHA 与归档不一致、运行库路径混杂、历史 G1-C v12 已丢失、设备号不是 0/1、存在未排干净的 Worker。不要执行长稳，先人工查清版本。
+**D0 停止条件**：当前安装 Host/设备二进制 SHA 与归档不一致、运行库路径混杂、历史 G1-C v12 无可校验的原始产物或无法重新部署、设备号不是 0/1、存在未排干净的 Worker。不要执行长稳，先人工查清版本。
 
 **D1 停止条件**：单测位精确失败、D2H snapshotError、关键日志部分核丢失、Epoch 异常、无法确认 G1-D V2 自己的设备 SO。需要保全日志而不是继续增加并发。
 
