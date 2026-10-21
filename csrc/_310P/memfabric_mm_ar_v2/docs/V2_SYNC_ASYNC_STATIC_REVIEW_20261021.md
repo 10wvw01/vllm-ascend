@@ -30,7 +30,7 @@
 | 两仓库基线 | V2 独立 perf worktree；MemFabric 维持现有镜像修复线 KVER11，禁止切到原始 wgm-dev-310p |
 | 来源锁定 | 在 TP2 Worker 内校验导入的 extension 真实路径位于 perf worktree，杜绝旧 site-packages 假装新版本 |
 | Host 资源 | Runner 校验可用的系统/包内 Host SO SHA 一致，校验 KVER11 JSON 并归档 |
-| 交叉顺序 | 同 M Stock→V2→V2→Stock 两对测试，第二对内部窗口顺序反转 |
+| 交叉顺序 | 同 M Stock→V2→V2→Stock 两对测试，第二对内部窗口顺序反转；进程之间预留 45 秒资源清退冷却 |
 | 统计 | 分 Rank 输出，使用较慢 Rank 中位数近似；区别 max(rank median) 与 median(per-repeat max) |
 | 核心指标 | `Gain(W4)-Gain(W1)`。双方都减少同步，只有比较相对优势变化才有意义 |
 | 停机 | Bit-exact 不符、status 非零、Rank 缺失、非零退出、900s 超时都不能继续下一 Gate |
