@@ -32,6 +32,24 @@ case "$CMD" in
        -f "$MF_SDMA_ORCH_JSON" ]] || {
       echo "当前第一轮 G1-D 必须沿用 G1-C v12 设备取证库，不可使用 v9/v11/v13" >&2; exit 3;
     }
+    # D0 版本门禁：不能仅检查源码 worktree，必须验证 Worker 将加载的
+    # 两份 Host 动态库与 v12 JSON 字节级一致。未部署好直接拒绝执行。
+    : "${G1D_HOST_SHA256_EXPECTED:?先完成 Host 双位置部署，设置 G1D_HOST_SHA256_EXPECTED}"
+    : "${G1D_V12_JSON_SHA256_EXPECTED:?设置经 SHA256 校验的 v12 launch JSON 摘要}"
+    actual_json_sha="$(sha256sum "$MF_SDMA_ORCH_JSON" | awk '{print $1}')"
+    [[ "$actual_json_sha" == "$G1D_V12_JSON_SHA256_EXPECTED" ]] || {
+        echo "v12 JSON SHA256 不一致，拒绝运行" >&2; exit 3;
+    }
+    mf_host_global=/usr/local/memfabric_hybrid/latest/aarch64-linux/lib64/libmf_hybm_core.so
+    mf_python_site="$(python3 -c 'import memfabric_hybrid,os;print(os.path.dirname(memfabric_hybrid.__file__))')"
+    mf_host_site="$mf_python_site/lib/libmf_hybm_core.so"
+    for lib in "$mf_host_global" "$mf_host_site"; do
+        [[ -f "$lib" ]] || { echo "缺少 Host 运行库 $lib" >&2; exit 3; }
+        actual_host_sha="$(sha256sum "$lib" | awk '{print $1}')"
+        [[ "$actual_host_sha" == "$G1D_HOST_SHA256_EXPECTED" ]] || {
+            echo "Host 运行库 SHA256 不一致: $lib" >&2; exit 3;
+        }
+    done
     [[ "${ASCEND_RT_VISIBLE_DEVICES:-0,1}" == "0,1" ]] || {
       echo "当前只允许 0,1 两设备" >&2; exit 3;
     }
