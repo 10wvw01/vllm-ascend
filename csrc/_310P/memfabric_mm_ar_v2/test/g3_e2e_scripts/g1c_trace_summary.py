@@ -14,7 +14,8 @@ FIELD = re.compile(r"\b(phase|reqSeq|shadowTail|sqDepth|hwHeadLast|hwTailLast|qu
 STAGES = {
     10: "entry", 20: "mm_before", 21: "mm_after", 30: "ib_ready_before",
     31: "ib_ready_after", 40: "signal_before", 41: "signal_after",
-    50: "mail_wait_before", 51: "mail_wait_after",
+    50: "mail_wait_before", 51: "mail_wait_validated",
+    52: "mail_wait_returned_before_validation", 53: "mail_validation_failed_before_trap",
     60: "add_release_before", 61: "add_release_after",
     70: "add_before", 71: "add_after", 80: "add_done_before",
     81: "add_done_after", 90: "quiet_before", 91: "quiet_after",
