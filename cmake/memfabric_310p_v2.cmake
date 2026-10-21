@@ -31,8 +31,10 @@ function(vllm_ascend_configure_310p_memfabric_v2_trial target)
         set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device.so")
     endif()
     if(VLLM_ASCEND_310P_V2_G1D_TRACE)
-        string(APPEND _g1c_bisheng_def " -DMF310P_V2_G1D_TRACE=1")
+        list(APPEND _g1c_bisheng_def "-DMF310P_V2_G1D_TRACE=1")
         target_compile_definitions(${target} PRIVATE MF310P_V2_G1D_TRACE=1)
+        # 与旧 g1c 设备库区分文件名，避免静默覆盖。
+        set(_lib "${CMAKE_CURRENT_BINARY_DIR}/libmf310p_v2_trial_device_g1d.so")
     endif()
     add_custom_command(
         OUTPUT "${_lib}"
