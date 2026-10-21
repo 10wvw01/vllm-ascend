@@ -4,7 +4,7 @@
 >
 > **目标：** 确定 Gate E V2 双 Rank 停滞的第一处可验证异常交接；验证是否需要 1024 边界／异步持续负载／V1-V2 公共协议；为单变量根因修复提供依据。G1-D 不承诺本轮修复完成。
 >
-> **基线：** vllm-ascend `diag/310p3-g1d-minimal-forensics-20261021`；MemFabric 使用**现有镜像修复线** `10wvw01/memfabric_hybrid_310p@diag/310p3-g1d-minimal-forensics-20261021`（由 G1-C 派生）。**不切换到原仓库 `wgm-dev-310p`**。服务器原 Host v11 与设备 v11 不覆盖，继续使用 G1-C 单独部署的 AICPU v12 取证二进制（不新增设备 ABI、SQE 格式或设备库版本）。V2 编译时使用独立名称 `libmf310p_v2_trial_device_g1d.so`，不会覆盖 G1-C 设备库。
+> **基线：** vllm-ascend `diag/310p3-g1d-minimal-forensics-20261021`；MemFabric 使用**现有镜像修复线** `10wvw01/memfabric_hybrid_310p@diag/310p3-g1d-minimal-forensics-20261021`（由 G1-C 派生）。**不切换到原仓库 `wgm-dev-310p`**。服务器原 Host v11 与设备 v11 不覆盖，沿用 G1-C 已验证的 AICPU v12 **产物配方与哈希**（不新增设备 ABI、SQE 格式或设备库版本）；**G1-C 实测结束已删除设备侧 v12，G1-D 前需要从保全的同一产物重新验证 SHA 并独立部署，绝不能假定 v12 仍在位**。V2 编译时使用独立名称 `libmf310p_v2_trial_device_g1d.so`，不会覆盖 G1-C 设备库。
 
 ## 1. 最高优先级的证据问题
 
@@ -52,7 +52,7 @@ G1-C C2R2 双 Rank 处于第 208 代；rank0 core0 为 stage50/chunk1；rank1 co
 
 **MemFabric 构建：**
 
-- 基于 G1-C 的既有 Host 构建配置编译 Host 库，**不需要修改 AICPU device kernel**。保留 G1-C 所需的 v12 `-DMF_SDMA_ORCH_KVER=12 -DMF_SDMA_ORCH_G1C_DEVICE_TRACE=ON` 构建和已验证 v12 文件；不要为了 G1-D Host 采样而改 v12 SQE。
+- 基于 G1-C 的既有 Host 构建配置编译 Host 库，**不需要修改 AICPU device kernel**。保留 G1-C 所需的 v12 `-DMF_SDMA_ORCH_KVER=12 -DMF_SDMA_ORCH_G1C_DEVICE_TRACE=ON` 构建配方；先对已有离线 v12 产物校验 G1-C 记录的哈希，若无相同产物则在隔离目录重新构建并重新记录哈希、输出差异，不可静默称为同一设备库；不要为了 G1-D Host 采样而改 v12 SQE。
 - 在独立构建目录完成 `cmake --build`，核对导出、SHA256、链接路径。若只改 Host，必须核对实际 `libmf_hybm_core.so` 已被运行中 Worker 从哪个位置加载。用户态 `MF_SDMA_ORCH_G1D_TRACE=1` 且 `MF_SDMA_ORCH_DIAG=1` 才启动额外取证。
 - 服务器安装或临时替换 Host 库涉及两个加载路径；由 OpenCode 在备份及 SHA 验证后实施，必须提供逐字节恢复脚本与实际返回码。**本仓库不附带任何自动覆盖系统库的脚本**。
 
