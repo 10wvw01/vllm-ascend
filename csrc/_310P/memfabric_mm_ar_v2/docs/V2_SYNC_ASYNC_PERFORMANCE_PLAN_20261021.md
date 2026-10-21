@@ -34,7 +34,7 @@
 
 记录每个配置两 Rank 的 wall 总时间/40、enqueue 总时间/40、中位/P95。以较慢 Rank 的会话中位数为主（max-rank median 近似）。**不**把该统计冒充“单次每 Rank 取 max 再求中位数”或设备单 Kernel latency。
 
-两种方法的每窗口同步次数相同，但 HCCL 需要 Work.wait 形成通信流依赖；Stock 的 MM 输出引用必须保留至窗口完成；V2 不可提前复用仍在途的输出地址。计时期间不做 `aclrtMemcpy`/D2H status 读、NumPy 校验或 profiler；正确性与协议查询在计时前后单独执行。
+两种方法的每窗口同步次数相同，但 HCCL 需要 Work.wait 形成通信流依赖；V2 直接 C ABI 计时不包含 Python Serving 的首形状校验，但包含自身 `mf310p_v2_trial_run` 的状态清零和单 Kernel 提交；Stock 的 MM 输出引用必须保留至窗口完成；V2 不可提前复用仍在途的输出地址。计时期间不做 `aclrtMemcpy`/D2H status 读、NumPy 校验或 profiler；正确性与协议查询在计时前后单独执行。
 
 ## 4. 环境与门禁
 
@@ -55,7 +55,7 @@
 
 ## 5. 执行命令（交给 OpenCode，在 310P3 服务器运行）
 
-先用**新建的独立 worktree**检出本分支。完整构建由 OpenCode 依据 `docs/README.md` 和服务器已安装 CANN 做；不要更换 MemFabric 分支。
+先用**新建的独立 worktree**检出本分支。完整构建由 OpenCode 依据 `docs/README.md` 和服务器已安装 CANN 做；不要更换 MemFabric 分支。编译时必须在本 worktree 开启 `SOC_VERSION=ascend310p3`、`VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1`、`VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1`，执行 `python3 setup.py build_ext --inplace`，并用 `nm -D` 或 `ctypes` 确认 `mf310p_v2_trial_create/run/destroy` 可从实际加载的 extension 中找到；禁止把旧 worktree/旧 site-packages 的扩展算作本次构建结果。
 
 ```bash
 source /usr/local/Ascend/cann-9.1.0/set_env.sh
@@ -69,6 +69,12 @@ python3 -m py_compile \
   csrc/_310P/memfabric_mm_ar_v2/test/perf/run_sync_async_abba.py \
   csrc/_310P/memfabric_mm_ar_v2/test/perf/summarize_sync_async.py
 python3 csrc/_310P/memfabric_mm_ar_v2/test/perf/test_sync_async_summary.py
+
+# 构建诊断由 OpenCode 操作，不做安装/覆盖系统动态库：
+export SOC_VERSION=ascend310p3
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1
+python3 setup.py build_ext --inplace
 
 # 第一次 smoke：输出目录必须不存在，绝对路径，不覆盖原日志
 python3 csrc/_310P/memfabric_mm_ar_v2/test/perf/run_sync_async_abba.py \
