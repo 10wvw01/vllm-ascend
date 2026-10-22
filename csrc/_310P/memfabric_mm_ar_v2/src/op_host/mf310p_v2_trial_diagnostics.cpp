@@ -455,8 +455,11 @@ extern "C" int mf310p_v2_trial_diag_loop4(
             const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
             if (sync_err) return sync_err;
         }
+    }
+    const int rc = launch(1);
+    if (!rc) {
         s->gatec_loop4_real_launched = true;
         s->gatec_loop4_last_y = y;
     }
-    return launch(1);
+    return rc;
 }
