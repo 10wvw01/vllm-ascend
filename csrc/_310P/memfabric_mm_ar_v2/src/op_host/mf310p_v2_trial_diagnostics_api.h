@@ -23,6 +23,15 @@ MF310P_V2_API int mf310p_v2_trial_diag(mf310p_v2_trial_t* handle, uint64_t x,
                          uint64_t w, uint64_t y, uint32_t diag,
                          void* acl_stream);
 
+/* Gate C：固定 M=4096/chunk=1024 的 LOOP 串行隔离诊断。
+ * 使用完整 4 Chunk 输入输出和双 Rank SDMA/IB/DONE 协议；仅用于隔离分析。
+ * 与正式 overlap=1 不等价，禁止接入 Serving 路由。
+ * 新 API 不改变 mf310p_v2_trial_diag 的原有单 Chunk ABI。
+ */
+MF310P_V2_API int mf310p_v2_trial_diag_loop4(
+    mf310p_v2_trial_t* handle, uint64_t x, uint64_t w, uint64_t y,
+    void* acl_stream);
+
 #ifdef __cplusplus
 }
 #endif
