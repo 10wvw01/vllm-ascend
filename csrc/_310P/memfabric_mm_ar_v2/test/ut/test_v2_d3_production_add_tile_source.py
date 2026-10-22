@@ -64,7 +64,7 @@ def test_d3_protocol_and_cache_visibility_unmodified_by_optimization():
     assert s.count("CleanLines(ownC + start + coreOff, perCoreBytes);") == 1
     assert s.count("CleanLines(ownPeerC + base, perCoreBytes);") == 2
     assert s.count("smem_shm_sdma_signal_at(") == 2
-    assert s.count("smem_shm_sdma_wait_at(") == 2
+    assert s.count("smem_shm_sdma_wait_at(") == 3  # 前块/收尾/DONE
     assert "if (core == 0)" in s
     for code in ("WaitReady(", "ReleaseAdd(", "WaitAddDone(",
                  "smem_shm_sdma_quiet_at(", "kTagDone",
