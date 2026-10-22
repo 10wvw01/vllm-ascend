@@ -22,6 +22,10 @@ struct mf310p_v2_trial {
     uint32_t trial_warmed_y_next = 0;
     bool trial_symbol_warmed = false;
     bool trial_symbol_launched = false;
+    // Gate C 独立诊断 LOOP4 的首调及固定输出地址保护（不参与正式路径）。
+    bool gatec_loop4_symbol_warmed = false;
+    bool gatec_loop4_real_launched = false;
+    uint64_t gatec_loop4_last_y = 0;
     bool nz_direct_symbol_warmed[5][4] = {};
     bool ar_only_symbol_warmed = false;
     bool ar_only_symbol_launched = false;
