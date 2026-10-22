@@ -1,0 +1,73 @@
+{
+ "gate": "C0 device admission (on-site record)",
+ "date": "2026-10-22",
+ "branch": "diag/310p-v2-gate-c-controlled-isolation-20261022",
+ "git_sha": "f2ac18ef6 (clean, up to date with origin)",
+ "target_card": "5664 dual die dev0/dev1, AICore 0% both, matches Gate A/B idle baseline",
+ "ambient_risk": {
+  "observation": "transient host process 806519 (invisible from container PID namespace) briefly held dev0 101MB / dev1 1031MB and drove dev1 AICore to 100% for <4 min at ~13:33-13:37 UTC+8; exited on its own. Recurring short-lived host-side activity exists on this shared machine (other cards 16384/43520 memory fluctuates).",
+  "mitigation": "verify 5664 idle before/after every device case; analyzer requires exact per-rank kernel counts; outlier samples (max vs p50) will be flagged and the case re-run if contaminated"
+ },
+ "host_so_restore": {
+  "found": {
+   "sha256": "bd1760cc03acd0df865c603cfd86db413de3707ef847aa7e7de330bc2017b8a9",
+   "identity": "G1-D tail-sampler diagnostic build of memfabric_hybrid branch diag/310p3-g1d-minimal-forensics-20261021@54d6376d, deployed 2026-10-22 03:05 UTC by /tmp/opencode/g1d3/deploy_g1d3.sh (g1d3 Gate E capture batch, separate worktree /home/w00804146/310P/vllm-ascend-g1d)",
+   "g1d3_batch_outcome": "D3R1-D3R4 clean; D3R5 FAULT 04:47 UTC (507014 x4, aicore execution times out x3 in serve.log), evidence preserved in vllm-ascend-g1d .../gate_e_forensics/D3R5; batch stopped; no processes from that tree remain",
+   "verdict": "G1-D diagnostic environment residue; Gate C manual C0 requires none"
+  },
+  "action": "restored via atomic rename (cp to temp + mv) from build-backups/g1d3_backup_20261022T030505Z/ to both /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so and site-packages copy; owner root:root 644; the bd1760cc binary itself preserved in build-g1d/ and /tmp/opencode/gate_c_c0/libmf_hybm_core.so.tail_bd1760cc.bak",
+  "restored_sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1 (both paths, verified post-restore)",
+  "matches_gate_ab": true
+ },
+ "kver11_json": {
+  "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+  "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+  "matches_gate_ab": true
+ },
+ "device_side_v11": {
+  "probe_tool": "orch_deploy_helper 849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310 (tools/aicpu_kernel_deploy/, identical to mfh_untracked_backup copy, matches g1d3 assertion)",
+  "dev1": "rc=3 kernel already present (the binary that served the prefill/Gate A/B sessions; untouched by g1d3 which wrote a different filename)",
+  "dev0": "rc=0 deployed-and-verified from original /usr/local source libmf_sdma_orch.so size=13960 (wheel install Oct 12 15:19); v11 was MISSING on dev0 - consistent with D3R5 fault recovery (507014/aicore timeout) having wiped KFC-deployed custom kernels from device FS",
+  "note": "helper log preserved at /tmp/opencode/gate_c_c0/helper_v11_probe.log"
+ },
+ "v12_residue": {
+  "dynamic_loading": "none: no MF_SDMA_ORCH_JSON in any Gate C shell; gate_c_loop4.py parse_args hard-rejects anything not ending in /libmf_sdma_orch_v11.json",
+  "device_files": "g1d3 deployed libmf_sdma_orch_v12.so (source stage sha 02290083e630ff43470ea4441a15a78614b67b232b5ce3eed20f482dbe541597, 14072B) to dev0/1 at 03:05; dev1 file still present-but-inert (selection is JSON-driven); dev0 likely wiped by fault recovery - not re-probed because the helper auto-deploys on miss, which would re-create v12",
+  "stage_dir": "/tmp/opencode/g1d/kernel_v12_stage untouched (hashes recorded in sha_before.txt)"
+ },
+ "plugin_so_pre_gate_c": {
+  "path": "vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+  "sha256": "929b53c20553f1b7c03fb41fc6577a75784582f4b05f10d0f84d6ba986ad3fd5 (backed up to /tmp/opencode/gate_c_c0/vllm_ascend_C.so.929b53c2.pre_gate_c.bak before Gate C rebuild; will be replaced by Gate C branch build in C1)"
+ },
+ "env_hygiene": {
+  "MF310P_V2_NOWARMUP": "unset",
+  "MF_SDMA_ORCH_JSON": "unset in ambient shell; executor sets /usr/local/.../libmf_sdma_orch_v11.json explicitly per manual",
+  "g1d_pyinject": "only /tmp/opencode/g1d/pyinject (PYTHONPATH-scoped, inert); site-packages has no sitecustomize.py or stray .pth",
+  "gate_ab_raw_traces": "untouched"
+ },
+ "verdict": "C0 PASS after restoration: host SO and device-side v11 restored to Gate A/B verified identity; no v12 dynamic-load path; 5664 dev0/1 idle; ambient transient activity on shared machine recorded as risk with per-case re-verification.",
+ "build_c1": {
+  "on_build": {
+   "plugin_so_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+   "device_lib_sha256": "b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811",
+   "abi_delta_vs_pregatec": "+mf310p_v2_trial_diag_loop4 (9->10 symbols, 0 lost)"
+  },
+  "off_build": {
+   "host_symbols": [
+    "mf310p_v2_trial_check_status",
+    "mf310p_v2_trial_create",
+    "mf310p_v2_trial_destroy",
+    "mf310p_v2_trial_ib_probe",
+    "mf310p_v2_trial_run"
+   ],
+   "device_lib_contains_V2DiagLoopKernel": false,
+   "note": "whole diagnostics TU excluded by design (CMakeLists option); diag_loop4 absent as required"
+  },
+  "cpu_ut": "22 passed (layout assertion fixed to allow committed evidence/ dir)",
+  "artifacts_restored": "ON artifacts hash-verified after OFF check"
+ },
+ "end_state": {
+  "host_so": "88d39285 both paths",
+  "git_sha": "f2ac18ef6"
+ }
+}

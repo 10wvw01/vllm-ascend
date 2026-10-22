@@ -1,8 +1,9 @@
 # V2 MTE2/Scalar Gate C：4 Chunk 受控隔离诊断实施及实机验收（2026-10-22）
 
-> **当前状态：代码与静态审视完成；尚未在 310P3 编译/运行，不得标为实机 PASS。**  
+> **当前状态：实机执行完成（2026-10-22，C0–C4 全门禁走完）。**  
+> 实机结果与异常档案见 `V2_MTE2_SCALAR_GATE_C_VERIFICATION_REPORT_20261022.md`；证据见 `evidence/gate_c_20261022/`。  
 > 分支：`diag/310p-v2-gate-c-controlled-isolation-20261022`，基于 Gate A/B 核验分支 `diag/310p-v2-mte2-scalar-gate-ab-20261022@7a1a0893`。  
-> Gate A/B 证据：`V2_MTE2_SCALAR_GATE_AB_VERIFICATION_REPORT_20261022.md`；Host SO `88d39285...`、KVER11 JSON `25e16b0a...`、插件 `929b53c2...`。版本仍以现场重新核验为准。
+> Gate A/B 证据：`V2_MTE2_SCALAR_GATE_AB_VERIFICATION_REPORT_20261022.md`；执行时现场核验发现并恢复了 G1-D 残留（tail Host SO + 设备侧 v12），详见验证报告 §1。
 
 ## 1. 为什么是 4 Chunk，而不是新增算子形态
 
@@ -24,6 +25,7 @@
 ## 3. TP2 小型执行器与正确性
 
 新增 `test/perf/gate_c_loop4.py`：
+
 - 每个独立 `torchrun` 会话只测**一个** case，避免不同变体互相污染消息环/输出槽；
 - 使用 `torch.randn` 的固定 rank-specific 输入和 NZ 权重，分别产生 FP16 Stock allreduce 参考值；
 - 单 Chunk diag0 只比对**本 Rank MM**，diag1/3/4/5 只比对第一 Chunk 的**TP2 AllReduce**；正式与 LOOP4 都比对全部 4096 行；
@@ -53,21 +55,25 @@
 **C0 设备准入**：独占 5664 双 die(dev0/dev1)；保存 git SHA、现装 Host 双路径 SO SHA、插件 .so、KVER11 JSON、设备侧 v11 helper/Trace 间接身份；确保无 v12 动态加载、无 G1-D 诊断环境残留。记录变更前备份及恢复办法。不得覆盖 Gate A/B 原始 Trace。执行器强制 `MF_SDMA_ORCH_JSON` 显式指向已存在的绝对路径 `*/libmf_sdma_orch_v11.json`，并要求完全 unset `MF310P_V2_NOWARMUP`。
 
 **C1 构建/静态**：诊断 ON 编译（与 Gate A/B 同环境）；检查 `nm -D` 新诊断符号存在且原有 C ABI 仍存在；诊断 OFF 构建不应引用该符号。运行 CPU UT：
+
 ```bash
 python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_gate_c_source_contract.py
 python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_v2_source_separation.py
 ```
 
 **C2 双 Rank 正确性**：每次新进程依序尝试 `formal`、`loop4`，全部 bit-exact 后才尝试 `diag5`、`diag0`、`diag3`、`diag4`；`diag1`（NoIB）需额外确认两 Rank 预备和协议安全后再单独尝试，不得放在无人值守全矩阵中。运行例：
+
 ```bash
 export MF_SDMA_ORCH_JSON=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
   csrc/_310P/memfabric_mm_ar_v2/test/perf/gate_c_loop4.py \
   --case formal --out /tmp/opencode/gate_c_c2/formal
 ```
+
 `loop4` 请分别开新进程并改 `--case loop4 --out /tmp/opencode/gate_c_c2/loop4`。
 
 **C3 性能短窗口**：先确定 C2 全通过，再对 formal、loop4 各运行新进程（每 Rank 3+ 次预热、6+ 个有效样本）。根据证据需要小规模追加单 Chunk 案例。每个案例新增 `--profile`，输出隔离目录。示例：
+
 ```bash
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
   csrc/_310P/memfabric_mm_ar_v2/test/perf/gate_c_loop4.py \
@@ -87,12 +93,14 @@ python csrc/_310P/memfabric_mm_ar_v2/test/perf/analyze_gate_c_trace.py \
 ## 6. 静态审视（两轮，不等于实机证明）
 
 **Round 1——协议、ABI、越界、生命周期**
+
 - 新 API 只传已有 LOOP Kernel，并将 `M4096` 固定 4 个有效 Chunk；旧 ABI 保持，`diag6` 没有伪扩展；
 - 诊断编译开关控制；内部 handle 小幅增加独立 bool/地址字段但无公开结构布局变化；
 - 各 Chunk 的 x/ownC/y 地址偏移仍由原始 LOOP Kernel 管理，Host 不重写远端布局，不省略清缓存/同步；
 - 初次发射、新 y 地址继续遵守正式 MTE3 首写保护纪律；后续复用固定输出指针，不在采样区强行全设备同步。
 
 **Round 2——实验有效性、统计、安全**
+
 - 每例一个 torchrun 会话，rank-specific 完整随机数据防止“只计算第一 Chunk”假通过；
 - 逐次同步后比对整幅结果/单 Chunk 局部参考，**Profiler 窗口内每个采样也逐次比对**，不能只判断 status 或末次输出；CPU 校验增加的诊断开销不用于 Serving 性能结论；双 Rank 设备 Trace 按 `iters` 严格计数；
 - 单 Chunk 与 4 Chunk、串行与 overlap 的方法学边界在 JSON 和本文件显式说明；
@@ -103,6 +111,7 @@ python csrc/_310P/memfabric_mm_ar_v2/test/perf/analyze_gate_c_trace.py \
 ## 7. Gate C 验收输出
 
 OpenCode 提交一份实机报告和脱敏证据：
+
 - 构建/环境/SO/JSON hashes、诊断 ON/OFF 符号与恢复记录；
 - formal/loop4/各单 Chunk case 的 bit-exact + status；
 - Rank0/Rank1 独立 Kernel p50/p90/max，异常样本单列，Trace 可回溯；

@@ -5,6 +5,7 @@
 从仓库根目录执行：
   pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,8 +19,12 @@ CMAKE = ROOT / "cmake/memfabric_310p_v2.cmake"
 
 
 def test_v2_root_has_only_docs_src_test() -> None:
+    # evidence/ 自 5701ec3f9 起为各 Gate 提交的脱敏证据档案目录，属既定结构。
     assert {p.name for p in V2.iterdir() if not p.name.startswith(".")} == {
-        "docs", "src", "test",
+        "docs",
+        "src",
+        "test",
+        "evidence",
     }
     assert (DOCS / "ARCHIVE_20261019_G3.md").is_file()
     assert (DOCS / "V2_G3_QWEN_E2E_REPORT.md").is_file()
@@ -67,7 +72,7 @@ def test_host_relative_include_and_torch_abi_resolve() -> None:
     bridge = (SRC / "torch_adapter/mf310p_v2_serve.cpp").read_text()
     assert '#include "mf310p_v2_serve_internal.h"' in bridge
     assert (SRC / "op_host/mf310p_v2_trial_adapter_api.h").is_file()
-    assert 'memfabric_mm_ar_v2_allreduce(Tensor x, Tensor weight' in bridge
+    assert "memfabric_mm_ar_v2_allreduce(Tensor x, Tensor weight" in bridge
 
 
 def test_v2_tests_live_locally_but_v1_shared_harness_is_untouched() -> None:

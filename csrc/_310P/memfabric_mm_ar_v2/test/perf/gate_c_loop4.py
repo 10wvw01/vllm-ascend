@@ -12,6 +12,7 @@
 仅使用 kernel_details/chrome trace 的设备 Kernel 耗时比较，禁止将本脚本
 含同步的 Host 测量解释为真实 Qwen Forward 延迟。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +26,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 import torch_npu  # noqa: F401
 import vllm_ascend.vllm_ascend_C as extension
+
 from vllm_ascend.utils import maybe_trans_nz
 
 CASES = ("formal", "loop4", "diag0", "diag1", "diag3", "diag4", "diag5")
@@ -40,13 +42,23 @@ def parse_args():
     p.add_argument("--warmup", type=int, default=3)
     p.add_argument("--iters", type=int, default=6)
     p.add_argument("--profile", action="store_true")
-    p.add_argument("--store-url", default=os.environ.get(
-        "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
+    p.add_argument(
+        "--aic-metrics",
+        action="store_true",
+        help="with --profile: additionally enable torch_npu PipeUtilization "
+        "AIC metrics; raw msprof op_summary CSV lands under "
+        "<out>/prof_rank<N>/profiling_data/. No in-kernel timestamps.",
+    )
+    p.add_argument(
+        "--store-url", default=os.environ.get("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581")
+    )
     a = p.parse_args()
     if a.warmup < 2 or a.iters < 1:
         p.error("--warmup >= 2 and --iters >= 1 required")
     if int(os.getenv("WORLD_SIZE", "0")) != 2:
         p.error("TP WORLD_SIZE=2 is required")
+    if a.aic_metrics and not a.profile:
+        p.error("--aic-metrics requires --profile")
     if "MF310P_V2_NOWARMUP" in os.environ:
         p.error("MF310P_V2_NOWARMUP must be unset: never bypass first-write protection")
     orch = os.environ.get("MF_SDMA_ORCH_JSON", "")
@@ -100,15 +112,12 @@ def build_inputs(rank, device, stream):
 
 def run_one(lib, handle, case, x, w, y, raw_stream):
     if case == "formal":
-        must(lib.mf310p_v2_trial_run(
-            handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), M, 1, raw_stream), case)
+        must(lib.mf310p_v2_trial_run(handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), M, 1, raw_stream), case)
     elif case == "loop4":
-        must(lib.mf310p_v2_trial_diag_loop4(
-            handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), raw_stream), case)
+        must(lib.mf310p_v2_trial_diag_loop4(handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), raw_stream), case)
     else:
         n = int(case[4:])
-        must(lib.mf310p_v2_trial_diag(
-            handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), n, raw_stream), case)
+        must(lib.mf310p_v2_trial_diag(handle, x.data_ptr(), w.data_ptr(), y.data_ptr(), n, raw_stream), case)
 
 
 def check_one(lib, handle, y, ref, case, rank):
@@ -144,8 +153,7 @@ def main():
         lib = bind()
 
         dist.barrier(group=group)
-        must(lib.mf310p_v2_trial_create(
-            rank, a.store_url.encode(), CHUNK, ctypes.byref(handle)), "create")
+        must(lib.mf310p_v2_trial_create(rank, a.store_url.encode(), CHUNK, ctypes.byref(handle)), "create")
         if not handle.value:
             raise RuntimeError("MemFabric handle unexpectedly NULL")
         must(lib.mf310p_v2_trial_ib_probe(handle, 64, raw_stream), "ib_probe")
@@ -179,9 +187,28 @@ def main():
         if a.profile:
             from torch_npu.profiler import ProfilerActivity, profile
 
+            exp_cfg = None
+            prof_dir = None
+            if a.aic_metrics:
+                # 硬件 PMU 管道计数器（mte2/scalar/mac/vec），不是 Kernel 内埋点；
+                # ASCEND_WORK_PATH 使原始 msprof 数据落入本 case 目录且不被清理。
+                from torch_npu.profiler import AiCMetrics, ProfilerLevel
+                from torch_npu.profiler.experimental_config import (
+                    _ExperimentalConfig,
+                )
+
+                prof_dir = a.out / f"prof_rank{rank}"
+                os.environ["ASCEND_WORK_PATH"] = str(prof_dir)
+                exp_cfg = _ExperimentalConfig(
+                    profiler_level=ProfilerLevel.Level1,
+                    aic_metrics=AiCMetrics.PipeUtilization,
+                )
+
             with profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.NPU],
-                record_shapes=False, with_stack=False,
+                experimental_config=exp_cfg,
+                record_shapes=False,
+                with_stack=False,
             ) as prof:
                 for _ in range(a.iters):
                     dist.barrier(group=group)
@@ -197,12 +224,20 @@ def main():
                 run_and_check()
 
         data = {
-            "case": a.case, "rank": rank, "M": CHUNK if is_single else M,
-            "chunk_rows": CHUNK, "chunks": 1 if is_single else 4,
+            "case": a.case,
+            "rank": rank,
+            "M": CHUNK if is_single else M,
+            "chunk_rows": CHUNK,
+            "chunks": 1 if is_single else 4,
             "overlap": 1 if a.case == "formal" else 0,
-            "warmup": a.warmup, "iters": a.iters, "status": 0,
-            "bit_exact": True, "profile": a.profile,
+            "warmup": a.warmup,
+            "iters": a.iters,
+            "status": 0,
+            "bit_exact": True,
+            "profile": a.profile,
+            "aic_metrics": a.aic_metrics,
             "trace": str(trace_path) if a.profile else None,
+            "prof_dir": str(prof_dir) if a.aic_metrics else None,
             "note": (
                 "diag0/1/3/4/5 are single-chunk probes; cannot be added to "
                 "reconstruct the exact 4-chunk model path. loop4 is serial and "
