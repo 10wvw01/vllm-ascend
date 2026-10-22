@@ -403,3 +403,60 @@ extern "C" int mf310p_v2_trial_diag(
     return -1;
 }
 
+
+
+/* Gate C 受控隔离：M4096/chunk1024，4 个 Chunk 串行。
+ * 禁止将此探针当成正式 overlap=1 的精确阶段时钟。
+ * 单独导出函数，旧 mf310p_v2_trial_diag ABI 和行为均不改变。
+ */
+extern "C" int mf310p_v2_trial_diag_loop4(
+    mf310p_v2_trial_t* s, uint64_t x, uint64_t w, uint64_t y,
+    void* stream_ptr)
+{
+    constexpr uint32_t kGateCChunks = 4;
+    constexpr uint32_t kGateCChunkRows = 1024;
+    if (!s || !s->ib_probed || !stream_ptr || !x || !w || !y ||
+        s->chunk_rows != kGateCChunkRows ||
+        kGateCChunks * kGateCChunkRows > kWindowRows)
+        return -1;
+
+    const auto acl_stream = static_cast<aclrtStream>(stream_ptr);
+    const auto a = symmetric_addr(s->layout, s->rank);
+    const int clear_err = static_cast<int>(aclrtMemsetAsync(
+        s->status, kStatusSize, 0, kStatusSize, acl_stream));
+    if (clear_err) return clear_err;
+
+    auto launch = [&](uint32_t enable) -> int {
+        // overlap=0：LOOP 中每 Chunk 都是 signal(k)->wait(k)->Add(k)。
+        return mf310p_v2_diag_loop_async(
+            s->layout.pool_base, x, w, y, a.ownC, a.ownPeerC, a.peerDst,
+            a.expectedRecvDst, reinterpret_cast<uint64_t>(s->ib),
+            reinterpret_cast<uint64_t>(s->status), s->layout.ack_slot,
+            s->layout.peer_ack_slot, s->layout.expected_credit_dst,
+            kGateCChunkRows, kGateCChunks, 0, enable, acl_stream);
+    };
+
+    // 只做一次当前符号的禁用态预热；正式试验记录排除首调用开销。
+    if (!s->gatec_loop4_symbol_warmed) {
+        for (int i = 0; i < 2; ++i) {
+            const int rc = launch(0);
+            if (rc) return rc;
+        }
+        const int sync_err = static_cast<int>(aclrtSynchronizeStream(acl_stream));
+        if (sync_err) return sync_err;
+        s->gatec_loop4_symbol_warmed = true;
+    }
+
+    // 310P3 的首次 MTE3 写保护：独立诊断符号首次真实发射或
+    // 更换输出地址时，参照正式 trial_run 的设备同步纪律。
+    // 调用方须固定输出 Tensor 生命周期，且双 Rank 同步进入首调。
+    if (!s->gatec_loop4_real_launched || s->gatec_loop4_last_y != y) {
+        if (std::getenv("MF310P_V2_NOWARMUP") == nullptr) {
+            const int sync_err = static_cast<int>(aclrtSynchronizeDevice());
+            if (sync_err) return sync_err;
+        }
+        s->gatec_loop4_real_launched = true;
+        s->gatec_loop4_last_y = y;
+    }
+    return launch(1);
+}
