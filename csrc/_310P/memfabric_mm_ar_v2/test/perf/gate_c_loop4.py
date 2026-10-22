@@ -47,6 +47,13 @@ def parse_args():
         p.error("--warmup >= 2 and --iters >= 1 required")
     if int(os.getenv("WORLD_SIZE", "0")) != 2:
         p.error("TP WORLD_SIZE=2 is required")
+    if "MF310P_V2_NOWARMUP" in os.environ:
+        p.error("MF310P_V2_NOWARMUP must be unset: never bypass first-write protection")
+    orch = os.environ.get("MF_SDMA_ORCH_JSON", "")
+    if not orch.endswith("/libmf_sdma_orch_v11.json"):
+        p.error("MF_SDMA_ORCH_JSON must explicitly select an absolute KVER11 JSON path")
+    if not Path(orch).is_file():
+        p.error(f"missing MemFabric KVER11 JSON: {orch}")
     return a
 
 
@@ -180,8 +187,10 @@ def main():
                     dist.barrier(group=group)
                     run_one(lib, handle, a.case, xx, w, y, raw_stream)
                     stream.synchronize()
+                    # 每一次采样都验证完整结果；宁可增加诊断 CPU 开销，
+                    # 也不能只用末次校验掩盖偶发错误。设备 Kernel 时长单独提取。
+                    check_one(lib, handle, y, rr, a.case, rank)
             prof.export_chrome_trace(str(trace_path))
-            check_one(lib, handle, y, rr, a.case, rank)
         else:
             for _ in range(a.iters):
                 dist.barrier(group=group)
