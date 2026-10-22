@@ -1,0 +1,45 @@
+{
+  "gate": "D1-A admission (on-site record)",
+  "date": "2026-10-22",
+  "branch": "diag/310p-v2-gate-c-controlled-isolation-20261022",
+  "git_sha": "a15013c753a29c6eba849cc4519d0e0b809ecea3",
+  "purpose": "profiler perturbation exclusion + steady-state baseline for formal/loop4 at M=4096 chunk=1024 TP2 KVER11",
+  "target_card": "5664 dual die (global device id 0/1)",
+  "cann": "9.1.0 (query_pkg_version.sh); torch 2.10.0+cpu / torch_npu 2.10.0.post4 / python 3.12.13",
+  "host_so": {
+    "usr_local": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+    "site_packages": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+    "expected": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1 (Gate A/B verified identity, Gate C end state)",
+    "verdict": "PASS (both paths match; no G1-D tail-sampler residue)"
+  },
+  "kver11_json": {
+    "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+    "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "expected": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "verdict": "PASS"
+  },
+  "device_side_v11": {
+    "probe": "orch_deploy_helper 849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310 (same binary as Gate C probe)",
+    "dev0": "rc=3 kernel already present (no redeploy)",
+    "dev1": "rc=3 kernel already present (no redeploy)",
+    "verdict": "PASS (Gate C restoration held)"
+  },
+  "plugin_so": {
+    "path": "vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+    "sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+    "expected": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1 (Gate C diagnostics-ON build, unchanged)",
+    "verdict": "PASS (no rebuild; working tree clean at a15013c75)"
+  },
+  "env_hygiene": {
+    "MF310P_V2_NOWARMUP": "unset (driver fail-closed check also active)",
+    "MF_SDMA_ORCH_JSON": "unset in ambient shell; launcher sets KVER11 absolute path explicitly",
+    "ASCEND_WORK_PATH": "unset ambient; aic-mode sessions set per-rank prof dir (same as Gate C)",
+    "g1d_residue": "none found: host SO restored identity, no v12 dynamic-load path, no MF_* ambient vars",
+    "gate_c_raw_traces": "untouched under /tmp/opencode/gate_c_c2|c3|c3_supplementary"
+  },
+  "ambient_risk": {
+    "observation": "host-side process (PID invisible in container) holds ~2.6GB/97MB on 5664 die0/die1 plus memory on all other cards; AICore 0% throughout admission; same class of ambient state as Gate C record",
+    "mitigation": "per-session before/after npu-smi idle gate (AICore==0 required on device 0/1); any contamination -> abort batch"
+  },
+  "verdict": "D1-A admission PASS: environment identical to Gate C end state; no G1-D residue; 5664 idle."
+}
