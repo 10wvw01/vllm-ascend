@@ -50,7 +50,7 @@
 
 ## 4. OpenCode 实机步骤（按门禁顺序；本分支不自动执行）
 
-**C0 设备准入**：独占 5664 双 die(dev0/dev1)；保存 git SHA、现装 Host 双路径 SO SHA、插件 .so、KVER11 JSON、设备侧 v11 helper/Trace 间接身份；确保无 v12 动态加载、无 G1-D 诊断环境残留。记录变更前备份及恢复办法。不得覆盖 Gate A/B 原始 Trace。
+**C0 设备准入**：独占 5664 双 die(dev0/dev1)；保存 git SHA、现装 Host 双路径 SO SHA、插件 .so、KVER11 JSON、设备侧 v11 helper/Trace 间接身份；确保无 v12 动态加载、无 G1-D 诊断环境残留。记录变更前备份及恢复办法。不得覆盖 Gate A/B 原始 Trace。执行器强制 `MF_SDMA_ORCH_JSON` 显式指向已存在的绝对路径 `*/libmf_sdma_orch_v11.json`，并要求完全 unset `MF310P_V2_NOWARMUP`。
 
 **C1 构建/静态**：诊断 ON 编译（与 Gate A/B 同环境）；检查 `nm -D` 新诊断符号存在且原有 C ABI 仍存在；诊断 OFF 构建不应引用该符号。运行 CPU UT：
 ```bash
@@ -60,6 +60,7 @@ python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_v2_source_separat
 
 **C2 双 Rank 正确性**：每次新进程依序尝试 `formal`、`loop4`，全部 bit-exact 后才尝试 `diag5`、`diag0`、`diag3`、`diag4`；`diag1`（NoIB）需额外确认两 Rank 预备和协议安全后再单独尝试，不得放在无人值守全矩阵中。运行例：
 ```bash
+export MF_SDMA_ORCH_JSON=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json
 ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
   csrc/_310P/memfabric_mm_ar_v2/test/perf/gate_c_loop4.py \
   --case formal --out /tmp/opencode/gate_c_c2/formal
@@ -93,7 +94,7 @@ python csrc/_310P/memfabric_mm_ar_v2/test/perf/analyze_gate_c_trace.py \
 
 **Round 2——实验有效性、统计、安全**
 - 每例一个 torchrun 会话，rank-specific 完整随机数据防止“只计算第一 Chunk”假通过；
-- 逐次同步后比对整幅结果/单 Chunk 局部参考，不能只判断 status；双 Rank 设备 Trace 按 `iters` 严格计数；
+- 逐次同步后比对整幅结果/单 Chunk 局部参考，**Profiler 窗口内每个采样也逐次比对**，不能只判断 status 或末次输出；CPU 校验增加的诊断开销不用于 Serving 性能结论；双 Rank 设备 Trace 按 `iters` 严格计数；
 - 单 Chunk 与 4 Chunk、串行与 overlap 的方法学边界在 JSON 和本文件显式说明；
 - Graph、长压和正式 Kernel 优化均不在本轮，Gate E 的 P0 依然未关闭。
 
