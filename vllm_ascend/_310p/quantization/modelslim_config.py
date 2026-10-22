@@ -109,6 +109,8 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
         if isinstance(layer, LinearBase):
             packed = getattr(self, "packed_modules_mapping", {})
             if self.is_layer_skipped_ascend(prefix, packed):
+                # V2 集成入口：只拦截跳过量化的 eligible RowParallelLinear，
+                # 不接管 W8A8 MoE 等其他层，也不改动它们的 scheme 选择流程。
                 # MemFabric mm_ar dispatch: keep DFlash's stock unquantized
                 # routing as the fallback, and only replace the eligible
                 # Qwen3.5/3.6 o_proj/out_proj method with the fused mm+TP
@@ -130,7 +132,10 @@ class AscendModelSlimConfig310(AscendModelSlimConfig):
                         install_memfabric_mm_ar_runner_hooks,
                     )
 
+                    # 安装 Runner 生命周期 hook 先于实际 Forward；幂等包装，避免建池后错误全设备同步。
                     install_memfabric_mm_ar_runner_hooks()
+                    # 开关仅选择 LinearMethod 实现：V2 与 V1 使用同一资格合同，但不同设备 Op。
+                    # 默认不开 V2，保持原来的 V1/Stock 行为；开 V2 后由 apply 决定各 M 的去向。
                     if os.getenv("VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE", "0") == "1":
                         from vllm_ascend._310p.ops.memfabric_mm_ar_v2_serve import (
                             make_memfabric_mm_ar_v2_linear_method,

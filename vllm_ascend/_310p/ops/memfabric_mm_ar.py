@@ -125,6 +125,9 @@ def _is_fused_layer_prefix(prefix: str, text_config) -> bool:
     return layer_types[layer_idx] == _FUSED_LAYER_PREFIXES[suffix]
 
 
+# V1/V2 共同的正式层资格判定：入参 layer 为待绑定 LinearMethod 的模块，
+# 返回是否满足 Qwen3.6 指定前缀/类型、TP2、2048 宽、FP16 以及非量化投影约束。
+# V2 复用该资格函数，是为避免两套路由漂移；并不意味着执行 V1 的 Kernel。
 def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     """Return whether ``layer`` matches the deliberately narrow fused contract."""
 
@@ -169,6 +172,9 @@ def should_enable_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     return True
 
 
+# V1/V2 共同的层配置入口：入参 layer，为合格层写入资格标识并关闭 reduce_results。
+# 返回 bool 表示是否接管；原因是融合 Op 已实现 TP AllReduce，外层不得重复 HCCL。
+# V2 遇到 M 范围外的 Stock 退路时，由 V2 apply 显式补回 HCCL，不依赖父模块 reduce_results。
 def configure_memfabric_mm_ar(layer: torch.nn.Module) -> bool:
     """Mark a target RowParallelLinear so the fused op owns the TP reduction."""
 

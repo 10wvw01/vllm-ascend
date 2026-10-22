@@ -18,6 +18,10 @@
 #include "mf310p_v2_serve_internal.h"
 
 namespace vllm_ascend {
+/** @brief Worker 退出时同步服务执行流、销毁 Host 池并释放固定 Tensor。
+ * @return 无；不负责重新激活 poisoned 上下文，也不保证异常时对端仍健康。
+ * @why MemFabric 池长期存活而非每 Op 建销，必须配合进程生命周期回收。
+ */
 void memfabric_mm_ar_v2_shutdown();
 namespace {
 
@@ -30,11 +34,19 @@ constexpr int kDefaultPoolSlots = 4;
 
 
 
+/** @brief 取得当前 Worker 的 V2 服务状态别名。
+ * @return V2ServeState&；具体静态实例由 v2_serve_state 持有。
+ * @why 所有入口共享一个池/输出槽状态，不能每次 Op 创建独立 SDMA 资源。
+ */
 V2ServeState& state()
 {
     return v2_serve_state();
 }
 
+/** @brief 读取输出槽数量并约束为 2..16，缺省 4。
+ * @return 预分配 Tensor 槽数；非法环境变量通过 TORCH_CHECK 失败。
+ * @why 输出视图可能被模型持有，必须有多槽 lease 而不能覆盖单一缓冲。
+ */
 int configured_slot_count()
 {
     const char* v = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS");
@@ -46,12 +58,19 @@ int configured_slot_count()
     return static_cast<int>(n);
 }
 
+/** @brief 获取两 Rank 共用的 MemFabric rendezvous 地址。
+ * @return 环境变量字符串或本地默认 tcp URL；由 Host 建池接口消费。
+ */
 const char* configured_store_url()
 {
     const char* v = std::getenv("VLLM_ASCEND_310P_MEMFABRIC_STORE_URL");
     return v && *v ? v : "tcp://127.0.0.1:8581";
 }
 
+/** @brief 将底层 Host 错误转换为无法继续执行的 Torch 异常。
+ * @param rc 底层返回码；op 出错的操作说明。@return 无，rc 非零时抛出异常。
+ * @why 错误后两 Rank 可能协议错位，不能悄悄退回继续使用污染的池。
+ */
 void checked(int rc, const char* op)
 {
     TORCH_CHECK(rc == 0, "V2 MemFabric serving ", op, " failed (rc=", rc,
@@ -59,6 +78,10 @@ void checked(int rc, const char* op)
                 "SDMA wave cannot be safely continued.");
 }
 
+/** @brief 检查一轮已同步发送的设备协议错误状态。
+ * @param s 含 Host 句柄的服务状态；where 所处预热阶段的日志上下文。
+ * @return 无；拷贝 status 后若非零则抛异常。数值正确性仍需更高层对照。
+ */
 void check_protocol(V2ServeState& s, const char* where)
 {
     uint64_t status = ~0ULL;
@@ -67,6 +90,12 @@ void check_protocol(V2ServeState& s, const char* where)
                 " protocol status=", status);
 }
 
+/** @brief 对所有常驻输出槽与尾块暂存路径执行真实双 Rank 预热，并扫过不同块深度。
+ * @param s 已创建池且持锁的 Worker 状态；x,w 实际 NPU FP16 输入和 NZ 权重。
+ * @param stream 与后续正式 MM 共享的 ACL stream。
+ * @return 无；任一设备预热/同步/协议检查失败即抛异常。
+ * @why 弥补历史冷池首写与新波深度首次使用的异常，不能用 enable=0 launch 代替真实计算。
+ */
 void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                           const at::Tensor& w, aclrtStream stream)
 {
@@ -77,6 +106,7 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
                 "V2 bootstrap requires at least two complete chunks");
     const uint64_t input = reinterpret_cast<uint64_t>(x.const_data_ptr());
     const uint64_t weight = reinterpret_cast<uint64_t>(w.const_data_ptr());
+    // 每一个输出槽都执行双端真实 MM/SDMA/Add 与同步；仅预热首槽不能覆盖轮换 lease 后首写风险。
     for (auto& slot : s.output_slots) {
         checked(mf310p_v2_trial_run(
                     s.handle, input, weight,
@@ -94,6 +124,7 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
     // 冷池事件中 M=2049 首次输出损坏且 status=0，
     // 只有新部署 orchestrator Kernel 的最初若干次加载异常，
     // 因此在初始化时明确触发该路径。
+    // 特意访问非对齐尾 M 的暂存流程：先 copy_ 后运行补齐波，保护第一次 stage 使用。
     const int64_t tail_rows = static_cast<int64_t>(warm_rows) - 1;
     s.input_stage.narrow(0, 0, tail_rows)
         .copy_(x.narrow(0, 0, tail_rows));
@@ -118,6 +149,7 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
     // 采用 x 循环填充，不要求首次输入超过实际行数，
     // 且每次调用所需补齐行数都可由暂存区覆盖，
     // 传输机制不解析具体数据内容。
+    // 深度扫查输入区用真实 x 循环填充，再覆盖可达的不同 M/块数；这只是首用风险缓解。
     const int64_t stage_rows = s.input_stage.size(0);
     for (int64_t off = 0; off < stage_rows; off += x.size(0)) {
         const int64_t n = std::min<int64_t>(x.size(0), stage_rows - off);
@@ -140,6 +172,12 @@ void warm_outputs_locked(V2ServeState& s, const at::Tensor& x,
     }
 }
 
+/** @brief 延迟初始化 V2 Worker 的输出租约池、MemFabric context、IB 自检和真实预热。
+ * @param s 已持锁服务状态；x,w 首个真实请求的 NPU Tensor。
+ * @param tp_rank TP rank(0/1)；chunk_rows 256/512/1024；stream 固定执行流。
+ * @return 无；已有句柄时仅验证 Rank/几何/stream 不变，新建时失败抛异常。
+ * @why 先于建池持久分配所有输出/stage Tensor，规避新设备地址首写不稳定且避免复用不同流。
+ */
 void init_locked(V2ServeState& s, const at::Tensor& x,
                  const at::Tensor& w, int64_t tp_rank,
                  uint32_t chunk_rows, aclrtStream stream)
@@ -156,6 +194,7 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     // 输出槽与补齐输入区都必须在 create() 之前分配。
     // 这是平台 MTE3 首写问题的缓解，不代表根因已修复。
     // 所有分配保持固定存活直至 Worker 退出。
+    // 先在当前 stream 上创建并初始化常驻 Tensor，再建 MemFabric 池；初始化后不得改变几何或 stream。
     const int count = configured_slot_count();
     s.output_slots.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -186,6 +225,11 @@ void init_locked(V2ServeState& s, const at::Tensor& x,
     warm_outputs_locked(s, x, w, stream);
 }
 
+/** @brief 在持锁状态下寻找没有在途 Tensor 视图持有的输出槽。
+ * @param s 保存所有长期存活槽和引用关系的服务状态。
+ * @return 可复用的完整输出槽 Tensor；全部槽仍被引用时直接 TORCH_CHECK 抛异常。
+ * @why narrow/reshape 视图共享 Storage，轮换下标本身不能证明上次输出已经被消费者释放。
+ */
 at::Tensor reserve_slot_locked(V2ServeState& s)
 {
     for (auto& slot : s.output_slots) {
@@ -207,10 +251,17 @@ at::Tensor reserve_slot_locked(V2ServeState& s)
     return at::Tensor();  // TORCH_CHECK 已终止流程；此返回值仅用于满足 C++ 编译诊断。
 }
 
+/** @brief 把有效 M 行映射到完整 chunk 的单波 Host 发射。
+ * @param s V2 服务状态；x,w 源输入与权重；start 当前窗口首行；rows 本窗口有效行。
+ * @param output 预租用的持久输出槽（写入目标）；stream 当前 ACL 执行流。
+ * @return 无；在同流 copy_ 补齐尾块（如需要），再提交异步 Host 调用。
+ * @why 正式 T0 设备 Kernel 只接受完整 CHUNK，输出裁剪在外层进行而非 Kernel 内动态 tiling。
+ */
 void run_window_locked(V2ServeState& s, const at::Tensor& x,
                        const at::Tensor& w, int64_t start, int64_t rows,
                        at::Tensor& output, aclrtStream stream)
 {
+    // 小于阈值补至 2048，其他 M 向上取 chunk 整倍数；始终要求不超过 Serving 的 4096 行上限。
     const int64_t padded = std::max<int64_t>(
         kThreshold,
         ((rows + static_cast<int64_t>(s.chunk_rows) - 1) /
@@ -221,6 +272,8 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
     // 非对齐尾块使用常驻暂存 Tensor；MM 以行为单位独立，
     // 有效行之后的旧内容永远不返回调用方。
     at::Tensor source;
+    // 对齐时零拷贝使用输入视图；尾行未对齐时在同一 stream 使用 torch copy_，
+    // 避免独立 aclrtMemcpyAsync 曾观察到的陈旧上游数据；补齐区域内容不会返回用户。
     if (rows == padded) {
         source = x.narrow(0, start, rows);
     } else {
@@ -248,12 +301,21 @@ void run_window_locked(V2ServeState& s, const at::Tensor& x,
 
 }  // 匿名命名空间
 
+/** @brief 返回进程内唯一的 Worker 级 V2 状态对象。
+ * @return 静态 V2ServeState&；维护池、固定执行流、错误置毒和存活 Tensor。
+ */
 V2ServeState& v2_serve_state()
 {
     static V2ServeState s;
     return s;
 }
 
+/** @brief PyTorch NPU 自定义 Op 的正式实现，管理完整融合调用生命周期。
+ * @param x FP16 ND [M,2048] 输入（2048≤M≤4096）；weight FP16 NZ [2048,2048]。
+ * @param tp_rank TP=2 本地 rank(0/1)；chunk_rows 256/512/1024。
+ * @return 已 TP2 规约的 FP16 Tensor 视图 [M,2048]；不能由上层再执行 HCCL。
+ * @why 将 Tensor 验证、Graph 保护、单流池、输出 lease、尾块补齐和异常 fail-stop 统一封装。
+ */
 at::Tensor memfabric_mm_ar_v2_allreduce(
     const at::Tensor& x, const at::Tensor& weight, int64_t tp_rank,
     int64_t chunk_rows)
@@ -281,6 +343,7 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
     TORCH_CHECK(chunk_rows == 256 || chunk_rows == 512 ||
                     chunk_rows == 1024,
                 "V2 chunk rows must be 256/512/1024");
+    // 当前大 M 融合路径不支持 Active Graph capture；FULL_DECODE_ONLY 的小 M capture 仍走 Stock。
     TORCH_CHECK(c10_npu::currentStreamCaptureStatusMayInitCtx() !=
                     c10_npu::CaptureStatus::Active,
                 "V2 large-M prefill during ACL Graph capture is not yet "
@@ -288,6 +351,7 @@ at::Tensor memfabric_mm_ar_v2_allreduce(
                 "sizes below M=2048; decode uses Stock HCCL.");
     const auto stream = c10_npu::getCurrentNPUStream().stream();
     auto& s = state();
+    // 串行化同一 Worker 的输出槽/对称内存访问；设备端还有跨 Rank quiet+DONE 复用屏障。
     std::lock_guard<std::mutex> guard(s.mutex);
     TORCH_CHECK(!s.poisoned, "V2 serving runtime poisoned: ", s.failure);
     try {
@@ -322,6 +386,8 @@ void memfabric_mm_ar_v2_shutdown()
 
 }  // vllm_ascend 命名空间
 
+// 注册 Python 侧可见的 _C_ascend 自定义算子 schema：NPU Tensor 路由到 PrivateUse1，
+// shutdown 走 CompositeExplicitAutograd。这里是 Torch 扩展边界，不是 ACLNN 算子包注册。
 TORCH_LIBRARY_FRAGMENT(_C_ascend, ops)
 {
     ops.def(

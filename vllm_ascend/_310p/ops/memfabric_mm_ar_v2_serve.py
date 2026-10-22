@@ -23,6 +23,8 @@ from vllm.logger import logger
 
 from vllm_ascend import envs
 
+# Serving 的实际路由窗口：只对 2048≤M≤4096 的合格 FP16 层使用融合。
+# 与 T0 Kernel 独立试验的 8192 行上限不同；Graph 小 M 依旧回退 Stock。
 MIN_FUSED_M = 2048
 MAX_FUSED_M = 4096  # the configured 4096-token Forward budget
 _pool_started = False
@@ -33,10 +35,16 @@ _verified_aligned = False
 _verified_padded = False
 
 
+# 作用：向 Runner hook 报告本 Worker 是否已发起 V2 池生命周期。
+# 入参：无。返回：布尔值；首次 V2 op 返回后置 True，不代表异步波已完成。
+# 原因：池常驻时避免 device-wide sync 等待 MemFabric 编排流。
 def v2_pool_started() -> bool:
     return _pool_started
 
 
+# 作用：将 M 行数映射到 V2/Stock；不与 V1 q 或 batch_M 混用。
+# 入参：m 为本次 Linear 的 M。返回："v2" 或 "stock"；负数抛 ValueError。
+# 原因：硬件验证范围之外仍必须有完整 MM+HCCL 的安全退路。
 def v2_threshold_route(m: int) -> str:
     """Pure route decision, intentionally independent from V1's q/batch size."""
     if m < 0:
@@ -47,6 +55,9 @@ def v2_threshold_route(m: int) -> str:
     return "v2" if MIN_FUSED_M <= m <= MAX_FUSED_M else "stock"
 
 
+# 作用：延迟创建继承 AscendUnquantizedLinearMethod 的 V2 LinearMethod 子类。
+# 入参：无。返回：MemFabricMmArV2LinearMethod310 类（不是立即执行 Kernel）。
+# 原因：保留原始 FP16/NZ 权重加载，又允许目标层接管 MM+TP 规约，避免循环 import。
 def make_memfabric_mm_ar_v2_linear_method():
     from vllm_ascend.ops.linear import AscendUnquantizedLinearMethod
     from vllm_ascend._310p.ops.memfabric_mm_ar import (
@@ -55,13 +66,21 @@ def make_memfabric_mm_ar_v2_linear_method():
         memfabric_mm_ar_warmup_fallback_active,
     )
 
+    # 只用于满足 Qwen3.6 指定 RowParallelLinear 条件的层，其余层不应改变原来的 LinearMethod。
     class MemFabricMmArV2LinearMethod310(AscendUnquantizedLinearMethod):
         """Only selected FP16 RowParallelLinear o_proj/out_proj are routed."""
 
+        # 作用：继承 Stock 的权重处理（含 NZ 布局），再对满足资格的层标记融合。
+        # 入参：self 当前 LinearMethod；layer 已加载权重的目标层。返回：None；副作用是资格标记。
+        # 原因：不为 V2 单独复制权重转换逻辑，统一在层加载后关闭上层重复 TP Reduce。
         def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
             super().process_weights_after_loading(layer)
             configure_memfabric_mm_ar(layer)
 
+        # 作用：执行资格与 M 路由，或退回完整 Stock；融合后首次按尾块类型做位精确对照。
+        # 入参：self LinearMethod、layer 目标层、x=[M,2048] FP16 Tensor、bias 可选偏置。
+        # 返回：已完成 TP2 规约的输出 Tensor；非合格层交给父类按原合同执行。
+        # 原因：reduce_results 已被关闭，Stock 退路必须自行补 HCCL；V2 不能再重复 HCCL。
         def apply(
             self,
             layer: torch.nn.Module,
@@ -71,6 +90,7 @@ def make_memfabric_mm_ar_v2_linear_method():
             global _pool_started, _logged_stock, _logged_fused
             global _logged_oversize_stock, _verified_aligned, _verified_padded
 
+            # 本层若未被资格检查选中，不私自接管 TP 规约，保持父类的正常路径。
             if not is_memfabric_mm_ar_configured(layer):
                 return super().apply(layer, x, bias)
             if bias is not None:
@@ -79,6 +99,8 @@ def make_memfabric_mm_ar_v2_linear_method():
             # Profile/dummy-run and any M outside [2048,4096] go through
             # the original native MM + HCCL. Decode can still be captured
             # by the existing FULL_DECODE_ONLY graph route.
+            # profile/dummy 和 M 窗口以外走本地 MM+HCCL；仅调试开关允许的 warmup 才启用回退。
+            # 特别注意：layer.reduce_results=False，因此必须在这里显式调用 TP all-reduce。
             if memfabric_mm_ar_warmup_fallback_active() or (
                 v2_threshold_route(int(x.shape[0])) == "stock"
             ):
@@ -96,6 +118,7 @@ def make_memfabric_mm_ar_v2_linear_method():
                 partial = super().apply(layer, x, bias)
                 return tensor_model_parallel_all_reduce(partial)
 
+            # PyTorch Op 由 C++ TORCH_LIBRARY_FRAGMENT 注册，返回的结果已包含对端局部 C。
             op = getattr(torch.ops._C_ascend, "memfabric_mm_ar_v2_allreduce", None)
             if op is None:
                 raise RuntimeError(
@@ -105,6 +128,7 @@ def make_memfabric_mm_ar_v2_linear_method():
                 )
             from vllm.distributed import get_tensor_model_parallel_rank
 
+            # 仅允许 Kernel 已编译的 3 档静态 tiling；真实 Rank 来自 TP 通信组。
             chunk = int(envs.VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS)
             if chunk not in (256, 512, 1024):
                 raise ValueError(f"invalid V2 chunk_rows={chunk}")
@@ -123,6 +147,8 @@ def make_memfabric_mm_ar_v2_linear_method():
             # path is the expected steady-state behavior (proven by the
             # TP=2 mixed-route test). A cold pool/transport must fail
             # loudly here instead of silently corrupting model outputs.
+            # 首次融合校验分别覆盖整块和尾块暂存两类路径。
+            # 协议 status==0 不保证首次输出正确；位精确对照失败直接抛错并要求双 Rank 重启。
             aligned = (int(x.shape[0]) % chunk) == 0
             needs_verify = (aligned and not _verified_aligned) or (
                 (not aligned) and not _verified_padded)
@@ -148,6 +174,7 @@ def make_memfabric_mm_ar_v2_linear_method():
                     "stock (M=%d, aligned=%s)", x.shape[0], aligned)
             # The V2 op already performs a TP=2 reduction. Generic HCCL
             # MUST NOT run again on this branch.
+            # 最终输出是已规约的 Y=C0+C1，返回后绝对不能再走 RowParallelLinear HCCL。
             return out
 
     return MemFabricMmArV2LinearMethod310

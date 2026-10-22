@@ -4,6 +4,8 @@
 #include "../../../memfabric_mm_ar/memfabric310p_adapter_api.h"
 #include <acl/acl_rt.h>
 #include <cstdint>
+// Host 运行态拥有 V1 公共建池句柄及交换后布局、IB 工作区与首写防护状态。
+// warmed_ys 只记录地址，不识别释放重分配；输出生命周期必须由调用者保证。
 struct mf310p_v2_trial {
     mf310p_context_t* v1_pool = nullptr;
     mf310p_layout_t layout{};
@@ -33,6 +35,7 @@ struct mf310p_v2_trial {
 
 };
 namespace {
+// 8192 为 T0 单波上限，Serving 的 Forward 上限另为 4096；对称区实际偏移以 layout 为准。
 constexpr uint32_t kWindowRows = 8192;
 constexpr uint64_t kPoolSize = 96ULL * 1024 * 1024;
 constexpr uint64_t kStatusSize = 64;
