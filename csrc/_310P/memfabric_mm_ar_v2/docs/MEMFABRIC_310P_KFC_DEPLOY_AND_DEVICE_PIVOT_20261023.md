@@ -141,7 +141,31 @@ E2E A/B（两臂同卡同 Host SO，内部对比有效）。
 4. 设备侧各 die 的 `libmf_sdma_orch_v11.so`（dev0/1/6/7）保留——KVER11 正式部署物，
    与原运行态一致（dev6/7 为本轮合法新增）。
 
-## 8. 结论
+## 8. AICPU 编排核运行模式：epoch 有限纪（默认）与常驻哨兵（诊断）
+
+编排核 `HybmSdmaOrchEpoch` 有两种模式，由 `MF_SDMA_ORCH_EPOCH_BUDGET_S` 控制
+（`hybm_sdma_orchestrator.cpp` `ResolveEpochBudgetS()`）：
+
+| 模式 | 取值 | 行为 | 适用 |
+|---|---|---|---|
+| **epoch 有限纪（v11 默认）** | 未设/0/非法 → 15s | 内核按 host 心跳时钟（100ms/跳）到 15s 自退，监督线程轮询结果区（~100ms）后重拉；REQ 环/游标/到达戳环持久于段内保留区，SQ 生产游标每纪活查询（`cp1LiveQuery`：SQ_TAIL 等 4 属性） | **生产/serve 唯一模式** |
+| **常驻哨兵** | `4294967295` | 内核不判时限跑到停止标志 | 仅诊断；**serve 下必死** |
+
+**为什么 serve 必须用 epoch 模式**：torch_npu 分配器内部会触发
+`AclrtSynchronizeDevice`（全设备、全流、无豁免），常驻 AICPU 任务必阻塞它
+（serve 实测死因 507017）。epoch 模式把每次同步的最坏等待压到 ≤1.5×预算。
+该修复为 v11（mf 仓 `2f59dedb`，2026-10-12）；**"常驻"是 v11 之前的旧模式**，
+选分支时勿回退。装机 `libmf_sdma_orch_v11.so`（KVER11）与 host 默认参数一致，
+无需手工设置该变量。
+
+**运维注意**：epoch 换纪有 ~100–300ms 间隙（请求环排队，零丢失设计）；日志默认
+WARN 级，换纪正常静默、错误（`epoch exited with error`/`overran`/`relaunch failed`）
+才会打到进程 stdout——serve 日志中零此类记录即换纪全程健康。G3 §8 的间歇性 P0
+（prefill+decode 交叠工况双 rank aicore timeout）与本模式的关系已被本轮
+budget=5s（换纪频率×3）4/4 干净的对照实验削弱——非换纪频率主导，根因仍在
+负载相位时序（详见 D4 报告 §5.2）。
+
+## 9. 结论
 
 1. MemFabric 310P 栈**没有写死 die 0/1**：设备号全链来自 `aclrtGetDevice()`，
    die 语义按奇偶推导；换卡只需 `ASCEND_RT_VISIBLE_DEVICES` + §3 补丁。
