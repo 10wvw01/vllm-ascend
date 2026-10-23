@@ -1,0 +1,42 @@
+{
+  "gate": "D4-1 build & resource review (on-site record)",
+  "date_local": "2026-10-23",
+  "branch": "perf/310p-v2-d3-add-tile2048-20261023",
+  "candidate_sha_after_fix": "5adbf1810 (fix: move UB budget static_assert into device kernel context)",
+  "toolchain": {
+    "bisheng": "/usr/local/Ascend/cann-9.1.0/bin/bisheng (--npu-arch=dav-2002, exact cmake/memfabric_310p_v2.cmake command replication)",
+    "cann": "9.1.0",
+    "mf_device_include": "/usr/local/memfabric_hybrid/1.2.0/include/smem/device"
+  },
+  "bug_found_and_fixed": {
+    "symptom": "candidate Tile2048 kernel.asc failed BiSheng: 'use of undeclared identifier TOTAL_UB_SIZE' at namespace-scope static_assert (D3-introduced); baseline (TOTAL_UB_SIZE only inside aicore function body) compiled rc=0 with the identical command",
+    "root_cause": "CANN 9.1 arch-guarded TOTAL_UB_SIZE (impl/basic_api/utils/kernel_utils_constants.h, #if __NPU_ARCH__==1001||2002 => 256*1024) is only visible in the __aicore__ device compilation context; namespace scope of the .asc TU cannot see it (verified with 3 minimal probes: kernel_operator.h-only namespace-scope use OK; acl_rt.h-first or common.h include chain => undeclared)",
+    "fix": "moved the identical static_assert next to the guarded pipe.InitBuffer(mmUb, TOTAL_UB_SIZE - kProductionUBForVector - kUBForIB) inside V2TrialKernel (device context); commit 5adbf1810; assertion semantics unchanged; single-variable discipline preserved (diag kernel, common.h, host ABI untouched)",
+    "regression": "CPU UT 31/31 PASS after fix"
+  },
+  "builds": {
+    "baseline_diag_on":  {"so": "device_baseline_diag_on.so",  "sha256": "f8047cbeb48ca25dc5f3369bf702d494f5c52e25772f5224d24c952a6519a658", "bytes": 2185568, "source": "edebac40d worktree (== D1-A end-state kernel)"},
+    "baseline_diag_off": {"so": "device_baseline_diag_off.so", "sha256": "629aa220f1599ae40919ebac310701c3a1f4051bd24f8e417b5f0b1ca789ffa5", "bytes": 657472,  "source": "edebac40d worktree"},
+    "candidate_diag_on":  {"so": "device_candidate_diag_on.so",  "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19", "bytes": 2185952, "source": "5adbf1810 (Tile2048 + assert relocation)"},
+    "candidate_diag_off": {"so": "device_candidate_diag_off.so", "sha256": "805b1a473c547faff2ca11bbd1376035bb6379e71ca8804ad41a3683dc28e1c7", "bytes": 657856,  "source": "5adbf1810"},
+    "verdict": "PASS (all four variants compile; diagnostics isolation intact — diag .asc still uses kAddTile=1024 via common.h)"
+  },
+  "matmul_local_workspace_sufficiency": {
+    "method": "compile-time probe (ub_sufficiency_probe.asc) including the REAL mf310p_v2_kernel_common.h tiling instantiations, asserting the exact CANN 9.1 MatmulLocalWorkspace::SetWorkspace contract: ASSERT(localBuffer.GetSize() >= max(transLength * ENABLE_TRANS_COEFF(=2 when cfg.enableUBReuse), biasLen))",
+    "tiling_values_extracted_bisheng_compile_time": {
+      "tiling256.transLength": 16384, "tiling512.transLength": 32768, "tiling1024.transLength": 65536,
+      "isBias": 1, "baseN": 256,
+      "cfg.enableUBReuse": true, "cfg.enVecND2NZ": true, "cfg.doNorm": true, "cfg.doBasicBlock": false, "cfg.doMultiDataLoad": false
+    },
+    "requirement_bytes": "max(2 * 65536, 256 * 4) = 131072 (worst tiling1024; biasLen=1024 irrelevant)",
+    "available_bytes": {"candidate_tile2048": "TOTAL_UB_SIZE(262144) - kProductionUBForVector(12288) - kUBForIB(32) = 249824", "baseline_tile1024": "262144 - 6144 - 32 = 255968"},
+    "margin_bytes": {"candidate": 118752, "baseline": 124896},
+    "verdict": "PASS — SetLocalWorkspace sufficiency PROVEN at BiSheng compile time (zero static-assertion failures); requirement unchanged between baseline and candidate because tiling is identical; the pipe still allocates exactly TOTAL_UB_SIZE in total (12288+32+249824 = 262144), same property as baseline"
+  },
+  "abba_strategy": {
+    "plugin_so": "unchanged 8eb65de9 (host sources identical between baseline and candidate; only libmf310p_v2_trial_device.so swaps via vllm_ascend/ $ORIGIN runpath)",
+    "baseline_build": "fresh f8047cbe (same source as installed b8ca96f0; anchored against D1-A reference p50 in D4-3)",
+    "candidate_build": "fresh 2a19390c"
+  },
+  "verdict": "D4-1 PASS with one D3-introduced compile bug fixed (5adbf1810); proceeding to D4-2 on-device correctness"
+}
