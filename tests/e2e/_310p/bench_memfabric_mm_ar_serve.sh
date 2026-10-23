@@ -39,9 +39,10 @@ REPEAT=${MEMFABRIC_MM_AR_E2E_REPEAT:-1}
 DFLASH_ENABLED=${MEMFABRIC_MM_AR_E2E_DFLASH:-0}
 DFLASH_MODEL=${MEMFABRIC_MM_AR_E2E_DFLASH_MODEL:-/home/models/Qwen/Qwen3.6-35B-A3B-DFlash}
 DFLASH_TOKENS=${MEMFABRIC_MM_AR_E2E_DFLASH_TOKENS:-7}
-ORCH_JSON=$(ls -v /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v*.json 2>/dev/null | tail -1)
+ORCH_JSON=${MEMFABRIC_MM_AR_E2E_ORCH_JSON:-$(ls -v /usr/local/memfabric_hybrid/*/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v*.json 2>/dev/null | tail -1)}
 DEVICES=${MEMFABRIC_MM_AR_E2E_DEVICES:-0,1}
 V2_SERVE=${MEMFABRIC_MM_AR_E2E_V2:-0}
+MAX_NUM_SEQS=${MEMFABRIC_MM_AR_E2E_MAX_NUM_SEQS:-16}
 
 # Refuse to start on a device that already runs someone else's workload.
 # Only rows whose 3rd field looks like a PCI bus id are device rows (this
@@ -154,7 +155,7 @@ for combo in "${COMBOS[@]}"; do
     setsid vllm serve "$MODEL" \
         --host 0.0.0.0 --port "$PORT" --tensor-parallel-size 2 \
         --quantization ascend --served-model-name qwen3.6-35b-a3b-w8a8 \
-        --trust-remote-code --dtype float16 --max-num-seqs 16 \
+        --trust-remote-code --dtype float16 --max-num-seqs "$MAX_NUM_SEQS" \
         --max-num-batched-tokens 4096 --max-model-len 8192 \
         --gpu-memory-utilization 0.90 \
         --no-enable-prefix-caching --enable-chunked-prefill \
