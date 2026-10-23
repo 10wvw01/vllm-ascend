@@ -43,6 +43,7 @@ ORCH_JSON=${MEMFABRIC_MM_AR_E2E_ORCH_JSON:-$(ls -v /usr/local/memfabric_hybrid/*
 DEVICES=${MEMFABRIC_MM_AR_E2E_DEVICES:-0,1}
 V2_SERVE=${MEMFABRIC_MM_AR_E2E_V2:-0}
 MAX_NUM_SEQS=${MEMFABRIC_MM_AR_E2E_MAX_NUM_SEQS:-16}
+SEED=20261024  # SEL-01 also pins this random prompt generation seed across all arms
 
 # Refuse to start on a device that already runs someone else's workload.
 # Only rows whose 3rd field looks like a PCI bus id are device rows (this
@@ -187,7 +188,7 @@ for combo in "${COMBOS[@]}"; do
             --base-url "http://127.0.0.1:${PORT}" \
             --model qwen3.6-35b-a3b-w8a8 \
             --tokenizer "$MODEL" \
-            --dataset-name random --random-input-len "$INPUT_LEN" \
+            --dataset-name random --seed "$SEED" --random-input-len "$INPUT_LEN" \
             --random-output-len "$OUTPUT_LEN" \
             --num-prompts "$NUM_PROMPTS" --max-concurrency "$CONCURRENCY" \
             --ignore-eos \
