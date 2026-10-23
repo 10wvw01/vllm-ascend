@@ -47,9 +47,9 @@
 <text x="1067" y="763" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">已选为第一轮优化候选</text>
 <path d="M700 822 L700 850" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
 <rect x="45" y="859" width="1310" height="125" rx="14" fill="#FFFFFF" stroke="#1A5EA8" stroke-width="2"/>
-<text x="73" y="893" fill="#1A5EA8" font-size="24" font-weight="700" text-anchor="start">D2 → D3 → D4：先改一处、然后实机验收</text>
+<text x="73" y="893" fill="#1A5EA8" font-size="24" font-weight="700" text-anchor="start">D2 → D3 → D4：一处优化已完成验证</text>
 <text x="73" y="929" fill="#19354F" font-size="19" font-weight="500" text-anchor="start">D3 正式 V2 Add Tile 1024→2048（循环次数减半，但占用 UB 增加 6KiB）</text>
-<text x="73" y="960" fill="#19354F" font-size="19" font-weight="500" text-anchor="start">D4：BiSheng/UB → 双 Rank 位精确 → ABBA 性能对比 → 真实 Qwen Eager</text>
+<text x="73" y="960" fill="#19354F" font-size="19" font-weight="500" text-anchor="start">D4：编译/位精确PASS；单算子+6.26%，Eager成功会话吞吐+1.86%</text>
 <rect x="45" y="1004" width="1310" height="83" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
 <text x="75" y="1040" fill="#133858" font-size="21" font-weight="650" text-anchor="start">已知：融合目标路径有额外成本，4 Chunk 交叠仍值得保留。</text>
 <text x="75" y="1070" fill="#9E6B0B" font-size="20" font-weight="650" text-anchor="start">未知：最终由通信等待、缓存维护、规约控制还是 MM 访存主导。</text></g>
