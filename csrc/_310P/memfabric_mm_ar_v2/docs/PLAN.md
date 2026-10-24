@@ -1,5 +1,8 @@
 # memfabric_mm_ar_v2 研发与验收计划（2026-10-17）
 
+> **归档计划，非当前项目路线图。** 本文件为2026-10-17~19原始T0/T1/T2/G3方案，后续结果已覆盖部分“待实机”的历史文字。2026-10-25起当前计划、下一步和状态仅维护于 [PROJECT_CONTROL.md](PROJECT_CONTROL.md)；不要从本文件直接发起新实验或宣告GO。
+
+
 > V1 代码冻结。2026-10-17 已验证的 T0 报告：[20261017实机测验及修复.md](20261017实机测验及修复.md)。
 > 2026-10-17/18 T1（小 M 原始 NZ + 直接 ND）完成首轮实机验证与修复：[T1_NZ_DIRECT_REPORT.md](T1_NZ_DIRECT_REPORT.md)。
 > T1 细节见 [NZ_DIRECT_TRIAL.md](NZ_DIRECT_TRIAL.md) / [DESIGN.md](DESIGN.md)。
