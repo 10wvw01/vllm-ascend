@@ -91,6 +91,26 @@ def paired(ranks: list[dict], spec: dict) -> dict:
             "host_gap_p50_us": round(statistics.median(gaps), 3),
             "paired_event_us": events, "paired_wall_us": walls,
         }
+    anchor_m = spec["M_order"][0]
+    late = [rec["results"].get("_anchor_after") for rec in ranks]
+    if any(not isinstance(x, dict) or x.get("M") != anchor_m or
+           len(x.get("samples", [])) != 8 for x in late):
+        raise ValueError("late same-worker anchor missing/invalid")
+    late_events = []
+    for i, (r0, r1) in enumerate(zip(late[0]["samples"], late[1]["samples"])):
+        for sample in (r0, r1):
+            if sample.get("i") != i or sample.get("variant") != i % 2:
+                raise ValueError("late anchor rank index/variant mismatch")
+            if not _finite(sample.get("event_us")) or not _finite(sample.get("wall_us")):
+                raise ValueError("late anchor invalid timing")
+        late_events.append(max(r0["event_us"], r1["event_us"]))
+    early = statistics.median(out[str(anchor_m)]["paired_event_us"][:8])
+    after = statistics.median(late_events)
+    drift = 100 * (after / early - 1)
+    out["_anchor"] = {"M": anchor_m, "early_pair_event_p50_us": round(early, 3),
+                      "late_pair_event_p50_us": round(after, 3),
+                      "late_over_early_pct": round(drift, 3),
+                      "abs_drift_pct": round(abs(drift), 3)}
     return out
 
 
@@ -128,6 +148,10 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
             "rank_sha256": [digest(x) for x in files],
             "measurements": pair,
         })
+    anchor_drift_fail = any(
+        row["measurements"]["_anchor"]["abs_drift_pct"] > ANCHOR_PCT_MAX
+        for row in rows
+    )
     table = []
     for m in SHAPES[scope]:
         arms = {a: [s["measurements"][str(m)] for s in rows if s["arm"] == a]
@@ -170,8 +194,10 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
                       and summary["fused_p90_us"] <= summary["stock_p90_us"] * MAX_TAIL_DEGRADE
                       and summary["fused_p99_us"] <= summary["stock_p99_us"] * 1.10
                       and stock_anchor_drift_pct <= ANCHOR_PCT_MAX)
-            summary["decision"] = "CANDIDATE_REQUIRES_ROUTE_AUDIT" if winner else (
-                "INCONCLUSIVE_DRIFT" if stock_anchor_drift_pct > ANCHOR_PCT_MAX else "NO_GO")
+            summary["decision"] = ("INCONCLUSIVE_DRIFT" if anchor_drift_fail
+                                   else "CANDIDATE_REQUIRES_ROUTE_AUDIT" if winner
+                                   else "INCONCLUSIVE_STOCK_VARIATION"
+                                   if stock_anchor_drift_pct > ANCHOR_PCT_MAX else "NO_GO")
         else:
             summary["decision"] = "SCREEN_ONLY_NO_GO_POSSIBLE"
         table.append(summary)
@@ -198,6 +224,7 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
         "experiment": "U1_FULLCHAIN", "scope": scope, "phase": phase,
         "manifest_sha256": digest(manifest), "audit_sha256": audit_sha,
         "sessions": rows, "performance_map": table,
+        "within_worker_anchor_drift_exceeds_5pct": anchor_drift_fail,
         "important": [
             "Screening never grants GO; performance is Stock FP16-HCCL vs complete fused op.",
             "Two ranks paired per sample; different sessions compared only through crossover.",
