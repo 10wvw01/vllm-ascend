@@ -23,6 +23,8 @@ def parse(log: str) -> dict:
         raise ValueError("not a T1 full-mode table")
     if "G0\tib_probe\tPASS" not in log:
         raise ValueError("IB precondition missing")
+    if "MATRIX ALL PASS" not in log:
+        raise ValueError("missing final no-failure marker")
     records = {}
     started = False
     for line in log.splitlines():
