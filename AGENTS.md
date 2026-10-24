@@ -1,5 +1,8 @@
 # vLLM Ascend Development Guidelines
 
+> **310P3 MM+MemFabric AR 定制工程专用入口（项目维护分支限定）**：处理 `csrc/_310P/memfabric_mm_ar_v2/` 或相关310P3 Qwen3.6/DFlash集成问题时，**先阅读仓库根 [PROJECT_310P_MEMFABRIC.md](PROJECT_310P_MEMFABRIC.md)**；具体规则见 [融合算子目录AGENTS](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md) 和 [唯一项目控制台](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)。本仓 `dev/310p-memfabric-mm-ar` 是独立项目研发主线，旧实验分支不能替代当前状态。**严禁向HaonanWu1主开发仓库提交/推送/PR。** 本提示仅针对310P定制工程，不覆盖本文件其余通用规范。
+
+
 This document provides instructions for contributors to the vLLM Ascend project. Please read and follow these guidelines to ensure code quality, maintainability, and consistency.
 
 ---
