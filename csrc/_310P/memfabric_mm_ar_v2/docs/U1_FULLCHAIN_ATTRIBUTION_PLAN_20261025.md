@@ -23,7 +23,7 @@
 - **小M / T1**：`M={1,8,10,16,17,64,255,256}`，固定MM8/Add4。涵盖Decode M10、模板边界16→17及255→256。
 - **大M / D4**：`M={1024,2048,4096}`，Chunk1024、Overlap1。M1024是试验性的过渡形状，必须先正确性PASS；不代表模型Serving已路由此形状到V2。
 - M257～1023在当前固定Chunk1024下不适用，**不许补假数据**。必要时另行独立合法Chunk实验，但不要重复F2大规模Chunk网格。
-- 一个Stock进程覆盖全部同Scope M，一个MemFabric进程覆盖全部同Scope M；**没有同进程HCCL+MemFabric共存**。Stock同会话还顺带执行独立的原生`F.linear` MM-only Event/Wall测量，每M分别配对输出，不需要重开Stock进程；这只是额外参照路径，**完整Stock减MM-only中位数绝不等于纯HCCL时长**。同一M固定两组交替输入，CPU gloo FP32求和再FP16用于逐次位精确，性能Stock只有原生FP16 F.linear+FP16 HCCL，无FP32计时转换。每个形状单独预热、双Rank逐样本配对，并在同Worker结束时**额外回测首M八个样本**判热态漂移。
+- 一个Stock进程覆盖全部同Scope M，一个MemFabric进程覆盖全部同Scope M；**没有同进程HCCL+MemFabric共存**。Stock仅在**D0快速screen**同会话顺带执行独立的原生`F.linear` MM-only Event/Wall测量，每M分别配对输出、不需要重开Stock进程；D2正式confirm**不会额外运行MM-only**，避免额外热负载干扰ABBA；这只是额外参照路径，**完整Stock减MM-only中位数绝不等于纯HCCL时长**。同一M固定两组交替输入，CPU gloo FP32求和再FP16用于逐次位精确，性能Stock只有原生FP16 F.linear+FP16 HCCL，无FP32计时转换。每个形状单独预热、双Rank逐样本配对，并在同Worker结束时**额外回测首M八个样本**判热态漂移。
 
 ## 2. G0不可跳过的准入与已知坑
 
