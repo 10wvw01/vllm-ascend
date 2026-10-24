@@ -89,3 +89,12 @@ git switch -c work/310p-mm-ar-<topic>
 ## E. 当前治理限制
 
 主线不改变GitHub项目的默认分支`main`，也不替代主开发DFlash自己的分支，更不修改独立MemFabric库的发行模式。今后若需删除旧分支、设置GitHub分支保护/默认分支或建立发布工作流，必须得到单独授权和环境证据。 
+
+
+## F. 2026-10-25 主线强制交付规则（增量治理）
+
+1. 唯一主线仍是 `dev/310p-memfabric-mm-ar`；所有新Kernel、适配和实机报告从本主线的**短期**任务分支流转，原则上通过 PR 及审查合入；不把旧 `perf/diag/docs` 一键 merge 进主线。
+2. 工作流 `.github/workflows/310p_mm_ar_project_gate.yml` 只在本主线的 PR、push 或手动触发；`tools/310p_mm_ar/project_gate.py` 进行项目入口和变更台账检查，`test_project_gate.py` 是其纯CPU测试。对正式源码、目标测试或证据的变更，必须同时更新 `PROJECT_CONTROL.md`；涉及性能证据/报告还必须更新 `PERFORMANCE_BASELINES.md`。新的 ADR 必须同步当前控制台。**这是文件级遗漏检查，不验证报告真假、测试充分性或NPU正确性。**
+3. 核心源码变更还需人工核对新/已有测试覆盖、2轮静态深审、G0设备/SO/KVER合同、冷首写、双Rank正确性、Stock基线、Graph真实命中与回退。具体参阅 [ENGINEERING_GATES.md](ENGINEERING_GATES.md)。
+4. 当前GitHub默认 `main` 仍保留；**GitHub仓库级保护尚须所有者配置**：建议为此分支启用禁止强制推送与删除、PR审查、要求名为 `project-control` 的CI检查通过，并限定管理员绕过；保护的实际生效状态应另行在 GitHub Rulesets / Branch protection 核实。未配置时CI可以报告 FAIL，但不能阻止管理员直接push。
+5. 任何GitHub CI成功均只记为“仓库元数据静态 PASS”，不表示310P服务器环境、CANN编译、模型正确性或真实性能已验证；实机测试必须由用户委托OpenCode，并在G0确认安全后执行。

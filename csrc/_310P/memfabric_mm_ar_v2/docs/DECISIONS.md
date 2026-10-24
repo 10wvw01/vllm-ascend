@@ -36,9 +36,16 @@
 - 新会话入口为仓库根 `PROJECT_310P_MEMFABRIC.md`；**任何完成任务必须更新`PROJECT_CONTROL.md`**，涉及技术决策再追加本ADR，性能则同步 `PERFORMANCE_BASELINES.md`；ChatGPT记忆、聊天记录与旧实验README不能取代GitHub权威状态。
 - 历史诊断/性能分支不能未审核整体合入，否则旧 C3/T1/C4 的代码和判断可能污染项目路线。
 
+## ADR-007｜工程交付门禁自动化与实机身份核对｜2026-10-25｜有效
+- 决策：将 `dev/310p-memfabric-mm-ar` 的上下文落盘从文字约定扩展成纯CPU自动变更检查；正式源码/测试/证据更新同步 `PROJECT_CONTROL.md`，性能证据同步 `PERFORMANCE_BASELINES.md`。
+- 原因：过往阶段分支分散，消息结论和真实代码/装载二进制混用；仅靠新对话提示词无法强制执行。
+- 取舍：不将这一CI当作CANN/NPU正确性或发布验收；不在治理提交中修改 Kernel/Host/Serving；不改变GitHub默认 `main`，仓库保护由所有者另行确认。
+- 落地：`.github/workflows/310p_mm_ar_project_gate.yml`、`tools/310p_mm_ar/project_gate.py`、`ENGINEERING_GATES.md`；实际运行结果与上机G0另行取证。
+- 安全：MemFabric源码SHA、Host/Device安装SO SHA256、进程实际装载地址及KVER应分别核对；未获用户授权不自动切换服务器worktree或替换运行库。
+
 ## 后续决策的写入模板
 
-`ADR-007｜YYYY-MM-DD｜有效/被替代`
+`ADR-008｜YYYY-MM-DD｜有效/被替代`
 
 - 决策：
 - 触发证据（SHA、报告、原始JSON或现场路径）：
