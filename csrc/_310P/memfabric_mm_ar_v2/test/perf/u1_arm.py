@@ -23,7 +23,7 @@ import vllm_ascend.vllm_ascend_C as extension
 from u1_spec import (
     ADD_CORES, CHUNK, D4_DEVICE_SHA, FUSED_ARM, ITERS, K, KVER_SHA,
     MEMFABRIC_HOST_SHA, MM_CORES, N, PLUGIN_SHA, SHAPES, WARMUP,
-    arm_for, eligible, order_for, session_id,
+    arm_for, eligible, order_for, plan, session_id,
 )
 
 
@@ -40,7 +40,7 @@ def parse():
     p.add_argument("--store-url", default=os.environ.get(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
     a = p.parse_args()
-    if a.phase == "screen" and a.stage not in (1, 2):
+    if a.phase in ("smoke", "screen") and a.stage not in (1, 2):
         p.error("screen stage must be 1/2")
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
         p.error("U1 requires two TP workers")
@@ -145,7 +145,7 @@ def main():
     lib = None
     error = None
     try:
-        order = order_for(SHAPES[a.scope], a.stage)
+        order = tuple(plan(a.scope, a.phase)[a.stage-1]["M_order"])
         torch.manual_seed(4242)
         w = torch.randn(N, K, device=device, dtype=torch.float16)
         w_nz = torch_npu.npu_format_cast(w, 29)
@@ -258,7 +258,8 @@ def main():
                                    "wall_us": wall, "event_us": event})
         results["_anchor_after"] = {"M": anchor_m, "samples": anchor_samples}
         data = {
-            "experiment": "U1_FULLCHAIN", "scope": a.scope, "phase": a.phase,
+            "experiment": "U1_SMOKE_ONLY" if a.phase == "smoke" else "U1_FULLCHAIN",
+            "scope": a.scope, "phase": a.phase,
             "session": session_id(a.scope, a.stage), "stage": a.stage,
             "arm": arm, "rank": rank, "M_order": order, "TP": 2, "K": K, "N": N,
             "dtype": "fp16", "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
