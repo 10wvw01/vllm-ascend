@@ -30,7 +30,7 @@ def synth_rank(p, rank, fast=400):
                 for i in range(p["iters"])
             ],
         }
-        if p["arm"] == "stock_fp16" and p["phase"] != "smoke":
+        if p["arm"] == "stock_fp16" and p["phase"] == "screen":
             readings[str(m)]["native_mm_only"] = {
                 "iters": p["iters"], "bit_exact": True,
                 "samples": [
