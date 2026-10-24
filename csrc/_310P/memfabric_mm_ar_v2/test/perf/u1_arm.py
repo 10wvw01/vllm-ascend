@@ -220,6 +220,26 @@ def main():
                 "status": 0 if lib is not None else None,
                 "bit_exact": True,
             }
+            if arm == "stock_fp16" and a.phase != "smoke":
+                # 顺带测原生MM-only：不创建额外进程，不把两项的中位数差
+                # 解释为纯HCCL时延（包含发射/输出分配、缓存与调度差异）。
+                local_refs = [F.linear(x, w) for x in xs]
+                stream.synchronize()
+                local_samples = []
+                for i in range(ITERS[a.phase]):
+                    variant = (i + WARMUP[a.phase]) % 2
+                    dist.barrier(group=cpu_group)
+                    y, wall, event = measure_one(
+                        lambda x=xs[variant]: F.linear(x, w), stream, e0, e1)
+                    if not torch.equal(y, local_refs[variant]):
+                        raise AssertionError(f"U1 local MM-only wrong rank{rank} M{m}")
+                    local_samples.append({"i": i, "variant": variant,
+                                          "event_us": event, "wall_us": wall})
+                results[str(m)]["native_mm_only"] = {
+                    "samples": local_samples, "iters": ITERS[a.phase],
+                    "bit_exact": True,
+                    "note": "separate native MM invocation, NOT a decomposable phase inside stock+HCCL",
+                }
             # 每个M验完立即单独落盘。若后续新形状故障，已完成形状证据不会消失；
             # partial只允许事后诊断，不允许通过U1总分析器的完整会话门禁。
             partial = a.out / "partial"
