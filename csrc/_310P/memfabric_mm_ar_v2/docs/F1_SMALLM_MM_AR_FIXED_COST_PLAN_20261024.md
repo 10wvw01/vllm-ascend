@@ -4,6 +4,9 @@
 > 分支：`perf/310p-f1-smallm-fixed-cost-20261024`，基于D4 Tile2048稳定可用的源码基线，但**F1使用现有T1 NZ-Direct小M独立测试ABI**；绝不通过改动大M V2正式Kernel冒充Decode路线。  
 > 默认产品路径Stock；不在这条线开启V1长输出Serving（SEL-01 V1 0/3自然会话成功，Decode挂死未定因）。
 
+
+> **2026-10-24 实机准入更新（必须先读）**：完整 G0 前置检查、D4设备SO身份、dev6/7物理设备号修复、诊断ABI、CPU测试、超时与失败处理规则以同分支 [F1/F2强制准入与执行规程](./F1_F2_ONDEVICE_PREFLIGHT_GATES_20261024.md) 为准。旧示例卡号、SO路径**不能直接照抄**。本分支截至此提交仅完成源码审视/检查规则审计，GitHub CI 仍排队，**并无310P3现场G0或pytest PASS证据；状态是PRECHECK-GO，性能采样待G0全部PASS才允许开始。**
+
 ## 一、为什么F1重要，为什么不能直接改小M通信协议？
 
 最终目标是310P3单卡双Die的 `M×2048 × 2048×2048` FP16 NZ MM + AllReduce，目标Decode批规模`M≈10`。历史T1实机：
