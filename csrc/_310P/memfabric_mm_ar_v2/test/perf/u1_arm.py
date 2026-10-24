@@ -220,6 +220,19 @@ def main():
                 "status": 0 if lib is not None else None,
                 "bit_exact": True,
             }
+            # 每个M验完立即单独落盘。若后续新形状故障，已完成形状证据不会消失；
+            # partial只允许事后诊断，不允许通过U1总分析器的完整会话门禁。
+            partial = a.out / "partial"
+            partial.mkdir(exist_ok=True)
+            with (partial / f"m{m}_rank{rank}.json").open("x") as fp:
+                json.dump({
+                    "experiment": "U1_PARTIAL_NOT_FOR_GO", "rank": rank,
+                    "session": session_id(a.scope, a.stage), "scope": a.scope,
+                    "phase": a.phase, "M": m, "arm": arm,
+                    "device_so_sha256": os.environ["U1_DEVICE_SHA256"],
+                    "result": results[str(m)],
+                }, fp, ensure_ascii=False, indent=2)
+                fp.write("\n")
             print(json.dumps({"rank": rank, "stage": a.stage, "arm": arm, "M": m,
                               "samples": len(samples), "status": "PASS"}), flush=True)
         # 额外回测首形状，识别单Worker生命周期漂移；不替代主体慢样本。
