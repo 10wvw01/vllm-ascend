@@ -121,7 +121,6 @@ def test_rank_pair_uses_max_per_sample_not_max_of_two_rank_p50():
 def test_source_scope_and_isolation():
     bench = (SCRIPTS / "f1c_arm.py").read_text()
     runner = (SCRIPTS / "f1c_run_abba.sh").read_text()
-    probe = (SCRIPTS / "f1c_port_probe.py").read_text()
     ast.parse(bench)
     for phrase in ("dist.init_process_group(backend=\"hccl\")",
                    "cpu_group = dist.new_group(backend=\"gloo\")",
