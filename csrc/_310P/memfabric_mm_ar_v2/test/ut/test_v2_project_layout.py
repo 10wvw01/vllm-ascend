@@ -18,14 +18,16 @@ TEST = V2 / "test"
 CMAKE = ROOT / "cmake/memfabric_310p_v2.cmake"
 
 
-def test_v2_root_has_only_docs_src_test() -> None:
-    # evidence/ 自 5701ec3f9 起为各 Gate 提交的脱敏证据档案目录，属既定结构。
+def test_v2_root_has_canonical_layout_and_agents() -> None:
+    # evidence/ 是脱敏证据目录，AGENTS.md 是2026-10-25主线新增的工程助手合同。
     assert {p.name for p in V2.iterdir() if not p.name.startswith(".")} == {
         "docs",
         "src",
         "test",
         "evidence",
+        "AGENTS.md",
     }
+    assert (V2 / "AGENTS.md").is_file()
     assert (DOCS / "ARCHIVE_20261019_G3.md").is_file()
     assert (DOCS / "V2_G3_QWEN_E2E_REPORT.md").is_file()
 

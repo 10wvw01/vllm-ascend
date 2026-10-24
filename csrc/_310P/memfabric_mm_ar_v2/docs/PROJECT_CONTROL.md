@@ -87,3 +87,9 @@
 - **严正限制**：本次没有修改正式Kernel、Host、Runner、Serving默认开关或 MemFabric；**未执行CANN编译、既有V2 pytest、310P3实测或Graph验证**。没有由此次治理产生的L0/L1/L2新性能结论。
 - **遗留人工门禁**：GitHub仓库保护/强制PR与状态检查尚未在仓库设置中确认；所有者须另行配置和核验。若改变了生产Kernel/Host/Graph合同，仍必须人工完成两轮源码评审及实机前G0，不可因这组治理检查通过而开机。
 - **后续研发优先级不变**：DFlash运行时真实物理M与Graph路由调查、大M严格完整算子Stock对照、小M专用同Kernel方案；待提交对应可执行方案和环境/版本准入清单，明确GO后再请用户委托OpenCode上机。
+
+
+### CI首次扩展回归暴露并修复的工程漂移（2026-10-25）
+- [GitHub Actions 40126853357](https://github.com/10wvw01/vllm-ascend/actions/runs/40126853357)：6/6 治理单测 PASS，既有V2源码合同测试 **53 PASS / 1 FAIL**。
+- 唯一 FAIL：`test_v2_project_layout.py` 的旧根目录白名单只允许 docs/src/test/evidence，未接纳已正式入库的项目 `AGENTS.md`；属于**测试目录合同滞后于合法项目治理文件**，不是设备Kernel的数值/同步失败。
+- 处置：严格保留目录集合验证，明确添加 `AGENTS.md`，不放宽成任意新增文件；静态回归实际结果须按本次后续 GitHub Actions run 确认。**U1设备实验仍NOT_RUN**。
