@@ -95,7 +95,7 @@ def analyze(directory: Path, m: int, audit: Path | None = None) -> dict:
         if dirpath.name != expected_dir:
             raise ValueError(f"wrong sequence: {dirpath.name} != {expected_dir}")
         js = sorted(dirpath.glob("*_rank*.json"))
-        if len(js) != 2 or not (dirpath / "session.log").is_file():
+        if len(js) != 2 or not (dirpath / "session.log").is_file() or not (dirpath / "session.log").stat().st_size:
             raise ValueError(f"{dirpath}: require 2 JSONs and raw session.log")
         content = [json.loads(x.read_text()) for x in js]
         ranks = {item.get("rank"): item for item in content}
@@ -104,8 +104,11 @@ def analyze(directory: Path, m: int, audit: Path | None = None) -> dict:
         if ranks[0]["session"] != expected_dir or ranks[1]["session"] != expected_dir:
             raise ValueError("JSON session mismatch")
         pair = validate_pair(ranks[0], ranks[1], m, arm)
+        expected_files = {dirpath / f"{expected_dir}_rank{r}.json" for r in (0, 1)}
+        if set(js) != expected_files:
+            raise ValueError("unexpected or mislabeled rank JSON files")
         pair.update({"session": expected_dir, "arm": arm,
-                     "rank_json_sha256": {str(r): sha(next(p for p in js if f"rank{r}.json" in p.name))
+                     "rank_json_sha256": {str(r): sha(dirpath / f"{expected_dir}_rank{r}.json")
                                           for r in (0, 1)},
                      "log_sha256": sha(dirpath / "session.log")})
         rows.append(pair)
