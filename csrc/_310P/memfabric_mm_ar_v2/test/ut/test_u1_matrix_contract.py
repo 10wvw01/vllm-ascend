@@ -87,8 +87,11 @@ def test_scope_no_unverified_geometry_and_rotate():
             p = sp.plan(scope, phase)
             assert len(p) == (2 if phase == "screen" else 8)
             for item in p:
-                assert set(item["M_order"]) == set(sp.SHAPES[scope])
-                assert len(item["M_order"]) == len(sp.SHAPES[scope])
+                if phase == "smoke":
+                    assert item["M_order"] == ((10,) if scope == "small" else (2048,))
+                else:
+                    assert set(item["M_order"]) == set(sp.SHAPES[scope])
+                    assert len(item["M_order"]) == len(sp.SHAPES[scope])
 
 
 @pytest.mark.parametrize("scope", ["small", "large"])
@@ -174,7 +177,8 @@ def test_rank_samples_must_pair_before_percentiles():
 
 
 def test_python_static_and_bash_g0_guards():
-    for p in ("u1_spec.py", "u1_arm.py", "u1_analyze.py", "u1_diag_mm.py"):
+    for p in ("u1_spec.py", "u1_arm.py", "u1_analyze.py", "u1_diag_mm.py",
+              "u1_diag_large.py", "u1_e2e_budget.py"):
         ast.parse((PERF / p).read_text())
     runner = (PERF / "u1_run.sh").read_text()
     assert "MF310P_V2_NOWARMUP" in runner and "MF_KFC_BYPASS" in runner
@@ -188,3 +192,35 @@ def test_python_static_and_bash_g0_guards():
     assert "mf310p_v2_trial_run" in driver
     assert "torch.equal(y, ref)" in driver
     assert "results[\"_anchor_after\"]" in driver
+
+
+def test_smoke_does_not_authorize_performance_analysis(tmp_path):
+    assert [p["arm"] for p in sp.plan("small", "smoke")] == [
+        "stock_fp16", "memfabric_t1"
+    ]
+    assert [p["arm"] for p in sp.plan("large", "smoke")] == [
+        "stock_fp16", "memfabric_d4"
+    ]
+    assert all(len(p["M_order"]) == 1 for p in sp.plan("small", "smoke"))
+    with pytest.raises(ValueError, match="smoke"):
+        an.evaluate(tmp_path, "small", "smoke")
+    campaign = (PERF / "u1_campaign.sh").read_text()
+    assert campaign.index('"$OUT/small_smoke"') < campaign.index('"$OUT/small_screen"')
+    assert campaign.index('"$OUT/large_smoke"') < campaign.index('"$OUT/large_screen"')
+
+
+def test_serving_budget_requires_observed_real_shapes():
+    import u1_e2e_budget as budget
+    measured = {"experiment": "U1_FULLCHAIN", "performance_map": [
+        {"M": 10, "stock_p50_us": 400, "fused_p50_us": 350, "decision": "NO_GO"}]}
+    evidence = {"input_tokens": 4096, "output_tokens": 2048,
+                "tp": 2, "batch_max": 10, "eager": True,
+                "elapsed_seconds": 100.0, "measurement_id": "unit-test-synthetic",
+                "calls": [{"M": 10, "count": 100}, {"M": 2048, "count": 7}]}
+    z = budget.build_budget([measured], evidence)
+    assert z["optimistic_time_saving_seconds"] == 0.005
+    assert z["observed_model_speedup_pct"] is None
+    assert z["calls"][1]["status"] == "UNKNOWN_MEASURED_SHAPE_OR_DRIFT"
+    bad = dict(evidence, output_tokens=512)
+    with pytest.raises(ValueError, match="workload mismatch"):
+        budget.build_budget([measured], bad)
