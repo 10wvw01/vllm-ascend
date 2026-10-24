@@ -127,11 +127,17 @@ def main():
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.npu.set_device(local_rank)
     device = torch.device(f"npu:{local_rank}")
-    dist.init_process_group(backend="gloo")
-    cpu_group = dist.group.WORLD
+    # 沿用已在T1实机验证的group初始化顺序：
+    # Stock默认HCCL、另建CPU-gloo参考/屏障；T1仅初始化gloo、绝不创建HCCL组。
+    if a.arm == "stock_fp16":
+        dist.init_process_group(backend="hccl")
+        cpu_group = dist.new_group(backend="gloo")
+        hccl = dist.group.WORLD
+    else:
+        dist.init_process_group(backend="gloo")
+        cpu_group = dist.group.WORLD
+        hccl = None
     stream = torch.npu.current_stream()
-    # 绝对不允许创建HCCL group并同时创建MemFabric池。
-    hccl = dist.new_group(backend="hccl") if a.arm == "stock_fp16" else None
     lib, handle = None, ctypes.c_void_p()
     data = None
     try:
@@ -141,7 +147,7 @@ def main():
         stream.synchronize()
         if a.arm == "memfabric_t1":
             lib = _trial_bind()
-            dist.barrier()
+            dist.barrier(group=cpu_group)
             _must(lib.mf310p_v2_trial_create(rank, a.store_url.encode(), 256,
                                               ctypes.byref(handle)), "create")
             if not handle.value:
@@ -177,17 +183,17 @@ def main():
             return wall_us, event_us
 
         for i in range(a.warmup):
-            dist.barrier()
+            dist.barrier(group=cpu_group)
             single(i)
         stream.synchronize()
-        dist.barrier()
+        dist.barrier(group=cpu_group)
         rows = []
         for i in range(a.iters):
-            dist.barrier()
+            dist.barrier(group=cpu_group)
             wall, ev = single(i + a.warmup)
             rows.append({"i": i, "input_variant": (i + a.warmup) % 2,
                          "wall_us": wall, "event_us": ev})
-        dist.barrier()
+        dist.barrier(group=cpu_group)
         data = {
             "experiment": "F1C_SEPARATE_PROCESS_CROSS_ABBA",
             "rank": rank, "arm": a.arm, "session": a.session,
