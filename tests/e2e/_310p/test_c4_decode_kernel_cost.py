@@ -2,11 +2,13 @@
 """CPU-only C4 归因合同测试：不代表设备Profiler已实际运行。"""
 import csv
 import json
+import runpy
 import tempfile
 from pathlib import Path
 
 import pytest
-from tests.e2e._310p.c4_decode_kernel_cost import SHAPE, aggregate, analyze, category
+MOD = runpy.run_path(str(Path(__file__).with_name('c4_decode_kernel_cost.py')))
+SHAPE, aggregate, analyze, category = (MOD[k] for k in ('SHAPE', 'aggregate', 'analyze', 'category'))
 
 
 def proof(**kwargs):
@@ -59,7 +61,7 @@ def test_aggregation_and_two_rank_safety():
         assert result["ranks"]["rank0"]["kernel_events"] == 35
         assert result["ranks"]["rank0"]["categories"][0]["category"] == "MOE_GROUPED_GEMM"
         assert result["verdict"] == "WORK_VOLUME_RANKING_ONLY_NOT_LATENCY_CAUSALITY"
-        assert result["ranks"]["rank0"]["input_csv_sha256"] == result["ranks"]["rank1"]["input_csv_sha256"] is False
+        assert result["ranks"]["rank0"]["input_csv_sha256"] != result["ranks"]["rank1"]["input_csv_sha256"]
 
 
 def test_refuse_wrong_shape_phase_failure_and_duplicate_rank():
