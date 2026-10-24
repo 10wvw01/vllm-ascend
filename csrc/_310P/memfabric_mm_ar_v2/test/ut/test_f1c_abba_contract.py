@@ -122,8 +122,10 @@ def test_source_scope_and_isolation():
     bench = (SCRIPTS / "f1c_arm.py").read_text()
     runner = (SCRIPTS / "f1c_run_abba.sh").read_text()
     ast.parse(bench)
-    for phrase in ("dist.new_group(backend=\"hccl\") if a.arm == \"stock_fp16\" else None",
+    for phrase in ("dist.init_process_group(backend=\"hccl\")",
+                   "cpu_group = dist.new_group(backend=\"gloo\")",
                    "dist.init_process_group(backend=\"gloo\")",
+                   "dist.barrier(group=cpu_group)",
                    "torch.npu.Event(enable_timing=True)",
                    "mf310p_v2_trial_run_nz_direct_small", "torch.equal(got, ref)",
                    "npu_format_cast(w, 29)"):
