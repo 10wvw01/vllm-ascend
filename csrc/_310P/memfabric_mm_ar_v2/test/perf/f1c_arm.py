@@ -8,6 +8,7 @@ Stock 的主要计时路线是 F.linear(fp16) + HCCL fp16 all_reduce，绝不混
 from __future__ import annotations
 import argparse
 import ctypes
+import hashlib
 import json
 import math
 import os
@@ -26,6 +27,8 @@ MS = (1, 8, 10, 16, 32)
 ARMS = ("stock_fp16", "memfabric_t1")
 DEVICE_SHA = "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19"
 EXT_SHA = "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1"
+HOST_SHA = "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30"
+KVER_SHA = "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78"
 
 
 def args_parse():
@@ -51,6 +54,15 @@ def args_parse():
         p.error("do not bypass KFC or MTE3 guards")
     if not os.environ.get("MF_SDMA_ORCH_JSON", "").endswith("/libmf_sdma_orch_v11.json"):
         p.error("KVER11 must be selected even on Stock arm for environment parity")
+    for key, expected in (("F1C_DEVICE_SHA256", DEVICE_SHA),
+                          ("F1C_PLUGIN_SHA256", EXT_SHA),
+                          ("F1C_HOST_SHA256", HOST_SHA),
+                          ("F1C_KVER_SHA256", KVER_SHA)):
+        if os.environ.get(key) != expected:
+            p.error(f"binary identity mismatch or missing {key}")
+    plugin_actual = hashlib.sha256(Path(extension.__file__).read_bytes()).hexdigest()
+    if plugin_actual != EXT_SHA:
+        p.error("currently imported Python plugin differs from Gate-C diagnostic ON binary")
     return a
 
 
