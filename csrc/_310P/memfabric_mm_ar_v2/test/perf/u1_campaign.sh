@@ -12,6 +12,10 @@ OUT="$1"
    "${U1_RESTORE_PLAN_VERIFIED:-}" == YES ]] || {
   echo "Complete G0, exclusive TP2 + backup/restore checklist before U1." >&2; exit 2; }
 mkdir "$OUT"
+echo "U1/G0 M10 Stock→T1 smoke; fail before full-M work if new driver not viable" >&2
+bash "$PERF/u1_run.sh" "$OUT/small_smoke" small smoke
+echo "U1/G0 M2048 Stock→D4 smoke; no test stats merged with main experiments" >&2
+bash "$PERF/u1_run.sh" "$OUT/large_smoke" large smoke
 echo "U1/D0 SMALL multi-M screen first (Stock vs T1)" >&2
 bash "$PERF/u1_run.sh" "$OUT/small_screen" small screen
 echo "U1/D0 LARGE multi-M screen next (Stock vs D4)" >&2
