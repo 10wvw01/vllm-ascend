@@ -58,11 +58,13 @@ def test_d3_tile_geometry_all_supported_chunks_and_baseline():
 
 def test_d3_protocol_and_cache_visibility_unmodified_by_optimization():
     s = PROD.read_text(encoding="utf-8")
+    # C3 分支：正式核三处清理调用点更名为 CleanLinesUnrolled4（64B 次数/顺序不变），
+    # 排序合同（IterateAll → 本端清理 → WaitReady → signal）与调用点计数保持不变。
     assert s.index("mm.IterateAll(cg);") < s.index(
-        "CleanLines(ownC + start + coreOff, perCoreBytes);"
+        "CleanLinesUnrolled4(ownC + start + coreOff, perCoreBytes);"
     ) < s.index("WaitReady(ibGm, ibUb, core);")
-    assert s.count("CleanLines(ownC + start + coreOff, perCoreBytes);") == 1
-    assert s.count("CleanLines(ownPeerC + base, perCoreBytes);") == 2
+    assert s.count("CleanLinesUnrolled4(ownC + start + coreOff, perCoreBytes);") == 1
+    assert s.count("CleanLinesUnrolled4(ownPeerC + base, perCoreBytes);") == 2
     assert s.count("smem_shm_sdma_signal_at(") == 2
     assert s.count("smem_shm_sdma_wait_at(") == 3  # 前块/收尾/DONE
     assert "if (core == 0)" in s
