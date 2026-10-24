@@ -36,6 +36,14 @@ def record(arm, rank, session, m=10, fast=400):
 
 
 def fixture(root, m=10, fused_us=345, stock_us=400):
+    (root / "manifest.txt").write_text("\n".join((
+        "experiment=F1C_SEPARATE_PROCESS_CROSS_ABBA",
+        f"M={m}", "TP=2", "order=A_B_B_A__A_B_B_A",
+        "device_so_sha256=" + M["D4_DEVICE"],
+        "plugin_sha256=" + M["GATE_C_PLUGIN"],
+        "memfabric_host_sha256=" + M["HOST_PATCH"],
+        "kver11_sha256=" + M["KVER11"],
+    )) + "\n")
     sessions = root / "sessions"
     sessions.mkdir(parents=True)
     for i, arm in enumerate(M["ORDER"]):
