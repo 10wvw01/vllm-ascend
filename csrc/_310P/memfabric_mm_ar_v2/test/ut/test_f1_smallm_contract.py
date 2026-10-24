@@ -47,6 +47,23 @@ def test_cannot_hide_shape_or_correctness_failures():
             AN["parse"](s)
 
 
+def test_tolerates_stdout_noise_prefix_but_not_missing_rows():
+    # 实机 2026-10-24：并发写入器把 ".."（无换行）拼到矩阵行行首；解析须容错
+    # 并留痕，但缺失行/损坏行仍然 fail-closed。
+    noisy = make_log().replace("16\t4\t1\t", "..16\t4\t1\t", 1)
+    a = AN["parse"](noisy)
+    assert a["noise_prefix_rows"] == 1
+    assert len(a["all_measurements"]) == 36
+    assert a["matrix"][3]["M"] == 16
+    # 非数字前缀容错不得放行真实缺失：删掉任意一行仍须拒绝。
+    for line in ("10\t8\t8\t", "64\t8\t8\t"):
+        with pytest.raises(ValueError):
+            AN["parse"](make_log().replace(line, "", 1))
+    # 前缀噪声不得掩盖 status/位精确失败。
+    with pytest.raises(ValueError):
+        AN["parse"](make_log(fail=True).replace("10\t4\t1\t", "..10\t4\t1\t", 1))
+
+
 def test_t1_driver_retains_stock_before_pool_and_exact_check():
     src = (ROOT / "test/t1_nz_direct_trial.py").read_text()
     ast.parse(src)

@@ -26,6 +26,7 @@ def parse(log: str) -> dict:
     if "MATRIX ALL PASS" not in log:
         raise ValueError("missing final no-failure marker")
     records = {}
+    noise_prefix_rows = 0
     started = False
     for line in log.splitlines():
         if line.strip() == HEADER:
@@ -33,7 +34,15 @@ def parse(log: str) -> dict:
             continue
         if not started:
             continue
-        fields = line.strip().split("\t")
+        row = line.strip()
+        # 实机噪声容错：并发日志写入器可能向 stdout 写入无换行前缀（2026-10-24
+        # 实测两例 ".." 被拼接到下一行行首，其一命中矩阵行）。仅剥离首个数字段
+        # 之前的非数字前缀；剥离后仍须通过完整 9 字段、组合合法性、status=0、
+        # 位精确 PASS 的全部校验，且异常行计数留痕，不掩盖任何真实失败。
+        cleaned = re.sub(r"^[^\d]+(?=\d)", "", row, count=1)
+        if cleaned != row:
+            noise_prefix_rows += 1
+        fields = cleaned.split("\t")
         if not fields or not re.fullmatch(r"\d+", fields[0]):
             continue
         if len(fields) != 9:
@@ -78,6 +87,7 @@ def parse(log: str) -> dict:
     return {
         "matrix": rows,
         "all_measurements": [records[k] for k in sorted(records)],
+        "noise_prefix_rows": noise_prefix_rows,
         "verdict": "SCREEN_ONLY_HOST_SYNC_PRE_POOL_VS_POST_POOL_NOT_FINAL_GO",
         "safety": "No V1 serving, no KVER11 protocol/IB modification",
         "next": "Verify M10 topology first; use independent per-stage diagnostics and proper "
