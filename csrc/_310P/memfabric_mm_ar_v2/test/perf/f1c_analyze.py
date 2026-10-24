@@ -48,8 +48,8 @@ def validate_pair(rank0: dict, rank1: dict, m: int, arm: str) -> dict:
         for k, expect in pairs.items():
             if d.get(k) != expect:
                 raise ValueError(f"rank{rank} {k} mismatch: {d.get(k)!r}, expected {expect!r}")
-        if d.get("warmup", 0) < 5:
-            raise ValueError("warmup<5")
+        if d.get("warmup") != 5:
+            raise ValueError("F1-C requires exactly 5 warmup iterations")
         if arm == "memfabric_t1":
             if d.get("mm_cores") != 8 or d.get("add_cores") != 4 or d.get("protocol_status") != 0:
                 raise ValueError("fused MM8/Add4/status0 required")
@@ -113,6 +113,18 @@ def analyze(directory: Path, m: int, audit: Path | None = None) -> dict:
                      "log_sha256": sha(dirpath / "session.log")})
         rows.append(pair)
 
+    manifest = directory.parent / "manifest.txt"
+    if not manifest.is_file() or not manifest.stat().st_size:
+        raise ValueError("missing session environment/identity manifest")
+    lines = dict(row.split("=", 1) for row in manifest.read_text().splitlines() if "=" in row)
+    if (lines.get("experiment") != "F1C_SEPARATE_PROCESS_CROSS_ABBA"
+            or lines.get("M") != str(m) or lines.get("TP") != "2"
+            or lines.get("order") != "A_B_B_A__A_B_B_A"
+            or lines.get("device_so_sha256") != D4_DEVICE
+            or lines.get("plugin_sha256") != GATE_C_PLUGIN
+            or lines.get("memfabric_host_sha256") != HOST_PATCH
+            or lines.get("kver11_sha256") != KVER11):
+        raise ValueError("manifest topology/stock/fused binary identity mismatch")
     windows = []
     for n in range(2):
         batch = rows[n * 4:n * 4 + 4]
@@ -137,7 +149,10 @@ def analyze(directory: Path, m: int, audit: Path | None = None) -> dict:
                 not isinstance(x, str) or not (directory.parent / x).is_file()
                 for x in paths):
             raise ValueError("actual evidence_files must be present under trial parent")
-        if all(x["speedup_pct"] >= 5 for x in windows) and percentile(all_f, 90) <= percentile(all_s, 90) * 1.05:
+        if (all(x["speedup_pct"] >= 5 for x in windows)
+                and percentile(all_f, 90) <= percentile(all_s, 90) * 1.05
+                and percentile(all_f, 99) <= percentile(all_s, 99) * 1.10
+                and not any(row["samples_ge_2ms"] for row in rows)):
             conclusion = "F1C_OPERATOR_GO_FURTHER_CORRECTNESS_AND_QWEN_REQUIRED"
         else:
             conclusion = "F1C_NO_GO_OR_MORE_EVIDENCE"
@@ -148,6 +163,9 @@ def analyze(directory: Path, m: int, audit: Path | None = None) -> dict:
         "event_speedup_pct": round(100 * (med_s / med_f - 1), 3),
         "all_stock_event_p90_us": round(percentile(all_s, 90), 3),
         "all_fused_event_p90_us": round(percentile(all_f, 90), 3),
+        "all_stock_event_p99_us": round(percentile(all_s, 99), 3),
+        "all_fused_event_p99_us": round(percentile(all_f, 99), 3),
+        "manifest_sha256": sha(manifest),
         "audit_sha256": sha(audit) if audit else None,
         "verdict": conclusion,
         "caveat": "per-sample paired max within each session; separate-process time-window ABBA across arms, not exact simultaneous matching; stream events require independent HCCL audit",
