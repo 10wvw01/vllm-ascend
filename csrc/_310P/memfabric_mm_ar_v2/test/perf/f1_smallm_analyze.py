@@ -46,8 +46,8 @@ def parse(log: str) -> dict:
         floats = [float(x) for x in fields[3:7]]
         if any(not math.isfinite(x) or x <= 0 for x in floats):
             raise ValueError("nonpositive / nonfinite times")
-        if fields[7:] != ["0", "PASS"] and fields[7:] != ["PASS", "PASS"]:
-            # 与具体驱动版本共同审查：status列为0或PASS，bitexact列必须PASS。
+        if fields[7:] != ["0", "PASS"]:
+            # T1正式驱动的status字段必须是数值0，位精确必须PASS。
             raise ValueError(f"incorrect/protocol failed {m}/{mm}/{add}: {fields[7:]}")
         key = (m, mm, add)
         if key in records:
