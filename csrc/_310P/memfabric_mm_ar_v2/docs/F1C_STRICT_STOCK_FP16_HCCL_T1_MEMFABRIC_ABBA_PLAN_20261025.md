@@ -67,6 +67,31 @@ bash csrc/_310P/memfabric_mm_ar_v2/test/perf/f1c_run_abba.sh /tmp/opencode/f1c_m
 
 上述二进制哈希硬门槛由脚本自动校验；如现场因服务器恢复态不符导致拒绝运行，应先备份并受控部署，**不能删除哈希检查以求通过**。每场15分钟超时、30秒强杀宽限；任何错误/挂死即STOP并隔离设备，保存Rank日志、NPU/HCCL/KFC/IB现场，不自动重试或删除离群数据。
 
+### 4.1 强制Smoke（先验证真实通讯后端，再开八场ABBA）
+
+在上节现场变量、G0指纹和物理号补丁均PASS后，先在临时独立目录执行 **Stock FP16 HCCL → T1 MemFabric** 各一场30样本正确性冒烟。该测试**不计入正式两轮ABBA**。以下仅是完整操作示例，只有现场版本/环境/卡对均与锁定指纹一致才能运行：
+
+```bash
+export F1C_DEVICE_SHA256="$(sha256sum "$F1C_DEVICE_SO_PATH" | awk '{print $1}')"
+export F1C_PLUGIN_SHA256="$(sha256sum "$V2_HOST_LIB" | awk '{print $1}')"
+export F1C_HOST_SHA256="$(sha256sum "$F1C_CORE_SO_LIB64" | awk '{print $1}')"
+export F1C_KVER_SHA256="$(sha256sum "$MF_SDMA_ORCH_JSON" | awk '{print $1}')"
+# 以上每个SHA均必须核对G0已知版本，不能只依据本行算出的hash宣称身份匹配。
+mkdir -p /tmp/opencode/f1c_smoke_stock /tmp/opencode/f1c_smoke_t1
+timeout --signal=TERM --kill-after=30s 15m torchrun --standalone --nproc-per-node=2 \
+ csrc/_310P/memfabric_mm_ar_v2/test/perf/f1c_arm.py --arm stock_fp16 \
+ --session smoke_stock --m 10 --warmup 5 --iters 30 --output /tmp/opencode/f1c_smoke_stock \
+ > /tmp/opencode/f1c_smoke_stock/session.log 2>&1
+# 检查两个rank JSON bit_exact、总采样数和Host/HCCL完整性；确认进程退出且设备健康后才执行下一场。
+timeout --signal=TERM --kill-after=30s 15m torchrun --standalone --nproc-per-node=2 \
+ csrc/_310P/memfabric_mm_ar_v2/test/perf/f1c_arm.py --arm memfabric_t1 \
+ --session smoke_t1 --m 10 --mm-cores 8 --add-cores 4 \
+ --warmup 5 --iters 30 --output /tmp/opencode/f1c_smoke_t1 \
+ > /tmp/opencode/f1c_smoke_t1/session.log 2>&1
+```
+
+**两个Smoke均PASS并独立证实 HCCL Event 覆盖数据面**，才执行八场正式ABBA。若Stock原生FP16规约不能逐样本与CPU-gloo FP32参考位精确，则停止并记录量化差异，不偷偷换回带FP32转换的旧Stock计时方法。若短跑失败、进程/端口残留、设备异常，STOP，不继续或自动重试。
+
 **重要先行环节**：正式8场前短跑Stock和T1各一场，既证明FP16 Stock位精确与两套后端不共进程，也通过设备Timeline/必要Trace确认Stock HCCL的stream Event尾事件覆盖真正AllReduce完成。不能因Event看起来比Wall小就主观认定测量正确。独立取证文件放入本次输出目录`route_proof/`；审计者确认后创建`audit.json`，其Schema：
 
 ```json
