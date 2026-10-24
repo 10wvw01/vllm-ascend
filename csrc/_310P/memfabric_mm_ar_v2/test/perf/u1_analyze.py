@@ -115,6 +115,8 @@ def paired(ranks: list[dict], spec: dict) -> dict:
 
 
 def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> dict:
+    if phase == "smoke":
+        raise ValueError("smoke proves correctness only; never analyze as performance")
     specs = plan(scope, phase)
     sessions = sorted(p for p in (root / "sessions").iterdir() if p.is_dir())
     if [p.name for p in sessions] != [z["session"] for z in specs]:
