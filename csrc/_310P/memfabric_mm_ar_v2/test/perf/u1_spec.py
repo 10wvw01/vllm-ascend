@@ -17,8 +17,8 @@ K = N = 2048
 CHUNK = 1024
 MM_CORES = 8
 ADD_CORES = 4
-WARMUP = {"screen": 3, "confirm": 5}
-ITERS = {"screen": 12, "confirm": 40}
+WARMUP = {"smoke": 3, "screen": 3, "confirm": 5}
+ITERS = {"smoke": 6, "screen": 12, "confirm": 40}
 MIN_SPEEDUP_PCT = 5.0
 ANCHOR_PCT_MAX = 5.0
 MAX_TAIL_DEGRADE = 1.05
@@ -52,10 +52,12 @@ def session_id(scope: str, stage: int) -> str:
 def plan(scope: str, phase: str) -> list[dict]:
     if scope not in SHAPES or phase not in WARMUP:
         raise ValueError("scope/phase invalid")
-    stages = (1, 2) if phase == "screen" else tuple(range(1, 9))
+    stages = (1, 2) if phase in ("smoke", "screen") else tuple(range(1, 9))
     return [
         {"scope": scope, "phase": phase, "stage": i, "session": session_id(scope, i),
-         "arm": arm_for(scope, i), "M_order": order_for(SHAPES[scope], i),
+         "arm": arm_for(scope, i),
+         "M_order": ((10,) if scope == "small" else (2048,)) if phase == "smoke"
+                    else order_for(SHAPES[scope], i),
          "warmup": WARMUP[phase], "iters": ITERS[phase]}
         for i in stages
     ]
