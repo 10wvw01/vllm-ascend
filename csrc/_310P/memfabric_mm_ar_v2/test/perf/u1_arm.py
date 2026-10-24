@@ -222,10 +222,41 @@ def main():
             }
             print(json.dumps({"rank": rank, "stage": a.stage, "arm": arm, "M": m,
                               "samples": len(samples), "status": "PASS"}), flush=True)
-        # 同一形状锚点开始/结束测一次，用于检测卡热态漂移；不混入主体采样。
+        # 额外回测首形状，识别单Worker生命周期漂移；不替代主体慢样本。
         anchor_m = order[0]
-        results["_anchor_M"] = anchor_m
-        results["_anchor_mode"] = "first M warmup samples vs late post-window: diagnostic only"
+        anchor_xs, anchor_refs = all_inputs[anchor_m]
+        anchor_output = outputs[anchor_m]
+        anchor_e0 = torch.npu.Event(enable_timing=True)
+        anchor_e1 = torch.npu.Event(enable_timing=True)
+        anchor_samples = []
+        for i in range(8):
+            dist.barrier(group=cpu_group)
+            x, ref = anchor_xs[i % 2], anchor_refs[i % 2]
+            if arm == "stock_fp16":
+                def anchor_op():
+                    y = F.linear(x, w)
+                    dist.all_reduce(y, op=dist.ReduceOp.SUM, group=hccl)
+                    return y
+            elif arm == "memfabric_t1":
+                def anchor_op():
+                    require(lib.mf310p_v2_trial_run_nz_direct_small(
+                        handle, x.data_ptr(), w_nz.data_ptr(), anchor_output.data_ptr(),
+                        anchor_m, MM_CORES, ADD_CORES, raw_stream), "anchor T1")
+                    return anchor_output
+            else:
+                def anchor_op():
+                    require(lib.mf310p_v2_trial_run(
+                        handle, x.data_ptr(), w_nz.data_ptr(), anchor_output.data_ptr(),
+                        anchor_m, 1, raw_stream), "anchor D4")
+                    return anchor_output
+            y, wall, event = measure_one(anchor_op, stream, anchor_e0, anchor_e1)
+            if lib is not None:
+                check_protocol(lib, handle)
+            if not torch.equal(y, ref):
+                raise AssertionError(f"U1 late anchor wrong rank{rank} M{anchor_m}")
+            anchor_samples.append({"i": i, "variant": i % 2,
+                                   "wall_us": wall, "event_us": event})
+        results["_anchor_after"] = {"M": anchor_m, "samples": anchor_samples}
         data = {
             "experiment": "U1_FULLCHAIN", "scope": a.scope, "phase": a.phase,
             "session": session_id(a.scope, a.stage), "stage": a.stage,
