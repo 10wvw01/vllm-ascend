@@ -25,7 +25,8 @@ nm -D "$V2_HOST_LIB" | grep -F "mf310p_v2_trial_run_nz_direct_small" >/dev/null 
   exit 2
 }
 command -v timeout >/dev/null || { echo "Missing GNU timeout" >&2; exit 2; }
-ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)')" || {
+# vllm 平台插件注册日志走 stdout（环境实测），须取末行才是真实扩展路径。
+ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)' 2>/dev/null | tail -n 1)" || {
   echo "BLOCKED: current Python plugin could not be imported" >&2; exit 2;
 }
 [[ -f "$ext_path" ]] || { echo "BLOCKED: Python plugin SO missing" >&2; exit 2; }
