@@ -11,7 +11,7 @@
 
 原F1-1实机报告提出“同进程/同池ABBA”，当前**没有完成HCCL与MemFabric池实时共存安全证明，不应直接照做**。因此本轮选择：
 
-- `stock_fp16`：独立torchrun TP2，CPU gloo用于数值参考和step barrier，**另外仅本进程创建HCCL group**；计时区 `F.linear(fp16)` → `dist.all_reduce(fp16, HCCL)`，不发生`float32`转换；**不创建MemFabric池**。
+- `stock_fp16`：独立torchrun TP2，**沿用历史实机已证明的HCCL默认进程组**负责数据面，另建CPU gloo subgroup用于数值参考和step barrier；计时区 `F.linear(fp16)` → `dist.all_reduce(fp16, HCCL)`，不发生`float32`转换；**不创建MemFabric池**。
 - `memfabric_t1`：下一场全新torchrun TP2，CPU gloo用于参考和barrier；**不创建HCCL通信group**，仅使用T1 `mf310p_v2_trial_run_nz_direct_small`，MM8/Add4、NZ weight。继承经实机正确性验证的stream级首写保护和KVER11协议，使用相同轮换输入。
 - 对**同一物理双Die和同一装机环境**重复 `A(stock)-B(T1)-B(T1)-A(stock)` 两轮（共8个独立进程会话），每场5预热+50计时样本，每次都保留真实Rank0/1。**不是同一进程内的ABBA，不是跨会话同时刻配对**；跨会话只做交叉中位与热态漂移分析。
 
