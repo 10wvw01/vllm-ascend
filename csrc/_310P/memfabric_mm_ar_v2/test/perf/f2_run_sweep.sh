@@ -23,7 +23,8 @@ D4_TILE2048_SHA="2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a1
 command -v timeout >/dev/null || { echo "Missing GNU timeout for hung-device protection" >&2; exit 2; }
 command -v nm >/dev/null || { echo "Missing nm for Host ABI validation" >&2; exit 2; }
 # 此处仅验证当前Python环境实际加载的Host扩展；设备SO是否已部署仍需现场留证。
-ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)')" || {
+# vllm 平台插件注册日志走 stdout（环境实测），须取末行才是真实扩展路径。
+ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)' 2>/dev/null | tail -n 1)" || {
   echo "BLOCKED: Python Host extension cannot be imported" >&2; exit 2;
 }
 [[ -f "$ext_path" ]] || { echo "BLOCKED: no Host extension: $ext_path" >&2; exit 2; }
