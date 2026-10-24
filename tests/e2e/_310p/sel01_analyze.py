@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 """SEL-01 严格校验和三臂汇总。绝不把 4096/512 或失败会话算作性能。"""
+
 from __future__ import annotations
+
 import argparse
 import json
 import math
@@ -27,8 +29,7 @@ def valid_result(d: dict) -> dict:
         raise ValueError("actual output lengths not all 2048")
     if d.get("errors") and any(d["errors"]):
         raise ValueError("nonempty request errors")
-    keys = ("output_throughput", "median_ttft_ms", "p90_ttft_ms",
-            "median_tpot_ms", "p90_tpot_ms", "median_itl_ms")
+    keys = ("output_throughput", "median_ttft_ms", "p90_ttft_ms", "median_tpot_ms", "p90_tpot_ms", "median_itl_ms")
     out = {}
     for key in keys:
         value = d.get(key)
@@ -51,8 +52,7 @@ def check_route(arm: str, log: str) -> dict:
             raise ValueError(f"{arm} enabled layer count {count} is not 40 per TP rank")
         if (arm == "v2") != v2:
             raise ValueError(f"{arm} real route marker mismatch v2={v2}")
-    return {"enabled_log_count": count, "v2_execution_marker": v2,
-            "device_kernel_trace_still_required": True}
+    return {"enabled_log_count": count, "v2_execution_marker": v2, "device_kernel_trace_still_required": True}
 
 
 def verify_one(session: pathlib.Path, arm: str) -> dict:
@@ -64,7 +64,9 @@ def verify_one(session: pathlib.Path, arm: str) -> dict:
         raise ValueError(f"expected exactly one Eager result JSON, got {records}")
     d = json.loads(records[0].read_text())
     result = valid_result(d)
-    logs = list(session.glob(f"{spec}_eager*.log"))
+    # 服务器日志形如 <spec>_eager.log；压测端日志为 <spec>_eager_bench.log，必须排除，
+    # 否则 glob 同时命中两份日志（首轮实机执行踩中，会话数据有效但校验崩溃）。
+    logs = [p for p in session.glob(f"{spec}_eager*.log") if not p.name.endswith("_bench.log")]
     if len(logs) != 1:
         raise ValueError(f"expected 1 server log, got {logs}")
     result["route"] = check_route(arm, logs[0].read_text(errors="replace"))
@@ -76,9 +78,15 @@ def verify_one(session: pathlib.Path, arm: str) -> dict:
 
 def summarize(root: pathlib.Path) -> dict:
     manifest = json.loads((root / "manifest.json").read_text())
-    fixed = {"input_tokens": 4096, "output_tokens": 2048, "tp": 2,
-             "max_num_seqs": 10, "max_concurrency": 10,
-             "num_prompts": 50, "mode": "eager"}
+    fixed = {
+        "input_tokens": 4096,
+        "output_tokens": 2048,
+        "tp": 2,
+        "max_num_seqs": 10,
+        "max_concurrency": 10,
+        "num_prompts": 50,
+        "mode": "eager",
+    }
     for k, v in fixed.items():
         if manifest.get(k) != v:
             raise ValueError(f"manifest drift: {k}")
@@ -89,7 +97,7 @@ def summarize(root: pathlib.Path) -> dict:
     for i, path in enumerate(sessions):
         rec = json.loads(path.read_text())
         if rec["arm"] != ORDER[i]:
-            raise ValueError(f"bad crossover order session {i+1}: {rec['arm']}")
+            raise ValueError(f"bad crossover order session {i + 1}: {rec['arm']}")
         rows.append(rec)
     groups = {}
     for arm in ARMS:
@@ -103,21 +111,22 @@ def summarize(root: pathlib.Path) -> dict:
         }
     stock = groups["stock"]["output_throughput_median"]
     for arm in ("v1", "v2"):
-        groups[arm]["throughput_delta_vs_stock_pct"] = 100 * (
-            groups[arm]["output_throughput_median"] / stock - 1)
+        groups[arm]["throughput_delta_vs_stock_pct"] = 100 * (groups[arm]["output_throughput_median"] / stock - 1)
     audit_path = root / "route_audit.json"
     audits = None
     if audit_path.is_file():
         audits = json.loads(audit_path.read_text())
-    required = all((audits or {}).get(a, {}).get("device_trace_verified") is True
-                   for a in ARMS)
+    required = all((audits or {}).get(a, {}).get("device_trace_verified") is True for a in ARMS)
     return {
         "experiment": "SEL-01",
         "fixed_profile": fixed,
         "sessions": rows,
         "group_summary": groups,
         "route_audit": audits,
-        "actual_scheduler_batch10": "UNKNOWN: concurrent requests and max-num-seqs capped at 10; device scheduling must be independently evidenced",
+        "actual_scheduler_batch10": (
+            "UNKNOWN: concurrent requests and max-num-seqs capped at 10; "
+            "device scheduling must be independently evidenced"
+        ),
         "selection_verdict": "REVIEW_REQUIRED" if required else "NO_DECISION_MISSING_DEVICE_ROUTE_PROOF",
         "safety": "Gate E P0 remains OPEN; no arm is production-approved",
         "notice": "Historical 4096/512 D4 and previous 4096/2048 Stock/V2 runs are NOT included",
@@ -139,7 +148,11 @@ def main() -> None:
         p.error(f"refuse to overwrite {a.output}")
     report = verify_one(a.session, a.arm) if a.cmd == "verify-one" else summarize(a.root)
     a.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps({"cmd": a.cmd, "status": "PASS", "selection_verdict": report.get("selection_verdict")}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {"cmd": a.cmd, "status": "PASS", "selection_verdict": report.get("selection_verdict")}, ensure_ascii=False
+        )
+    )
 
 
 if __name__ == "__main__":

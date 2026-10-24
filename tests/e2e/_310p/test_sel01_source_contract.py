@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 """SEL-01 CPU-only fail-closed contracts (does not need torch_npu)."""
+
 from __future__ import annotations
+
 import runpy
 from pathlib import Path
 
@@ -10,12 +12,19 @@ MOD = runpy.run_path(str(ROOT / "sel01_analyze.py"))
 
 def valid_record():
     return {
-        "num_prompts": 50, "completed": 50, "failed": 0,
-        "max_concurrency": 10, "input_lens": [4096] * 50,
-        "output_lens": [2048] * 50, "errors": [],
-        "output_throughput": 47.2, "median_ttft_ms": 12345.0,
-        "p90_ttft_ms": 14000.0, "median_tpot_ms": 210.0,
-        "p90_tpot_ms": 220.0, "median_itl_ms": 210.0,
+        "num_prompts": 50,
+        "completed": 50,
+        "failed": 0,
+        "max_concurrency": 10,
+        "input_lens": [4096] * 50,
+        "output_lens": [2048] * 50,
+        "errors": [],
+        "output_throughput": 47.2,
+        "median_ttft_ms": 12345.0,
+        "p90_ttft_ms": 14000.0,
+        "median_tpot_ms": 210.0,
+        "p90_tpot_ms": 220.0,
+        "median_itl_ms": 210.0,
     }
 
 
@@ -52,6 +61,25 @@ def test_route_logs_and_cross_order():
         else:
             raise AssertionError(f"incorrectly accepted {arm}")
     assert MOD["ORDER"] == ["stock", "v1", "v2", "v2", "v1", "stock"] * 2
+
+
+def test_verify_one_server_log_glob_excludes_bench_log(tmp_path):
+    # 实机首轮踩中的缺陷：{spec}_eager*.log 会同时命中 bench 日志。
+    # 修复后：bench 日志必须被排除；服务器日志缺失必须 fail-closed。
+    rec = valid_record()
+    (tmp_path / "stock_eager_rep1_run.json").write_text(__import__("json").dumps(rec))
+    (tmp_path / "stock_eager.log").write_text("server log")
+    (tmp_path / "stock_eager_bench.log").write_text("bench log")
+    out = MOD["verify_one"](tmp_path, "stock")
+    assert out["arm"] == "stock"
+    assert out["route"]["enabled_log_count"] == 0
+    (tmp_path / "stock_eager.log").unlink()
+    try:
+        MOD["verify_one"](tmp_path, "stock")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("missing server log must fail closed")
 
 
 def test_driver_prohibits_wrong_shape_and_variable_drift():
