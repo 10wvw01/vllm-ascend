@@ -22,9 +22,11 @@ for f in "$V2_HOST_LIB" "$F1C_DEVICE_SO_PATH" "$F1C_CORE_SO_LIB64" "$F1C_CORE_SO
   [[ "$f" == /* && -f "$f" ]] || { echo "missing absolute SO: $f" >&2; exit 2; }
 done
 [[ ! -v MF_KFC_BYPASS && ! -v MF310P_V2_NOWARMUP ]] || { echo "safety bypass forbidden" >&2; exit 2; }
-for tool in python3 torchrun timeout nm sha256sum npu-smi ss; do
+for tool in python3 torchrun timeout nm sha256sum npu-smi; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 2; }
 done
+PORT_PROBE="$ROOT/csrc/_310P/memfabric_mm_ar_v2/test/perf/f1c_port_probe.py"
+[[ -f "$PORT_PROBE" ]] || { echo "missing port probe: $PORT_PROBE" >&2; exit 2; }
 [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || {
   echo "tracked working tree dirty" >&2; exit 2; }
 sha256() { sha256sum "$1" | awk '{print $1}'; }
@@ -80,7 +82,8 @@ for arm in stock_fp16 memfabric_t1 memfabric_t1 stock_fp16 stock_fp16 memfabric_
   dir="$OUT/sessions/$label"
   mkdir "$dir"
   npu-smi info > "$dir/pre_npu_smi.txt" 2>&1 || { echo "NPU precheck failure: $label" >&2; exit 1; }
-  ss -ltnp > "$dir/pre_port_listeners.txt" 2>&1 || true
+  python3 "$PORT_PROBE" > "$dir/pre_port_listeners.txt" 2>&1 || {
+    echo "port probe failure or required port busy: $label" >&2; exit 1; }
   echo "F1-C $label (fresh TP2 workers)" >&2
   if ! timeout --signal=TERM --kill-after=30s 15m torchrun --standalone --nproc-per-node=2 \
       "$DRIVER" --arm "$arm" --session "$label" --m "$M" \

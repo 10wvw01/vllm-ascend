@@ -121,6 +121,7 @@ def test_rank_pair_uses_max_per_sample_not_max_of_two_rank_p50():
 def test_source_scope_and_isolation():
     bench = (SCRIPTS / "f1c_arm.py").read_text()
     runner = (SCRIPTS / "f1c_run_abba.sh").read_text()
+    probe = (SCRIPTS / "f1c_port_probe.py").read_text()
     ast.parse(bench)
     for phrase in ("dist.init_process_group(backend=\"hccl\")",
                    "cpu_group = dist.new_group(backend=\"gloo\")",
@@ -137,6 +138,21 @@ def test_source_scope_and_isolation():
     assert "F1C_DEVICE_SHA256" in runner and "F1C_HOST_SHA256" in runner
     assert "MF310P_V2_NOWARMUP" in runner and "MF_KFC_BYPASS" in runner
     assert "f1c_provisional.json" in runner
+
+
+def test_port_guard_is_fail_closed_proc_net_probe():
+    runner = (SCRIPTS / "f1c_run_abba.sh").read_text()
+    probe_src = (SCRIPTS / "f1c_port_probe.py").read_text()
+    ast.parse(probe_src)
+    # The host has no ss/netstat: the runner must use the /proc/net probe and
+    # treat a busy required port as a hard failure instead of best-effort log.
+    assert "f1c_port_probe.py" in runner
+    assert " ss " not in runner and "ss -ltnp" not in runner
+    assert "pre_port_listeners.txt" in runner
+    assert '"$PORT_PROBE" > "$dir/pre_port_listeners.txt" 2>&1 ||' in runner
+    assert 'echo "port probe failure or required port busy' in runner
+    assert "/proc/net/tcp" in probe_src and "0A" in probe_src
+    assert "REQUIRED_FREE_PORT" in probe_src and "return 1" in probe_src
 
 
 def test_missing_session_cannot_report_a_win(tmp_path):
