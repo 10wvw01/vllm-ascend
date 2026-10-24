@@ -43,8 +43,8 @@ def args_parse():
     a = p.parse_args()
     if a.warmup < 3 or a.iters < 30:
         p.error("warmup>=3 and iters>=30, no silent small samples")
-    if a.output.exists():
-        p.error("refuse evidence overwrite")
+    if not a.output.is_dir():
+        p.error("session log folder must exist; do not create it inside distributed ranks")
     if int(os.getenv("WORLD_SIZE", "0")) != 2:
         p.error("torchrun TP2 required")
     if "MF_KFC_BYPASS" in os.environ or "MF310P_V2_NOWARMUP" in os.environ:
