@@ -21,7 +21,7 @@
 
 - 优先测 **M=10**，随后只有M10严谨且取得有意义收益时才扩展 M=1/8/16/32；`K=N=2048`、TP2、FP16矩阵乘及输出，T1用与F1-1完全一致的 `npu_format_cast(weight, FRACTAL_NZ=29)`；Stock使用原生`F.linear(x,w)`（框架原生算法，不换成定制MM）。
 - Rank固定种子：权重4242；输入 `1200+rank*17+M+variant*1009`，2个不同输入逐次交替，避免相同内容/地址复用掩盖旧结果。输出全部要求 `torch.equal` 等于每Rank局部FP16 F.linear结果经CPU gloo FP32规约再FP16转换后的参考；若Stock原生FP16 HCCL与参考有可解释的数值合同差异，必须**STOP并记录**，不得放宽标准通过。
-- 每步采两个stream Event包围完整算子区间，`event_us`为设备事件主指标，`wall_us`为Host+同步辅助指标；**Stock HCCL可能跨流**，因此只有另一个独立诊断Trace确认`event_end`确实等待通信完成，才允许把Event指标当作严格Stock对照。Profiler只运行在另开的小诊断会话，不能混进8场正式计时。
+- 每步采两个stream Event包围完整算子区间，`event_us`为Stream区间主指标（**包含该区间内可能存在的Host任务下发空档，不能直接称纯设备Kernel计算时间**），`wall_us`为Host+同步辅助指标；**Stock HCCL可能跨流**，因此只有另一个独立诊断Trace确认`event_end`确实等待通信完成，才允许把Event指标当作严格Stock对照。Profiler只运行在另开的小诊断会话，不能混进8场正式计时。
 - 双Rank每第i个采样取`max(event_r0[i], event_r1[i])`后算p50/p90/p99，不能先分Rank算p50再max。跨会话按两组ABBA成对评判。不可删除高延迟样本、错误样本或因缺日志自动重跑。
 
 **公平性边界**：Stock`F.linear`会按原生API创建输出，而T1预分配输出，属于真实完整算子调用路径差异。必须保留该事实，不能将所有差额直接解释为MemFabric传输本身更快；如果需要隔离框架输出分配/Host开销，下一轮另做Stock`out=`形式的诊断对照，保持正式Stock基线不变。
@@ -91,7 +91,7 @@ python3 csrc/_310P/memfabric_mm_ar_v2/test/perf/f1c_analyze.py \
 
 ## 5. 门槛与下一项行动
 
-**F1C_OPERATOR_GO（仍非真实模型GO）**：两轮ABBA每轮各自输出吞吐等效率（Stock.p50 / T1.p50 −1）均≥5%，Fused整体配对Event P90 ≤Stock的1.05倍；两Rank位精确、无协议status异常/挂死/样本缺失；完整审计证据证明Stock FP16 HCCL和T1 MemFabric各自正确命中，尤其HCCL跨流Event时间有效。
+**F1C_OPERATOR_GO（仍非真实模型GO）**：两轮ABBA每轮各自输出吞吐等效率（Stock.p50 / T1.p50 −1）均≥5%，Fused整体配对Event P90 ≤Stock的1.05倍，P99 ≤Stock的1.10倍，且任何成功场都不得出现≥2ms的长尾样本；两Rank位精确、无协议status异常/挂死/样本缺失；完整审计证据证明Stock FP16 HCCL和T1 MemFabric各自正确命中，尤其HCCL跨流Event时间有效。
 
 任一不达标则`NO_GO_OR_MORE_EVIDENCE`：优先诊断MM启动、通信同步和HCCL测量问题，不直接改核或协议。若真实GO，才研究生产路由、首写非Graph-safe、长期Decode稳定性；**不得将当前仅诊断T1成功视为真实模型随即可用**。
 
