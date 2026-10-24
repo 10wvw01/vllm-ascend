@@ -21,6 +21,15 @@ D4_TILE2048_SHA="2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a1
   exit 2
 }
 command -v timeout >/dev/null || { echo "Missing GNU timeout for hung-device protection" >&2; exit 2; }
+command -v nm >/dev/null || { echo "Missing nm for Host ABI validation" >&2; exit 2; }
+# 此处仅验证当前Python环境实际加载的Host扩展；设备SO是否已部署仍需现场留证。
+ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)')" || {
+  echo "BLOCKED: Python Host extension cannot be imported" >&2; exit 2;
+}
+[[ -f "$ext_path" ]] || { echo "BLOCKED: no Host extension: $ext_path" >&2; exit 2; }
+nm -D "$ext_path" | grep -F "mf310p_v2_trial_run" >/dev/null || {
+  echo "BLOCKED: expected mf310p_v2_trial_run Host ABI absent" >&2; exit 2;
+}
 [[ "$(git -C "$ROOT" status --porcelain --untracked-files=no)" == "" ]] || {
   echo "Tracked source tree dirty: halt, record diff, don't benchmark uncommitted code." >&2
   exit 2
@@ -32,6 +41,8 @@ purpose=F2_D4_Tile2048_geometry_sweep
 repo_head=$(git -C "$ROOT" rev-parse HEAD)
 device_so_path=$F2_DEVICE_SO_PATH
 device_so_sha256=$sha
+host_extension_path=$ext_path
+host_extension_sha256=$(sha256sum "$ext_path" | awk '{print $1}')
 verified_D4_tile2048_sha256=$D4_TILE2048_SHA
 session_timeout=15m_plus_30s_kill
 kver11_json=$MF_SDMA_ORCH_JSON
