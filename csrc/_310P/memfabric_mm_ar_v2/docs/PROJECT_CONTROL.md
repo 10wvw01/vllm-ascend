@@ -93,3 +93,22 @@
 - [GitHub Actions 40126853357](https://github.com/10wvw01/vllm-ascend/actions/runs/40126853357)：6/6 治理单测 PASS，既有V2源码合同测试 **53 PASS / 1 FAIL**。
 - 唯一 FAIL：`test_v2_project_layout.py` 的旧根目录白名单只允许 docs/src/test/evidence，未接纳已正式入库的项目 `AGENTS.md`；属于**测试目录合同滞后于合法项目治理文件**，不是设备Kernel的数值/同步失败。
 - 处置：严格保留目录集合验证，明确添加 `AGENTS.md`，不放宽成任意新增文件；静态回归实际结果须按本次后续 GitHub Actions run 确认。**U1设备实验仍NOT_RUN**。
+
+
+### GitHub Actions扩展回归复验：已通过（2026-10-25）
+- [Run 40126962427](https://github.com/10wvw01/vllm-ascend/actions/runs/40126962427)，验证提交 `2f5079163500e254b335a5b3540263691b903552`：`project-control` SUCCESS。
+- 实际日志：治理检查器6/6 `unittest` PASS、既有V2 `test/ut` **54/54 pytest PASS**，项目入口静态检查和本轮Git变更台账检查均 PASS。
+- 这是**GitHub Ubuntu/Python 3.11 的纯CPU源码及合成数据合同测试**，未使用310P、CANN、MemFabric设备库；不能推导出 U1 设备运行、DFlash Eager/Graph真实命中、数值正确性或任何L1/L2性能收益。**U1 设备侧仍 NOT_RUN**。
+- 本项目任务的后续合入必须沿用这一CPU门禁；分支规则保护尚待GitHub仓库所有者确认启用。
+
+### 下一批需要解决的源码级风险（静态审查发现，不等于实机证实）
+
+| 风险 | 源码事实 | 具体下一步验证门槛 |
+|---|---|---|
+| R1 静默丢失融合资格 | `vllm_ascend/_310p/quantization/modelslim_config.py` 将 `should_enable_memfabric_mm_ar` 异常统一捕获后置 `eligible=False` | 先在隔离纯CPU测试中区分“合法不命中”和“检测器故障”，设计可审计日志/错误策略；不得在未验证模型加载路径前直接删除回退 |
+| R2 输入布局拷贝 | `memfabric_mm_ar_v2_serve.py` 正式路径调用 `x.contiguous()`，旧Prefill归因存在约66µs额外搬运 | 用真实输入Stride/权重NZ布局证明无需额外转换或保留所需转换并全量计入L1 |
+| R3 生命周期薄适配 | `memfabric_mm_ar_runner_hooks.py` 包装 `_dummy_run` / `_sync_device`，池启动后改用当前流同步 | 对外部DFlash Runner接口变化、Async Scheduler、Graph capture/replay、混合HCCL/MF及Pool销毁分别取证 |
+| R4 Decode/投机路线缺位 | 现有正式 `v2_threshold_route` 仅 `2048≤M≤4096` 融合，其余Stock | 运行时记录物理M、真实目标层路由及投机verify分布；新小M正式核未开发/未准入，不得把旧T1诊断核冒充新V2 |
+| R5 发布安全性 | 旧Gate E 507014、MTE3首写、Graph假命中尚未闭环 | 发布前需闭环；当轮出现数据错误/死锁立即停测留双Rank证据，不因CI通过开启融合默认 |
+
+**当前是否需要310P3实机：** 本轮G-DOC治理与CPU验证不需要；下一阶段**真实D4完整V2 vs原生Stock L1、真实DFlash物理M/Graph路径**需要设备。上机前先依据 [ENGINEERING_GATES.md](ENGINEERING_GATES.md) 完成脚本/环境/版本准入审查，再明确提交给用户委托OpenCode；本轮无上机授权或执行。
