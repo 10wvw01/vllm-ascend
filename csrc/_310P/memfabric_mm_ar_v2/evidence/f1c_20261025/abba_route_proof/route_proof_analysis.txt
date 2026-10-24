@@ -1,0 +1,68 @@
+F1-C HCCL Event 覆盖性与通信路由独立取证（2026-10-24 服务器时间）
+====================================================================
+
+方法：独立 torchrun TP2 诊断会话（ASCEND_RT_VISIBLE_DEVICES=6,7），torch_npu profiler
+text 导出，op_summary 逐任务时间线与同迭代 NPU Event（与 f1c_arm.py 完全一致的
+record/elapsed 口径）对账。诊断会话与正式 8 场完全分离，不计入计时。
+
+一、Stock FP16（F.linear + HCCL all_reduce，不建 MemFabric 池）
+----------------------------------------------------------------
+rank0 设备任务时间线（3 个被捕获迭代，相对 µs）：
+
+迭代1: trans_TransData_1 0.0-4.0 → trans_TransData_2 57.5-89.2 → MatMul7 108.5-121.5
+       → trans_TransData_3 150.5-153.2 → hcom_allReduce__612_0_1 305.2-706.0 (COMMUNICATION, Stream=N/A)
+       → TensorEqual11 927.5-932.2 (stream 37)
+       簇跨度 = 706.0 µs；同迭代 event_us = 1064.14 µs  → event ≥ 跨度 ✓
+迭代2: 簇 1580.5-1833.2（hcom_allReduce__612_1_1 1755.0-1833.2, dur 78.3µs）
+       跨度 = 252.7 µs；event_us = 435.52 µs ✓
+迭代3: 簇 2534.2-2795.5（hcom_allReduce__612_2_1 2703.8-2795.5, dur 91.6µs）
+       跨度 = 261.3 µs；event_us = 409.56 µs ✓
+
+结论：
+1. HCCL AllReduce 确为跨流执行（COMMUNICATION 任务 Stream ID = N/A，AI_CORE 计算任务
+   在 stream 37）；
+2. 三个被捕获迭代中 event_us 均大于含 hcom_allReduce 结束点的全簇跨度
+   （1064>706、436>253、410>261），ev_end 在 HCCL 通信完成后才记录
+   → Stock NPU Event 覆盖完整 HCCL 通信（hccl_event_stream_bracketing_verified = true）；
+3. event_us 与簇跨度之差为 Host 任务下发空档（符合计划 §2 口径声明，两侧同口径计时）；
+4. Stock 进程无任何 MemFabric 建池/KFC 日志（session.log 无 helper/hybm 字样），
+   数据面仅 HCCL。
+
+二、T1 MemFabric（gloo-only 进程组 + MemFabric 池，无 HCCL group）
+--------------------------------------------------------------------
+rank0 设备任务时间线（3 个被捕获迭代，相对 µs）：
+
+迭代1: V2NzDirectSmallKernel<16,8> 0.0-415.2 (AI_CORE, stream 41) → TensorEqual11 704.2-706.8
+迭代2: V2NzDirectSmallKernel 1374.0-1662.8 (dur 288.7) → TensorEqual11 1876.5-1879.0
+迭代3: V2NzDirectSmallKernel 2405.2-2767.8 (dur 362.6) → TensorEqual11 2964.0-2966.5
+
+event_us = 859.92 / 445.10 / 521.85（迭代1-3），均大于单 kernel 时长。
+
+结论：
+1. T1 融合调用为调用者流（stream 41）上的单个 AI_CORE kernel
+   （_ZN12_GLOBAL__N_121V2NzDirectSmallKernelILj16ELj8E，MM8/Add4 配置），
+   通信（IB/SDMA/邮件协议）融合在 kernel 内部，不经 HCCL；
+2. 全 trace 零 COMMUNICATION/hcom 任务 → memfabric_t1_only_verified = true；
+3. 进程组为 gloo（CPU 参考/barrier），无 HCCL group；与 Stock 进程完全分离
+   → no_simultaneous_hccl_memfabric = true；
+4. KFC deploy helper 报告 kernel already present（双 die），协议 status=0，全部位精确。
+
+三、冒烟会话（/tmp/opencode/f1c_smoke_stock、/tmp/opencode/f1c_smoke_t1，各 30 样本）
+--------------------------------------------------------------------
+Stock: 双 rank 30/30 bit_exact，ev_p50 317.94/326.38 µs，无 ≥2ms 样本；
+T1:    双 rank 30/30 bit_exact、status=0，ev_p50 382.76/374.35 µs，无 ≥2ms 样本。
+两场冒烟均独立进程执行、进程退出正常、设备健康。
+
+四、审计判断（仅基于以上实测 Trace/日志）
+--------------------------------------------------------------------
+stock_fp16_hccl_verified            = true（trace 存在 hcom_allReduce；位精确）
+memfabric_t1_only_verified          = true（trace 零通信任务；status=0；位精确）
+no_simultaneous_hccl_memfabric      = true（两模式互斥进程；代码+日志+trace 三重）
+hccl_event_stream_bracketing_verified = true（3/3 被捕获迭代 event_us ≥ 含 hcom
+                                        结束点的全簇跨度）
+
+证据文件：
+- stock/export_only_prof_dir/**/op_summary_*.csv（设备任务时间线原文）
+- stock/stock_rank{0,1}_events.json（同迭代 event/wall 数值）
+- stock/session.log、t1/session.log（进程日志原文）
+- t1/export_only_prof_dir/**/op_summary_*.csv、t1/t1_rank{0,1}_events.json

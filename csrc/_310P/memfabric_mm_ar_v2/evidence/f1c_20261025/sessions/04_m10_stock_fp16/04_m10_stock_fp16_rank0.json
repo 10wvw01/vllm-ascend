@@ -1,0 +1,328 @@
+{
+  "experiment": "F1C_SEPARATE_PROCESS_CROSS_ABBA",
+  "rank": 0,
+  "arm": "stock_fp16",
+  "session": "04_m10_stock_fp16",
+  "M": 10,
+  "K": 2048,
+  "N": 2048,
+  "TP": 2,
+  "dtype": "fp16",
+  "stock_collective_dtype": "fp16",
+  "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+  "communication_isolation": "HCCL group only Stock; MemFabric pool only T1",
+  "host_f32_conversion_in_timed_stock": false,
+  "mm_cores": null,
+  "add_cores": null,
+  "warmup": 5,
+  "iters": 50,
+  "bit_exact": true,
+  "protocol_status": null,
+  "device_so_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "plugin_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+  "host_so_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "kver11_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+  "samples": [
+    {
+      "i": 0,
+      "input_variant": 1,
+      "wall_us": 444.47,
+      "event_us": 355.16
+    },
+    {
+      "i": 1,
+      "input_variant": 0,
+      "wall_us": 400.29,
+      "event_us": 313.2
+    },
+    {
+      "i": 2,
+      "input_variant": 1,
+      "wall_us": 391.48,
+      "event_us": 314.45
+    },
+    {
+      "i": 3,
+      "input_variant": 0,
+      "wall_us": 417.92,
+      "event_us": 295.08
+    },
+    {
+      "i": 4,
+      "input_variant": 1,
+      "wall_us": 352.04,
+      "event_us": 267.79
+    },
+    {
+      "i": 5,
+      "input_variant": 0,
+      "wall_us": 397.77,
+      "event_us": 312.79
+    },
+    {
+      "i": 6,
+      "input_variant": 1,
+      "wall_us": 353.44,
+      "event_us": 270.21
+    },
+    {
+      "i": 7,
+      "input_variant": 0,
+      "wall_us": 359.0,
+      "event_us": 277.81
+    },
+    {
+      "i": 8,
+      "input_variant": 1,
+      "wall_us": 400.06,
+      "event_us": 312.86
+    },
+    {
+      "i": 9,
+      "input_variant": 0,
+      "wall_us": 361.32,
+      "event_us": 263.33
+    },
+    {
+      "i": 10,
+      "input_variant": 1,
+      "wall_us": 426.12,
+      "event_us": 313.18
+    },
+    {
+      "i": 11,
+      "input_variant": 0,
+      "wall_us": 423.76,
+      "event_us": 341.61
+    },
+    {
+      "i": 12,
+      "input_variant": 1,
+      "wall_us": 401.14,
+      "event_us": 309.48
+    },
+    {
+      "i": 13,
+      "input_variant": 0,
+      "wall_us": 364.13,
+      "event_us": 274.61
+    },
+    {
+      "i": 14,
+      "input_variant": 1,
+      "wall_us": 391.97,
+      "event_us": 309.22
+    },
+    {
+      "i": 15,
+      "input_variant": 0,
+      "wall_us": 360.33,
+      "event_us": 278.54
+    },
+    {
+      "i": 16,
+      "input_variant": 1,
+      "wall_us": 556.43,
+      "event_us": 477.53
+    },
+    {
+      "i": 17,
+      "input_variant": 0,
+      "wall_us": 355.82,
+      "event_us": 273.8
+    },
+    {
+      "i": 18,
+      "input_variant": 1,
+      "wall_us": 415.95,
+      "event_us": 303.59
+    },
+    {
+      "i": 19,
+      "input_variant": 0,
+      "wall_us": 350.67,
+      "event_us": 264.84
+    },
+    {
+      "i": 20,
+      "input_variant": 1,
+      "wall_us": 368.25,
+      "event_us": 284.95
+    },
+    {
+      "i": 21,
+      "input_variant": 0,
+      "wall_us": 342.0,
+      "event_us": 259.95
+    },
+    {
+      "i": 22,
+      "input_variant": 1,
+      "wall_us": 376.62,
+      "event_us": 276.33
+    },
+    {
+      "i": 23,
+      "input_variant": 0,
+      "wall_us": 362.58,
+      "event_us": 279.77
+    },
+    {
+      "i": 24,
+      "input_variant": 1,
+      "wall_us": 406.3,
+      "event_us": 318.44
+    },
+    {
+      "i": 25,
+      "input_variant": 0,
+      "wall_us": 361.78,
+      "event_us": 285.5
+    },
+    {
+      "i": 26,
+      "input_variant": 1,
+      "wall_us": 416.57,
+      "event_us": 288.2
+    },
+    {
+      "i": 27,
+      "input_variant": 0,
+      "wall_us": 345.36,
+      "event_us": 270.21
+    },
+    {
+      "i": 28,
+      "input_variant": 1,
+      "wall_us": 385.51,
+      "event_us": 301.07
+    },
+    {
+      "i": 29,
+      "input_variant": 0,
+      "wall_us": 350.02,
+      "event_us": 270.08
+    },
+    {
+      "i": 30,
+      "input_variant": 1,
+      "wall_us": 407.89,
+      "event_us": 321.22
+    },
+    {
+      "i": 31,
+      "input_variant": 0,
+      "wall_us": 360.33,
+      "event_us": 277.94
+    },
+    {
+      "i": 32,
+      "input_variant": 1,
+      "wall_us": 413.18,
+      "event_us": 322.06
+    },
+    {
+      "i": 33,
+      "input_variant": 0,
+      "wall_us": 374.56,
+      "event_us": 289.09
+    },
+    {
+      "i": 34,
+      "input_variant": 1,
+      "wall_us": 402.26,
+      "event_us": 315.99
+    },
+    {
+      "i": 35,
+      "input_variant": 0,
+      "wall_us": 391.41,
+      "event_us": 278.25
+    },
+    {
+      "i": 36,
+      "input_variant": 1,
+      "wall_us": 368.82,
+      "event_us": 292.16
+    },
+    {
+      "i": 37,
+      "input_variant": 0,
+      "wall_us": 371.03,
+      "event_us": 295.94
+    },
+    {
+      "i": 38,
+      "input_variant": 1,
+      "wall_us": 371.89,
+      "event_us": 291.95
+    },
+    {
+      "i": 39,
+      "input_variant": 0,
+      "wall_us": 362.26,
+      "event_us": 282.32
+    },
+    {
+      "i": 40,
+      "input_variant": 1,
+      "wall_us": 396.41,
+      "event_us": 285.03
+    },
+    {
+      "i": 41,
+      "input_variant": 0,
+      "wall_us": 729.0,
+      "event_us": 618.85
+    },
+    {
+      "i": 42,
+      "input_variant": 1,
+      "wall_us": 396.75,
+      "event_us": 307.42
+    },
+    {
+      "i": 43,
+      "input_variant": 0,
+      "wall_us": 379.03,
+      "event_us": 294.45
+    },
+    {
+      "i": 44,
+      "input_variant": 1,
+      "wall_us": 376.4,
+      "event_us": 290.29
+    },
+    {
+      "i": 45,
+      "input_variant": 0,
+      "wall_us": 378.82,
+      "event_us": 296.25
+    },
+    {
+      "i": 46,
+      "input_variant": 1,
+      "wall_us": 392.13,
+      "event_us": 305.73
+    },
+    {
+      "i": 47,
+      "input_variant": 0,
+      "wall_us": 651.96,
+      "event_us": 529.3
+    },
+    {
+      "i": 48,
+      "input_variant": 1,
+      "wall_us": 376.52,
+      "event_us": 291.17
+    },
+    {
+      "i": 49,
+      "input_variant": 0,
+      "wall_us": 341.43,
+      "event_us": 248.72
+    }
+  ],
+  "metric_semantics": "paired per-index max of both ranks; stream events vs host wall; HCCL multi-stream must be audited on device"
+}
