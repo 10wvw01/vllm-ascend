@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # U1 双Die多M试验：每场仅使用一种通信数据面，不修改正式内核。
 set -Eeuo pipefail
-[[ "$#" == 3 ]] || { echo "usage: u1_run.sh NEW_ABSOLUTE_DIR small|large screen|confirm" >&2; exit 2; }
+[[ "$#" == 3 ]] || { echo "usage: u1_run.sh NEW_ABSOLUTE_DIR small|large smoke|screen|confirm" >&2; exit 2; }
 ROOT="$(cd "$(dirname "$0")/../../../../.." && pwd)"
 PERF="$ROOT/csrc/_310P/memfabric_mm_ar_v2/test/perf"
 OUT="$1"; SCOPE="$2"; PHASE="$3"
 case "$SCOPE" in small|large) ;; *) echo "invalid scope" >&2; exit 2;; esac
-case "$PHASE" in screen|confirm) ;; *) echo "invalid phase" >&2; exit 2;; esac
+case "$PHASE" in smoke|screen|confirm) ;; *) echo "invalid phase" >&2; exit 2;; esac
 [[ "$OUT" == /* && ! -e "$OUT" ]] || { echo "output must be UNUSED absolute path" >&2; exit 2; }
 [[ "${U1_G0_APPROVED:-}" == YES && "${U1_EXCLUSIVE_APPROVED:-}" == YES &&
    "${U1_RESTORE_PLAN_VERIFIED:-}" == YES ]] || {
@@ -96,7 +96,11 @@ for ((stage=1; stage<=n; stage++)); do
     echo "missing 2-Rank JSON $label" >&2; exit 1; }
   npu-smi info > "$dir/post_npu_smi.txt" 2>&1
 done
-python3 "$PERF/u1_analyze.py" --root "$OUT" --scope "$SCOPE" \
-  --phase "$PHASE" --out "$OUT/u1_analysis.json"
+if [[ "$PHASE" == smoke ]]; then
+  echo "U1 smoke PASS; this is correctness only, not a performance screen." >&2
+else
+  python3 "$PERF/u1_analyze.py" --root "$OUT" --scope "$SCOPE" \
+    --phase "$PHASE" --out "$OUT/u1_analysis.json"
+fi
 npu-smi info > "$OUT/npu_after.txt" 2>&1
 echo "U1 $SCOPE/$PHASE complete. Archive all raw logs and G0 restore record."
