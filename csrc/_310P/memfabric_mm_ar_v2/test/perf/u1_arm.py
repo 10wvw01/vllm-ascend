@@ -220,7 +220,7 @@ def main():
                 "status": 0 if lib is not None else None,
                 "bit_exact": True,
             }
-            if arm == "stock_fp16" and a.phase != "smoke":
+            if arm == "stock_fp16" and a.phase == "screen":
                 # 顺带测原生MM-only：不创建额外进程，不把两项的中位数差
                 # 解释为纯HCCL时延（包含发射/输出分配、缓存与调度差异）。
                 local_refs = [F.linear(x, w) for x in xs]
