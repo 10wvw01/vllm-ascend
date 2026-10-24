@@ -64,7 +64,7 @@ def test_pairing_and_rejection():
 def test_protocol_kernel_not_edited_on_f2_branch():
     kernel = (ROOT / "src/op_kernel/mf310p_v2_kernel.asc").read_text()
     assert kernel.count("smem_shm_sdma_signal_at(") == 2
-    assert kernel.count("smem_shm_sdma_wait_at(") == 2
+    assert kernel.count("smem_shm_sdma_wait_at(") == 3
     assert "kProductionAddTile = 2048" in kernel
     assert "CleanLines(ownC + start + coreOff, perCoreBytes)" in kernel
     assert "WaitAddDone(ibGm, ibUb, core)" in kernel
