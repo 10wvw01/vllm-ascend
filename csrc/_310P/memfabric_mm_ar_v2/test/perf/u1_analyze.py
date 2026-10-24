@@ -91,6 +91,22 @@ def paired(ranks: list[dict], spec: dict) -> dict:
             "host_gap_p50_us": round(statistics.median(gaps), 3),
             "paired_event_us": events, "paired_wall_us": walls,
         }
+        if expected_arm == "stock_fp16":
+            mm = [data.get("native_mm_only") for data in dat]
+            if any(not isinstance(x, dict) or x.get("bit_exact") is not True or
+                   x.get("iters") != ITERS[phase] or
+                   len(x.get("samples", [])) != ITERS[phase] for x in mm):
+                raise ValueError(f"M{m} Stock native MM-only samples missing")
+            paired_mm = []
+            for i, (r0, r1) in enumerate(zip(mm[0]["samples"], mm[1]["samples"])):
+                for row in (r0, r1):
+                    if row.get("i") != i or row.get("variant") != (i + WARMUP[phase]) % 2:
+                        raise ValueError("Stock MM-only samples not paired")
+                    if not _finite(row.get("event_us")) or not _finite(row.get("wall_us")):
+                        raise ValueError("Stock MM-only event invalid")
+                paired_mm.append(max(r0["event_us"], r1["event_us"]))
+            out[str(m)]["native_mm_only_p50_us"] = round(statistics.median(paired_mm), 3)
+            out[str(m)]["native_mm_only_p90_us"] = round(pctl(paired_mm, 90), 3)
     anchor_m = spec["M_order"][0]
     late = [rec["results"].get("_anchor_after") for rec in ranks]
     if any(not isinstance(x, dict) or x.get("M") != anchor_m or
@@ -172,6 +188,8 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
             "speedup_pct": round(100 * (s_med / f_med - 1), 3),
             "stock_session_drift_pct": round(stock_anchor_drift_pct, 3),
             "route": FUSED_ARM[scope],
+            "stock_native_mm_only_p50_us": round(statistics.median(
+                x["native_mm_only_p50_us"] for x in xs), 3),
             "stock_sessions": len(xs), "fused_sessions": len(ys),
         }
         if phase == "confirm":
