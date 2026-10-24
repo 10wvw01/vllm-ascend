@@ -60,7 +60,7 @@ export U1_G0_APPROVED=YES U1_EXCLUSIVE_APPROVED=YES U1_RESTORE_PLAN_VERIFIED=YES
 bash csrc/_310P/memfabric_mm_ar_v2/test/perf/u1_campaign.sh /tmp/opencode/u1_campaign_001
 ```
 
-默认先小M Stock+T1，再大M Stock+D4。每个子实验生成manifest、两个Rank JSON、真实session.log、before/after npu-smi、`u1_analysis.json`。`screen`每M3预热+12样本，仅用于快速筛选；任何漏采、非零协议、位精确错误、507014/507899、实际二进制SHA不符或挂死均停止整个活动、保全证据并隔离设备，不自动重试。
+默认先做M10 Stock/T1的2场`smoke`，再做M2048 Stock/D4的2场`smoke`（各3次预热+6次正确性采样，**无性能排名**），四场冒烟全部通过以后，才做小M Stock+T1与大M Stock+D4的4场`screen`。因此完整默认流程合计**8个短TP2会话**，其中4场只是准入冒烟；不能把它说成8场正式ABBA。各会话生成manifest、两个Rank JSON、真实session.log、before/after npu-smi；只有`screen`生成`u1_analysis.json`。`screen`每M3预热+12样本，仅用于快速筛选；任何漏采、非零协议、位精确错误、507014/507899、实际二进制SHA不符或挂死均停止整个活动、保全证据并隔离设备，不自动重试。
 
 **U1-Campaign中`U1_DIAG_APPROVED=YES`为可选D1授权**：仅D0完全通过且确认KFC健康/权限后才可打开；否则只生成D0地图。不必为了运行诊断而多次部署版本，若已有D0目录则不可覆盖，应新建独立D1目录手工运行。
 
