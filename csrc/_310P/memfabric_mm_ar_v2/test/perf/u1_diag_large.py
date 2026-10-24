@@ -22,7 +22,7 @@ import torch.nn.functional as F
 import torch_npu  # noqa: F401
 import vllm_ascend.vllm_ascend_C as extension
 
-from u1_spec import CHUNK, D4_DEVICE_SHA, K, N, PLUGIN_SHA
+from u1_spec import CHUNK, D4_DEVICE_SHA, K, N, PLUGIN_SHA, MEMFABRIC_HOST_SHA, KVER_SHA
 
 M = 4096
 CASES = ("formal", "loop4", "diag0", "diag4", "diag5")
@@ -69,11 +69,22 @@ def main():
         p.error("TP2 only")
     if "MF_KFC_BYPASS" in os.environ or "MF310P_V2_NOWARMUP" in os.environ:
         p.error("no safety bypass")
-    if os.environ.get("U1_DEVICE_SHA256") != D4_DEVICE_SHA or os.environ.get("U1_PLUGIN_SHA256") != PLUGIN_SHA:
-        p.error("D4/host ABI identity missing; run G0")
+    identities = (("U1_DEVICE_SHA256", D4_DEVICE_SHA),
+                  ("U1_PLUGIN_SHA256", PLUGIN_SHA),
+                  ("U1_HOST_SHA256", MEMFABRIC_HOST_SHA),
+                  ("U1_KVER_SHA256", KVER_SHA))
+    if any(os.environ.get(key) != value for key, value in identities):
+        p.error("D4/Host/MemFabric/KVER identity missing; complete G0")
+    host_path = os.environ.get("V2_HOST_LIB")
+    if not host_path or Path(host_path).resolve() != Path(extension.__file__).resolve():
+        p.error("actually imported diagnostic Host SO differs from specified library")
     if hashlib.sha256(Path(extension.__file__).read_bytes()).hexdigest() != PLUGIN_SHA:
         p.error("imported Python plugin SHA mismatch")
-    if not os.environ.get("MF_SDMA_ORCH_JSON", "").endswith("/libmf_sdma_orch_v11.json"):
+    device_path = os.environ.get("U1_DEVICE_SO_PATH")
+    if not device_path or hashlib.sha256(Path(device_path).read_bytes()).hexdigest() != D4_DEVICE_SHA:
+        p.error("pinned device SO mismatch")
+    json_path = os.environ.get("MF_SDMA_ORCH_JSON", "")
+    if not json_path.endswith("/libmf_sdma_orch_v11.json") or not Path(json_path).is_file():
         p.error("KVER11 JSON missing")
 
     rank = int(os.environ["RANK"])
