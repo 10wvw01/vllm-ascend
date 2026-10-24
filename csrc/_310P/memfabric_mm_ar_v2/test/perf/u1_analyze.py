@@ -91,7 +91,7 @@ def paired(ranks: list[dict], spec: dict) -> dict:
             "host_gap_p50_us": round(statistics.median(gaps), 3),
             "paired_event_us": events, "paired_wall_us": walls,
         }
-        if expected_arm == "stock_fp16":
+        if expected_arm == "stock_fp16" and phase == "screen":
             mm = [data.get("native_mm_only") for data in dat]
             if any(not isinstance(x, dict) or x.get("bit_exact") is not True or
                    x.get("iters") != ITERS[phase] or
@@ -189,7 +189,7 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
             "stock_session_drift_pct": round(stock_anchor_drift_pct, 3),
             "route": FUSED_ARM[scope],
             "stock_native_mm_only_p50_us": round(statistics.median(
-                x["native_mm_only_p50_us"] for x in xs), 3),
+                x["native_mm_only_p50_us"] for x in xs), 3) if phase == "screen" else None,
             "stock_sessions": len(xs), "fused_sessions": len(ys),
         }
         if phase == "confirm":
