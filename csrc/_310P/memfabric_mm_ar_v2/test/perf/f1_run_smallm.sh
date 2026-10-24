@@ -20,11 +20,15 @@ OUT="${1:?usage: f1_run_smallm.sh ABS_NEW_OUTPUT_DIR}"
   exit 2
 }
 command -v nm >/dev/null || { echo "Missing nm for T1 Host ABI preflight" >&2; exit 2; }
-nm -D "$V2_HOST_LIB" | grep -q 'mf310p_v2_trial_run_nz_direct_small' || {
+nm -D "$V2_HOST_LIB" | grep -F "mf310p_v2_trial_run_nz_direct_small" >/dev/null || {
   echo "BLOCKED: T1 nz_direct_small Host ABI not exported; rebuild/deploy matched artifacts" >&2
   exit 2
 }
 command -v timeout >/dev/null || { echo "Missing GNU timeout" >&2; exit 2; }
+ext_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as ext; print(ext.__file__)')" || {
+  echo "BLOCKED: current Python plugin could not be imported" >&2; exit 2;
+}
+[[ -f "$ext_path" ]] || { echo "BLOCKED: Python plugin SO missing" >&2; exit 2; }
 [[ "$(git -C "$ROOT" status --porcelain --untracked-files=no)" == "" ]] || {
   echo "Tracked source tree dirty; stop and record diff before benchmarking" >&2
   exit 2
@@ -42,6 +46,8 @@ host_timing=Stock_MM_HCCL_prepool_vs_T1_MM_MemFabric_postpool
 warning=do_not_make_final_GO_from_prepool_vs_postpool_host_sync
 host_lib_path=$V2_HOST_LIB
 host_lib_sha256=$(sha256sum "$V2_HOST_LIB" | awk '{print $1}')
+python_plugin_path=$ext_path
+python_plugin_sha256=$(sha256sum "$ext_path" | awk '{print $1}')
 device_so_path=$F1_DEVICE_SO_PATH
 device_so_sha256=$(sha256sum "$F1_DEVICE_SO_PATH" | awk '{print $1}')
 session_timeout=30m_plus_30s_kill
