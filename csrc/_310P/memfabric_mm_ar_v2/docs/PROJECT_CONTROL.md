@@ -112,3 +112,13 @@
 | R5 发布安全性 | 旧Gate E 507014、MTE3首写、Graph假命中尚未闭环 | 发布前需闭环；当轮出现数据错误/死锁立即停测留双Rank证据，不因CI通过开启融合默认 |
 
 **当前是否需要310P3实机：** 本轮G-DOC治理与CPU验证不需要；下一阶段**真实D4完整V2 vs原生Stock L1、真实DFlash物理M/Graph路径**需要设备。上机前先依据 [ENGINEERING_GATES.md](ENGINEERING_GATES.md) 完成脚本/环境/版本准入审查，再明确提交给用户委托OpenCode；本轮无上机授权或执行。
+
+
+## 8. Stock+DFlash 未成功启动：上游源码与环境依赖审计（2026-10-25）
+
+- **用户新增历史事实**：此前Stock+DFlash投机推理尝试失败、疑似缺依赖；V2 Graph历史从未完成成功验收，曾有Graph AB实则Stock-vs-Stock。两者为独立问题，不可混报。
+- 本轮静态追溯见 [Stock+DFlash上游与依赖审计](STOCK_DFLASH_UPSTREAM_DEPENDENCY_AUDIT_20261025.md)：指定上游核心DFlash、patch、需求声明、Docker/验收工具与自有主线对应文件逐SHA相同；我方Runner多一处ImportError兼容，ModelSlim增加MemFabric路由；Git历史并非完全追平、差异需按文件审。
+- 上游明确依赖\`vllm v0.24.0\`，其验收脚本使用硬编码开发机路径并默认35B投机K=15，**不符合本期服务器与K=7**。实际历史报错堆栈及服务器Python包/导入路径目前缺失，所以根因只能标\`UNKNOWN\`，不能宣称已找到缺包或合并错误。
+- 新增 [Stock+DFlash只读G0诊断工具](../../../../tools/310p_mm_ar/dflash_stock_preflight.py)，支持查看 Python版本/模块路径、pin兼容、vLLM所需API、模型config、Stock禁用融合标志及\`pip check\`，可选子进程导入；不做包安装或实际NPU推理。配套纯CPU合成单元测试，需由GitHub CI实际确认PASS。
+- **研发门槛调整**：DFlash集成先修复并证明**Stock+DFlash Eager(K=7)**最小单请求与batch10运行，再分别核对Stock+DFlash Graph、V2融合Eager、V2融合Graph；任何一次Stock成功都不可替代 V2 Graph真实Kernel/Replay取证。大M正式算子L1优化可与此环境问题并行推进。
+- **此提交无实机操作**，无正式Kernel/Host/Serving修改、无L0/L1/L2新性能结果；下一轮如需现场先取\`stock_dflash_preflight.json\`和实际ImportError/模块路径，再决定最小修复。
