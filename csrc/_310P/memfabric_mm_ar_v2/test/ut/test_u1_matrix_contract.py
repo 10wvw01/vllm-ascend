@@ -30,6 +30,16 @@ def synth_rank(p, rank, fast=400):
                 for i in range(p["iters"])
             ],
         }
+        if p["arm"] == "stock_fp16" and p["phase"] != "smoke":
+            readings[str(m)]["native_mm_only"] = {
+                "iters": p["iters"], "bit_exact": True,
+                "samples": [
+                    {"i": i, "variant": (i + p["warmup"]) % 2,
+                     "event_us": float(fast / 2 + rank + i % 3),
+                     "wall_us": float(fast / 2 + 30 + rank + i % 3)}
+                    for i in range(p["iters"])
+                ],
+            }
     readings["_anchor_after"] = {
         "M": p["M_order"][0],
         "samples": [{"i": i, "variant": i % 2,
@@ -224,3 +234,14 @@ def test_serving_budget_requires_observed_real_shapes():
     bad = dict(evidence, output_tokens=512)
     with pytest.raises(ValueError, match="workload mismatch"):
         budget.build_budget([measured], bad)
+
+
+def test_stock_mm_only_must_have_full_paired_samples(tmp_path):
+    fixture(tmp_path)
+    path = tmp_path / "sessions/01_small_stock_fp16/01_small_stock_fp16_rank0.json"
+    obj = json.loads(path.read_text())
+    assert "native_mm_only" in obj["results"]["10"]
+    del obj["results"]["10"]["native_mm_only"]["samples"][0]
+    path.write_text(json.dumps(obj))
+    with pytest.raises(ValueError, match="MM-only samples missing"):
+        an.evaluate(tmp_path, "small", "screen")
