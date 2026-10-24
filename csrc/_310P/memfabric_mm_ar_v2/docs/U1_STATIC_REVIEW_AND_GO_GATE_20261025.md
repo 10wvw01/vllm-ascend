@@ -26,7 +26,7 @@
 - 同一Scope多M一进程执行、形状顺序随ABBA会话旋转；每个样本先`max(EventRank0[i], EventRank1[i])`再做p50/p90/p99，不是`max(p50Rank0,p50Rank1)`。
 - 每场必须有完整Rank0+1 JSON及原始`session.log`、实际SO指纹、manifest、正确性/status、无NaN/丢样本；缺任何原始信息分析器立即拒绝。每M完成的`partial`只是保全，不算该Scope GO。
 - 本次补充真实Worker尾部**重复测首M八次**，分析器用Rank配对early/late p50判热态漂移；任一场同进程漂移>5%或Stock跨会话漂移>5%，Confirm不宣告赢家。
-- 新增Stock同会话原生MM-only测试和双Rank配对分析，减少额外Stock进程；**Stock完整MM+HCCL与MM-only中位数不可直接相减得HCCL阶段时延**。
+- 新增Stock **仅screen阶段**同会话原生MM-only测试和双Rank配对分析，减少额外Stock进程；正式confirm不采额外MM-only，保持Stock/HCCL对照负载纯净；**Stock完整MM+HCCL与MM-only中位数不可直接相减得HCCL阶段时延**。
 - 快速`smoke`六个样本只判断正确性，禁止统计GO；`screen`只有Stock+融合各一场，禁止统计GO；`confirm`必须A-B-B-A×2两轮、每轮≥5%正收益、融合p90/p99不显著退化，且须独立路由与HCCL Event全通信覆盖证明，才能列为`OPERATOR_CANDIDATE_ONLY`。
 - Event仍是Host下发参与的设备流区间，不是纯核微周期。D1诊断路径阶段不等价，严禁简单差分或叠加。
 - Eager上界脚本强制`input4096/output2048/TP2/batch10/Eager`与**真实Serving调用分布**，缺历史M调用数填UNKNOWN，不允许称估算为测得Qwen吞吐。
