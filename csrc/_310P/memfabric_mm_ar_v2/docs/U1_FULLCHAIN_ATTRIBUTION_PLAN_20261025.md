@@ -23,7 +23,7 @@
 - **小M / T1**：`M={1,8,10,16,17,64,255,256}`，固定MM8/Add4。涵盖Decode M10、模板边界16→17及255→256。
 - **大M / D4**：`M={1024,2048,4096}`，Chunk1024、Overlap1。M1024是试验性的过渡形状，必须先正确性PASS；不代表模型Serving已路由此形状到V2。
 - M257～1023在当前固定Chunk1024下不适用，**不许补假数据**。必要时另行独立合法Chunk实验，但不要重复F2大规模Chunk网格。
-- 一个Stock进程覆盖全部同Scope M，一个MemFabric进程覆盖全部同Scope M；**没有同进程HCCL+MemFabric共存**。同一M固定两组交替输入，CPU gloo FP32求和再FP16用于逐次位精确，性能Stock只有原生FP16 F.linear+FP16 HCCL，无FP32计时转换。每个形状单独预热、双Rank逐样本配对，并在同Worker结束时**额外回测首M八个样本**判热态漂移。
+- 一个Stock进程覆盖全部同Scope M，一个MemFabric进程覆盖全部同Scope M；**没有同进程HCCL+MemFabric共存**。Stock同会话还顺带执行独立的原生`F.linear` MM-only Event/Wall测量，每M分别配对输出，不需要重开Stock进程；这只是额外参照路径，**完整Stock减MM-only中位数绝不等于纯HCCL时长**。同一M固定两组交替输入，CPU gloo FP32求和再FP16用于逐次位精确，性能Stock只有原生FP16 F.linear+FP16 HCCL，无FP32计时转换。每个形状单独预热、双Rank逐样本配对，并在同Worker结束时**额外回测首M八个样本**判热态漂移。
 
 ## 2. G0不可跳过的准入与已知坑
 
@@ -44,7 +44,7 @@ python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_u1_matrix_contra
 
 **CPU/abi/部署任一项失败立即NO-GO**，只允许最小测试代码或部署修复、重新审查/回归。U1代码目前尚未获得以上命令在服务器上的PASS证据，禁止直接声称准入已过。
 
-## 3. D0一条命令跑小M和大M（4个新TP2进程，而非各形状单独八轮）
+## 3. D0一条命令：4场独立冒烟 + 4场多M性能扫描，不再逐形状重启八轮
 
 现场填入真实安装路径，不允许复制示例路径直接执行：
 
@@ -60,7 +60,7 @@ export U1_G0_APPROVED=YES U1_EXCLUSIVE_APPROVED=YES U1_RESTORE_PLAN_VERIFIED=YES
 bash csrc/_310P/memfabric_mm_ar_v2/test/perf/u1_campaign.sh /tmp/opencode/u1_campaign_001
 ```
 
-默认先做M10 Stock/T1的2场`smoke`，再做M2048 Stock/D4的2场`smoke`（各3次预热+6次正确性采样，**无性能排名**），四场冒烟全部通过以后，才做小M Stock+T1与大M Stock+D4的4场`screen`。因此完整默认流程合计**8个短TP2会话**，其中4场只是准入冒烟；不能把它说成8场正式ABBA。各会话生成manifest、两个Rank JSON、真实session.log、before/after npu-smi；只有`screen`生成`u1_analysis.json`。`screen`每M3预热+12样本，仅用于快速筛选；任何漏采、非零协议、位精确错误、507014/507899、实际二进制SHA不符或挂死均停止整个活动、保全证据并隔离设备，不自动重试。
+默认先做M10 Stock/T1的2场`smoke`，再做M2048 Stock/D4的2场`smoke`（各3次预热+6次正确性采样，**无性能排名**），四场冒烟全部通过以后，才做小M Stock+T1与大M Stock+D4的4场`screen`。因此完整默认流程合计**8个短TP2会话**，其中4场只是准入冒烟；不能把它说成8场正式ABBA。各会话生成manifest、两个Rank JSON、真实session.log、before/after npu-smi；只有`screen`生成`u1_analysis.json`，并把每个已经完成的M单独写入`sessions/*/partial/m*_rank*.json`；后续新形状挂死也能保留已取得的数据，但`partial`**不能进入整体GO统计**。`screen`每M3预热+12样本，仅用于快速筛选；任何漏采、非零协议、位精确错误、507014/507899、实际二进制SHA不符或挂死均停止整个活动、保全证据并隔离设备，不自动重试。
 
 **U1-Campaign中`U1_DIAG_APPROVED=YES`为可选D1授权**：仅D0完全通过且确认KFC健康/权限后才可打开；否则只生成D0地图。不必为了运行诊断而多次部署版本，若已有D0目录则不可覆盖，应新建独立D1目录手工运行。
 
