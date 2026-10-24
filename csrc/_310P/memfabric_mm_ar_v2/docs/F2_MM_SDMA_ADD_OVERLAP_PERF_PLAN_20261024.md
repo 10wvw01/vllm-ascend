@@ -4,6 +4,9 @@
 > 分支：`perf/310p-f2-mm-sdma-overlap-sweep-20261024`。基线：`perf/310p-v2-d3-add-tile2048-20261023@33e3f2cfc81e`，即已验证的D4 Add Tile2048。  
 > **Stock（MM+HCCL）仍是默认产品路线；不触碰正式Serving分发，不引入C3 CleanLines NO-GO改动，不与F1混合二进制。**
 
+
+> **2026-10-24 实机准入更新（必须先读）**：完整 G0 前置检查、D4设备SO身份、dev6/7物理设备号修复、诊断ABI、CPU测试、超时与失败处理规则以同分支 [F1/F2强制准入与执行规程](./F1_F2_ONDEVICE_PREFLIGHT_GATES_20261024.md) 为准。旧示例卡号、SO路径**不能直接照抄**。本分支截至此提交仅完成源码审视/检查规则审计，GitHub CI 仍排队，**并无310P3现场G0或pytest PASS证据；状态是PRECHECK-GO，性能采样待G0全部PASS才允许开始。**
+
 ## 一、目标和边界
 
 研究在 **310P3单卡双 Die/TP2** 上，如何进一步减少单个 `MM [M,2048]×[2048,2048] + AllReduce` 融合操作的真实完成时长。核心不仅仅是MM、SDMA或Add各自的速度，而是**两 Rank 的最后一个完成点**：哪部分计算、通信等待或规约站在关键路径上。
