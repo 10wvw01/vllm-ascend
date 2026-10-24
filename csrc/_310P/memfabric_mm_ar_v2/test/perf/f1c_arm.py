@@ -20,7 +20,6 @@ import torch.nn.functional as F
 import torch_npu  # noqa: F401
 import vllm_ascend.vllm_ascend_C as extension
 
-from vllm_ascend.utils import maybe_trans_nz
 
 N = K = 2048
 MS = (1, 8, 10, 16, 32)
@@ -81,7 +80,8 @@ def _must(rc, op):
 def _inputs(rank, m, device, cpu_group):
     torch.manual_seed(4242)
     w = torch.randn(N, K, dtype=torch.float16, device=device)
-    w_nz = maybe_trans_nz(w)
+    # T1 小M诊断核的历史合同要求无条件 FRACTAL_NZ，不能受全局开关影响。
+    w_nz = torch_npu.npu_format_cast(w, 29)
     xs, refs = [], []
     for sample in range(2):
         torch.manual_seed(1200 + rank * 17 + m + sample * 1009)
