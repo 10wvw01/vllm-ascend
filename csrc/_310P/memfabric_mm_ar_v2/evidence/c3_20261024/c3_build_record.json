@@ -1,0 +1,52 @@
+{
+  "gate": "C3-1 build & machine-code review (on-site record)",
+  "date_local": "2026-10-24",
+  "branch": "perf/310p-v2-c3-cleanlines-unroll4-20261024",
+  "candidate_head_after_ut_fix": "c2b990c37 (UT sync fix only; kernel = maintainer 3514eb82b)",
+  "baseline_commit": "33e3f2cfc (D4 end-state; kernel.asc byte-identical to D4 candidate 5adbf1810)",
+  "toolchain": {
+    "bisheng": "/usr/local/Ascend/cann-9.1.0/bin/bisheng (--npu-arch=dav-2002, exact build_device_so.sh replication of D4)",
+    "cann": "9.1.0",
+    "mf_device_include": "/usr/local/memfabric_hybrid/1.2.0/include/smem/device"
+  },
+  "cpu_ut": {
+    "before_fix": "43 passed / 1 failed: test_v2_d3_production_add_tile_source.py::test_d3_protocol_and_cache_visibility_unmodified_by_optimization expected the pre-C3 CleanLines call-site spelling",
+    "fix": "commit c2b990c37: updated the D3 source-contract UT to the CleanLinesUnrolled4 call sites; ordering (IterateAll -> own clean -> WaitReady) and call-site counts (1+2) semantics unchanged",
+    "regression": "full v2 UT suite 44/44 PASS after fix"
+  },
+  "builds": {
+    "baseline_diag_on":  {"so": "c3_base_diag_on.so",  "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19", "bytes": 2185952, "note": "byte-identical to D4-1 candidate build (2a19390c) - build determinism and D4 Tile2048 chain-of-custody proven"},
+    "baseline_diag_off": {"so": "c3_base_diag_off.so", "sha256": "805b1a473c547faff2ca11bbd1376035bb6379e71ca8804ad41a3683dc28e1c7", "bytes": 657856,  "note": "identical to D4-1 candidate diag-off"},
+    "candidate_diag_on":  {"so": "c3_cand_diag_on.so",  "sha256": "00b42653be2c7951398929cfa07696914c70215770854a6ab89ec5c5cb735564", "bytes": 2186944, "note": "+992B vs baseline"},
+    "candidate_diag_off": {"so": "c3_cand_diag_off.so", "sha256": "fb6cba1e156545ab5dc47b49c3b11da4bea48d92f4a5c67dbbeaa07658221c0a", "bytes": 658848,  "note": "+992B vs baseline"},
+    "verdict": "PASS (all four variants compile rc=0; diagnostics isolation intact)"
+  },
+  "machine_code_review": {
+    "method": "per-instantiation .text.<V2TrialKernel-template> sections of --save-temps dav-m200 device objects; DCCI opcode signature 0x402c**** calibrated by standalone encoding probes (dcci_probe.asc constant-offset 0/4/8 calls and dcci_probe2.asc runtime-offset 0/4/8 calls: 0-call kernels contain zero 0x402c words; 4-call kernels exactly 4; 8-call exactly 8)",
+    "per_instantiation": {
+      "tiling256":  {"base_bytes": 13216, "cand_bytes": 13312, "base_dcci_static": 33, "cand_dcci_static": 42},
+      "tiling512":  {"base_bytes": 13220, "cand_bytes": 13288, "base_dcci_static": 33, "cand_dcci_static": 42},
+      "tiling1024": {"base_bytes": 13196, "cand_bytes": 13292, "base_dcci_static": 33, "cand_dcci_static": 42}
+    },
+    "clean_site_loop_bodies_tiling1024": [
+      {"site": 1, "base": "08000040 00020101 004002ae 402c1000 4020fffc (1 DCCI/iter, +0x40 stride)", "cand": "08041100 402c2000 08041140 402c2000 08041180 08000100 402c2000 080211c0 0040052e 402c1000 4020fff5 (4 DCCI/iter at +0x00/+0x40/+0x80/+0xc0)"},
+      {"site": 2, "base": "1 DCCI/iter 402c0000", "cand": "080a2100 402c5000 080a2140 402c5000 080a2180 08021100 402c5000 080421c0 0040152e 402c2000 4020fff5"},
+      {"site": 3, "base": "1 DCCI/iter 402c0000", "cand": "080a4100 402c5000 080a4140 402c5000 080a4180 08021100 402c5000 080841c0 004011ae 402c4000 4020fff5"}
+    ],
+    "findings": {
+      "dcci_dynamic_semantics": "PRESERVED: every clean site keeps ascending 64B DCCI order and identical total count (perCore 524288B -> 8192 DCCI per clean in both arms; loops 8192 iters x 1 DCCI -> 2048 iters x 4 DCCI)",
+      "dcci_static_delta": "+9 (3 sites x 3 extra unrolled copies); the other 30 protocol/library DCCI instructions unchanged in count and position",
+      "no_dcci_removed_or_reordered": true,
+      "compiler_not_already_unrolled": "baseline loop bodies contain exactly 1 DCCI per iteration - the D4 Tile2048 compiler output did NOT auto-unroll; C3 produces a genuinely different binary (not the 'identical artifact -> NO-GO' case)",
+      "scalar_loop_control": "per-64B scalar+control instructions drop from 4.0 (08000040 00020101 004002ae + branch 4020fffc) to 1.75 (10-instr body per 256B + 1 branch); dynamic loop iterations /4 per clean site",
+      "branch_class_07_static": "479/479 (tiling256/512) and 486/486 (tiling1024) unchanged",
+      "registers": "clean loop holds 4 live address computations vs 1; no spill instructions introduced in the loop bodies; same register classes as baseline",
+      "icache": "+96B per instantiation (~0.7%); clean loop body grows 5->11 words but iterates 4x fewer times"
+    },
+    "verdict": "PASS - cache maintenance contract intact at machine-code level; real code-shape difference exists (loop unroll is NOT already done by the compiler)"
+  },
+  "abba_arm_identity": {
+    "base": "c3_base_diag_on.so 2a19390c == D4 Tile2048 candidate (fresh rebuild, byte-identical)",
+    "cand": "c3_cand_diag_on.so 00b42653"
+  }
+}
