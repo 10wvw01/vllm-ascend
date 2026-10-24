@@ -144,3 +144,21 @@ def test_missing_session_cannot_report_a_win(tmp_path):
     (d / "08_m10_stock_fp16/08_m10_stock_fp16_rank1.json").unlink()
     with pytest.raises(ValueError, match="JSON"):
         M["analyze"](d, 10)
+
+def test_manifest_wrong_binary_and_2ms_tail_cannot_be_operator_go(tmp_path):
+    d = fixture(tmp_path)
+    manifest = tmp_path / "manifest.txt"
+    contents = manifest.read_text()
+    manifest.write_text(contents.replace(M["D4_DEVICE"], "0" * 64))
+    with pytest.raises(ValueError, match="manifest"):
+        M["analyze"](d, 10)
+    manifest.write_text(contents)
+    slow = d / "02_m10_memfabric_t1/02_m10_memfabric_t1_rank0.json"
+    item = json.loads(slow.read_text())
+    item["samples"][0]["event_us"] = 2300.0
+    item["samples"][0]["wall_us"] = 2400.0
+    slow.write_text(json.dumps(item))
+    result = M["analyze"](d, 10)
+    assert result["sessions"][1]["samples_ge_2ms"] == 1
+    # No audit => never GO, independent of impressive median.
+    assert result["verdict"].startswith("PROVISIONAL_ONLY")
