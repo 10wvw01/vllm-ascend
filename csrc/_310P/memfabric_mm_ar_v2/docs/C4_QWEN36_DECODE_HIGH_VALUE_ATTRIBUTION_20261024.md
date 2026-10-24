@@ -21,11 +21,23 @@ SEL-01 实测成功会话 Stock 4/4，中位45.98输出tok/s；V2 Tile2048 4/5�
 | ID | 对应模型与310P代码 | Decode时怎样工作（大白话） | 具体技术风险/机会 | 先查哪项证据 |
 |---|---|---|---|---|
 | **C4-01 / MoE** | `vllm_ascend/_310p/fused_moe/{token_dispatcher.py,moe_mlp.py,moe_comm_method.py}` | 每层把Token分给专家，再跑两次W8A8 Grouped MatMul、SwiGLU和反向合并；40层都会碰 | `npu_moe_init_routing_v2`后把expert_tokens转int64；量化GMM走两次，专用x_scale优化仅覆盖gate/up形状`(640,2048)`和down形状`(640,256)`；batch10的真实激活行数**须实测**，不能推断一定命中640特化；是否不必要的调度/重复量化/数据转换还未知 | MoE调度、GMM1/GMM2、路由/合并的事件次数和占比；记录实际input/group_list/weight布局与是否进入量化特化 |
-| **C4-02 / 30层GDN** | `vllm_ascend/_310p/ops/fla/gdn_310.py` | Decode一层先做`npu_causal_conv1d_310`，再计算门控，更新`npu_recurrent_gated_delta_rule_310`状态；每Token涉及30层 | 层内可能有多次小算子、临时Tensor、状态读写；可能受Kernel Launch与状态搬运主导；不能凭源码断定是哪一项 | 30层每步`CausalConv/GDN Gating/Recurrent`核次数、各自在trace中的排序、等待间隙、状态相关内存转换 |
+| **C4-02 / 30层GDN（重点C5候选）** | `vllm_ascend/_310p/ops/fla/{gdn_310.py,fused_gdn_gating.py}` | 每层Decode有 `npu_causal_conv1d_310`、GDN门控与 `npu_recurrent_gated_delta_rule_310`；**实际门控 `fused_gdn_gating_pytorch` 是 PyTorch 降级路径** | 此PyTorch函数保留FP32算术（`a+dt_bias`、`exp`、`log1p`、`where`、`sigmoid`等）且30层反复调用，可能带来多次小Kernel Launch；**尚未证明它比MoE/通信更耗时**。可选真正融合的AscendC GDN gating，前提是精确保留softplus threshold和状态数值合同 | 不光统计Recurrent/Conv，还要从 `operator_details.csv` 和 `trace_view.json` 识别GDN gating函数对应的Pointwise小算子链；必要时用单独诊断分支标记函数范围，不能强行将所有`Exp/Where`都归给GDN |
 | **C4-03 / TP2通信** | `vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py`及MoE通信实现 | Decode无法命中V2大M融合；在需要跨Rank合并时走原生`tensor_model_parallel_all_reduce`与MoE集合通信 | 可能存在很多小报文通信、同步及Kernel边界，但**每步实际通信次数还没从Trace确认**，不得凭40层推断有40或80次HCCL | `HCCL AllReduce/AllGather`真实次数、每步等待、前后Kernel的跨流关系；首选Stock，不触碰MemFabric实验协议 |
 | **C4-04 / 10层Full Attention** | `vllm_ascend/_310p/attention/attention_v1.py` | Decode走`_npu_paged_attention`，随着上下文由4096延伸到6144，反复读KV Cache | 可能被带宽、BlockTable读取和动态增长长度拖慢；不同输出阶段开销可能不同 | 在输出早/中/后段同batch10下对比PA延迟和访存、KV长度、BlockTable |
 | **C4-05 / W8A8与非MoE线性** | `vllm_ascend/_310p/quantization/methods/w8a8_static.py`和量化GMM | 线性层非int8输入需要`vllm.quantize`，然后调用`npu_quant_matmul`；MoE另走per-token动态量化 | Decode小M算子启动/量化成本可能显著；仅排查真实存在的重复量化与layout转换，不凭源码估收益 | `quantize / npu_quant_matmul / format_cast`次数、形状、缓存预处理 |
 | **C4-06 / Host/采样/调度** | `vllm_ascend/_310p/model_runner_310p.py`与vLLM Engine/采样 | 每Token需要准备元数据、提交设备任务、执行采样，CPU与设备可能互相等 | Async Scheduling已启用；实际Host空档、Python算子提交次数和H2D同步是否主导待验 | Profiler`step_trace_time.csv`与`trace_view.json`上连续Decode步CPU提交间隙，对比整步时间而非简单求和 |
+
+### 2.1 特别值得立项测量的三种机会（尚未确认收益）
+
+**机会一：GDN门控真融合（优先审查）**。`fused_gdn_gating_pytorch` 的名字虽然有“fused”，但源代码逐次调用多个 PyTorch 点算子，**没有合并成一个设备Kernel**。在30个GDN层的Decode下，这可能体现为大量短Kernel及Host下发。下一步先统计这些调用相对每步Decode关键路径的时间，不能因其名字叫fused就当已融合，也不能把通用Exp/Where全归类为GDN。
+
+**机会二：MoE量化GMM的小M版本**。当前两处W8A8 grouped_matmul每层都可能执行；仅特定(640,2048)/(640,256)规格有现成的x_scale特化。C4需要以设备真实tensor形状确定batch10是否落入优化条件，**不得直接把专用shape guard扩大到80行**，否则会破坏数值安全性。
+
+**机会三：TP2原生小报文集合通信**。如果在每Token步的时间线上确实有较长HCCL关键路径，再查它是否被上游MM/GMM和下游算子串行放大。通信优化必须先基于Stock的合法接口与缓存语义，不复用已知有P0的V1 Decode方案。
+
+### 2.2 到底需要省多少，才算5%模型收益？
+
+按SEL-01成功会话约46输出tok/s，假设稳态10个请求始终同一步解码：平均产生10个Token对应的**服务吞吐预算约10/46≈217ms**。要让真实输出吞吐增长5%，需要每步平均耗时从217ms降到约207ms，即**约10ms/步**（在这个简化的满batch假设下）。这只是选优化点的量级估算：请求尾段batch可能下降、有异步重叠，不是设备Profiler已经测出的217ms纯Decode时长。因此微小Prefill局部优化并不容易在该长输出配置中兑现整模型5%。
 
 **C3的位置**：其目标是V2的Prefill`CleanLines`循环控制，虽保持DCCI语义但不会直接优化Decode。鉴于SEL-01规模，本轮先做C4成本排序。C3保留独立候选，不在任何主线Profiler或Stock基线里装载。
 
@@ -37,12 +49,14 @@ SEL-01 实测成功会话 Stock 4/4，中位45.98输出tok/s；V2 Tile2048 4/5�
 - 任何“候选X贡献了20%时间”都要标清是**Kernel工作量占比**还是**经实验隔离得到的关键路径贡献**。
 - 三个窗口：刚结束Prefill的早段Decode、输出约1K的中段、接近输出2K的后段，至少确认每段的上下文长度与运行批次，样本被混合Prefill污染则整段作废。
 
+> **分类器边界**：`c4_decode_kernel_cost.py` 对直接具名的GMM、卷积、循环GDN、HCCL、PA能够分类，但当前PyTorch fallback门控被拆成通用`Exp/Where/Log1p/Sigmoid/Add`，其Kernel名称本身不能证明所属的模型层。必须用Profiler的CPU调用栈/Timeline或显式诊断标记关联，**不能把全模型所有点算子直接相加声称是GDN**。
+
 ## 4. D0：不改正式模型的低风险取证（OpenCode现场执行）
 
 **正式压测口径永远不变：input4096/output2048/TP2/batch10/Eager；Profiler是独立的短窗口诊断，不用于速度排名。**
 
 1. 独占同一对310P3设备，锁仓库SHA、模型config SHA256、W8A8权重身份、CANN版本、实际Host/plugin/SO/KVER11哈希与物理设备映射。**Stock作为第一研究对象**：关闭V1/V2 MemFabric路由，继续禁用Graph和DFlash。
-2. 使用原SEL-01服务和`vllm bench serve`负载参数（50请求、固定seed、输入4096/输出2048、--max-concurrency10、`--max-num-seqs10`），但**诊断场**在`vllm serve`追加：
+2. **先在310P3现有版本执行 `vllm serve --help` 检查是否支持 `--profiler-config`**；如不支持，不得擅自升级测试分支造成版本漂移，需改用当前CANN支持的取证方式并记录。使用原SEL-01服务和`vllm bench serve`负载参数（50请求、固定seed、输入4096/输出2048、--max-concurrency10、`--max-num-seqs10`），但**诊断场**在`vllm serve`追加：
 ```bash
 --profiler-config '{"profiler":"torch","torch_profiler_dir":"/tmp/310p_c4_profile","torch_profiler_with_stack":false}'
 ```
