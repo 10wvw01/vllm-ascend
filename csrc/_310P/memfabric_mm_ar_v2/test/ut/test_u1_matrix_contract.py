@@ -85,7 +85,7 @@ def test_scope_no_unverified_geometry_and_rotate():
     for scope in sp.SHAPES:
         for phase in sp.ITERS:
             p = sp.plan(scope, phase)
-            assert len(p) == (2 if phase == "screen" else 8)
+            assert len(p) == (2 if phase in ("smoke", "screen") else 8)
             for item in p:
                 if phase == "smoke":
                     assert item["M_order"] == ((10,) if scope == "small" else (2048,))
