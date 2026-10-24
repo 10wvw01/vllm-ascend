@@ -15,14 +15,14 @@
 <rect x="492" y="216" width="415" height="170" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
 <text x="512" y="250" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">V1：MM + MemFabric</text>
 <text x="512" y="283" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">单层测试表现不错</text>
-<text x="512" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">缺同配置的真实 vLLM Eager 数据</text>
+<text x="512" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">长输出3次挂死，暂无有效性能</text>
 <rect x="945" y="216" width="415" height="170" rx="14" fill="#FFF8E5" stroke="#E5BD69" stroke-width="2"/>
 <text x="965" y="250" fill="#9E6B0B" font-size="22" font-weight="700" text-anchor="start">V2：MM + 通信 + Add</text>
 <text x="965" y="283" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">目标层能跑通；交叠确实有收益</text>
 <text x="965" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">但真实业务没赢 Stock，Gate E 会挂</text>
 <path d="M700 391 L700 425" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
 <rect x="130" y="438" width="1140" height="67" rx="14" fill="#EBF4FD" stroke="#1A5EA8" stroke-width="2"/>
-<text x="700" y="480" fill="#133858" font-size="23" font-weight="700" text-anchor="middle">先决策 SEL-01：Stock / V1 / V2 用同配置 Eager 压测，才能决定主优化对象</text>
+<text x="700" y="480" fill="#133858" font-size="23" font-weight="700" text-anchor="middle">SEL-01已执行：Stock默认，V1被Decode挂死阻塞，V2未达标</text>
 <path d="M700 508 L700 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
 <path d="M700 535 L359 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
 <path d="M700 535 L1041 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
