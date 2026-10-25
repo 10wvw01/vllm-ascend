@@ -34,3 +34,7 @@
 2. 在所有路径完整后，完成**第二轮独立静审**与真实`r2_static_admission.py --check`，再出具STATIC-GO并请用户委托OpenCode G0。此时仍不得宣称实机PASS或改动服务器SO。
 
 **ROUND-1 verdict：NO-GO。**
+
+## 第一轮静审补遗：新增四条构造/采样必经路径（2026-10-25）
+
+复读冻结上游GPUModelRunner`__init__`、`load_model`、`sample_tokens`发现此前8项P0报告遗漏了**T26～T29**四条独立CUDA/UVA路径：Sampler内五种嵌套状态、StructuredOutputsWorker CUDA Stream、DraftTokensHandler CUDA Stream/Event、AsyncOutput CUDA Event/set_stream。它们已在R2候选代码中用私有构造clone或专属类替换，且有CPU合同；但未通过310P3设备算子/流验证及第二轮独立静审。R2-A仍NO-GO，必须将四项单独纳入正式门禁，不能因T13概括性条目而漏审。

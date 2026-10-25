@@ -33,6 +33,11 @@
 | T24 | `worker/v2/structured_outputs.py:_apply_grammar_bitmask_kernel` | 结构化输出条件可达；本期是否禁用须可执行证明 | 若不可达提供双审证明，否则非Triton grammar mask实现 | UNVERIFIED |
 | T25 | 冻结`GPUModelRunner.sample_tokens`对`req_states.draft_tokens[idx_mapping] = draft_tokens`的K7短宽写 | DFlash K7每次提案 **必经**，非Triton但310P写粒度风险 | 32B padded 8-token整行更新/无跨请求覆盖及in-flight ownership；禁止直接7×int64窄视图scatter | BLOCKED |
 
+| T26 | 冻结`Sampler.__init__`→五个`SamplingStates/PenaltiesState/LogitBiasState/BadWordsState/LogprobTokenIdsState`嵌套UVA/StagedWrite | **load_model每次必经**；替换RequestState不能覆盖 | 专属`NPUSampler310V2`局部克隆全部五类状态构造器，注入NPU-backed/StagedWrite；设备状态和生命周期待双审 | BLOCKED |
+| T27 | 冻结`GPUModelRunner.load_model`→`StructuredOutputsWorker.__init__`→`torch.cuda.Stream()` | **load_model必经**，即使无grammar | 专属`NPUStructuredOutputsWorker310V2`不分配CUDA，grammar显式拒绝；运行时路径/设备待双审 | BLOCKED |
+| T28 | 冻结`GPUModelRunner.__init__`→`DraftTokensHandler.__init__`→`torch.cuda.Stream/Event` | **Runner构造必经**；私有`torch`代理不影响该类自身模块globals | 专属`NPUDraftTokensHandler310V2`，保留无grammar全-1 DraftTokenIds回退；设备/异步边界待双审 | BLOCKED |
+| T29 | 冻结`GPUModelRunner.sample_tokens`→`AsyncOutput.__init__`→`torch.cuda.Event/set_stream` | **每次生成token必经**；即使main_stream已改NPU | 专属`NPUAsyncOutput310V2`同步D2H快照、K7按count裁剪；无性能重叠承诺，需设备/调度/stream审查 | BLOCKED |
+
 
 ## 实施准则（严禁投机捷径）
 

@@ -122,3 +122,8 @@
 
 - 冻结上游0.27.1+我方`patch_v2/patch_triton.py`再审发现T17～T24的Ascend V2 Triton采样/拒绝/grammar/logprob实际入口，及T25 K7 Draft行短宽写。**强制静态门禁由31扩为40项**；参见`V2_TRITON_REPLACEMENT_MATRIX.md`，不得只补T01～T16就解除Worker阻断。
 - 新增`R2_STATIC_REVIEW.md`：当前只完成作者第一轮风险审查（NO-GO），第二轮独立审查NOT_RUN。新增`R2_ONDEVICE_HANDOFF_RUNBOOK.md`只规定未来GO后的G0/SO指纹/双Rank独占/回滚；当前禁止委托实机。
+
+### R2-A新发现T26～T29（2026-10-25，扩展准入范围）
+
+- 真实`GPUModelRunner`构造/模型加载/每次采样仍有四条未被早期25T枚举的CUDA/UVA必经路径：Sampler嵌套UVA（T26）、StructuredOutputsWorker CUDA Stream（T27）、DraftTokensHandler CUDA Stream/Event（T28）、AsyncOutput CUDA Event/set_stream（T29）。专属Eager候选已补代码和CPU测试，**设备/流/模型正确性及双轮静审均未PASS**。
+- 正式门禁扩展为**29T+15ABI=44节点**；旧31/40仅历史口径，当前**STATIC-NO-GO 0/44**。未完成T26～T29、T13完整继承路径及所有P0前，不允许注册V2 Worker或委托设备执行。

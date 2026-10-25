@@ -17,10 +17,12 @@ class TestR2StaticAdmission(unittest.TestCase):
     def test_current_branch_remains_no_go(self):
         result = gate.audit(ROOT)
         self.assertEqual(result["verdict"], "STATIC-NO-GO")
-        self.assertEqual(result["total"], 40)
+        self.assertEqual(result["total"], 44)
         self.assertEqual(result["checks"]["T01"]["verdict"], "NO-GO")
         self.assertEqual(result["checks"]["ABI-15"]["verdict"], "NO-GO")
         self.assertEqual(result["checks"]["T16"]["matrix"], "BLOCKED")
+        for key in ("T26", "T27", "T28", "T29"):
+            self.assertEqual(result["checks"][key]["verdict"], "NO-GO")
 
     def test_discovered_extra_kernel_id_blocks_static_go(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -28,7 +30,7 @@ class TestR2StaticAdmission(unittest.TestCase):
             docs = root / gate.DOCS
             docs.mkdir(parents=True)
             (docs / "V2_TRITON_REPLACEMENT_MATRIX.md").write_text(
-                "| T26 | discovered kernel | reachable | BLOCKED |\n"
+                "| T30 | discovered kernel | reachable | BLOCKED |\n"
             )
             (docs / "V2_API_ABI_MATRIX.md").write_text("")
             (docs / "R2_STATIC_ADMISSION_EVIDENCE.json").write_text(
@@ -83,7 +85,7 @@ class TestR2StaticAdmission(unittest.TestCase):
             }))
             result = gate.audit(root)
             self.assertEqual(result["verdict"], "STATIC-CHECKS-COMPLETE")
-            self.assertEqual(result["ready"], 40)
+            self.assertEqual(result["ready"], 44)
             # This is NOT a real static review or a device GO; only
             # checks the parser's necessary-condition mechanics.
 

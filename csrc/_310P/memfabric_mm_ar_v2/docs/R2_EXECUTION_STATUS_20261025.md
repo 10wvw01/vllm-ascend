@@ -231,3 +231,8 @@
 - 冻结`vllm/v1/worker/gpu/async_utils.py:AsyncOutput.__init__`直接调用其模块级`torch.cuda.Event(blocking=True)`、`torch.cuda.set_stream`，不会被Runner构造的NPU代理覆盖。此前复制的`sample_tokens`即使`main_stream`修为NPU，仍在每次采样时必经CUDA。
 - 新增`_310p/v2/async_output.py:NPUAsyncOutput310V2`，专属`model_runner.py`通过同名`AsyncOutput`局部导入绑定：在`postprocess_sampled`修改持久Buffer之前用**阻塞D2H**取得CPU独立快照，按实际K7接受计数裁剪输出；无CUDA Event/Stream、无异步overlap承诺，grammar/logprobs/EP fault显式拒绝。Torch CPU覆盖多请求/部分接受/请求buffer复用和异常。
 - 后续仍需310P3 D2H同流排序与设备API支持、AsyncOutput调度所有权、NPU异常传播、真实TP2/多KV验证；这是构造/运行时P0修复候选，不等于设备准入。Worker NOT_IMPLEMENTED、R2-A STATIC NO-GO、40节点0 READY不变。
+
+### T26～T29四项新发现的必经CUDA/UVA路径正式纳入准入门禁（2026-10-25）
+
+- 实际深审发现`Sampler`嵌套五个UVA状态构造器（T26）、`StructuredOutputsWorker`构造CUDA Stream（T27）、`DraftTokensHandler`构造CUDA Stream/Event（T28）、`AsyncOutput`每次采样构造CUDA Event/切换CUDA Stream（T29）。这四条不属于之前T01～T25的显式矩阵节点，虽可归入T13总风险，但不得仅靠T13一个证据笼统关闭。
+- `V2_TRITON_REPLACEMENT_MATRIX.md`补T26～T29；`r2_static_admission.py`的强制清单从**25T+15ABI=40**扩展为**29T+15ABI=44**；测试中未知新增ID由T26更新为T30。T26～T29目前均有局部Eager/无CUDA候选接线及CPU合同，**全部仍BLOCKED**，未有310P3算子/双轮静审证据，门禁 **0/44 STATIC NO-GO / ONDEVICE NOT_RUN**。旧40节点CI是历史口径，不得复用。
