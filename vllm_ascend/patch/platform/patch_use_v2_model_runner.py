@@ -21,8 +21,17 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _patched_use_v2_model_runner(self) -> bool:
-    """Keep existing Ascend policy: explicit VLLM_USE_V2_MODEL_RUNNER only."""
+    """Require explicit V2 selection when the 310P3 Triton waiver is opted in."""
     use_v2 = envs.VLLM_USE_V2_MODEL_RUNNER
+    if (
+        os.environ.get(_FLAG) == "1"
+        and is_310p()
+        and use_v2 is not True
+    ):
+        raise RuntimeError(
+            f"{_FLAG}=1 requires VLLM_USE_V2_MODEL_RUNNER=1; "
+            "refusing to silently use the V1 runner"
+        )
     if use_v2 is not None:
         return use_v2
     return False

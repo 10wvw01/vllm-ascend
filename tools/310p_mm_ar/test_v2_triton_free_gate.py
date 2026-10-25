@@ -97,8 +97,19 @@ class Gate310PTests(unittest.TestCase):
         _, cfg, envs = _load_gate()
         for forced in (None, False):
             envs.VLLM_USE_V2_MODEL_RUNNER = forced
-            with self.assertRaisesRegex(RuntimeError, "requires VLLM_USE_V2"):
-                cfg()._validate_v2_model_runner()
+            with self.subTest(forced=forced):
+                with self.assertRaisesRegex(RuntimeError, "requires VLLM_USE_V2"):
+                    cfg().use_v2_model_runner
+                with self.assertRaisesRegex(RuntimeError, "requires VLLM_USE_V2"):
+                    cfg()._validate_v2_model_runner()
+
+    def test_flag_off_preserves_explicit_v1_default(self):
+        _, cfg, envs = _load_gate()
+        os.environ.pop(OPT_IN, None)
+        envs.VLLM_USE_V2_MODEL_RUNNER = None
+        self.assertIs(cfg().use_v2_model_runner, False)
+        envs.VLLM_USE_V2_MODEL_RUNNER = False
+        self.assertIs(cfg().use_v2_model_runner, False)
 
     def test_version_guard(self):
         namespace, cfg, _ = _load_gate()

@@ -168,3 +168,6 @@
 - 本次落地**仅一项条件豁免**：平台patch在`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`、`VLLM_USE_V2_MODEL_RUNNER=1`、真实310P3、vLLM 0.27.1、TP2、Eager(cudagraph_mode=NONE)、无投机或DFlash时，跳过上游 `_validate_v2_model_runner` 中的Triton存在性检查，保留其它上游unsupported_features/reasoning检查。没有设置开关时，完整调用原上游验证。绝不写`HAS_TRITON=True`，不替换依赖、不启用Graph。
 - **安全关键**：`NPUWorker310.init_device`对V2标志增加显式`NOT_IMPLEMENTED`拦截，保证验证豁免后不会被旧310P Worker静默路由到V1，也不会误将通用GPU V2 Triton Kernel上机运行。故本次是**CONFIG-GATE-ONLY**，**不是**Stock+DFlash服务GO或310P3实机GO。
 - 下一阶段另起短期工作分支：实现并审阅310P V2专用Worker/ModelRunner，完成真实vLLM 0.27.1的DFlash Speculator set_attn ABI、input_batch/状态更新Triton替代、多KV Group/Attention、W8A8+GDN+TP2契约，以及两轮静态审查与CPU测试后，才可申请受控NPU Eager。
+
+### V2豁免二轮复审补充
+- 单独设置`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`而未强制`VLLM_USE_V2_MODEL_RUNNER=1`，此前会由env-only属性继续选V1，存在“绕过成功但实为V1”的污染可能；已调整属性为明确抛错（仅310P并仅豁免开关打开时），并对flag-off的旧V1默认/显式False做回归。
