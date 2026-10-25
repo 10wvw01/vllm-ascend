@@ -52,3 +52,10 @@
 - **T14 新发现并修正候选 P0**：原`NPUStagedWriteTensor.apply_write`在H2D前提交并清空CPU写计划；若中途失败会丢失写记录并留下半提交KV。现使用暂存提案→设备复制→CPU commit，任何设备异常标记poisoned并禁止继续；多组Fused串行任一组失败将全部组poisoned，要求Runner销毁受影响状态。**并非跨组原子提交**，R2-A仍NO-GO。
 - **T15/T16 RequestState复用修复候选**：新增请求时先stage全行零化再stage新token前缀；对重用slot清除`next_prefill_tokens`；有未提交token行时拒绝释放。仍缺in-flight请求所有权、stream/event barrier、GPU设备采样写和CPU mirror协议；设备侧`index_fill_`待支持性核验，不能标READY。
 - **CPU验证升级**：新增独立`r2-torch-cpu-contracts` CI job（PR专用，Python3.12/torch2.10.0 CPU），与不安装torch的轻量治理job区分。运行结果必须按实际head SHA报告；Torch测试若Skip/失败不能宣称完成CPU门槛。以上全部**未接入真实NPU Runner**。
+
+
+### T02/T04 非Triton Eager候选（2026-10-25；UNWIRED，非READY）
+
+- 新增`_310p/v2/input_ops.py`，提供与固定上游0.27.1同名同参数的`prepare_pos_seq_lens`（T02）和`expand_idx_mapping`（T04）CPU Torch可运行候选；采用设备端`searchsorted/index_select/where`，位置先以int32计算再cast int64，避免直接依赖310P int64 Add；不用`.item()/tolist()`强制host同步，不调用Triton。
+- 新增`input_gold.py`和`test_v2_input_ops.py`，覆盖混合Prefill/Decode、K7 8 logits、padding、空batch、错误累计长度/容量和dtype；不安装torch的轻量CI仍执行gold，独立CPU Torch CI执行实际Tensor函数。
+- **不能升级T02/T04状态**：现有`worker/v2/model_runner.py`仍直接从上游`gpu.input_batch`导入Triton函数，候选尚未路由；310P3`searchsorted/index_select`设备算子与非阻塞stream可见性未验证；`cu_num_logits/query_start_loc`动态GPU内容一致性尚未实现不引发host同步的运行时强校验。T01/T03/T07～09/T11/T13及真实Runner仍阻断。
