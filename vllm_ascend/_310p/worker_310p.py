@@ -31,6 +31,18 @@ from vllm_ascend.worker.worker import NPUWorker, init_workspace_manager
 
 class NPUWorker310(NPUWorker):
     def init_device(self):
+        # The V2 config gate can be selectively waived on Triton-less 310P,
+        # but this worker still implements the V1-derived NPUModelRunner310.
+        # Never silently execute V1 while reporting V2 as enabled, nor
+        # instantiate unported GPU V2 Triton kernels on real NPUs.
+        if self.vllm_config.use_v2_model_runner:
+            raise RuntimeError(
+                "310P3 V2 config validation bypass succeeded, but "
+                "Triton-free V2 NPUWorker/ModelRunner is NOT_IMPLEMENTED. "
+                "Missing audited V2 input preparation, post_update, DFlash "
+                "speculator ABI and multi-KV-group runtime integration. "
+                "Failing BEFORE device initialization; Stock V1 untouched."
+            )
         self.device = self._init_device()
         torch_npu.npu.set_compile_mode(jit_compile=False)
 

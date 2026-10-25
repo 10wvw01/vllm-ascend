@@ -60,9 +60,16 @@
 - 不更新通用`requirements.txt`的过时引脚来强制所有架构升级，也不执行设备安装/改SO；另立打包元数据债务，待确认部署矩阵再改。
 - 只有现场重G0、Stock/V2 Eager及双Rank真实Kernel证据分别通过，才允许后续Graph诊断；对外部HaonanWu1仓库保持只读。
 
+## ADR-011｜310P3 V2 Triton验证条件豁免｜2026-10-25｜有效
+
+- 决策：按所有者指示优先走310P3 V2 Model Runner，停止V1多KV组扩展；在自有仓库实现**310P3+vLLM0.27.1+TP2+Eager+显式双开关**条件下仅豁免上游V2 Triton存在性检测，不修改vLLM源码、全局HAS_TRITON、非Triton V2其它校验、现有Stock生产默认。
+- 触发：R1-B现场G0 PASS、Stock+DFlash混合Draft门禁FAIL和`VLLM_USE_V2_MODEL_RUNNER=1`时`Model Runner V2 requires Triton`证据；并非设备推理已成功。
+- 安全：本轮Worker仍是V1派生，V2选择必须在触碰设备前显式`NOT_IMPLEMENTED`，防止V1伪命中；**CONFIG-GATE-ONLY**。后续按V2 Worker/Triton替代/API多KV组分阶段推进、静审后上机。Graph和MemFabric仍独立门禁。
+- 验证：CPU-only参数作用域、旧逻辑回退、版本漂移、Graph、TP、非DFlash Spec限制及fail-closed行为单测，CI报告不等于NPU PASS。
+
 ## 后续决策的写入模板
 
-`ADR-010｜YYYY-MM-DD｜有效/被替代`
+`ADR-012｜YYYY-MM-DD｜有效/被替代`
 
 - 决策：
 - 触发证据（SHA、报告、原始JSON或现场路径）：

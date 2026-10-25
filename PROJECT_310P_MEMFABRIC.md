@@ -31,7 +31,7 @@
 | 小 M（M=10） | F1-C：T1 425.2µs vs 原生 Stock 308.2µs，T1 等效速率约 −27.5%；NO-GO |
 | F2 Chunk 缩小 | 256、512 均不优于1024；保留 D4 Chunk1024 / Overlap1 |
 | MemFabric 长稳与 Graph | 507014 Gate E 尚未根治；Graph 不能仅依据输出正确就宣称真正命中融合 |
-| R1 DFlash K7 | 现场初轮只读G0 NO-GO，Stock/V2 Eager/Graph全部NOT_RUN；新诊断门禁与服务器v0.27.1对齐，实机前须重新G0与SO隔离确认 |
+| R1 DFlash K7 | R1-B现场G0 PASS、Stock Eager Draft混合注意力门禁FAIL，V2/Graph NOT_RUN；310P专属V2 Triton验证已研发性豁免，但V2 Worker未移植，仍非实机GO |
 | U1 统一诊断工具 | 已纳入 GitHub 纯CPU源码/合成数据合同回归；**U1真实设备运行仍NOT_RUN**，不是研发主目标 |
 | 统一主线 | **本分支**；已有[专用CI](https://github.com/10wvw01/vllm-ascend/actions/runs/40126962427)：治理6/6 + V2源码合同54/54 PASS；正式Kernel未因治理改变 |
 
