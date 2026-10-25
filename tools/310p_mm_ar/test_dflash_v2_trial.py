@@ -227,9 +227,9 @@ class K7TrialContract(unittest.TestCase):
             report = {"python": sys.executable, "package_roots": {
                 "vllm_ascend":str(fake_root), "vllm":"/fake/vllm"},
                 "versions":wanted}
-            with patch("importlib.metadata.version", side_effect=lambda k:wanted[k]), \\
-                 patch("importlib.util.find_spec",return_value=SimpleNamespace(
-                     submodule_search_locations=["/fake/vllm"])):
+            with (patch("importlib.metadata.version", side_effect=lambda k:wanted[k]),
+                  patch("importlib.util.find_spec",return_value=SimpleNamespace(
+                      submodule_search_locations=["/fake/vllm"]))):
                 trial.validate_runtime_identity(report, fake_root, str(script))
                 report["versions"]["transformers"] = "5.13.0"
                 with self.assertRaisesRegex(RuntimeError,"distribution changed"):
