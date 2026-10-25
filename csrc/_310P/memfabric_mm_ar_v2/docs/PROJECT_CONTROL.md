@@ -160,3 +160,11 @@
 
 - 审查除G0诊断本身以外的启动边界：旧报告可能来自另一安装、另一Python或同名editable代码。Trial新增 `validate_runtime_identity` 校验预检报告Python执行器、真实vllm CLI脚本shebang、vllm/vllm_ascend真实根目录、四个关键分发版本与当前状态完全一致；CI用合成目录/假包元数据测试不一致时FAIL。不得据此声称实际服务已加载。
 - 审查确认：对V2的build artifact校验仅检查当前隔离worktree里文件是否存在，**不验证设备已经正确装载、Host/Device ABI及SO哈希**；这些仍是OpenCode现场G0人工门禁，不允许用“存在文件”替代签名/运行期映射证据。
+
+## 12. R1-B实机：G0全PASS，Stock+DFlash Eager smoke NO-GO，草稿架构门禁根因闭环（2026-10-25）
+
+- **执行**：主线 `3ad10c0a`、隔离worktree `/home/w00804146/310P/vllm-ascend-r1b`、任务分支 `work/310p-r1b-stock-eager-smoke-nogo-20261025`；完整证据见 [R1B现场NO-GO报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md) 与 `evidence/r1b_20261025/`。
+- **G0全项PASS（本轮全部新采，未借用上轮快照）**：9个worktree全clean快照；Python3.12.13/vllm 0.27.1@6e448d0/CLI shebang身份；设备6/7（NPU43520同卡双Die）独占；HCCL双进程探针本轮重跑PASS；SO/KVER11 SHA256与核准基线逐字节一致；8000/8581/4077空闲；CPU合同33/33+54/54；preflight+import-smoke `static_go=true`、blockers=[]、0条unexpected pip。
+- **R1-1 Stock+DFlash Eager smoke FAIL/NO-GO**：目标模型双Rank完整加载后，草稿模型构造期被上游 `qwen3_dflash.py:123` 拒绝——**草稿 `Qwen3.6-35B-A3B-DFlash` 为混合滑窗/全注意力（sliding×5+full×1），上游要求该形态必须vLLM V2 model runner（多KV组）**。插件 `patch_use_v2_model_runner`（PR #11389）按310P策略只认环境变量；显式 `VLLM_USE_V2_MODEL_RUNNER=1` 又被上游 `_validate_v2_model_runner` 实测硬拒（`ValueError: Model Runner V2 requires Triton.`），而310P无功能性Triton（插件注释：bishengir-compile在Ascend310P3失败）。**历史“Stock+DFlash启动失败、疑似缺依赖”根因自此从UNKNOWN闭环为上游草稿架构门禁，非缺包、非我方集成缺陷、非设备问题。**
+- **R1-2/R1-3/R1-4/R1-5/R1-6全部NOT_RUN**（前置smoke未过，按合同阻断）；V2 SO隔离编译无必要执行；无任何性能/接受率/physical M数据。未触发507014/507899/数值/挂死/二进制不一致止损条件；现场已恢复并复核（设备6/7空闲、端口空闲、无残留进程）。
+- **待所有者裁决（报告§5）**：A 换全full-attention草稿模型（偏离冻结口径，需用户指定）；B 给上游写V1多KV组补丁（上游有意拒绝）；C 310P启用V2 runner路线（需绕Triton校验且全路径未验证，属新研发）；D 接受NO-GO归档，主线回大M/小M非投机目标。**在裁决前，DFlash投机四象限不再消耗实机轮次。**

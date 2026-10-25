@@ -60,6 +60,14 @@
 - 不更新通用`requirements.txt`的过时引脚来强制所有架构升级，也不执行设备安装/改SO；另立打包元数据债务，待确认部署矩阵再改。
 - 只有现场重G0、Stock/V2 Eager及双Rank真实Kernel证据分别通过，才允许后续Graph诊断；对外部HaonanWu1仓库保持只读。
 
+## ADR-010｜R1-B实机NO-GO：DFlash混合注意力草稿与310P运行时互斥｜2026-10-25｜有效
+
+- 决策：R1-B按合同执行至R1-1 Stock+DFlash Eager smoke即停（FAIL/NO-GO）；R1-2～R1-6全部NOT_RUN；DFlash投机四象限暂停实机轮次，待所有者从报告§5四选项（换草稿模型/上游V1多KV组补丁/310P V2 runner新研发/接受归档）裁决后再动。
+- 触发证据（SHA、报告、原始JSON或现场路径）：主线`3ad10c0a`；[R1B现场报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)；`evidence/r1b_20261025/`（server.log.gz、root_cause_traceback.txt、probe_v2_runner_gate.log、g0_dflash.json）。
+- 取舍与未采纳的方案：不在本轮擅自换草稿模型（违反冻结口径）、不写上游V1多KV组补丁（上游有意以NotImplementedError拒绝）、不装Triton/Triton-Ascend试图破V2校验（310P无功能性Triton，bishengir-compile在Ascend310P3失败，插件自身强制HAS_TRITON=False走PyTorch回退）、不改插件`patch_use_v2_model_runner`策略（PR #11389的310P行为是有意的）。
+- 代码和当前默认路由影响：无Kernel/Host/Serving/上游改动；Stock默认不变；仅新增证据、报告与控制台更新。
+- 验证门槛、回退方案和需要更新的控制台章节：若所有者选A（换草稿），须重走G0（模型路径/配置项核验）+两臂smoke；选C属新研发需单独设计文档与两轮静态评审。历史“Stock+DFlash启动失败、疑似缺依赖”根因状态由UNKNOWN改为此ADR闭环。控制台§12已更新。
+
 ## 后续决策的写入模板
 
 `ADR-010｜YYYY-MM-DD｜有效/被替代`

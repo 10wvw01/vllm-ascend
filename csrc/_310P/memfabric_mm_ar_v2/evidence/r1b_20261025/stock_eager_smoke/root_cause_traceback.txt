@@ -1,0 +1,53 @@
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912] Traceback (most recent call last):
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 879, in worker_main
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     worker = WorkerProc(*args, **kwargs)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 648, in __init__
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     self.worker.load_model()
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/home/w00804146/310P/vllm-ascend-r1b/vllm_ascend/worker/worker.py", line 677, in load_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     self.model_runner.load_model()
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/home/w00804146/310P/vllm-ascend-r1b/vllm_ascend/worker/model_runner_v1.py", line 4030, in load_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     self.drafter.load_model(self.model)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/home/w00804146/310P/vllm-ascend-r1b/vllm_ascend/_310p/spec_decode/llm_base_proposer_310.py", line 249, in load_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     _original_load_model(self, model)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/home/w00804146/310P/vllm-ascend-r1b/vllm_ascend/spec_decode/llm_base_proposer.py", line 348, in load_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     self.model = self._get_model()
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]                  ^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/home/w00804146/310P/vllm-ascend-r1b/vllm_ascend/spec_decode/llm_base_proposer.py", line 335, in _get_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     model = get_model(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]             ^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/__init__.py", line 140, in get_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     return loader.load_model(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/base_loader.py", line 55, in load_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     model = initialize_model(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/tracing/otel.py", line 178, in sync_wrapper
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     return func(*args, **kwargs)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]            ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/model_loader/utils.py", line 62, in initialize_model
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     model = model_class(vllm_config=vllm_config, prefix=prefix)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/models/qwen3_dflash.py", line 674, in __init__
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     self.model = DFlashQwen3Model(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]                  ^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/compilation/decorators.py", line 383, in __init__
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     old_init(self, *args, **kwargs)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/models/qwen3_dflash.py", line 400, in __init__
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     DFlashQwen3DecoderLayer(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/models/qwen3_dflash.py", line 292, in __init__
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     sliding_window, causal = _resolve_layer_attention(config, layer_idx)
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]   File "/vllm-workspace/vllm/vllm/model_executor/models/qwen3_dflash.py", line 123, in _resolve_layer_attention
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912]     raise NotImplementedError(
+(Worker_TP1 pid=475170) ERROR 10-25 02:21:07 [v1/executor/multiproc_executor.py:912] NotImplementedError: DFlash drafters with mixed sliding/full attention require the V2 model runner; relaunch with VLLM_USE_V2_MODEL_RUNNER=1.
+(EngineCore pid=474894) INFO 10-25 02:21:07 [v1/executor/multiproc_executor.py:440] [shutdown] Executor: waiting for worker exit count=2
+(Worker_TP0 pid=475161) DEBUG 10-25 02:21:07 [model_executor/models/utils.py:283] Loaded weight lm_head.weight with shape torch.Size([124160, 2048])
+(Worker_TP0 pid=475161) DEBUG 10-25 02:21:07 [model_executor/models/utils.py:283] Loaded weight embed_tokens.weight with shape torch.Size([124160, 2048])
+(Worker_TP0 pid=475161) DEBUG 10-25 02:21:07 [model_executor/models/utils.py:283] Loaded weight norm.weight with shape torch.Size([2048])
