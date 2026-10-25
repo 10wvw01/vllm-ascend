@@ -81,6 +81,24 @@ class TestCandidateAdapters(unittest.TestCase):
         self.assertEqual(s.num_reqs, 0)
         self.assertEqual(len(s.free_indices), 1)
 
+    def test_partial_add_poisoned_and_no_reuse(self):
+        from unittest.mock import patch
+
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        with patch.object(
+            s.all_token_ids, "stage_write",
+            side_effect=RuntimeError("token row staging failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "token row staging failed"):
+                s.add_request("a", 2, [1, 2], 0, 3)
+        self.assertTrue(s._poisoned)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.add_request("b", 2, [3, 4], 0, 3)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.apply_staged_writes()
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.remove_request("a")
+
     def test_pending_request_release_is_fail_closed(self):
         s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
         s.add_request("a", 2, [1, 2], 0, 3)
