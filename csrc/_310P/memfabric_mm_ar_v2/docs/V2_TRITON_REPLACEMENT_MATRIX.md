@@ -21,6 +21,7 @@
 | T13 | GPU V2 `ModelState`/KV初始化、采样辅助模块/Graph Manager等隐式Triton或CUDA调用 | 尚未穷尽；**需要逐路径import/AST静态和真实设备Trace** | 对每个继承方法审查`torch.cuda`、`triton`、`torch._inductor`及单次运行需的CANN替代 | UNRESOLVED |
 | T14 | `gpu/block_table.py:BlockTables.apply_staged_writes`→`buffer_utils.StagedWriteTensor.apply_write` 或 `FusedStagedWriter.apply`→`_apply_write_kernel` | **Prefill/Decode每次新block**，不止Gather/Slot，TP2多Group时尤其必经 | 需要替换整条`stage_write→device state`链，禁止沿用默认GPU Buffer类的`_apply_write_kernel` | BLOCKED |
 | T15 | `GPUModelRunner.__init__`→`gpu.states.RequestState`→`StagedWriteTensor(uva_instead_of_gpu=True)`、`UvaBackedTensor`→`UvaBufferPool` | **Runner构造期**；当前Ascend`AscendRequestState`继承此父类（需检查310P是否有实际UVA映射支持），与T14共同形成先于Kernel的P0门槛 | 310P3可用性需严审`is_uva_available`和`get_accelerator_view_from_cpu_tensor`；若不支持需独立NPU-safe RequestState/BufferPool实现 | UNVERIFIED/P0 |
+| T16 | 310P staged writes ↔ GPU post_update 设备所有权与in-flight写序 | 新请求/请求复用/采样每批可能触发 | dirty-index scatter + poison保护候选；需stream/event barrier、活跃行回写与错误销毁全链 | BLOCKED |
 
 
 ## 实施准则（严禁投机捷径）
