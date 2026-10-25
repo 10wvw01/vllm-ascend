@@ -105,6 +105,26 @@ class TestCandidateAdapters(unittest.TestCase):
         self.assertEqual(slots.shape, (2, 5))
         self.assertEqual(slots[0].tolist(), [192, 223, 224, -1, -1])
         self.assertEqual(slots[1].tolist(), [1024, 1055, 1056, -1, -1])
+        # Upstream DFlash reads the persistent slot_mappings attribute,
+        # not the fresh return tensor. The Eager adapter must write both.
+        self.assertEqual(b.slot_mappings[:, :5].tolist(), slots.tolist())
+        self.assertEqual(slots.data_ptr(), b.slot_mappings.data_ptr())
+        # 0.27.1 passes positions for real tokens, not padded tokens.
+        short = b.compute_slot_mappings(
+            idx, t.tensor([0, 3], dtype=t.int32),
+            t.tensor([0, 31, 32], dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(short.tolist(), slots.tolist())
+        self.assertEqual(short.data_ptr(), b.slot_mappings.data_ptr())
+        empty = b.compute_slot_mappings(
+            t.empty(0, dtype=t.int32),
+            t.tensor([0], dtype=t.int32),
+            t.empty(0, dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(empty.tolist(), [[-1] * 5, [-1] * 5])
+        self.assertEqual(empty.data_ptr(), b.slot_mappings.data_ptr())
         b.append_block_ids(2, ([10], [11]), overwrite=True)
         b.apply_staged_writes()
         self.assertEqual(b.num_blocks.gpu[:, 2].tolist(), [2, 1])
