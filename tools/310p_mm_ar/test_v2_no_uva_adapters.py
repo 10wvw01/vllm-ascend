@@ -220,6 +220,39 @@ class TestCandidateAdapters(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             b.gather_block_tables(idx, 2, out=(tables[0], tables[1]))
 
+    def test_t06_slot_mapping_full_aligned_group_rows(self):
+        t = self.torch
+        b = self.block_module.NPUBlockTables(
+            [64, 128], 2, 5, [2, 2], "cpu", [64, 128]
+        )
+        self.assertEqual(b.slot_mappings.shape, (2, 5))
+        self.assertEqual(b._slot_storage.shape, (2, 8))
+        self.assertEqual(b.slot_mappings.stride(0), 8)
+        b.append_block_ids(0, ([1], [2]), overwrite=False)
+        b.apply_staged_writes()
+        out = b.compute_slot_mappings(
+            t.tensor([0], dtype=t.int32),
+            t.tensor([0, 3], dtype=t.int32),
+            t.tensor([0, 1, 2], dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(out.tolist(), [
+            [64, 65, 66, -1, -1],
+            [256, 257, 258, -1, -1],
+        ])
+        self.assertEqual(b._slot_storage[:, 5:].tolist(), [[-1] * 3] * 2)
+        self.assertEqual(out.data_ptr(), b.slot_mappings.data_ptr())
+        empty = b.compute_slot_mappings(
+            t.empty(0, dtype=t.int32),
+            t.tensor([0], dtype=t.int32),
+            t.empty(0, dtype=t.int32),
+            num_tokens_padded=2,
+        )
+        self.assertEqual(empty.tolist(), [[-1] * 2] * 2)
+        self.assertEqual(b._slot_storage.tolist(), [[-1] * 8] * 2)
+        b.get_dummy_slot_mappings(3)
+        self.assertEqual(b._slot_storage.tolist(), [[-1] * 8] * 2)
+
     def test_failed_kv_commit_blocks_future_gather_and_slot(self):
         from unittest.mock import patch
 

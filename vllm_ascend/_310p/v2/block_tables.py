@@ -69,10 +69,16 @@ class NPUBlockTables:
             storage[:, :bt.plan.cols]
             for storage, bt in zip(self._input_storage, self.block_tables)
         ]
-        self.slot_mappings = torch.full(
-            (self.num_kv_cache_groups, max_num_batched_tokens),
+        # T06: each KV group owns complete 32B-aligned int32 rows.
+        # A normal [groups, max_tokens] allocation can have an unaligned
+        # inter-group stride, and partial slot_mappings[:, :active] copies
+        # would be unsafe on 310P3. Expose the frozen logical ABI as a view.
+        padded_tokens = ((max_num_batched_tokens + 7) // 8) * 8
+        self._slot_storage = torch.full(
+            (self.num_kv_cache_groups, padded_tokens),
             PAD_SLOT_ID, dtype=torch.int32, device=device
         )
+        self.slot_mappings = self._slot_storage[:, :max_num_batched_tokens]
         self._poisoned = False
         self.init_block_table_layout_tensors()
 
@@ -231,7 +237,7 @@ class NPUBlockTables:
         in_batch = req_rows < num_reqs
         req_rows = req_rows.clamp(max=max(num_reqs - 1, 0)).long()
         if num_reqs == 0:
-            self.slot_mappings.fill_(PAD_SLOT_ID)
+            self._slot_storage.fill_(PAD_SLOT_ID)
             return self.slot_mappings[:, :num_tokens_padded]
         req_idx = idx_mapping.index_select(0, req_rows).long()
         # Do not read past positions when num_tokens_padded > actual tokens.
@@ -264,15 +270,20 @@ class NPUBlockTables:
         # only a fresh stack leaves that persistent buffer stale (-1).
         # Update the persistent allocation and return its view, as GPU V2
         # does. A single Eager stream must order this write before DFlash.
-        self.slot_mappings.fill_(PAD_SLOT_ID)
-        self.slot_mappings[:, :num_tokens_padded].copy_(
-            torch.stack(slots, dim=0)
+        active = torch.stack(slots, dim=0)
+        tail = torch.full(
+            (self.num_kv_cache_groups,
+             self._slot_storage.shape[1] - num_tokens_padded),
+            PAD_SLOT_ID, dtype=torch.int32, device=self.device,
         )
+        # One full physical allocation copy, never a partial-width write
+        # through the logical [groups, max_tokens] view.
+        self._slot_storage.copy_(torch.cat((active, tail), dim=1))
         return self.slot_mappings[:, :num_tokens_padded]
 
     def get_dummy_slot_mappings(self, num_tokens: int):
         self._assert_healthy()
         if not 0 <= num_tokens <= self.max_num_batched_tokens:
             raise ValueError("invalid dummy token count")
-        self.slot_mappings.fill_(PAD_SLOT_ID)
+        self._slot_storage.fill_(PAD_SLOT_ID)
         return self.slot_mappings[:, :num_tokens]
