@@ -22,6 +22,17 @@ class TestMultiGroupBlockTableGold(unittest.TestCase):
                          [[192, 223, 224, -1, -1],
                           [1024, 1055, 1056, -1, -1]])
 
+    def test_positions_only_cover_actual_tokens(self):
+        self.b.append(2, ([3, 4], [8]))
+        self.assertEqual(
+            self.b.slots([2], [0, 3], [0, 31, 32], 5),
+            [[192, 223, 224, -1, -1], [1024, 1055, 1056, -1, -1]],
+        )
+        with self.assertRaises(ValueError):
+            self.b.slots([2], [0, 3], [0, 31], 5)
+        with self.assertRaises(ValueError):
+            self.b.slots([2], [0, 3], [0, 31, 32, 0, 0, 0], 5)
+
     def test_padded_gather_clears_stale_rows(self):
         self.b.append(2, ([3, 4], [8]))
         tables = self.b.gather([2], 3)
