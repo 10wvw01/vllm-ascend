@@ -35,3 +35,10 @@
 - 上游 `gpu/block_table.BlockTables.apply_staged_writes` 单/多组均调用 `gpu/buffer_utils._apply_write_kernel`（Triton）。此前仅发现`gather_block_tables/compute_slot_mappings`；如果只替换后两者仍会在新增KV块时失败。
 - 上游 `gpu.states.RequestState` 构造依赖 `StagedWriteTensor(uva_instead_of_gpu=True)` 与`UvaBackedTensor`，两者初始化需 `UvaBufferPool`，后者要求 `is_uva_available()` 且 `get_accelerator_view_from_cpu_tensor` 可在设备上成功映射。**未有310P3实机证据证明可用，也不得猜测一律不支持**；G0静态契约需为其建立替代或特征级守卫。
 - 由此，安全准入不能仅解决DFlash多KV输入：`RequestState/UVA→StagedWrite→BlockTables→Sampling/PostUpdate` 是一个连贯数据所有权协议，局部patch某个Triton函数会产生空KV/错误指针风险。
+
+
+## R2构造路径补充（2026-10-25）
+
+- ABI-13 **P0**：固定上游`GPUModelRunner.__init__`直接实例化`RequestState`（其构造通过`StagedWriteTensor(uva_instead_of_gpu=True)`及`UvaBackedTensor`创建UVA），现有Ascend `NPUModelRunner.__init__`在`super().__init__`之后才`del self.req_states`并重新构造`AscendRequestState`，且后者仍继承上游UVA父构造。**仅新增NPURequestState并不能阻断上游UVA构造，必须重构310P Runner初始化实际路径**。
+- ABI-14 **P0**：`GPUModelRunner.initialize_kv_cache`会构造原`gpu.block_table.BlockTables`；新`_310p/v2/block_tables.py:NPUBlockTables`必须通过专属Runner显式接线，并保证`append_block_ids/apply_staged_writes/gather_block_tables/compute_slot_mappings`和DFlash外部out指针/缓存的完整ABI。现在未接线，设备GO=NO。
+- ABI-15 **P0**：`RequestState.total_len/num_computed_tokens`由采样后处理在设备上修改；不能每次从CPU镜像整向量回写。新增staging候选采用dirty-index scatter，尚需冻结GPU`post_update`写序、NPU算子支持及in-flight可见性。非因果多KV、W8A8/GDN、采样全路径仍NO-GO。
