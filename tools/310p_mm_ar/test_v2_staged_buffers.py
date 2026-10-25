@@ -102,6 +102,21 @@ class TestTorchBackends(unittest.TestCase):
         t.apply_write()
         self.assertEqual(t.gpu[1, 3:].tolist(), [17, 21])
 
+    def test_vector_staging_preserves_device_owned_other_requests(self):
+        torch = self.torch
+        t = module.NPUStagedWriteTensor(16, torch.int32, "cpu")
+        # Simulate sampling/post_update having advanced live request #3.
+        t.gpu[3] = 37
+        t.stage_write_elem(8, 5)  # newly added request
+        t.apply_write()
+        self.assertEqual(t.gpu[3].item(), 37)
+        self.assertEqual(t.gpu[8].item(), 5)
+        t.gpu[8] = 9
+        t.stage_write_elem(3, 38)
+        t.apply_write()
+        self.assertEqual(t.gpu[8].item(), 9)
+        self.assertEqual(t.gpu[3].item(), 38)
+
     def test_backed_copy_and_multi_group_fused(self):
         torch = self.torch
         b = module.NPUBackedTensor((2, 3), torch.int32, "cpu")
