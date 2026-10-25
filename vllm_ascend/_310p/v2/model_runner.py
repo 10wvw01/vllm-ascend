@@ -135,6 +135,18 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPUDFlashSpeculator310V2(vllm_config, device)
 
+    def add_requests(self, scheduler_output):
+        """Reject unsupported generation paths before any request/KV mutation."""
+        from .sampling_scope import validate_greedy_310p_sampling_params
+
+        if scheduler_output.has_structured_output_requests:
+            raise NotImplementedError(
+                "310P V2 structured-output/grammar is not Triton-free"
+            )
+        for new_req in scheduler_output.scheduled_new_reqs:
+            validate_greedy_310p_sampling_params(new_req.sampling_params)
+        return super().add_requests(scheduler_output)
+
     def prepare_inputs(self, scheduler_output, batch_desc):
         """Bind frozen Ascend V2 input to 310P3 non-Triton T01-T04 ops.
 
