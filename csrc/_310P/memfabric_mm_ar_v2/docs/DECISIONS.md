@@ -51,9 +51,18 @@
 - 上游310P Docker主动卸载Triton与Triton-Ascend，pip check仅对明确的两类“未安装”缺包提供窄例外，不容忍其余异常。
 - 详见 [R1 DFlash K7 准入协议](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)。G0现场、Eager和Graph目前均NOT_RUN；发布Gate E及首写风险仍未关闭。
 
+## ADR-009｜R1-G0取证整合与R1-B环境基线｜2026-10-25｜有效
+
+- 触发：旧R1 `work/310p-mm-ar-r1-g0-nogo-20261025@4505650` 实机原始G0 NO-GO，Stock/V2+DFlash全组NOT_RUN；报告与原始JSON已归档。
+- 决策：以已按用户命令修订的主线 `592e708` 为基底，选择性移植vLLM 0.27.1/torch-npu post4/transformers 5.17的真实服务器G0取证及模拟真正Serve导入顺序的探针；不得以旧R1分支全量覆盖新版Runner。
+- 决策：已知`pip check`告警仅在明确声明者+缺包及版本冲突完全一致时豁免并记录，任何新增/未知/空失败输出需NO-GO。为模型实机执行增加导入探针、模型路径、相同Python、editable worktree和V2 SO存在性门禁，不以静态结果充当模型PASS。
+- 参数：Target和Draft都以310P服务器核验路径 `/home/models/Qwen/` 为准，K7、TP2；保持用户host0.0.0.0（先网络隔离）、max-num-seqs16、GPU0.90和固定Bench4096/2048/50/10。Eager必须`cudagraph_mode=NONE`，Graph独立研究。
+- 不更新通用`requirements.txt`的过时引脚来强制所有架构升级，也不执行设备安装/改SO；另立打包元数据债务，待确认部署矩阵再改。
+- 只有现场重G0、Stock/V2 Eager及双Rank真实Kernel证据分别通过，才允许后续Graph诊断；对外部HaonanWu1仓库保持只读。
+
 ## 后续决策的写入模板
 
-`ADR-009｜YYYY-MM-DD｜有效/被替代`
+`ADR-010｜YYYY-MM-DD｜有效/被替代`
 
 - 决策：
 - 触发证据（SHA、报告、原始JSON或现场路径）：

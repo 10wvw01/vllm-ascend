@@ -1,0 +1,103 @@
+{
+  "mode": "STOCK_DFLASH_G0_READ_ONLY",
+  "num_speculative_tokens": 7,
+  "logical_verify_width_example": 8,
+  "note": "logical width is not measured physical/padded M",
+  "python": "/usr/local/python3.12.13/bin/python3",
+  "python_version": "3.12.13",
+  "cwd": "/home/w00804146/310P/vllm-ascend-r1",
+  "pythonpath": "/home/w00804146/310P/vllm-ascend-r1:/usr/local/Ascend/cann-9.1.0/python/site-packages:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe:",
+  "sys_path": [
+    "/home/w00804146/310P/vllm-ascend-r1/tools/310p_mm_ar",
+    "/home/w00804146/310P/vllm-ascend-r1",
+    "/usr/local/Ascend/cann-9.1.0/python/site-packages",
+    "/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe",
+    "/usr/local/Ascend/ascend-toolkit/latest/python/site-packages",
+    "/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe",
+    "/usr/local/python3.12.13/lib/python312.zip",
+    "/usr/local/python3.12.13/lib/python3.12",
+    "/usr/local/python3.12.13/lib/python3.12/lib-dynload",
+    "/usr/local/python3.12.13/lib/python3.12/site-packages",
+    "__editable__.vllm-0.27.1+empty.finder.__path_hook__"
+  ],
+  "package_roots": {
+    "vllm": "/vllm-workspace/vllm/vllm",
+    "vllm_ascend": "/home/w00804146/310P/vllm-ascend-r1/vllm_ascend"
+  },
+  "versions": {
+    "vllm": "0.27.1+empty",
+    "torch": "2.10.0",
+    "torch-npu": "2.10.0.post4",
+    "transformers": "5.17.0",
+    "vllm-ascend": "0.1.dev4877+gb9a293d95.d20261015",
+    "arctic-inference": null,
+    "numba": "0.65.0",
+    "regex": "2026.9.10",
+    "compressed-tensors": "0.17.0",
+    "memfabric-hybrid": "1.2.0",
+    "memcache-hybrid": null,
+    "triton-ascend": null
+  },
+  "api_files": {
+    "vllm/model_executor/models/qwen3_dflash.py": true,
+    "vllm/v1/spec_decode/dflash.py": true,
+    "vllm/v1/worker/cp_utils.py": true,
+    "vllm_ascend/_310p/model_runner_310p.py": true,
+    "vllm_ascend/_310p/spec_decode/dflash_proposer_310.py": true,
+    "vllm_ascend/patch/worker/patch_idex_310.py": true,
+    "vllm/cp_utils.get_total_cp_world_size": true
+  },
+  "memfabric_flags": {
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR": null,
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE": null
+  },
+  "model_config_present": {
+    "target": true,
+    "draft": true
+  },
+  "verdict": {
+    "static_go": true,
+    "blockers": [],
+    "observations": [
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:arctic-inference",
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:memcache-hybrid",
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:triton-ascend",
+      "WAIVED_KNOWN_SERVER_STATE:affinity-sched 26.1.0 requires argparse, which is not installed.|ms-service-profiler 26.0.0 requires matplotlib, which is not installed.|ms-service-profiler 26.0.0 requires msguard, which is not installed.|ms-service-profiler 26.0.0 requires openpyxl, which is not installed.|ms-service-profiler 26.0.0 requires pandas, which is not installed.|ms-service-profiler 26.0.0 requires tzdata, which is not installed.|mindstudio-kpp 26.1.0 requires pandas, which is not installed.|mindstudio-kpp 26.1.0 requires plotly, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires arctic-inference, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires memcache-hybrid, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas-stubs, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires quart, which is not installed.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires triton-ascend, which is not installed.|ms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-grpc==1.33.1, but you have opentelemetry-exporter-otlp-proto-grpc 1.44.0.|ms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-http==1.33.1, but you have opentelemetry-exporter-otlp-proto-http 1.44.0.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement fastapi<0.124.0, but you have fastapi 0.136.3.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement torch-npu==2.10.0.post2, but you have torch-npu 2.10.0.post4.|vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement transformers==5.13.0, but you have transformers 5.17.0.|te 0.4.0 is not supported on this platform"
+    ]
+  },
+  "probes": {
+    "pip_check": {
+      "exit_code": 1,
+      "output": "affinity-sched 26.1.0 requires argparse, which is not installed.\nms-service-profiler 26.0.0 requires matplotlib, which is not installed.\nms-service-profiler 26.0.0 requires msguard, which is not installed.\nms-service-profiler 26.0.0 requires openpyxl, which is not installed.\nms-service-profiler 26.0.0 requires pandas, which is not installed.\nms-service-profiler 26.0.0 requires tzdata, which is not installed.\nmindstudio-kpp 26.1.0 requires pandas, which is not installed.\nmindstudio-kpp 26.1.0 requires plotly, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires arctic-inference, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires memcache-hybrid, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas-stubs, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires quart, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires triton-ascend, which is not installed.\nms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-grpc==1.33.1, but you have opentelemetry-exporter-otlp-proto-grpc 1.44.0.\nms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-http==1.33.1, but you have opentelemetry-exporter-otlp-proto-http 1.44.0.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement fastapi<0.124.0, but you have fastapi 0.136.3.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement torch-npu==2.10.0.post2, but you have torch-npu 2.10.0.post4.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement transformers==5.13.0, but you have transformers 5.17.0.\nte 0.4.0 is not supported on this platform\n",
+      "classification": "KNOWN_SERVER_STATE_WAIVED",
+      "waived_known_state_lines": [
+        "affinity-sched 26.1.0 requires argparse, which is not installed.",
+        "ms-service-profiler 26.0.0 requires matplotlib, which is not installed.",
+        "ms-service-profiler 26.0.0 requires msguard, which is not installed.",
+        "ms-service-profiler 26.0.0 requires openpyxl, which is not installed.",
+        "ms-service-profiler 26.0.0 requires pandas, which is not installed.",
+        "ms-service-profiler 26.0.0 requires tzdata, which is not installed.",
+        "mindstudio-kpp 26.1.0 requires pandas, which is not installed.",
+        "mindstudio-kpp 26.1.0 requires plotly, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires arctic-inference, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires memcache-hybrid, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas-stubs, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires quart, which is not installed.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires triton-ascend, which is not installed.",
+        "ms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-grpc==1.33.1, but you have opentelemetry-exporter-otlp-proto-grpc 1.44.0.",
+        "ms-service-profiler 26.0.0 has requirement opentelemetry-exporter-otlp-proto-http==1.33.1, but you have opentelemetry-exporter-otlp-proto-http 1.44.0.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement fastapi<0.124.0, but you have fastapi 0.136.3.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement torch-npu==2.10.0.post2, but you have torch-npu 2.10.0.post4.",
+        "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement transformers==5.13.0, but you have transformers 5.17.0.",
+        "te 0.4.0 is not supported on this platform"
+      ],
+      "unexpected_lines": []
+    },
+    "isolated_import_probe": {
+      "exit_code": 0,
+      "traceback_tail": "INFO 10-25 01:33:34 [__init__.py:52] Available plugins for group vllm.platform_plugins:\nINFO 10-25 01:33:34 [__init__.py:54] - ascend -> vllm_ascend:register\nINFO 10-25 01:33:34 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.\nINFO 10-25 01:33:34 [__init__.py:237] Platform plugin ascend is activated\nINFO 10-25 01:33:34 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.\nINFO 10-25 01:33:38 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.\n"
+    }
+  },
+  "limitations": "No vllm serve, CANN/NPU kernel, Graph, or actual model inference executed"
+}

@@ -49,3 +49,8 @@
 3. 两Rank正确性、协议状态、长尾/错误、数据形状与独立诊断trace。
 4. 为什么只传导这些：真实调用数量、Prefill/Decode/Verify覆盖、输出Layout转换、等待/重叠、Graph回退、其它主要Kernel占比。
 5. 一个明确的下轮Kernel改动/优化方向、rollback、实机G0准入和需要的报告链接。
+
+## 2026-10-25 R1现场G0：NO-GO且无新模型/算子性能（R1-B整合）
+
+- [R1原始现场报告](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md)：旧基线preflight在实机发现6项门禁阻塞，四象限 Stock/V2+DFlash Eager/Graph均NOT_RUN，无L0/L1/L2数值；同期修复版`static_go=true`只说明诊断工具与该环境更匹配，不是模型已经启动。
+- 旧SEL-01、D4、F1-C等性能基线保持原数值和局限；新的投机Stock/V2吞吐、TPOT、接受率、真实M/融合Kernel覆盖率仍**UNKNOWN**。
