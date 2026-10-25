@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from .block_table_gold import expand_physical_block_ids
 from .staged_buffers import NPUBackedTensor, NPUFusedStagedWriter, NPUStagedWriteTensor
 
 PAD_SLOT_ID = -1
@@ -114,7 +115,7 @@ class NPUBlockTables:
                 raise ValueError("invalid physical block id")
             start = 0 if overwrite else int(self.num_blocks.np[g, req_index])
             ratio = self.blocks_per_kv_block[g]
-            expanded = [b * ratio + k for b in ids for k in range(ratio)]
+            expanded = expand_physical_block_ids(ids, ratio)
             if start + len(expanded) > self.block_tables[g].plan.cols:
                 raise ValueError("KV block table capacity exceeded")
             pending.append((g, start, expanded))
