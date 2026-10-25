@@ -109,6 +109,33 @@ class TestCandidateAdapters(unittest.TestCase):
         s.apply_staged_writes()
         self.assertEqual(s.remove_request("a"), 0)
 
+    def test_release_rejects_pending_device_owned_vector_writes(self):
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        s.add_request("old", 2, [1, 2], 0, 3)
+        s.apply_staged_writes()
+        idx = s.req_id_to_index["old"]
+
+        # Token writes are already committed, but each vector can still
+        # carry a delayed write targeting the soon-to-be-reused slot.
+        for name in ("total_len", "num_computed_tokens"):
+            with self.subTest(buffer=name):
+                buffer = getattr(s, name)
+                buffer.stage_write_elem(idx, 7)
+                with self.assertRaisesRegex(RuntimeError, f"pending {name} writes"):
+                    s.remove_request("old")
+                self.assertEqual(s.req_id_to_index["old"], idx)
+                self.assertEqual(s.index_to_req_id[idx], "old")
+                self.assertNotIn(idx, s.free_indices)
+                buffer.clear_staged_writes()
+
+        self.assertEqual(s.remove_request("old"), idx)
+        self.assertEqual(s.free_indices.count(idx), 1)
+        s.add_request("new", 2, [3, 4], 0, 3)
+        s.apply_staged_writes()
+        self.assertEqual(s.req_id_to_index["new"], idx)
+        self.assertEqual(s.total_len.gpu[idx].item(), 2)
+        self.assertEqual(s.num_computed_tokens.gpu[idx].item(), 0)
+
     def test_multigroup_physical_block_and_padding(self):
         t = self.torch
         b = self.block_module.NPUBlockTables(

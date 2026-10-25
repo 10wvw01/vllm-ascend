@@ -141,16 +141,28 @@ class NPURequestState:
 
     def remove_request(self, req_id: str) -> int | None:
         self._assert_healthy()
-        idx = self.req_id_to_index.pop(req_id, None)
+        idx = self.req_id_to_index.get(req_id)
         if idx is None:
             return None
-        # Removing a slot with uncommitted writes would allow a later
-        # apply_staged_writes to write into a different request's row.
-        # The scheduler must drain the batch before recycling a slot.
+        # Check every device-owned staged buffer BEFORE changing either
+        # request map. A released slot can still receive delayed vector
+        # writes to total_len/num_computed_tokens even when its token row
+        # has already been committed. Such writes would corrupt a new
+        # request reusing the same slot.
         if any(row == idx for row, _off, _values
                in self.all_token_ids.plan._pending):
-            self.req_id_to_index[req_id] = idx
             raise RuntimeError("cannot release request with pending token writes")
-        self.index_to_req_id.pop(idx)
+        for name in ("total_len", "num_computed_tokens"):
+            pending = getattr(self, name).plan._pending
+            # Vector plans store the logical slot as the offset, not row.
+            if any(start <= idx < start + len(values)
+                   for _row, start, values in pending):
+                raise RuntimeError(
+                    f"cannot release request with pending {name} writes"
+                )
+        # No pending writes for this slot. Stream completion/in-flight
+        # ownership is a separate runtime admission gate (T16).
+        del self.req_id_to_index[req_id]
+        del self.index_to_req_id[idx]
         self.free_indices.append(idx)
         return idx

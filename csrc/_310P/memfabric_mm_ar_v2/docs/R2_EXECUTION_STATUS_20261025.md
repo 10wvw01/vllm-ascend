@@ -236,3 +236,8 @@
 
 - 实际深审发现`Sampler`嵌套五个UVA状态构造器（T26）、`StructuredOutputsWorker`构造CUDA Stream（T27）、`DraftTokensHandler`构造CUDA Stream/Event（T28）、`AsyncOutput`每次采样构造CUDA Event/切换CUDA Stream（T29）。这四条不属于之前T01～T25的显式矩阵节点，虽可归入T13总风险，但不得仅靠T13一个证据笼统关闭。
 - `V2_TRITON_REPLACEMENT_MATRIX.md`补T26～T29；`r2_static_admission.py`的强制清单从**25T+15ABI=40**扩展为**29T+15ABI=44**；测试中未知新增ID由T26更新为T30。T26～T29目前均有局部Eager/无CUDA候选接线及CPU合同，**全部仍BLOCKED**，未有310P3算子/双轮静审证据，门禁 **0/44 STATIC NO-GO / ONDEVICE NOT_RUN**。旧40节点CI是历史口径，不得复用。
+
+### R2-A T16请求槽回收与待提交向量写的CPU修复（2026-10-25 17:50 北京时间；NO-GO）
+
+- 静审发现`NPURequestState.remove_request`只检查`all_token_ids`矩阵待提交写，未检查`total_len`与`num_computed_tokens`一维向量待提交写；在token row已提交但长度/计算计数仍排队时释放slot，会允许旧请求延迟写污染后续复用的请求。现先完整检查三类buffer，再原子修改两个req映射和free_indices；向量按`StagedWritePlan._pending`的offset而非row检查，保留旧token pending错误合同。
+- 增加Torch CPU合同：token row已提交、两个vector分别留有未提交写时均拒绝释放，拒绝后req映射/free列表不变，清理待提交后允许释放并复用，复用后的长度/计算计数为新请求值。此为真实代码修复，CI需在新SHA核实；**不能据此认为in-flight NPU stream/异常传播/异步提交安全**，T16仍BLOCKED，44项强制静态准入证据保持0/44、PR#7 DRAFT、Worker NOT_IMPLEMENTED、ONDEVICE NOT_RUN。下一步继续审计device-owned row写入和实际GPUModelRunner继承调用链。
