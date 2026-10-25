@@ -38,6 +38,9 @@
 | T28 | 冻结`GPUModelRunner.__init__`→`DraftTokensHandler.__init__`→`torch.cuda.Stream/Event` | **Runner构造必经**；私有`torch`代理不影响该类自身模块globals | 专属`NPUDraftTokensHandler310V2`，保留无grammar全-1 DraftTokenIds回退；设备/异步边界待双审 | BLOCKED |
 | T29 | 冻结`GPUModelRunner.sample_tokens`→`AsyncOutput.__init__`→`torch.cuda.Event/set_stream` | **每次生成token必经**；即使main_stream已改NPU | 专属`NPUAsyncOutput310V2`同步D2H快照、K7按count裁剪；无性能重叠承诺，需设备/调度/stream审查 | BLOCKED |
 
+| T30 | `GPUModelRunner.execute_model` → hybrid `model_state.preprocess_state` → `preprocess_mamba_align_fused_kernel[grid]` → `MambaSpecDecodeGPUContext.run_fused_precopy` | **Qwen hybrid + mamba_cache_mode=align Eager Forward必经**，包括 Target Stock、DFlash Target | 两条冻结上游Triton launch；需非Triton状态块迁移与CPU/设备/流正确性，候选在模型load前拒绝，不能无条件NO-OP | BLOCKED |
+| T31 | `GPUModelRunner.sample_tokens` → 310P `postprocess_sampled` → hybrid `model_state.postprocess_state` → `_scatter_num_accepted_kernel[grid]` 与 `run_fused_postprocess_align` | **hybrid每次采样回写必经**，含Stock和K7；额外4B短写/alias风险 | 非Triton接受数、mask/reqslot、align后状态保存与K7拒绝语义；需310P跨流/短写/负例/异常证明 | BLOCKED |
+
 
 ## 实施准则（严禁投机捷径）
 

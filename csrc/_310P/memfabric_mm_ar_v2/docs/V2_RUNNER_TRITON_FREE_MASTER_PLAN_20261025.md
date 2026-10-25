@@ -127,3 +127,8 @@
 
 - 真实`GPUModelRunner`构造/模型加载/每次采样仍有四条未被早期25T枚举的CUDA/UVA必经路径：Sampler嵌套UVA（T26）、StructuredOutputsWorker CUDA Stream（T27）、DraftTokensHandler CUDA Stream/Event（T28）、AsyncOutput CUDA Event/set_stream（T29）。专属Eager候选已补代码和CPU测试，**设备/流/模型正确性及双轮静审均未PASS**。
 - 正式门禁扩展为**29T+15ABI=44节点**；旧31/40仅历史口径，当前**STATIC-NO-GO 0/44**。未完成T26～T29、T13完整继承路径及所有P0前，不允许注册V2 Worker或委托设备执行。
+
+### 2026-10-25 T13 动态ModelState源码新必经路径（新增T30/T31）
+
+冻结`vllm@6e448d0`的`GPUModelRunner.execute_model`委托`model_state.preprocess_state/postprocess_state`，hybrid模型下对应`MambaHybridModelState`而非310P定制State；`mamba_cache_mode=align`的Target Stock Eager仍会发`preprocess_mamba_align_fused_kernel`、`precopy_mamba_align_fused_kernel`、`_scatter_num_accepted_kernel`、`postprocess_mamba_fused_kernel`。增加T30前处理、T31后处理两项**强制阻断**，从29T+15ABI=44改为31T+15ABI=46（旧44是此前有效的历史口径），并补CPU AST合同和候选load前明确拒绝。这两个项未取得device ops审查与两轮深审，不能恢复Worker。
+另对冻结GPU`execute_model`/ `_dummy_sampler_run` 的module-global `InputBatch.make_dummy`进行作用域局部绑定AscendInputBatch，避免正常Eager与profile输入协议分裂；真正CANN/Attention/TP2/profile仍需下一轮验收。详情见`R2_T13_INHERITANCE_AUDIT_20261025.md`，STATIC NO-GO、ONDEVICE NOT_RUN。

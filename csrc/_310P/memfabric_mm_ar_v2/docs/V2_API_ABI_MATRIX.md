@@ -45,3 +45,9 @@
 - ABI-13 **P0**：固定上游`GPUModelRunner.__init__`直接实例化`RequestState`（其构造通过`StagedWriteTensor(uva_instead_of_gpu=True)`及`UvaBackedTensor`创建UVA），现有Ascend `NPUModelRunner.__init__`在`super().__init__`之后才`del self.req_states`并重新构造`AscendRequestState`，且后者仍继承上游UVA父构造。**仅新增NPURequestState并不能阻断上游UVA构造，必须重构310P Runner初始化实际路径**。
 - ABI-14 **P0**：`GPUModelRunner.initialize_kv_cache`会构造原`gpu.block_table.BlockTables`；新`_310p/v2/block_tables.py:NPUBlockTables`必须通过专属Runner显式接线，并保证`append_block_ids/apply_staged_writes/gather_block_tables/compute_slot_mappings`和DFlash外部out指针/缓存的完整ABI。现在未接线，设备GO=NO。
 - ABI-15 **P0**：`RequestState.total_len/num_computed_tokens`由采样后处理在设备上修改；不能每次从CPU镜像整向量回写。新增staging候选采用dirty-index scatter，尚需冻结GPU`post_update`写序、NPU算子支持及in-flight可见性。非因果多KV、W8A8/GDN、采样全路径仍NO-GO。
+
+### T13 深层继承审计增量（2026-10-25）
+
+- 动态继承链：`NPUModelRunner310V2Candidate → Ascend NPUModelRunner → GPUModelRunner`。正常Forward `execute_model→self.prepare_inputs`可进入310P T01～T04；**同一上游方法的dummy/profile分支**却直接调用上游module-global `InputBatch.make_dummy`，`_dummy_sampler_run`亦然。候选已用 `inspect.unwrap`/局部globals clone绑定`AscendInputBatch`，未改变其它设备Runner；profiling、Attention与模型行为仍待NPU证据。
+- **T30/T31** 新必经路径：冻结`init_model_state`在`is_hybrid`时返回`MambaHybridModelState`。`mamba_cache_mode=align`下preprocess的`preprocess_mamba_align_fused_kernel`和`run_fused_precopy`，postprocess的`_scatter_num_accepted_kernel`和`run_fused_postprocess_align`均会进入Triton；`postprocess_sampled`虽然310P覆盖，却仍调用原ModelState。此问题在Target Stock Eager阶段已存在，不能等到DFlash才补。
+- 候选load_model于模型分配前fail-closed拒绝hybrid align；此为安全阻断不是实现。静态清单调整为31个T项+15个ABI=46项，**T13/ABI-09/10/11仍NO**；详见`R2_T13_INHERITANCE_AUDIT_20261025.md`。
