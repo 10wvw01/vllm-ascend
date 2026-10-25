@@ -93,7 +93,10 @@ class NPUModelRunner(GPUModelRunner):
         # so here we just call init_speculator to reinitialize speculator.
         self.speculator: AscendEagleSpeculator | None = None
         if self.speculative_config is not None:
-            self.speculator = init_speculator(self.vllm_config, self.device)
+            speculator_factory = getattr(
+                self, "_310p_v2_speculator_factory", init_speculator
+            )
+            self.speculator = speculator_factory(self.vllm_config, self.device)
 
         # AscendRequestState has extra `num_computed_tokens_cpu` attribute.
         # so reinitialize req_states here.

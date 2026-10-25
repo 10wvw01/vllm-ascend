@@ -146,3 +146,9 @@
 - `NPUModelRunner310V2Candidate.initialize_kv_cache`改为冻结GPUModelRunner.initialize_kv_cache的**局部作用域clone**：动态真实KV group宽度/ Attention/backend/cudagraph_mode-none生命周期来自上游原始逻辑，但仅对该候选注入`NPUBlockTables`和`ModelAclGraphManager`，不改全局模块；Graph mode不为NONE即阻断，KV失败poison而不重试。
 - `_310p/v2/block_tables.py.slot_mappings`修正为**int32**（Ascend reshape_and_cache实际ABI），同步Torch CPU和静态合同；上游GPU默认int64并不适用到Ascend。后续需要核对`_make_ptr_tensor`的uint64支持和真实NPU BlockTables schema。
 - **非准入声明**：KV allocator、ModelState W8A8/GDN/Mamba、双Rank和多group draft attention尚未验证；本专属Runner仍未注册，DFlash out buffers限制仍触发显式NotImplemented；T05/T06/T14/T15依然未满足31项静态准入证据，不得更改READY/GO。
+
+### R2-07 T11 DFlash K7六KV组 Eager候选及专属propose绑定（2026-10-25；STATIC NO-GO）
+
+- 冻结vLLM 0.27.1`DFlashSpeculator.propose`调用真实的`prepare_dflash_inputs` 24参数签名（每个KV组循环调用一次），新增`_310p/v2/dflash_input_ops.py`实现无Triton Torch Eager构造。CPU scheduler offsets/req-index预校验、设备resident sampled/rejected、K7 anchor+7 mask、context/query独立slot、temperature/seeds、PAD清理；按每组`block_size`查物理表，不假设六组相同。
+- 新增`NPUDFlashSpeculator310V2.propose`使用`inspect.unwrap(DFlashSpeculator.propose)`恢复真正的冻结函数，再用作用域函数globals克隆注入T11（原函数经`@torch.inference_mode`装饰，不unwrap会误取Torch wrapper globals）；保留Ascend per-group attention metadata context。通用Ascend V2只新增可选`_310p_v2_speculator_factory`钩子，其他设备不改变原DFlash行为；310P候选仅接受K7。
+- **NO-GO继续**：Torch CPU候选不代表310P3 `torch._assert_async/index_select/gather/copy_`可用、非因果sliding/full attention真实mask正确、DFlash分组模型KV分配及T13 sampler完整链完成；还存在冻结`GPUModelRunner.sample_tokens`对7-token draft行短宽赋值的310P内存安全风险，必须修复并审查。Worker未注册、PR#7 DRAFT、ONDEVICE NOT_RUN。

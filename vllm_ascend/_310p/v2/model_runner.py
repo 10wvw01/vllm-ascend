@@ -114,6 +114,20 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPURequestState(**kwargs)
 
+    @staticmethod
+    def _310p_v2_speculator_factory(vllm_config, device):
+        """Reject unreviewed draft methods before allocating their state."""
+        spec_config = vllm_config.speculative_config
+        if spec_config is None or not spec_config.use_dflash():
+            raise NotImplementedError(
+                "310P3 V2 currently supports only DFlash K7 draft"
+            )
+        if spec_config.num_speculative_tokens != 7:
+            raise NotImplementedError("310P3 V2 requires DFlash K7")
+        from .dflash_speculator import NPUDFlashSpeculator310V2
+
+        return NPUDFlashSpeculator310V2(vllm_config, device)
+
     def prepare_inputs(self, scheduler_output, batch_desc):
         """Bind frozen Ascend V2 input to 310P3 non-Triton T01-T04 ops.
 
