@@ -193,8 +193,10 @@ class NPUBlockTables:
         num_reqs = idx_mapping.numel()
         if query_start_loc.numel() != num_reqs + 1:
             raise ValueError("invalid query_start_loc shape")
-        if positions.numel() < num_tokens_padded:
-            raise ValueError("positions shorter than padded token count")
+        if positions.ndim != 1 or positions.numel() > num_tokens_padded:
+            raise ValueError("positions must be 1-D and no longer than padded tokens")
+        # vLLM 0.27.1 passes positions for *actual* tokens; padding is
+        # produced by the Triton kernel, not supplied in positions.
         if any(t.device != idx_mapping.device for t in (query_start_loc, positions)):
             raise ValueError("all slot inputs must be on the same device")
         # searchsorted works entirely on the accelerator. Unlike repeat_interleave
@@ -207,13 +209,20 @@ class NPUBlockTables:
         in_batch = req_rows < num_reqs
         req_rows = req_rows.clamp(max=max(num_reqs - 1, 0)).long()
         if num_reqs == 0:
-            return torch.full(
-                (self.num_kv_cache_groups, num_tokens_padded),
-                PAD_SLOT_ID, dtype=torch.int64, device=idx_mapping.device
-            )
+            self.slot_mappings.fill_(PAD_SLOT_ID)
+            return self.slot_mappings[:, :num_tokens_padded]
         req_idx = idx_mapping.index_select(0, req_rows).long()
-        pos = positions[:num_tokens_padded].to(torch.int32)
-        valid = in_batch & (pos >= 0)
+        # Do not read past positions when num_tokens_padded > actual tokens.
+        # Avoid .item() on query_start_loc[-1]: that would synchronize NPU
+        # on every decode step. Keep the validity check device-resident.
+        pos = torch.zeros(
+            num_tokens_padded, dtype=torch.int32, device=idx_mapping.device
+        )
+        pos[:positions.numel()].copy_(positions.to(torch.int32))
+        valid = (
+            in_batch & (offsets < query_start_loc[-1])
+            & (offsets < positions.numel()) & (pos >= 0)
+        )
         slots = []
         for g, bt in enumerate(self.block_tables):
             bs = self.kernel_block_sizes[g]
@@ -228,7 +237,16 @@ class NPUBlockTables:
             slots.append(torch.where(
                 valid_g, slot, torch.full_like(slot, PAD_SLOT_ID)
             ))
-        return torch.stack(slots, dim=0)
+        # The fixed upstream DFlash speculator reads
+        # block_tables.slot_mappings directly after prepare_attn. Returning
+        # only a fresh stack leaves that persistent buffer stale (-1).
+        # Update the persistent allocation and return its view, as GPU V2
+        # does. A single Eager stream must order this write before DFlash.
+        self.slot_mappings.fill_(PAD_SLOT_ID)
+        self.slot_mappings[:, :num_tokens_padded].copy_(
+            torch.stack(slots, dim=0)
+        )
+        return self.slot_mappings[:, :num_tokens_padded]
 
     def get_dummy_slot_mappings(self, num_tokens: int):
         if not 0 <= num_tokens <= self.max_num_batched_tokens:
