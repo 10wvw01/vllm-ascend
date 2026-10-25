@@ -196,3 +196,7 @@
 
 - `cfbc04de`新T25实现拷贝冻结`GPUModelRunner.sample_tokens`后已导入Torch、AsyncOutput、ModelRunnerOutput、pcp、step_eplb_after；作者二次静审补齐原缺失的`GrammarOutput`类型注解ABI（`from __future__ import annotations`下不会在类定义时报错，但运行时`get_type_hints`会失效）。
 - 新增`test_v2_runner_copied_sample_tokens_imports.py`使用AST+symtable检查拷贝方法所有全局自由名、装饰器/类型引用、并确保K7直接窄写被64B padded存储替换。**T25仍需设备写粒度/流和复用实证，不能标READY**。
+
+### R2首轮静态深审（代码真实范围，NO-GO）
+
+- 已出具[R2运行时第一轮静态深审](R2_STATIC_REVIEW_ROUND1_20261025.md)，审查专属V2构造/KV多Group、T01～T04/T09/T11、Greedy sampling、T25原位缓冲/持久状态；确认8项P0缺口，覆盖不等于PASS。Worker继续fail-closed、PR仍Draft、40项证据未升级。第二轮仅在完成生产代码闭环后开展。
