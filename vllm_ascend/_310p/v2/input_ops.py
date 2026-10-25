@@ -128,6 +128,20 @@ def prepare_prefill_inputs(
         all_token_ids, prefill_len, num_computed_tokens,
     )):
         raise ValueError("T01 tensors must be int32")
+    # Frozen ABI is [lookahead, req_state], but 310P3 must never update
+    # individual 4-byte columns. Require a transpose of a 32B-padded,
+    # request-major allocation; reject a conventional contiguous view BEFORE
+    # mutating input_ids or any persistent lookahead state.
+    lookahead = next_prefill_tokens.shape[0]
+    padded_lookahead = ((lookahead + 7) // 8) * 8
+    if (lookahead <= 0
+            or next_prefill_tokens.stride(0) != 1
+            or next_prefill_tokens.stride(1) != padded_lookahead
+            or next_prefill_tokens.storage_offset() != 0):
+        raise ValueError("T01 requires aligned request-major lookahead storage")
+    physical_lookahead = next_prefill_tokens.as_strided(
+        (all_token_ids.shape[0], padded_lookahead), (padded_lookahead, 1)
+    )
     if n == 0:
         return
 
@@ -154,7 +168,6 @@ def prepare_prefill_inputs(
     # Layout is [lookahead, req_state], not [req_state, lookahead].
     # Keep inactive/non-prefill state columns unchanged. The original Triton
     # kernel stores zero for lookahead positions beyond prefill_len.
-    lookahead = next_prefill_tokens.shape[0]
     if lookahead:
         query_lens = query_start_loc[1:] - query_start_loc[:-1]
         look_offsets = torch.arange(
@@ -168,4 +181,17 @@ def prepare_prefill_inputs(
         ).transpose(0, 1)
         previous = next_prefill_tokens.index_select(1, state_idx)
         updated = torch.where(is_prefill[None, :], values, previous)
-        next_prefill_tokens.index_copy_(1, state_idx, updated)
+        # Commit complete physical rows (at least 8 x int32 = 32 bytes).
+        # Keep the padding bytes from the device-owned row, not a stale
+        # host mirror. Only scheduled request rows are changed.
+        previous_rows = physical_lookahead.index_select(0, state_idx)
+        padded_updated = (
+            torch.cat(
+                (updated.transpose(0, 1).contiguous(),
+                 previous_rows[:, lookahead:]),
+                dim=1,
+            )
+            if padded_lookahead > lookahead
+            else updated.transpose(0, 1).contiguous()
+        )
+        physical_lookahead.index_copy_(0, state_idx, padded_updated)

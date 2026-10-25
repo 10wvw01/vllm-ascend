@@ -55,19 +55,40 @@ class TestCandidateAdapters(unittest.TestCase):
         self.assertEqual(s.total_len.gpu[idx].item(), 3)
         self.assertEqual(s._last_sampled_storage.stride(0), 4)
         self.assertEqual(s._draft_storage.stride(0), 8)
+        self.assertEqual(s._next_prefill_storage.stride(0), 8)
+        self.assertEqual(s.next_prefill_tokens.stride(), (1, 8))
         s._last_sampled_storage[idx].fill_(42)
         s._draft_storage[idx].fill_(99)
-        s.next_prefill_tokens[:, idx].fill_(66)
+        s._next_prefill_storage[idx].fill_(66)
         self.assertEqual(s.remove_request("a"), idx)
         s.add_request("b", 2, [21, 22], 1, 10)
         self.assertEqual(s.req_id_to_index["b"], idx)
         self.assertEqual(s.last_sampled_tokens[idx, 0].item(), 0)
         self.assertEqual(s.draft_tokens[idx].tolist(), [0] * 7)
         self.assertEqual(s.next_prefill_tokens[:, idx].tolist(), [0])
+        self.assertEqual(s._next_prefill_storage[idx].tolist(), [0] * 8)
         s.apply_staged_writes()
         self.assertEqual(s.all_token_ids.gpu[idx, :2].tolist(), [21, 22])
         self.assertEqual(s.all_token_ids.gpu[idx, 2:].tolist(), [0] * 14)
         self.assertIsNone(s.remove_request("missing"))
+
+    def test_multistep_lookahead_reuse_preserves_other_request(self):
+        s = self.request_module.NPURequestState(
+            2, 32, 32, 7, 32000, "cpu", num_prefill_lookahead=9
+        )
+        self.assertEqual(s.next_prefill_tokens.shape, (9, 2))
+        self.assertEqual(s.next_prefill_tokens.stride(), (1, 16))
+        s.add_request("a", 2, [1, 2], 0, 10)
+        s.add_request("b", 2, [3, 4], 0, 10)
+        s.apply_staged_writes()
+        a, b = s.req_id_to_index["a"], s.req_id_to_index["b"]
+        s._next_prefill_storage[a].fill_(99)
+        s._next_prefill_storage[b].fill_(77)
+        s.remove_request("a")
+        s.add_request("c", 2, [5, 6], 0, 10)
+        self.assertEqual(s.req_id_to_index["c"], a)
+        self.assertEqual(s._next_prefill_storage[a].tolist(), [0] * 16)
+        self.assertEqual(s._next_prefill_storage[b].tolist(), [77] * 16)
 
     def test_request_invalid_is_transactional(self):
         s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")

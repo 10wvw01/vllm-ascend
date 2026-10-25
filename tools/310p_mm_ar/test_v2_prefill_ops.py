@@ -69,12 +69,23 @@ class TestTorchPrefill(unittest.TestCase):
         expected = gold.prepare_prefill_inputs(
             ids, next_tokens, idx, q, all_tokens, pref, computed)
         ids_t = t.tensor(ids, dtype=t.int32)
-        look_t = t.tensor(next_tokens, dtype=t.int32)
+        lookahead, states = len(next_tokens), len(all_tokens)
+        padded = ((lookahead + 7) // 8) * 8
+        physical = t.full((states, padded), -123, dtype=t.int32)
+        look_t = physical[:, :lookahead].transpose(0, 1)
+        look_t.copy_(t.tensor(next_tokens, dtype=t.int32))
+        before = physical.clone()
         self.ops.prepare_prefill_inputs(
             ids_t, look_t, t.tensor(idx, dtype=t.int32),
             t.tensor(q, dtype=t.int32), t.tensor(all_tokens, dtype=t.int32),
             t.tensor(pref, dtype=t.int32), t.tensor(computed, dtype=t.int32))
         self.assertEqual((ids_t.tolist(), look_t.tolist()), expected)
+        # Only scheduled physical rows may change, including padding.
+        for row in range(states):
+            if row not in idx:
+                self.assertTrue(t.equal(physical[row], before[row]))
+            self.assertTrue(t.equal(physical[row, lookahead:],
+                                    before[row, lookahead:]))
 
     def test_mixed_and_tail(self):
         self.compare(
@@ -105,6 +116,30 @@ class TestTorchPrefill(unittest.TestCase):
                 idx, q,
                 [[rng.randint(1, 500) for _ in range(width)] for _ in range(cap)],
                 pref, computed)
+
+    def test_nine_lookahead_steps_with_unrelated_slot(self):
+        self.compare(
+            [99] * 8, [[-7] * 3 for _ in range(9)], [2, 0], [0, 2, 5],
+            [[10, 11, 12, 13, 14, 15, 16, 17],
+             [30, 31, 32, 33, 34, 35, 36, 37],
+             [20, 21, 22, 23, 24, 25, 26, 27]],
+            [3, 0, 6], [3, 0, 1],
+        )
+
+    def test_unaligned_layout_rejected_before_input_mutation(self):
+        t = self.t
+        ids = t.full((8,), 99, dtype=t.int32)
+        look = t.full((3, 2), -7, dtype=t.int32)
+        with self.assertRaisesRegex(ValueError, "aligned request-major"):
+            self.ops.prepare_prefill_inputs(
+                ids, look, t.tensor([1], dtype=t.int32),
+                t.tensor([0, 2], dtype=t.int32),
+                t.zeros((2, 8), dtype=t.int32),
+                t.tensor([4, 4], dtype=t.int32),
+                t.tensor([0, 0], dtype=t.int32),
+            )
+        self.assertEqual(ids.tolist(), [99] * 8)
+        self.assertEqual(look.tolist(), [[-7, -7]] * 3)
 
     def test_dtype_shape_fail_closed(self):
         t = self.t

@@ -58,8 +58,15 @@ class NPURequestState:
             max_num_reqs, draft_width, dtype=torch.int64, device=device
         )
         self.draft_tokens = self._draft_storage[:, :num_speculative_steps]
-        self.next_prefill_tokens = torch.zeros(
-            num_prefill_lookahead, max_num_reqs, dtype=torch.int32, device=device
+        # T01's [lookahead, req_state] ABI is a logical transpose view.
+        # Each request owns an independent, 32-byte-padded physical row;
+        # column-wise index_fill_/index_copy_ would issue narrow int32 writes.
+        padded_lookahead = ((num_prefill_lookahead + 7) // 8) * 8
+        self._next_prefill_storage = torch.zeros(
+            max_num_reqs, padded_lookahead, dtype=torch.int32, device=device
+        )
+        self.next_prefill_tokens = (
+            self._next_prefill_storage[:, :num_prefill_lookahead].transpose(0, 1)
         )
         # Ascend V2 attention expects an explicit CPU mirror.
         self.num_computed_tokens_cpu = torch.zeros(max_num_reqs, dtype=torch.int32)
@@ -115,12 +122,9 @@ class NPURequestState:
             self.num_computed_tokens_cpu[idx] = num_computed_tokens
             self._last_sampled_storage[idx].zero_()
             self._draft_storage[idx].zero_()
-            # Prefill lookahead is indexed by request slot, not by req_id.
-            # A reused slot must not inherit the previous request's predictions.
-            # Device-side index_fill avoids a CPU-origin 4-byte partial H2D.
-            import torch
-            slot = torch.tensor([idx], dtype=torch.int64, device=self.device)
-            self.next_prefill_tokens.index_fill_(1, slot, 0)
+            # Recycled request: reset the entire aligned physical row, never
+            # a single 4-byte column of the [lookahead, req_state] view.
+            self._next_prefill_storage[idx].zero_()
         except Exception:
             # CPU maps and device rows may have diverged; do not continue
             # scheduling requests into a half-mutated slot.
