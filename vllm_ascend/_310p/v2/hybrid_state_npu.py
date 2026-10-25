@@ -282,6 +282,8 @@ class PaddedInt32State310Candidate:
         elif self.device.type != "cpu":
             raise NotImplementedError("不支持的设备")
         self.max_slots = max_slots
+        self._bound_stream = execution_stream if self.device.type == "npu" else None
+        self._device_pending = False
         self.data = torch.ones(
             ((max_slots + 7) // 8, 8), dtype=torch.int32, device=self.device)
         self.poisoned = False
@@ -291,6 +293,13 @@ class PaddedInt32State310Candidate:
     ) -> None:
         if self.poisoned:
             raise RuntimeError("接受数元信息已中毒")
+        if self._device_pending:
+            raise RuntimeError("NPU 接受数写尚未确认完成")
+        if self.device.type == "npu":
+            stream = torch.npu.current_stream(self.device)
+            if (not hasattr(stream, "npu_stream") or
+                    stream.npu_stream != self._bound_stream.npu_stream):
+                raise RuntimeError("接受数当前 NPU Stream 不匹配")
         if len(slots) != len(accepted) or len(set(slots)) != len(slots):
             raise ValueError("重复/不一致请求槽位")
         staged: dict[int, list[tuple[int, int]]] = {}
@@ -314,6 +323,24 @@ class PaddedInt32State310Candidate:
                 full_writes.append((row_index, existing))
             for row_index, full in full_writes:
                 self.data.index_copy_(0, row_index, full)
+            if self.device.type == "npu" and full_writes:
+                self._device_pending = True
         except Exception:
             self.poisoned = True
             raise
+
+    @property
+    def device_pending(self) -> bool:
+        return self._device_pending
+
+    def confirm_completed(self) -> None:
+        """等待当前诊断批次元数据写完成；不充当生产Event接口。"""
+        if self.poisoned:
+            raise RuntimeError("接受数元信息已中毒")
+        if self.device.type == "npu" and self._device_pending:
+            try:
+                self._bound_stream.synchronize()
+            except Exception:
+                self.poisoned = True
+                raise
+            self._device_pending = False

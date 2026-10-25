@@ -188,6 +188,19 @@ class TestNPUHybridCandidateCPUContracts(unittest.TestCase):
             state.scatter_authoritative_counts([2, 2], [1, 3])
         torch.testing.assert_close(state.data, old)
 
+    def test_cpu_confirm_completion_is_safe_and_no_pending_state(self):
+        owner, _ = self.make()
+        self.assertFalse(owner.device_pending)
+        self.assertEqual(owner.execute([self.c.GDNMove310(0, 0, 1, 1)]), 2)
+        self.assertFalse(owner.device_pending)
+        owner.confirm_completed()
+        self.assertFalse(owner.device_pending)
+        state = self.c.PaddedInt32State310Candidate(9)
+        state.scatter_authoritative_counts([0, 8], [8, 2])
+        self.assertFalse(state.device_pending)
+        state.confirm_completed()
+        self.assertFalse(state.device_pending)
+
     def test_unsupported_device_and_no_runtime_global_patch(self):
         src = SOURCE.read_text(encoding="utf-8")
         runner = (ROOT / "vllm_ascend/_310p/v2/model_runner.py").read_text()
