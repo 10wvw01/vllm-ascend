@@ -94,6 +94,13 @@ class NPURequestState:
         self.prompt_len.np[idx] = prompt_len
         self.prefill_len.np[idx] = prefill_len
         self.total_len.stage_write_elem(idx, prefill_len)
+        # A recycled row may still contain the previous request's tokens
+        # beyond the new prompt. Stage a full reset BEFORE the new prefix;
+        # only the committed, 32-byte-aligned row is copied to the device.
+        # The Runner must separately ensure no in-flight kernel owns idx.
+        self.all_token_ids.stage_write(
+            idx, 0, [0] * self.max_model_len
+        )
         self.all_token_ids.stage_write(idx, 0, all_token_ids)
         self.num_computed_prefill_tokens[idx] = num_computed_tokens
         self.num_computed_tokens_np[idx] = num_computed_tokens
@@ -101,6 +108,12 @@ class NPURequestState:
         self.num_computed_tokens_cpu[idx] = num_computed_tokens
         self._last_sampled_storage[idx].zero_()
         self._draft_storage[idx].zero_()
+        # Prefill lookahead is indexed by request slot, not by req_id.
+        # A reused slot must not inherit the previous request's predictions.
+        # Device-side index_fill avoids a CPU-origin 4-byte partial H2D.
+        import torch
+        slot = torch.tensor([idx], dtype=torch.int64, device=self.device)
+        self.next_prefill_tokens.index_fill_(1, slot, 0)
 
     def apply_staged_writes(self) -> None:
         self.prompt_len.copy_to_uva()
@@ -113,6 +126,13 @@ class NPURequestState:
         idx = self.req_id_to_index.pop(req_id, None)
         if idx is None:
             return None
+        # Removing a slot with uncommitted writes would allow a later
+        # apply_staged_writes to write into a different request's row.
+        # The scheduler must drain the batch before recycling a slot.
+        if any(row == idx for row, _off, _values
+               in self.all_token_ids.plan._pending):
+            self.req_id_to_index[req_id] = idx
+            raise RuntimeError("cannot release request with pending token writes")
         self.index_to_req_id.pop(idx)
         self.free_indices.append(idx)
         return idx
