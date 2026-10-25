@@ -44,3 +44,11 @@
 - T15：`request_state.py:NPURequestState`避免UVA构造并保持0.27.1的属性/方法外观；但`GPUModelRunner.__init__`当前仍会先构造UVA父类，不能靠事后重置对象绕过。**P0仍在，不能解除Worker阻断**。
 - 新审计项 **T16（P0）**：采样post_update设备修改`num_computed_tokens/total_len/all_token_ids`与CPU staging之间的所有权和可见性。候选1D dirty scatter避免覆盖其它请求；矩阵active-row重复写、请求重用、in-flight流/事件、NPU `index_copy_`/短写安全尚无闭环CPU+设备合同。**BLOCKED**。
 - 纯CPU计划与Torch CPU合同见`tools/310p_mm_ar/test_v2_staged_buffers.py`、`test_v2_no_uva_adapters.py`；轻量CI不安装torch时Torch CPU测试跳过，必须另有明确的全量CPU Torch合同报告，不得把skip写PASS。
+
+
+### R2-A 静态复审补丁：DFlash persistent slot / 事务失败止损（2026-10-25）
+
+- **T06 新发现并修正候选 P0**：原`NPUBlockTables.compute_slot_mappings`返回`torch.stack`新对象，却没有写回`self.slot_mappings`。固定上游`DFlashSpeculator.propose`直接读取`block_tables.slot_mappings[gid]`，因此旧实现即使返回slot正确，DFlash仍读取全PAD。现改为**固定存储原位更新并返回同一data_ptr的切片**，支持positions仅含实际token、padded尾部=-1；CPU Torch测试覆盖别名、padding、空batch。设备Eager `searchsorted/index_copy_/copy_`支持及stream顺序**未验证**，T06仍BLOCKED。
+- **T14 新发现并修正候选 P0**：原`NPUStagedWriteTensor.apply_write`在H2D前提交并清空CPU写计划；若中途失败会丢失写记录并留下半提交KV。现使用暂存提案→设备复制→CPU commit，任何设备异常标记poisoned并禁止继续；多组Fused串行任一组失败将全部组poisoned，要求Runner销毁受影响状态。**并非跨组原子提交**，R2-A仍NO-GO。
+- **T15/T16 RequestState复用修复候选**：新增请求时先stage全行零化再stage新token前缀；对重用slot清除`next_prefill_tokens`；有未提交token行时拒绝释放。仍缺in-flight请求所有权、stream/event barrier、GPU设备采样写和CPU mirror协议；设备侧`index_fill_`待支持性核验，不能标READY。
+- **CPU验证升级**：新增独立`r2-torch-cpu-contracts` CI job（PR专用，Python3.12/torch2.10.0 CPU），与不安装torch的轻量治理job区分。运行结果必须按实际head SHA报告；Torch测试若Skip/失败不能宣称完成CPU门槛。以上全部**未接入真实NPU Runner**。
