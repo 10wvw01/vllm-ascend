@@ -108,6 +108,10 @@ class TestCandidateAdapters(unittest.TestCase):
         b.append_block_ids(2, ([10], [11]), overwrite=True)
         b.apply_staged_writes()
         self.assertEqual(b.num_blocks.gpu[:, 2].tolist(), [2, 1])
+        # Reused slot still has old tail in source; gather must mask it.
+        reused = b.gather_block_tables(idx, 2)
+        self.assertEqual(reused[0][0, :4].tolist(), [20, 21, 0, 0])
+        self.assertEqual(reused[1][0, :2].tolist(), [11, 0])
         with self.assertRaises(NotImplementedError):
             b.gather_block_tables(idx, 2, out=(tables[0], tables[1]))
 
