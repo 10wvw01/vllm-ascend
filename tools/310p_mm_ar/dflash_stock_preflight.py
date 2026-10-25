@@ -9,6 +9,7 @@ import importlib.metadata as metadata
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -118,13 +119,34 @@ def check_api(package_roots: dict[str, Path | None]) -> dict[str, bool]:
     return result
 
 
+def classify_pip_check(exit_code: int | None, output: str) -> str:
+    """Allow only the exact 310P Docker intentional missing Triton packages.
+
+    Dockerfile.310p installs requirements, then uninstalls triton-ascend/triton.
+    A different broken dependency or Triton version conflict is NOT waived.
+    """
+    if exit_code == 0:
+        return "PASS"
+    if exit_code is None:
+        return "UNREADABLE"
+    lines = [x.strip().lower() for x in output.splitlines() if x.strip()]
+    if lines and all(
+        "which is not installed" in line
+        and re.search(r"\brequires triton(?:-ascend)?(?:[ \t,;>=<!~]|$)", line)
+        for line in lines
+    ):
+        return "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"
+    return "UNEXPECTED_DEPENDENCY_BREAKAGE"
+
+
 def optional_probes(enable_imports: bool) -> dict:
     cmd = [sys.executable, "-m", "pip", "check"]
     try:
         p = subprocess.run(cmd, text=True, capture_output=True, timeout=35, check=False)
         output = {"exit_code": p.returncode, "output": (p.stdout + p.stderr)[-8000:]}
+        output["classification"] = classify_pip_check(output["exit_code"], output["output"])
     except (OSError, subprocess.TimeoutExpired) as exc:
-        output = {"error": repr(exc)}
+        output = {"error": repr(exc), "classification": "UNREADABLE"}
     result = {"pip_check": output}
     if enable_imports:
         # Runs in a CHILD process only. This may load torch-npu native libraries;
@@ -184,10 +206,14 @@ def main() -> int:
         "verdict": decision, "probes": probes,
         "limitations": "No vllm serve, CANN/NPU kernel, Graph, or actual model inference executed",
     }
-    # An unsuccessful pip check or import smoke must NOT be mislabelled as GO.
-    if probes.get("pip_check", {}).get("exit_code", 0) != 0:
+    # The upstream 310P Dockerfile explicitly removes Triton despite declaring
+    # it in packaging; do not reject that single documented inconsistency.
+    pip_state = probes.get("pip_check", {}).get("classification")
+    if pip_state not in ("PASS", "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"):
         decision["static_go"] = False
-        decision["blockers"].append("PIP_CHECK_FAILED")
+        decision["blockers"].append("PIP_CHECK_UNEXPECTED_FAILURE_OR_UNREADABLE")
+    elif pip_state != "PASS":
+        decision["observations"].append("UPSTREAM_DOCKER_INTENTIONALLY_UNINSTALLED_TRITON")
     smoke = probes.get("isolated_import_probe", {})
     if args.import_smoke and smoke.get("exit_code", 1) != 0:
         decision["static_go"] = False

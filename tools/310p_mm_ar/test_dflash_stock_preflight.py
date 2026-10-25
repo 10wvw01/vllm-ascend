@@ -50,6 +50,19 @@ class TestDflashStockPreflight(unittest.TestCase):
         self.assertTrue(got["static_go"])
         self.assertTrue(any("triton-ascend" in x for x in got["observations"]))
 
+    def test_triton_only_pip_check_exception_is_narrow(self):
+        line = "vllm-ascend 0.24.0 requires triton-ascend, which is not installed.\n"
+        self.assertEqual(
+            m.classify_pip_check(1, line),
+            "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY")
+        self.assertEqual(
+            m.classify_pip_check(1, line + "vllm 0.24.0 requires torch, which is not installed."),
+            "UNEXPECTED_DEPENDENCY_BREAKAGE")
+        self.assertEqual(
+            m.classify_pip_check(1, "vllm requires triton>=3.2, but you have triton 3.1."),
+            "UNEXPECTED_DEPENDENCY_BREAKAGE")
+        self.assertEqual(m.classify_pip_check(0, "No broken requirements found."), "PASS")
+
     def test_source_api_scan_does_not_import_external_package(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

@@ -135,7 +135,9 @@ class K7TrialContract(unittest.TestCase):
         valid = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
                  "num_speculative_tokens": 7,
                  "verdict": {"static_go": True, "blockers": []},
-                 "probes": {"pip_check": {"exit_code": 0}}}
+                 "probes": {"pip_check": {"exit_code": 0, "classification": "PASS"}}}
+        trial.validate_readonly_preflight(valid)
+        valid["probes"]["pip_check"]["classification"] = "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"
         trial.validate_readonly_preflight(valid)
         valid["verdict"]["static_go"] = False
         with self.assertRaisesRegex(RuntimeError, "G0 not passed"):

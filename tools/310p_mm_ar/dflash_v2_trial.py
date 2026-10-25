@@ -200,8 +200,9 @@ def validate_readonly_preflight(report: dict) -> None:
     if not v.get("static_go") or v.get("blockers"):
         raise RuntimeError("Stock+DFlash dependency G0 not passed; preserve diagnostic and STOP")
     pip_check = report.get("probes", {}).get("pip_check", {})
-    if pip_check.get("exit_code") != 0:
-        raise RuntimeError("pip check not clean in G0 report")
+    if pip_check.get("classification") not in (
+            "PASS", "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"):
+        raise RuntimeError("pip check contains unexpected or unreadable dependency failure")
     if report.get("num_speculative_tokens") != 7:
         raise RuntimeError("wrong G0 K configuration")
 
