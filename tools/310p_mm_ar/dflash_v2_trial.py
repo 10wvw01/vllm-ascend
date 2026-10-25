@@ -1,0 +1,292 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
+"""Stock+DFlash vs V2+DFlash, K=7 TP=2: gated, isolated, auditable trial.
+
+plan = CPU only, execute = NPU work only with explicit operator approvals.
+Production Serving, Kernel and runtime code remain unchanged.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+
+SPEC_TOKENS = 7
+VERIFY_WIDTH = SPEC_TOKENS + 1
+TARGET = "/home/models/Qwen3.6-35B-A3B-w8a8"
+DRAFT = "/home/models/Qwen3.6-35B-A3B-DFlash"
+GRAPH_SIZES = (8, 16, 32, 64, 80)
+EXTRA = {
+    "enable_flashcomm1": False,
+    "enable_flashcomm2_parallel_size": 0,
+    "enable_prefill_mc2": False,
+    "enable_fused_mc2": 0,
+    "ascend_compilation_config": {"fuse_norm_quant": False, "enable_npugraph_ex": False},
+}
+GUARD_VARS = ("MF_KFC_BYPASS", "MF310P_V2_NOWARMUP", "MF310P_V2_AR_ONLY_NOWARMUP")
+
+
+def compact(obj) -> str:
+    return json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
+
+
+def build_plan(*, arm: str, mode: str, phase: str, devices: str, port: int,
+               store_port: int, orch_json: str | None, output_dir: Path) -> dict:
+    if arm not in ("stock", "v2") or mode not in ("eager", "graph") or phase not in ("smoke", "full"):
+        raise ValueError("unsupported arm/mode/phase")
+    if len(devices.split(",")) != 2 or len(set(devices.split(","))) != 2:
+        raise ValueError("TP=2 needs two distinct visible devices")
+    if not all(s.strip().isdigit() for s in devices.split(",")):
+        raise ValueError("devices must be two explicit integer IDs")
+    if not (1 <= port <= 65535 and 1 <= store_port <= 65535 and port != store_port):
+        raise ValueError("port and MemFabric store port must be different valid ports")
+    if arm == "v2" and not (orch_json and Path(orch_json).is_absolute() and orch_json.endswith("libmf_sdma_orch_v11.json")):
+        raise ValueError("V2 needs verified absolute KVER11 JSON path, never auto-select installed files")
+    if not output_dir.is_absolute():
+        raise ValueError("output directory must be absolute and unused")
+    spec = {"method": "dflash", "model": DRAFT, "num_speculative_tokens": SPEC_TOKENS,
+            "draft_tensor_parallel_size": 2}
+    # draft TP=2 follows original upstream 310P 35B DFlash acceptance helper.
+    env = {
+        "ASCEND_RT_VISIBLE_DEVICES": devices,
+        "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
+        "HF_HUB_OFFLINE": "1",
+        "VLLM_LOGGING_LEVEL": "DEBUG",
+        "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR": "1" if arm == "v2" else "0",
+        "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE": "1" if arm == "v2" else "0",
+    }
+    if arm == "v2":
+        env.update({
+            "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL": f"tcp://127.0.0.1:{store_port}",
+            "VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES": str(96 * 1024 * 1024),
+            "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_BATCH_BASEM_COUNT": "1",
+            "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_WARMUP_FALLBACK": "1",
+            "VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS": "1024",
+            "VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS": "4",
+            "MF_SDMA_ORCH_JSON": orch_json,
+        })
+    compilation = {"cudagraph_mode": "NONE"} if mode == "eager" else {
+        "cudagraph_mode": "FULL_DECODE_ONLY",
+        "cudagraph_capture_sizes": list(GRAPH_SIZES),
+        "cudagraph_num_of_warmups": 0,
+    }
+    server = [
+        "vllm", "serve", TARGET, "--host", "127.0.0.1", "--port", str(port),
+        "--served-model-name", "qwen3.6-35b-a3b-w8a8", "--dtype", "float16",
+        "--tensor-parallel-size", "2", "--quantization", "ascend",
+        "--gpu-memory-utilization", "0.90", "--max-num-seqs", "10",
+        "--max-num-batched-tokens", "4096", "--max-model-len", "8192",
+        "--trust-remote-code", "--no-enable-prefix-caching", "--enable-chunked-prefill",
+        "--async-scheduling", "--safetensors-load-strategy", "eager",
+        "--mamba-ssm-cache-dtype", "float16", "--mamba-cache-mode", "align",
+        "--speculative-config", compact(spec), "--additional-config", compact(EXTRA),
+        "--compilation-config", compact(compilation),
+    ]
+    full = phase == "full"
+    benchmark = [
+        "vllm", "bench", "serve", "--backend", "vllm", "--endpoint", "/v1/completions",
+        "--base-url", f"http://127.0.0.1:{port}", "--model", "qwen3.6-35b-a3b-w8a8",
+        "--tokenizer", TARGET, "--dataset-name", "random",
+        "--random-input-len", str(4096), "--random-output-len", str(2048 if full else 32),
+        "--num-prompts", str(50 if full else 2),
+        "--max-concurrency", str(10 if full else 1), "--ignore-eos",
+        "--num-warmups", str(5 if full else 1),
+        "--percentile-metrics", "ttft,tpot,itl", "--metric-percentiles", "50,90,99,99.9",
+        "--save-result", "--save-detailed", "--result-dir", str(output_dir),
+        "--result-filename", "bench.json",
+    ]
+    return {
+        "contract": "R1_DFLASH_K7_TP2_STOCK_V2_20261025",
+        "arm": arm, "mode": mode, "phase": phase, "TP": 2, "speculative": spec,
+        "logical_verify_width_not_measured_physical_M": VERIFY_WIDTH,
+        "graph_sizes": list(GRAPH_SIZES) if mode == "graph" else [],
+        "expected_requests": 50 if full else 2, "output_dir": str(output_dir),
+        "env_overrides": env, "server_command": server, "benchmark_command": benchmark,
+        "kernel_evidence_contract": (
+            "V2 route+first-call correctness+rank0/1 trace needed. Log-only is not Graph kernel proof."
+        ),
+        "status": "PREPARED_NOT_RUN",
+    }
+
+
+def classify(manifest: dict, server_log: str, benchmark: dict) -> dict:
+    errors = re.findall(r"507014|507899|first fused call verification FAILED|bit-exact mismatch",
+                        server_log, flags=re.IGNORECASE)
+    expected = manifest["expected_requests"]
+    completed = benchmark.get("completed")
+    # vLLM's real benchmark json must expose completed. Missing is UNKNOWN, not PASS.
+    matched = isinstance(completed, int) and completed == expected
+    seen_fused = "[mf310p-v2]" in server_log and "V2 MM+MemFabric" in server_log
+    first_verified = "first fused call verified bit-exact" in server_log
+    selected = "MemFabricMmArV2LinearMethod310" in server_log
+    replay = bool(re.search(r"event=replay\b|/replay\]", server_log))
+    ret = {"completed": completed, "expected": expected, "completed_ok": matched,
+           "v2_route_log": seen_fused, "v2_first_call_verified": first_verified,
+           "v2_linear_method_selected": selected, "graph_replay_log_observed": replay,
+           "error_signatures": errors,
+           "actual_npu_fused_kernel_trace": "NOT_PROVIDED",
+           "real_physical_M_distribution": "NOT_PROVIDED"}
+    if errors or not matched:
+        ret["verdict"] = "FAIL_OR_INCOMPLETE_PRESERVE_EVIDENCE"
+    elif manifest["arm"] == "stock":
+        ret["verdict"] = ("INVALID_STOCK_CONTAMINATED" if (seen_fused or selected)
+                          else "STOCK_SERVING_ONLY_PASS_GRAPH_UNVERIFIED"
+                          if manifest["mode"] == "graph"
+                          else "STOCK_EAGER_SERVING_PASS")
+    elif not (seen_fused and selected and first_verified):
+        ret["verdict"] = "V2_NOT_PROVEN_STOCK_FALLBACK_POSSIBLE"
+    elif manifest["mode"] == "graph":
+        ret["verdict"] = "V2_PREFILL_HINT_ONLY_GRAPH_FUSED_REPLAY_NOT_PROVEN"
+    else:
+        ret["verdict"] = "V2_PREFILL_ROUTE_HINT_ONLY_REQUIRE_REAL_KERNEL_TRACE"
+    return ret
+
+
+def clean_environment(override: dict[str, str]) -> dict[str, str]:
+    env = os.environ.copy()
+    for key in list(env):
+        if key.startswith("VLLM_ASCEND_310P_MEMFABRIC") or (
+                key == "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR") or key.startswith("MF_"):
+            env.pop(key)
+    env.update(override)
+    return env
+
+
+def wait_for_health(port: int, proc: subprocess.Popen, seconds: int) -> None:
+    deadline = time.monotonic() + seconds
+    url = f"http://127.0.0.1:{port}/health"
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            raise RuntimeError(f"service exited before health, rc={proc.returncode}")
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if response.status == 200:
+                    return
+        except OSError:
+            pass
+        time.sleep(3)
+    raise TimeoutError("health check deadline reached")
+
+
+def stop_own_process_group(proc: subprocess.Popen) -> None:
+    # Never target other jobs: only the process group explicitly created below.
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait(timeout=10)
+
+
+def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool) -> int:
+    if not (approved and exclusive and restore):
+        raise RuntimeError("separate G0, device exclusive, backup/restore evidence needed")
+    if manifest.get("contract") != "R1_DFLASH_K7_TP2_STOCK_V2_20261025":
+        raise ValueError("unrecognized manifest")
+    directory = Path(manifest["output_dir"])
+    for entry in ("server.log", "bench.stdout.log", "run.outcome.json"):
+        if (directory / entry).exists():
+            raise FileExistsError("refuse to reuse previously executed trial: " + entry)
+    if not (Path(TARGET) / "config.json").is_file() or not (Path(DRAFT) / "config.json").is_file():
+        raise RuntimeError("target or DFlash draft model config missing")
+    if manifest["arm"] == "v2":
+        orchard = manifest["env_overrides"].get("MF_SDMA_ORCH_JSON", "")
+        if not Path(orchard).is_file():
+            raise RuntimeError("KVER11 file unavailable; G0 NO-GO")
+        if any(os.environ.get(k) for k in GUARD_VARS):
+            raise RuntimeError("unsafe MF first-write/KFC bypass found")
+    if shutil.which("vllm") is None:
+        raise RuntimeError("vllm executable not found in current Python environment")
+    port = int(manifest["server_command"][manifest["server_command"].index("--port") + 1])
+    with socket.socket() as sock:
+        if sock.connect_ex(("127.0.0.1", port)) == 0:
+            raise RuntimeError("port already in use; refuse to touch existing service")
+    env = clean_environment(manifest["env_overrides"])
+    failure = None
+    with (directory / "server.log").open("x", encoding="utf-8") as server_log:
+        proc = subprocess.Popen(manifest["server_command"], env=env, cwd=directory,
+                                stdout=server_log, stderr=subprocess.STDOUT,
+                                text=True, start_new_session=True)
+        (directory / "server.pid").write_text(str(proc.pid), encoding="utf-8")
+        try:
+            wait_for_health(port, proc, 2400)
+            with (directory / "bench.stdout.log").open("x", encoding="utf-8") as bench_log:
+                subprocess.run(manifest["benchmark_command"], env=env, cwd=directory,
+                               stdout=bench_log, stderr=subprocess.STDOUT,
+                               timeout=7200, check=True, text=True)
+        except (Exception, KeyboardInterrupt) as exc:
+            failure = repr(exc)
+        finally:
+            stop_own_process_group(proc)
+    outcome = {"execution_finished": failure is None, "error": failure,
+               "benchmark_exists": (directory / "bench.json").is_file(),
+               "note": "not a pass verdict; run verify separately and inspect both TP rank traces"}
+    (directory / "run.outcome.json").write_text(compact(outcome) + "\n", encoding="utf-8")
+    print(compact(outcome))
+    return 1 if failure else 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    sub = p.add_subparsers(dest="command", required=True)
+    plan = sub.add_parser("plan")
+    plan.add_argument("--arm", required=True, choices=("stock", "v2"))
+    plan.add_argument("--mode", required=True, choices=("eager", "graph"))
+    plan.add_argument("--phase", required=True, choices=("smoke", "full"))
+    plan.add_argument("--devices", required=True)
+    plan.add_argument("--port", type=int, required=True)
+    plan.add_argument("--store-port", type=int, default=8581)
+    plan.add_argument("--orch-json")
+    plan.add_argument("--dir", required=True, type=Path)
+    run = sub.add_parser("execute")
+    run.add_argument("--manifest", type=Path, required=True)
+    run.add_argument("--g0-approved", action="store_true")
+    run.add_argument("--exclusive-approved", action="store_true")
+    run.add_argument("--restore-reviewed", action="store_true")
+    check = sub.add_parser("verify")
+    check.add_argument("--manifest", type=Path, required=True)
+    args = p.parse_args()
+    if args.command == "plan":
+        obj = build_plan(arm=args.arm, mode=args.mode, phase=args.phase,
+                         devices=args.devices, port=args.port, store_port=args.store_port,
+                         orch_json=args.orch_json, output_dir=args.dir)
+        if args.dir.exists():
+            raise FileExistsError("output directory already exists: " + str(args.dir))
+        args.dir.mkdir(parents=True, exist_ok=False)
+        (args.dir / "manifest.json").write_text(
+            json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(str(args.dir / "manifest.json"))
+        return 0
+    obj = json.loads(args.manifest.read_text(encoding="utf-8"))
+    if args.command == "execute":
+        return execute(obj, args.g0_approved, args.exclusive_approved, args.restore_reviewed)
+    location = Path(obj["output_dir"])
+    log = location / "server.log"
+    bench = location / "bench.json"
+    if not log.is_file() or not bench.is_file():
+        raise FileNotFoundError("server.log and bench.json are both required; failed run remains evidence")
+    assessment = classify(obj, log.read_text(encoding="utf-8", errors="replace"),
+                          json.loads(bench.read_text(encoding="utf-8")))
+    with (location / "verdict.json").open("x", encoding="utf-8") as fh:
+        json.dump(assessment, fh, ensure_ascii=False, indent=2)
+    print(json.dumps(assessment, ensure_ascii=False, indent=2))
+    return 1 if assessment["verdict"].startswith(("FAIL", "INVALID", "V2_NOT")) else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
