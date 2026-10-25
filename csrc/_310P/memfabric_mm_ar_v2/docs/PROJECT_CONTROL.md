@@ -241,3 +241,9 @@
 
 - 隔离候选`NPUBlockTables`与`NPURequestState`现增加`_poisoned` fail-closed：任一多组KV写、计数上传、请求新增/状态回写异常，不允许继续gather/slot/请求复用；补故障注入Torch CPU合同，详见[ADR-013](DECISIONS.md)。这不是跨组原子事务；未来Runner仍须实现异常abort、in-flight同步和销毁，当前未接线。
 - PR#7仍DRAFT，主线与Stock默认不变，310P3 **STATIC NO-GO / ONDEVICE NOT_RUN**。新增代码后的CI以最新GitHub SHA为准，旧`dfb4a0fa`绿不可外推。
+
+
+### R2-A 门禁工程化：31项ABI/Triton必须逐条给证据
+
+- 研发分支新增`tools/310p_mm_ar/r2_static_admission.py --check`和`R2_STATIC_ADMISSION_EVIDENCE.json`，16条Triton/UVA/ownership + 15条ABI明确检查；当前账本空、`STATIC-NO-GO`，缺失review或接线不能借CI绿绕过。CI调用`--report`只展示NO-GO，静态GO需真实两轮审查与独立`--check`、用户再批准实机。
+- 所有代码仍仅在PR#7工作分支；未改外部上游、现场SO、Draft config或NPUWorker310阻断。后续需完成真正Runner父类构造替代和T01~T16实际调用链，不能用现有Torch候选充当设备路径。
