@@ -7,7 +7,7 @@
 | ID | 上游函数或结构（固定SHA） | 我方对应或调用处 | 现状 / 当前处理 | 能否设备GO |
 |---|---|---|---|---|
 | ABI-01 | `GPUModelRunner.__init__(vllm_config,device)` + GPU `torch.cuda.Stream` | `worker/v2/model_runner.py:NPUModelRunner.__init__` 用 `torch_cuda_wrapper` | 构造初始化在NPU侧的全部CUDA使用/实例替换仍需核实，不能仅以包装上下文判断全部安全 | NO |
-| ABI-02 | `GPUModelRunner.prepare_inputs(scheduler_output,batch_desc)` + `InputBatch` | Ascend同名override | 310P特殊序列长度数组/ordered req id、ModelState bonus-token个数、`seq_lens_cpu_upper_bound`、输入张量必须与0.27.1一致。已修正spec logits按ModelState bonus数，尚未修正Triton函数。 | NO |
+| ABI-02 | `GPUModelRunner.prepare_inputs(scheduler_output,batch_desc)` + `InputBatch` | Ascend同名override | T01～T04已在310P候选Runner局部绑定非Triton实现，T01 lookahead物理整行候选已补；输入/seq_lens设备短写、完整ModelState和310P3算子/流合同尚未通过。 | NO |
 | ABI-03 | `GPUModelRunner.prepare_attn` / `BlockTables.compute_slot_mappings` | 继承通用GPU V2及Ascend V2 Attention utils | 上游 `gpu/block_table.py` 多组 `_gather_block_tables_kernel`、`_compute_slot_mappings_kernel` 都是Triton；必须实现310P自身BlockTable V2接口（旧`_310p/block_table.py`属另一个Runner生命周期） | NO |
 | ABI-04 | `GPUModelRunner.postprocess_sampled(idx_mapping,sampled_tokens,num_sampled,num_rejected,query_start_loc=None)` | Ascend V2 override | 当前用上游函数，内部直接调用上游GPU `input_batch.post_update`（Triton）；`worker/v2/input_batch.post_update` 并未自动替换该符号，不能以本地函数存在为PASS。当前Sync已经改为`torch.npu.current_stream`，但状态更新仍未适配 | NO |
 | ABI-05 | 上游0.27.1 **没有** `GPUModelRunner.postprocess(...)` | Ascend V2旧版遗留hook | 保留旧版本可调用时的受保护兼容，0.27.1实际走 `postprocess_sampled` | 仅源码修复 |
@@ -18,9 +18,9 @@
 | ABI-10 | `GPUModelRunner.initialize_kv_cache` / `init_kv_cache` /`ModelState` | Ascend V2 `initialize_kv_cache`、`attn_utils` | 需要核对W8A8与Mamba/GDN、multi KV Group、每层block_size/真实kernel block size、不同窗口mask及请求复用；没有310P3 V2实机证据 | NO |
 | ABI-11 | `GPUModelRunner.execute_model` / `shutdown` / `torch.cuda.*` | AscendV2继承 | inherited执行并非全部经`torch_cuda_wrapper`，检查流、device内存、profiling、Graph manager/Context、Eager的CG manager=NULL路径，不能盲目解除NOT_IMPLEMENTED | NO |
 | ABI-12 | 上游 `VllmConfig._validate_v2_model_runner` 与 `use_v2_model_runner` | 平台patch已完成 | 310P3双开关、vLLM0.27.1、TP2 Eager只豁免Triton，剩余feature检查保留；Worker因未移植V2仍主动报NOT_IMPLEMENTED | 配置准入已PASS，Runtime NO |
-| ABI-13 | `GPUModelRunner.__init__` 直接构造UVA `RequestState` | 独立 `NPURequestState` 候选尚未取代父构造 | P0，必须专属Runner完全绕过原UVA构造 | NO |
-| ABI-14 | `GPUModelRunner.initialize_kv_cache` 构造GPU `BlockTables` | `NPUBlockTables`候选未接线 | P0，KV init/多Group/DFlash实际入口未替换 | NO |
-| ABI-15 | `post_update`修改设备端Token/length状态 | 310P CPU staged mirror、dirty-index候选 | P0，in-flight所有权/异步写序未审计闭环 | NO |
+| ABI-13 | `GPUModelRunner.__init__` 直接构造UVA `RequestState` | 专属Runner局部clone注入 `NPURequestState` | 已避免GPU UVA RequestState首次构造，但Sampler嵌套状态/ModelState/生命周期、310P3设备算子和双轮静审仍未完成；未注册Worker | NO |
+| ABI-14 | `GPUModelRunner.initialize_kv_cache` 构造GPU `BlockTables` | 专属Runner局部clone注入 `NPUBlockTables` | KV构造候选已接，但多KV组/Attention/ModelState真实设备合同、物理blocksize及DFlash mask尚未静审闭环 | NO |
+| ABI-15 | `post_update`修改设备端Token/length状态 | 310P Eager post_update/32B staged RMW与释放预检候选 | P0，pending写和继承释放顺序CPU合同已补，但in-flight所有权/异步失败、设备流与异常销毁未审计闭环 | NO |
 
 ## 0.27.1主要签名与调用源
 

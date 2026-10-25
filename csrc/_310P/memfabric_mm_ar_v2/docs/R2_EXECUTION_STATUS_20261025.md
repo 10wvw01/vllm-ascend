@@ -243,3 +243,10 @@
 - 增加Torch CPU合同：token row已提交、两个vector分别留有未提交写时均拒绝释放，拒绝后req映射/free列表不变，清理待提交后允许释放并复用，复用后的长度/计算计数为新请求值。此为真实代码修复，CI需在新SHA核实；**不能据此认为in-flight NPU stream/异常传播/异步提交安全**，T16仍BLOCKED，44项强制静态准入证据保持0/44、PR#7 DRAFT、Worker NOT_IMPLEMENTED、ONDEVICE NOT_RUN。下一步继续审计device-owned row写入和实际GPUModelRunner继承调用链。
 
 - 新代码SHA `710bd56e1905cf5848de38d3fdb3172fb4c4c72a` 对应 [GitHub Actions Run 40182388545](https://github.com/10wvw01/vllm-ascend/actions/runs/40182388545) 双job **SUCCESS**：轻量138 unittest OK（13 skip）+54 pytest PASS；独立Torch2.10 CPU **158 unittest OK**，较上一SHA新增1项回收/复用合同。准入检查仍明确`R2-A STATIC-NO-GO: 0/44 mandatory nodes`、双轮审查未PASS。该CPU成功不代表NPU stream和设备生命周期可用。
+
+### R2-A T01/T16 32B Lookahead与继承释放顺序修复（2026-10-25 19:24 北京时间；STATIC NO-GO）
+
+- 实际代码提交 `63b93afac199127931d11ae3ea625c989c2bd114`：静审发现原`next_prefill_tokens[lookahead,req_state]`的`index_fill_(1)`和T01`index_copy_(1)`只更新每个请求的int32列，存在310P3设备持久状态短写/跨行覆盖风险。现在`NPURequestState`使用按请求分配、32B向上对齐的物理存储`_next_prefill_storage[req_state,padded_lookahead]`，对外保持冻结上游`[lookahead,req_state]`转置视图；T01先拒绝非对齐布局，再通过物理整行`index_copy_(0)`提交并保留未修改请求及padding。槽位复用整行清零，补1～9步lookahead、混合请求、负例及跨请求隔离CPU测试。**这仅消除代码层面可见的4B列写，不等于NPU index_copy_、as_strided和流安全已验证**。
+- 实际代码提交 `e7158aaf8b98e2a2d7c71c2a748c2e9e501c4970`：冻结`GPUModelRunner._remove_request`先调用`ModelState.remove_request`再调用`RequestState.remove_request`，原T16待写检查发生得过晚；拒绝释放时ModelState已被修改，形成双所有者分裂。现将`NPURequestState.assert_can_release_request`做成不修改状态的预检，310P候选Runner在继承释放前先调用它，之后仍保留原上游ModelState→RequestState清理顺序；CPU负例及AST顺序合同覆盖。**设备in-flight所有权、异步失败和完整ModelState生命周期仍未闭环**。
+- 最终代码SHA `e7158aaf8b98e2a2d7c71c2a748c2e9e501c4970` 对应 [GitHub Actions Run 40188687250](https://github.com/10wvw01/vllm-ascend/actions/runs/40188687250) 双job **SUCCESS**：轻量 **139 unittest OK（13 skip）+54 pytest PASS**，独立Torch2.10 CPU **162 unittest OK**。真实准入检查仍为 **`R2-A STATIC-NO-GO: 0/44 mandatory nodes`**，双轮静审未PASS，`NPUWorker310`继续`NOT_IMPLEMENTED`，PR#7继续Draft，R2-B/C/D ONDEVICE NOT_RUN。
+- 下轮继续T13完整继承路径、T01其它可能短写（如输入/seq_lens缓冲）、T16多Stream/错误传播、T05/T06 KV组与ModelState真实接线、DFlash K7概率正确性及310P3设备算子静审；不得以CPU绿灯消除任何44项门禁。

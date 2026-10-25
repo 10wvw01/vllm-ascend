@@ -38,3 +38,9 @@
 ## 第一轮静审补遗：新增四条构造/采样必经路径（2026-10-25）
 
 复读冻结上游GPUModelRunner`__init__`、`load_model`、`sample_tokens`发现此前8项P0报告遗漏了**T26～T29**四条独立CUDA/UVA路径：Sampler内五种嵌套状态、StructuredOutputsWorker CUDA Stream、DraftTokensHandler CUDA Stream/Event、AsyncOutput CUDA Event/set_stream。它们已在R2候选代码中用私有构造clone或专属类替换，且有CPU合同；但未通过310P3设备算子/流验证及第二轮独立静审。R2-A仍NO-GO，必须将四项单独纳入正式门禁，不能因T13概括性条目而漏审。
+
+## T01/T16 静审补遗：两项已修复源码候选，设备准入仍NO-GO
+
+- **P0-12：T01短列写。** `NPURequestState.add_request`原来按`[lookahead, req_state]`列`index_fill_`，`prepare_prefill_inputs`按列`index_copy_`，均可能发出4B粒度设备写。已改按请求分配32B对齐物理行、逻辑转置视图和整行提交（`63b93afa`）；未验证310P3`as_strided/index_copy_`、其它T01写入和实际Stream，仍BLOCKED。
+- **P0-13：T16释放顺序。** 冻结上游`GPUModelRunner._remove_request`先释放ModelState，再调用带待写检查的RequestState，拒绝时可导致状态不一致。已新增非变更`assert_can_release_request`，并在专属Runner继承清理前预检（`e7158aaf`）；未覆盖in-flight设备所有权/异步错误，仍BLOCKED。
+- 双job CI 40188687250 已核实139轻量unittest（13 skip）+54 pytest+162 Torch CPU PASS，但仍0/44 STATIC NO-GO、第二轮独立静审未PASS、ONDEVICE NOT_RUN。新增审查发现应在后续P0复核中继续追踪，不得提前注册Worker。
