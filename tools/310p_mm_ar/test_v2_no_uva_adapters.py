@@ -134,6 +134,7 @@ class TestCandidateAdapters(unittest.TestCase):
             num_tokens_padded=5,
         )
         self.assertEqual(slots.shape, (2, 5))
+        self.assertEqual(slots.dtype, t.int32)  # NPU reshape_and_cache ABI
         self.assertEqual(slots[0].tolist(), [192, 223, 224, -1, -1])
         self.assertEqual(slots[1].tolist(), [1024, 1055, 1056, -1, -1])
         # Upstream DFlash reads the persistent slot_mappings attribute,

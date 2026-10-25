@@ -71,7 +71,7 @@ class NPUBlockTables:
         ]
         self.slot_mappings = torch.full(
             (self.num_kv_cache_groups, max_num_batched_tokens),
-            PAD_SLOT_ID, dtype=torch.int64, device=device
+            PAD_SLOT_ID, dtype=torch.int32, device=device
         )
         self._poisoned = False
         self.init_block_table_layout_tensors()
@@ -255,7 +255,7 @@ class NPUBlockTables:
             block_idx = block_idx.clamp(max=bt.plan.cols - 1).long()
             flat_idx = req_idx * bt._storage.stride(0) + block_idx
             blocks = bt._storage.reshape(-1).index_select(0, flat_idx)
-            slot = blocks.long() * bs + (pos.long() % bs)
+            slot = (blocks.long() * bs + (pos.long() % bs)).to(torch.int32)
             slots.append(torch.where(
                 valid_g, slot, torch.full_like(slot, PAD_SLOT_ID)
             ))

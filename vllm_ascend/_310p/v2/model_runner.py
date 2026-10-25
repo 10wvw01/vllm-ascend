@@ -178,9 +178,51 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
         self._copy_num_computed_tokens_to_cpu()
 
     def initialize_kv_cache(self, kv_cache_config):
-        # Must never fall back to upstream GPU BlockTables and Triton staged
-        # writes simply because the bootstrap RequestState is no longer UVA.
-        raise NotImplementedError(
-            "310P3 V2 KV init blocked until non-Triton BlockTables, "
-            "all Attention Groups and model-state lifecycle are wired/reviewed"
+        """Use the frozen GPU V2 KV orchestration with 310P-owned BlockTables.
+
+        The original GPUModelRunner method computes real KV group capacities,
+        kernel block sizes, attention group/ModelState wiring and DFlash
+        set_attn. A private-globals copy substitutes the 310P BlockTables
+        and Ascend ACL graph manager *before* that method constructs them.
+        This avoids both process-global GPU monkeypatching and fallback to
+        upstream Triton KV staged writes.
+
+        It remains an unregistered candidate; backend, KV cache allocation,
+        mixed-group attention, graph-none manager and torch-npu op contracts
+        are not proven by CPU tests.
+        """
+        from vllm.v1.worker.gpu.model_runner import GPUModelRunner
+        from vllm_ascend.worker.v2.aclgraph_utils import ModelAclGraphManager
+
+        from .block_tables import NPUBlockTables
+
+        def make_acl_graph_manager(
+            vllm_config, device, cudagraph_mode, decode_query_len,
+            lora_capture_cases=None,
+        ):
+            from vllm.config.compilation import CUDAGraphMode
+
+            if cudagraph_mode != CUDAGraphMode.NONE:
+                raise NotImplementedError(
+                    "310P3 V2 Graph capture is a separate R3 gate"
+                )
+            return ModelAclGraphManager(
+                vllm_config, device, cudagraph_mode, decode_query_len,
+                self, lora_capture_cases=lora_capture_cases,
+            )
+
+        kv_init = _clone_upstream_function(
+            GPUModelRunner.initialize_kv_cache,
+            {
+                "BlockTables": NPUBlockTables,
+                "ModelCudaGraphManager": make_acl_graph_manager,
+            },
         )
+        try:
+            kv_init(self, kv_cache_config)
+        except Exception:
+            # KV state may be allocated/cached before an attention-backend
+            # failure. Never retry in-place after partial initialization.
+            self._310p_v2_kv_poisoned = True
+            raise
+

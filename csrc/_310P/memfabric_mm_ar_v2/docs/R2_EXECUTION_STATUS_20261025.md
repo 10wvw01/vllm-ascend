@@ -140,3 +140,9 @@
 
 - `NPUModelRunner310V2Candidate.prepare_inputs`现在真实调用冻结Ascend V2 `prepare_inputs`函数体，却用本地`_clone_upstream_function`仅在此Runner的方法全局字典中注入T01 `prepare_prefill_inputs`、T02 `prepare_pos_seq_lens`、T03 `combine_sampled_and_draft_tokens`、T04 `expand_idx_mapping`；不改变进程级Ascend/GPU模块。CPU AST合同核对四个原始Triton符号均被专属绑定。
 - `BLOCKED`判定不变：GPU父构造已隔离、T01～04已在**候选Runner**作用域绑定，但该Runner没有Worker注册且KV初始化主动fail-closed；其余T05～16/采样/DFlash/设备Eager算子与流未闭环，不得从“绑定成功”推出STATIC-GO。
+
+### R2-05 KV Cache多组对象/slot dtype候选接线（仍NO-GO）
+
+- `NPUModelRunner310V2Candidate.initialize_kv_cache`改为冻结GPUModelRunner.initialize_kv_cache的**局部作用域clone**：动态真实KV group宽度/ Attention/backend/cudagraph_mode-none生命周期来自上游原始逻辑，但仅对该候选注入`NPUBlockTables`和`ModelAclGraphManager`，不改全局模块；Graph mode不为NONE即阻断，KV失败poison而不重试。
+- `_310p/v2/block_tables.py.slot_mappings`修正为**int32**（Ascend reshape_and_cache实际ABI），同步Torch CPU和静态合同；上游GPU默认int64并不适用到Ascend。后续需要核对`_make_ptr_tensor`的uint64支持和真实NPU BlockTables schema。
+- **非准入声明**：KV allocator、ModelState W8A8/GDN/Mamba、双Rank和多group draft attention尚未验证；本专属Runner仍未注册，DFlash out buffers限制仍触发显式NotImplemented；T05/T06/T14/T15依然未满足31项静态准入证据，不得更改READY/GO。
