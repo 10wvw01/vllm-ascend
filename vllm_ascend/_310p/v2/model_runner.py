@@ -14,6 +14,7 @@ from __future__ import annotations
 import types
 
 import torch
+from vllm.v1.core.sched.output import GrammarOutput
 from vllm.v1.outputs import ModelRunnerOutput
 from vllm.v1.worker.gpu import pcp_manager as pcp
 from vllm.v1.worker.gpu.async_utils import AsyncOutput

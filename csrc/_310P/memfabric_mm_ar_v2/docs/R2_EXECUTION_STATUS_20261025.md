@@ -191,3 +191,8 @@
 - 代码提交`213816dec35ceff8cda8059cf405ef245eb73d29`对应GitHub Actions Run [40174498389](https://github.com/10wvw01/vllm-ascend/actions/runs/40174498389) **SUCCESS**：轻量治理 **122 unittest OK（含Torch缺依赖skip）+54 pytest PASS**；独立Python3.12/Torch2.10 CPU **130 unittest OK**。同一Run静态门禁明确输出 **`R2-A STATIC-NO-GO: 0/40 mandatory nodes`**。
 - 本轮新增真实候选源码：T11六组K7 prepare +冻结DFlash propose作用域绑定、T09写前动态验证、T17/T18 Greedy/温度安全子集、T23 Greedy rejection及冻结Sampler/RejectionSampler工厂局部接线；另发现T17～T25九项被旧矩阵遗漏的必经Triton/所有权风险。CPU CI只证明该SHA的CPU语义，不等于NPU算子可用、随机分布正确、Target/DFlash真实Runner或双轮静审PASS。
 - **最终状态仍STATIC NO-GO / ONDEVICE NOT_RUN**；`NPUWorker310`的`NOT_IMPLEMENTED`未动、PR#7仍DRAFT。下一轮优先T19～T22/T24的非Triton真实采样与概率拒绝、T25整行K7写、ModelState/attention的T13 ABI穷尽及device ops静审。
+
+### T25拷贝冻结sample_tokens的全局名静审保护（2026-10-25）
+
+- `cfbc04de`新T25实现拷贝冻结`GPUModelRunner.sample_tokens`后已导入Torch、AsyncOutput、ModelRunnerOutput、pcp、step_eplb_after；作者二次静审补齐原缺失的`GrammarOutput`类型注解ABI（`from __future__ import annotations`下不会在类定义时报错，但运行时`get_type_hints`会失效）。
+- 新增`test_v2_runner_copied_sample_tokens_imports.py`使用AST+symtable检查拷贝方法所有全局自由名、装饰器/类型引用、并确保K7直接窄写被64B padded存储替换。**T25仍需设备写粒度/流和复用实证，不能标READY**。
