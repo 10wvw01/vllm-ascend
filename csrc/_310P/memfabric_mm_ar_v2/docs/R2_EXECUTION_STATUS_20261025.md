@@ -173,3 +173,9 @@
 
 - 新增`_310p/v2/rejection_ops.py`和`test_v2_rejection_ops.py`，固定冻结上游`rejection_sample` 14参数ABI，纯Torch Eager处理K7+bonus=8、混合长度、按下一个logits位置取draft token、首个不匹配截断并回填Target argmax、返回int64 [N,8]+int32计数；Torch CPU gold/错误测试覆盖全部接受、首步拒绝、中途拒绝、prefill短batch和异常。
 - **只实现Greedy温度=0**：温度>0/FP64/synthetic/block verification均明确拒绝，不伪造概率分布。还未替代真实`RejectionSampler._verify`全局绑定，`torch._assert_async`/NPU动态索引和随机分布均未通过静审；T23仍BLOCKED，T17～T25全部保持NO-GO。
+
+### T07/T17/T23冻结Sampler实际作用域接线（2026-10-25；STATIC NO-GO）
+
+- 新增`_310p/v2/sampler.py`：专属`NPUSampler310V2`对冻结`Sampler.__call__`绑定T07、`Sampler.sample`绑定T17 Greedy候选，强制禁用CUDA FlashInfer；`NPURejectionSampler310V2`对冻结`RejectionSampler.__call__`绑定T07、`_verify`绑定T23 Greedy候选。若请求logprobs，拒绝未替代T08/T22 Triton。
+- 专属`NPUModelRunner310V2Candidate.load_model`作用域clone冻结`GPUModelRunner.load_model`并注入这两个候选工厂；通用Ascend/上游全局方法保持不变。源码AST合同测试验证绑定而不误报为设备通过。
+- **仍NO-GO**：T19～T22/24采样参数分支与T25窄写、GPU ModelState/流/Graph/TP2和NPU`torch._assert_async`未闭环；且专属Runner未注册、T23非贪心显式拒绝。静态门禁仍0/40，ONDEVICE NOT_RUN。

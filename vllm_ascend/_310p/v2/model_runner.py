@@ -191,6 +191,23 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
         )
         self._copy_num_computed_tokens_to_cpu()
 
+    def load_model(self, *args, **kwargs):
+        """Scope the frozen GPU V2 sampler constructors to 310P candidates.
+
+        Does not register this runner or permit non-greedy/spec logprobs.
+        """
+        from vllm.v1.worker.gpu.model_runner import GPUModelRunner
+        from .sampler import NPUSampler310V2, NPURejectionSampler310V2
+
+        load = _clone_upstream_function(
+            GPUModelRunner.load_model,
+            {
+                "Sampler": NPUSampler310V2,
+                "RejectionSampler": NPURejectionSampler310V2,
+            },
+        )
+        return load(self, *args, **kwargs)
+
     def initialize_kv_cache(self, kv_cache_config):
         """Use the frozen GPU V2 KV orchestration with 310P-owned BlockTables.
 
