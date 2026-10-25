@@ -35,3 +35,12 @@
 ## 追踪判定
 
 当前 `BLOCKED`：11项（T01～T09、T11、T14）；`UNWIRED`：T12；`UNVERIFIED/P0`：T15；`UNVERIFIED`：T10；`UNRESOLVED`：T13。**R2-02仍OPEN，不得在机器上运行或解除V2 Runner fail-closed。**
+
+
+## R2新增候选实现（2026-10-25；状态仍为BLOCKED/UNVERIFIED）
+
+- T05/T06：`vllm_ascend/_310p/v2/block_tables.py:NPUBlockTables`提供独立非Triton Eager `gather_block_tables/compute_slot_mappings`，按组使用`kernel_block_sizes`，padding返回PAD=-1；`out/out_ptrs` 尚显式拒绝，`torch.searchsorted`在310P3设备上尚无支持证据。**UNWIRED，不能改READY**。
+- T14：`staged_buffers.py`的`NPUStagedWriteTensor/NPUFusedStagedWriter`提供单/多组独立设备写候选；1D device-mutated state使用dirty-index `index_copy_` 而非整向量陈旧CPU镜像，矩阵采用32B对齐整行阻塞H2D。**未接入GPU父类BlockTables，NPU op可用性/异常恢复待审**。
+- T15：`request_state.py:NPURequestState`避免UVA构造并保持0.27.1的属性/方法外观；但`GPUModelRunner.__init__`当前仍会先构造UVA父类，不能靠事后重置对象绕过。**P0仍在，不能解除Worker阻断**。
+- 新审计项 **T16（P0）**：采样post_update设备修改`num_computed_tokens/total_len/all_token_ids`与CPU staging之间的所有权和可见性。候选1D dirty scatter避免覆盖其它请求；矩阵active-row重复写、请求重用、in-flight流/事件、NPU `index_copy_`/短写安全尚无闭环CPU+设备合同。**BLOCKED**。
+- 纯CPU计划与Torch CPU合同见`tools/310p_mm_ar/test_v2_staged_buffers.py`、`test_v2_no_uva_adapters.py`；轻量CI不安装torch时Torch CPU测试跳过，必须另有明确的全量CPU Torch合同报告，不得把skip写PASS。
