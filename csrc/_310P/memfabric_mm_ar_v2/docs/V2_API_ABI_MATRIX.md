@@ -8,7 +8,7 @@
 |---|---|---|---|---|
 | ABI-01 | `GPUModelRunner.__init__(vllm_config,device)` + GPU `torch.cuda.Stream` | `worker/v2/model_runner.py:NPUModelRunner.__init__` 用 `torch_cuda_wrapper` | 构造初始化在NPU侧的全部CUDA使用/实例替换仍需核实，不能仅以包装上下文判断全部安全 | NO |
 | ABI-02 | `GPUModelRunner.prepare_inputs(scheduler_output,batch_desc)` + `InputBatch` | Ascend同名override | T01～T04已在310P候选Runner局部绑定非Triton实现，T01 lookahead物理整行候选已补；输入/seq_lens设备短写、完整ModelState和310P3算子/流合同尚未通过。 | NO |
-| ABI-03 | `GPUModelRunner.prepare_attn` / `BlockTables.compute_slot_mappings` | 继承通用GPU V2及Ascend V2 Attention utils | 上游 `gpu/block_table.py` 多组 `_gather_block_tables_kernel`、`_compute_slot_mappings_kernel` 都是Triton；必须实现310P自身BlockTable V2接口（旧`_310p/block_table.py`属另一个Runner生命周期） | NO |
+| ABI-03 | `GPUModelRunner.prepare_attn` / `BlockTables.compute_slot_mappings` | 310P专属Runner局部clone注入`NPUBlockTables`候选 | 已有非Triton多组Gather/Slot与32B物理行写候选；Attention/backend是否接受非连续逻辑view、NPU算子/流、KV多组生命周期和真实5 Sliding+1 Full仍未通过 | NO |
 | ABI-04 | `GPUModelRunner.postprocess_sampled(idx_mapping,sampled_tokens,num_sampled,num_rejected,query_start_loc=None)` | Ascend V2 override | 当前用上游函数，内部直接调用上游GPU `input_batch.post_update`（Triton）；`worker/v2/input_batch.post_update` 并未自动替换该符号，不能以本地函数存在为PASS。当前Sync已经改为`torch.npu.current_stream`，但状态更新仍未适配 | NO |
 | ABI-05 | 上游0.27.1 **没有** `GPUModelRunner.postprocess(...)` | Ascend V2旧版遗留hook | 保留旧版本可调用时的受保护兼容，0.27.1实际走 `postprocess_sampled` | 仅源码修复 |
 | ABI-06 | `DFlashSpeculator.set_attn(model_state,kv_cache_config,block_tables,target_input_buffers,target_attn_groups)` | Ascend V2原先仅3入参 | 已修复为条件签名兼容：0.27.1需5参，早期Ascend旧ABI仍可以3参；初始化draft模型与attn metadata需继续检查 | 仅源码修复 |

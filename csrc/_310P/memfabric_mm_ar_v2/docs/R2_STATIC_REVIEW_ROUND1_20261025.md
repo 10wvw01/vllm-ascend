@@ -44,3 +44,5 @@
 - **P0-12：T01短列写。** `NPURequestState.add_request`原来按`[lookahead, req_state]`列`index_fill_`，`prepare_prefill_inputs`按列`index_copy_`，均可能发出4B粒度设备写。已改按请求分配32B对齐物理行、逻辑转置视图和整行提交（`63b93afa`）；未验证310P3`as_strided/index_copy_`、其它T01写入和实际Stream，仍BLOCKED。
 - **P0-13：T16释放顺序。** 冻结上游`GPUModelRunner._remove_request`先释放ModelState，再调用带待写检查的RequestState，拒绝时可导致状态不一致。已新增非变更`assert_can_release_request`，并在专属Runner继承清理前预检（`e7158aaf`）；未覆盖in-flight设备所有权/异步错误，仍BLOCKED。
 - 双job CI 40188687250 已核实139轻量unittest（13 skip）+54 pytest+162 Torch CPU PASS，但仍0/44 STATIC NO-GO、第二轮独立静审未PASS、ONDEVICE NOT_RUN。新增审查发现应在后续P0复核中继续追踪，不得提前注册Worker。
+
+- **P0-14：T06 KV Slot Mapping短行写。** 原`slot_mappings[group,max_tokens]`的物理stride及`[:, :active_tokens].copy_`未确保32B行完整提交；现用物理padding及全行构造/整缓冲写（`0e819f23`），两组异构blocksize及非8倍数token CPU测试通过。仍需真实310P3 Attention接受非连续逻辑view的stride/alias合同、NPU算子/流验证，T06继续BLOCKED，不能视作STATIC-GO。

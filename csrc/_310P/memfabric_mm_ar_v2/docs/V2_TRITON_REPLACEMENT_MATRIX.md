@@ -11,7 +11,7 @@
 | T03 | Ascend V2 `prepare_inputs`→ `combine_sampled_and_draft_tokens` | 每批 **必经** | 分块prompt尾/last_sampled/draft tokens；ModelState bonus count0/1、logits_indices | BLOCKED |
 | T04 | Ascend V2 `prepare_inputs`→`expand_idx_mapping` | 仅含draft token批次 **必经** | index expansion、mask、padding，对照上游gold | BLOCKED |
 | T05 | GPU V2 `BlockTables.gather_block_tables`→`_gather_block_tables_kernel` | KV Attn有效请求 **必经** | NPU安全多Group BlockTables；不能直接复用旧V1派生input_batch对象 | BLOCKED |
-| T06 | GPU V2 `BlockTables.compute_slot_mappings`→`_compute_slot_mappings_kernel` | KV Attn **必经** | NPU多KV Group独立blocksize和GID，含DFlash5滑窗1全注意力 | BLOCKED |
+| T06 | GPU V2 `BlockTables.compute_slot_mappings`→`_compute_slot_mappings_kernel` | KV Attn **必经** | 多Group Eager候选已接，0e819f23补32B物理行与整缓冲copy；需设备验证非连续逻辑view stride、算子/流、5 Sliding+1 Full异构blocksize与mask | BLOCKED |
 | T07 | 上游 `Sampler`或`RejectionSampler`→`get_num_sampled_and_rejected` | Decode/Spec sampling **必经** | NPU sampled/rejected及prefill-mask，避免输出数错 | BLOCKED |
 | T08 | 上游`RejectionSampler`→`_flatten_sampled_kernel` | K7 Verify **必经** | NPU rejection、sample positions与随机数接口，FP16重复测试 | BLOCKED |
 | T09 | `GPUModelRunner.postprocess_sampled`→上游`post_update` | 有生成token **必经** | NPU维护num_computed、last_token、all_tokens、bin_counts；已存在AscendV2函数但**未在GPU runner继承路径接线** | BLOCKED |
