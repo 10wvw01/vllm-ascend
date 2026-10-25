@@ -148,6 +148,32 @@ class TestCandidateAdapters(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             b.gather_block_tables(idx, 2, out=(tables[0], tables[1]))
 
+    def test_failed_kv_commit_blocks_future_gather_and_slot(self):
+        from unittest.mock import patch
+
+        t = self.torch
+        b = self.block_module.NPUBlockTables(
+            [64, 128], 2, 16, [2, 2], "cpu", [32, 128]
+        )
+        b.append_block_ids(0, ([1], [2]), False)
+        with patch.object(
+            b.block_tables[1], "apply_write",
+            side_effect=RuntimeError("second group H2D failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second group H2D failed"):
+                b.apply_staged_writes()
+        self.assertTrue(b._poisoned)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.gather_block_tables(t.tensor([0], dtype=t.int32), 1)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.compute_slot_mappings(
+                t.tensor([0], dtype=t.int32),
+                t.tensor([0, 1], dtype=t.int32),
+                t.tensor([0], dtype=t.int32), 1,
+            )
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.append_block_ids(0, ([3], [4]), False)
+
     def test_invalid_group_is_atomic_and_cp_rejected(self):
         b = self.block_module.NPUBlockTables(
             [64, 128], 2, 16, [2, 2], "cpu", [32, 128]
