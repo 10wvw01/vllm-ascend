@@ -6,7 +6,7 @@ Ascend overrides them. Keep NPUWorker310 fail-closed until that constructor
 and every inherited caller are replaced/reviewed.
 
 Matrix H2D writes below are explicitly BLOCKING and 32-byte-row padded.
-1-D state writes use device index_copy_ to preserve concurrent GPU-owned slots.
+1-D state writes merge device-owned values into full 32-byte rows before\nindex_copy_; same-stream ordering remains mandatory and NPU op support NO-GO.
 This is a correctness-first Eager contract, not a performance/async claim.
 """
 from __future__ import annotations
@@ -132,15 +132,37 @@ class NPUStagedWriteTensor:
                 for _row, offset, values in pending:
                     for i, value in enumerate(values):
                         changes[offset + i] = value
-                offsets = sorted(changes)
-                indices = torch.tensor(
-                    offsets, dtype=torch.int64, device=self.gpu.device
+                # Never issue narrow persistent int32/int64 writes on
+                # 310P3. Read the currently device-owned 32B row, merge
+                # only the newly staged slots, then write a complete row.
+                # This preserves other requests advanced by post_update.
+                lanes = 32 // self._storage.element_size()
+                changes_by_row = {}
+                for offset, value in changes.items():
+                    row, col = divmod(offset, lanes)
+                    changes_by_row.setdefault(row, {})[col] = value
+                row_ids = sorted(changes_by_row)
+                rows = torch.tensor(
+                    row_ids, dtype=torch.int64, device=self.gpu.device
                 )
-                values = torch.tensor(
-                    [changes[i] for i in offsets],
-                    dtype=self.dtype, device=self.gpu.device
+                row_storage = self._storage.view(-1, lanes)
+                current = row_storage.index_select(0, rows)
+                masks = [
+                    [col in changes_by_row[row] for col in range(lanes)]
+                    for row in row_ids
+                ]
+                values = [
+                    [changes_by_row[row].get(col, 0) for col in range(lanes)]
+                    for row in row_ids
+                ]
+                merged = torch.where(
+                    torch.tensor(masks, dtype=torch.bool,
+                                 device=self.gpu.device),
+                    torch.tensor(values, dtype=self.dtype,
+                                 device=self.gpu.device),
+                    current,
                 )
-                self._storage.index_copy_(0, indices, values)
+                row_storage.index_copy_(0, rows, merged)
             else:
                 # Only newly owned or explicitly recycled rows may be staged:
                 # post_update owns active rows on device. Full 32B-aligned

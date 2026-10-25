@@ -214,3 +214,8 @@
 - 深审冻结上游 `Sampler.__init__` 发现此前仅在Runner构造时替换`RequestState`仍不够：它还创建`SamplingStates`（5个`UvaBackedTensor`）、`PenaltiesState`（3个）、`LogitBiasState`（4个+GPU StagedWrite）、`BadWordsState`（1个+GPU StagedWrite）、`LogprobTokenIdsState`（1个+GPU StagedWrite）。而原`NPUSampler310V2.__init__`使用`super().__init__`，在真实load_model时**必定再次进入UVA构造**。另`GPUModelRunner.load_model`的`StructuredOutputsWorker`即使无grammar也在构造时调用`torch.cuda.Stream()`。
 - 新增`_310p/v2/sampler_state.py`：对上述五个冻结状态构造器使用局部globals clone注入`NPUBackedTensor`/`NPUStagedWriteTensor`；`NPUSampler310V2`私有克隆`Sampler.__init__`替换所有工厂并禁止FlashInfer；`GPUModelRunner.load_model`私有clone再注入`NPUStructuredOutputsWorker310V2`，无grammar时不创建CUDA stream，有grammar明确fail-closed。没有修改上游模块全局符号。
 - 新增CPU真实构造替代测试和源码合同`test_v2_sampler_uva_constructor.py`。这只消除两处新发现的构造级P0，**不是T13/T15准入完成**：采样State多buffer生命周期、异步流、310P3 Device ABI、其它继承路径与ModelState仍需两轮静审，40节点证据不升级，Worker NOT_IMPLEMENTED和PR DRAFT保持。
+
+### T14/T16 设备拥有向量的32B整行RMW修复（2026-10-25；仍NO-GO）
+
+- `NPUStagedWriteTensor.apply_write`原vector分支对`self._storage`逐int32/int64索引`index_copy_`，会形成短粒度持久设备写，和310P3已识别的对齐风险不符。现按32字节物理行聚合待写索引，`index_select`先读取设备当前行，`torch.where`只覆盖staged位置，再`index_copy_`整行提交；同一物理行其余已被`post_update`修改的请求状态从设备读而非使用过期CPU镜像。Torch CPU覆盖跨行、同位置last-wins、int64与尾部padding。
+- 仍需NPU3`index_select/where/index_copy_`的32B粒度和同流排序静态核实及设备证据；异步失败poison保护尚非事务提交。不可标T14/T16 READY，不解除Worker fail-closed。

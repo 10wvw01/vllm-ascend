@@ -117,6 +117,38 @@ class TestTorchBackends(unittest.TestCase):
         self.assertEqual(t.gpu[8].item(), 9)
         self.assertEqual(t.gpu[3].item(), 38)
 
+    def test_vector_full_row_rmw_preserves_device_owned_neighbors(self):
+        torch = self.torch
+        t = module.NPUStagedWriteTensor(17, torch.int32, "cpu")
+        # Same 32-byte row contains live request slots owned by the NPU.
+        t.gpu[:17] = torch.arange(17, dtype=torch.int32) + 100
+        t.stage_write_elem(1, 999)
+        t.stage_write_elem(9, 777)
+        t.stage_write_elem(9, 778)  # last staged write wins
+        t.apply_write()
+        expected = [100 + i for i in range(17)]
+        expected[1] = 999
+        expected[9] = 778
+        self.assertEqual(t.gpu.tolist(), expected)
+        self.assertEqual(t._storage.numel() % 8, 0)
+        # The last 32-byte padded row is also a complete write.
+        t.stage_write_elem(16, 42)
+        t.apply_write()
+        self.assertEqual(t.gpu[16].item(), 42)
+        self.assertEqual(t.gpu[:16].tolist(), expected[:16])
+
+    def test_vector_64bit_full_row_preserves_other_tokens(self):
+        torch = self.torch
+        t = module.NPUStagedWriteTensor(9, torch.int64, "cpu")
+        t.gpu[:9] = torch.arange(9, dtype=torch.int64) + 1000
+        t.stage_write_elem(3, 2**40)
+        t.stage_write_elem(8, 2**41)
+        t.apply_write()
+        self.assertEqual(t.gpu.tolist(), [
+            1000, 1001, 1002, 2**40, 1004, 1005, 1006, 1007, 2**41,
+        ])
+        self.assertEqual(t._storage.numel() % 4, 0)
+
     def test_device_commit_failure_poisoned_and_plan_preserved(self):
         from unittest.mock import patch
 
