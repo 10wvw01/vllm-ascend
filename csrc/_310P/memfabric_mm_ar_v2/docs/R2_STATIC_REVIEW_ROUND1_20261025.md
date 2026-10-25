@@ -46,3 +46,5 @@
 - 双job CI 40188687250 已核实139轻量unittest（13 skip）+54 pytest+162 Torch CPU PASS，但仍0/44 STATIC NO-GO、第二轮独立静审未PASS、ONDEVICE NOT_RUN。新增审查发现应在后续P0复核中继续追踪，不得提前注册Worker。
 
 - **P0-14：T06 KV Slot Mapping短行写。** 原`slot_mappings[group,max_tokens]`的物理stride及`[:, :active_tokens].copy_`未确保32B行完整提交；现用物理padding及全行构造/整缓冲写（`0e819f23`），两组异构blocksize及非8倍数token CPU测试通过。仍需真实310P3 Attention接受非连续逻辑view的stride/alias合同、NPU算子/流验证，T06继续BLOCKED，不能视作STATIC-GO。
+
+- **P0-15：T09接近Token行尾时 masked 列与accepted列冲突**。原`rows.scatter_`以clamp后的列写入，sample宽度大于剩余容量时无效列可擦掉合法已接受Token。新增accepted-only delta `scatter_add_`和空penalty词表、int64→int32越界写前检查及Torch CPU负例。**设备`scatter_add_`、同流顺序与多Buffer原子性仍未核验，静态审查不通过，第二轮独立深审NOT_RUN**。

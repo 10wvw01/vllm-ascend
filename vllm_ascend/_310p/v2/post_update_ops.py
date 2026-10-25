@@ -87,7 +87,8 @@ def post_update(
     if output_bin_counts is not None:
         if (output_bin_counts.ndim != 2 or
                 output_bin_counts.shape[0] != total_len.numel()
-                or output_bin_counts.dtype != torch.int32):
+                or output_bin_counts.dtype != torch.int32
+                or output_bin_counts.shape[1] == 0):
             raise ValueError("invalid output penalty counts")
     if not active_rows:
         return
@@ -129,8 +130,10 @@ def post_update(
         "310P T09 invalid sampled/rejected count or state capacity",
     )
     torch._assert_async(
-        torch.all((~accepted) | (sampled >= 0)),
-        "310P T09 invalid accepted token ID",
+        torch.all((~accepted) | (
+            (sampled >= 0) & (sampled <= torch.iinfo(torch.int32).max)
+        )),
+        "310P T09 invalid accepted token ID or int32 overflow",
     )
     if output_bin_counts is not None:
         torch._assert_async(
@@ -145,8 +148,15 @@ def post_update(
     columns = old_total[:, None] + token_cols
     columns = columns.clamp(0, all_token_ids.shape[1] - 1).to(torch.int64)
     old_values = rows.gather(1, columns)
-    new_values = torch.where(accepted, sampled.to(torch.int32), old_values)
-    rows.scatter_(1, columns, new_values)
+    # Rejected/padded columns can clamp to the same last token column
+    # as a valid accepted token. scatter_ may silently overwrite that token
+    # with the old value. Duplicate padded columns must contribute nothing.
+    # Device support/ordering of int32 scatter_add_ still requires review.
+    deltas = torch.where(
+        accepted, sampled.to(torch.int32) - old_values,
+        torch.zeros_like(old_values),
+    )
+    rows.scatter_add_(1, columns, deltas)
     all_token_ids.index_copy_(0, req_states, rows)
 
     next_total = old_total + count
@@ -170,8 +180,6 @@ def post_update(
 
     if output_bin_counts is not None:
         penalties = output_bin_counts.index_select(0, req_states).clone()
-        if penalties.shape[1] == 0:
-            raise ValueError("empty vocabulary counts")
         # Masked rejected tokens can be -1; their delta is zero.
         ids = sampled.clamp(0, penalties.shape[1] - 1)
         penalties.scatter_add_(1, ids, accepted.to(penalties.dtype))

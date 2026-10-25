@@ -256,3 +256,9 @@
 - 源码提交 `0e819f23fed8ad8ab346bbaaea86d5ebcc75720d`：静审发现`NPUBlockTables.slot_mappings`原按`[group,max_num_batched_tokens]`未补齐行stride，`compute_slot_mappings`通过`slot_mappings[:, :num_tokens_padded].copy_`进行局部宽度设备写；当group行宽/活动token数非8的倍数时存在310P3 4B～28B短写、相邻KV group覆盖风险。现用`_slot_storage[group,align_up(max_tokens,8)]`，保留冻结上游逻辑视图`slot_mappings[group,max_tokens]`，先构造含PAD的完整物理行再一次整缓冲copy；空批次和dummy也改为整物理存储清零/填PAD。
 - 新增Torch CPU测试覆盖两组不同物理blocksize（64/128）、最大token=5/活动token=3、尾部PAD、输出别名、空批次与dummy复用。代码SHA `0e819f23fed8ad8ab346bbaaea86d5ebcc75720d` 对应 [GitHub Actions Run 40188835484](https://github.com/10wvw01/vllm-ascend/actions/runs/40188835484) 双job **SUCCESS**：轻量 **139 unittest OK（13 skip）+54 pytest PASS**；独立Torch2.10 CPU **163 unittest OK**。
 - **T06/ABI-03仍BLOCKED/NO**：`slot_mappings`的非连续逻辑视图是否符合310P3 Attention/backend的stride合同、`torch.cat/copy_/searchsorted/index_select`设备支持与同流排序、每组5 Sliding+1 Full的真实mask/不同blocksize、KV allocator/ModelState和异常传播均未证实；门禁仍 **0/44 STATIC NO-GO**，PR#7仍Draft，Worker NOT_IMPLEMENTED，ONDEVICE NOT_RUN。
+
+### R2-A T09尾部容量 masked scatter 重复列 P0（2026-10-25；STATIC NO-GO）
+
+- 纯Torch CPU最小复现：row width=32、old_total=31、sample width=4、accepted=1时，原`scatter_`将尾部无效列clamp到31，与真实accepted列重合，后续旧值覆写合法Token（期望7，实际旧值）。这是候选T09静默错误，不代表310P3设备已运行。
+- 本分支修为accepted-only delta `scatter_add_`（无效列delta=0）；空`output_bin_counts`词表从晚检查改为写前拒绝；accepted int64超出持久int32范围在写前拒绝；新增Torch CPU尾列、异常不变更状态回归。先以此次SHA对应GitHub CI核验，不能复用旧Run。
+- `torch._assert_async/scatter_add_/index_copy_`的310P3支持及异步时序仍UNKNOWN；多Buffer写异常所有权尚未封闭。T09/ABI-04仍BLOCKED/NO，**0/44 STATIC NO-GO**；Worker NOT_IMPLEMENTED、PR#7 Draft、R2-B/C/D ONDEVICE NOT_RUN。

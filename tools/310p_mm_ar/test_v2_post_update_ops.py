@@ -147,6 +147,62 @@ class TorchPostUpdate(unittest.TestCase):
                 ):
                     self.assertTrue(t.equal(now, previous))
 
+    def test_tail_slot_valid_token_survives_masked_clamp_collision(self):
+        t = self.t
+        computed, laststorage, total, rows, _counts = self._state()
+        total[1] = 31
+        rows[1, 31] = 99
+        self.ops.post_update(
+            t.tensor([1], dtype=t.int32), computed,
+            laststorage[:, :1], None,
+            t.tensor([[7, -1, -1, -1]], dtype=t.int64),
+            t.tensor([1], dtype=t.int32),
+            t.tensor([0], dtype=t.int32),
+            t.tensor([0, 1], dtype=t.int32),
+            rows, total,
+            idx_mapping_np=[1], last_sampled_storage=laststorage,
+        )
+        self.assertEqual(int(rows[1, 31]), 7)
+        self.assertEqual(int(total[1]), 32)
+        self.assertEqual(int(laststorage[1, 0]), 7)
+        self.assertEqual(int(rows[0].count_nonzero()), 0)
+
+    def test_empty_penalty_vocab_is_prechecked_without_device_writes(self):
+        t = self.t
+        computed, laststorage, total, rows, _counts = self._state()
+        before = [x.clone() for x in (computed, laststorage, total, rows)]
+        with self.assertRaisesRegex(ValueError, "invalid output penalty counts"):
+            self.ops.post_update(
+                t.tensor([1], dtype=t.int32), computed,
+                laststorage[:, :1], t.zeros((3, 0), dtype=t.int32),
+                t.tensor([[7, -1]], dtype=t.int64),
+                t.tensor([1], dtype=t.int32),
+                t.tensor([0], dtype=t.int32),
+                t.tensor([0, 1], dtype=t.int32),
+                rows, total,
+                idx_mapping_np=[1], last_sampled_storage=laststorage,
+            )
+        for actual, expected in zip((computed, laststorage, total, rows), before):
+            self.assertTrue(t.equal(actual, expected))
+
+    def test_accepted_int64_token_overflow_rejected_before_writes(self):
+        t = self.t
+        computed, laststorage, total, rows, _counts = self._state()
+        before = [x.clone() for x in (computed, laststorage, total, rows)]
+        with self.assertRaisesRegex(RuntimeError, "int32 overflow"):
+            self.ops.post_update(
+                t.tensor([1], dtype=t.int32), computed,
+                laststorage[:, :1], None,
+                t.tensor([[2**31, -1]], dtype=t.int64),
+                t.tensor([1], dtype=t.int32),
+                t.tensor([0], dtype=t.int32),
+                t.tensor([0, 1], dtype=t.int32),
+                rows, total,
+                idx_mapping_np=[1], last_sampled_storage=laststorage,
+            )
+        for actual, expected in zip((computed, laststorage, total, rows), before):
+            self.assertTrue(t.equal(actual, expected))
+
     def test_frozen_source_310p_only(self):
         src = (SRC / "model_runner.py").read_text()
         self.assertIn("def postprocess_sampled(", src)

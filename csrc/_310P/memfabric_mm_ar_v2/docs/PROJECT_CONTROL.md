@@ -275,3 +275,8 @@
 
 - 仅自有R2任务分支新增冻结vLLM0.27.1 `prepare_prefill_inputs`的Torch Eager候选与stdlib CPU oracle、随机/负例Torch合同，覆盖prefill、lookahead、混合decode及请求slot隔离；参见`R2_EXECUTION_STATUS_20261025.md`和`V2_TRITON_REPLACEMENT_MATRIX.md`。T01仍未接生产Runner，所有GPU V2 UVA/BlockTables、T09/T11及采样多KV调用链仍阻断。
 - **R2-A STATIC NO-GO / R2-B/C/D ONDEVICE NOT_RUN**；Worker fail-closed与PR#7 DRAFT不变，CI绿不能替代310P设备算子、stream/所有权审查及两轮静态深审。新代码CI必须按新SHA取证，不复用旧计数。
+
+### R2-A T09尾部状态正确性P0修订（2026-10-25；工作分支）
+
+- 310P专属V2候选的`post_update_ops.py`在row仅余1个槽、sampler宽度大于1时，原`scatter_`对重复clamp列的masked写可能覆盖真实accepted Token；改为只对accepted位置累计差值，并将空penalty vocab和int64接受token→int32范围校验提前到首次持久写之前。附Torch CPU边界回归；无NPU或性能结果。
+- 当前仍**R2-A STATIC NO-GO 0/44**；T09/ABI-04依旧BLOCKED/NO，第二轮静审未开始，NPU Worker仍NOT_IMPLEMENTED，PR#7继续Draft，Stock默认与主线未变。此修订CPU CI尚待按新SHA核验，设备写原子性/流/错误传播仍是实机准入阻塞。
