@@ -67,9 +67,17 @@
 - 安全：本轮Worker仍是V1派生，V2选择必须在触碰设备前显式`NOT_IMPLEMENTED`，防止V1伪命中；**CONFIG-GATE-ONLY**。后续按V2 Worker/Triton替代/API多KV组分阶段推进、静审后上机。Graph和MemFabric仍独立门禁。
 - 验证：CPU-only参数作用域、旧逻辑回退、版本漂移、Graph、TP、非DFlash Spec限制及fail-closed行为单测，CI报告不等于NPU PASS。
 
+
+## ADR-012｜R2 V2 Runner全量范围与分段验收锁定｜2026-10-25｜有效
+
+- 决策：以 [R2总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md) 的 R2-00～R2-21 + R3-01～R3-04 作为下一阶段完整任务锁定，范围是 310P3 无Triton V2 Model Runner Eager（Target Stock→DFlash Stock→MM+MemFabric融合）；先CPU/两轮静审再一轮分段实机；Graph、Gate E 与大/小M研究单独列账。
+- 边界：只允许 our `10wvw01/vllm-ascend` 增量，继续保留0.27.1环境版本、模型、K7、TP2、Stock默认、原主线和不替换未授权SO；V2校验豁免目前仍CONFIG-GATE-ONLY。绝不改V1多KV、模型layer_types或伪造Triton。
+- 验收：每一组由可追溯代码SHA/装载二进制/HCCL/两个Rank/Token正确性确认；L1完整算子与L2同V2 Runner的Stock/融合配对，S0 V1 Runner不能参与融合收益归因；Graph独立门槛。
+- 变更：发现新必经API/Kernel必须补计划与UT/静审、风险评估；扩大为核心Scheduler大改或不具备修复路径时，须经新ADR与所有者裁决，不可静默扩大。
+
 ## 后续决策的写入模板
 
-`ADR-012｜YYYY-MM-DD｜有效/被替代`
+`ADR-013｜YYYY-MM-DD｜有效/被替代`
 
 - 决策：
 - 触发证据（SHA、报告、原始JSON或现场路径）：

@@ -171,3 +171,10 @@
 
 ### V2豁免二轮复审补充
 - 单独设置`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`而未强制`VLLM_USE_V2_MODEL_RUNNER=1`，此前会由env-only属性继续选V1，存在“绕过成功但实为V1”的污染可能；已调整属性为明确抛错（仅310P并仅豁免开关打开时），并对flag-off的旧V1默认/显式False做回归。
+
+## 14. R2 V2 Runner全量任务与验收门槛锁定（2026-10-25）
+
+- 所有者要求提高效率，**先一次性锁定下轮全部必经工作**，不再“修一个启动报错→跑一次设备→再问下一步”；权威任务表为 [R2 V2 Triton-free Model Runner总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)，立项基线为已合入的 `4b23e89`。
+- R2 顺序：A 逐接口ABI/全调用链Triton盘点→310P专属V2 Worker+Runtime、纯NPU非Triton输入/状态、DFlash多KV、Qwen W8A8/GDN和采样、CPU合同/两轮静审→B 非投机V2 Target Stock Eager→C V2 Stock+DFlash K7→D 同V2 Runner接MemFabric融合 L1/L2；Graph/507014长稳列为R3独立验收。
+- 关键已知缺口：`NPUWorker310`现仍V1派生并对V2显式拒绝；现有Ascend V2 DFlash `set_attn` API与vLLM 0.27.1不一致、输入和状态更新包含Triton；多KV GID/不同BlockSize/Sliding+Full、rejection与GDN/Mamba未获310P Eager证据。**任务列表不是实现完成声明。**
+- 工作规则：R2-A由ChatGPT负责GitHub源码/UT/两轮静态审查/PR及CI，在达到静态GO且现场G0得到许可后，才交由用户委托OpenCode按分级Stop/GO上机。Stock默认保留，不改V1、不改上游、不默认启V2，失真Graph不计PASS。R1-B现场分支报告与ADR-010须先选择性归档，主线性能基线标记本轮 NO-NEW-PERF。

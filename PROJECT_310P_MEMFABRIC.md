@@ -9,10 +9,11 @@
 1. [项目控制台：当前结论、技术合同、最新决策、下一步、环境状态](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——**当前状态只在这里维护**。
 2. [工作分支与合入治理](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)——唯一主线、实验分支归档、代码来源与禁止事项。
 3. [统一性能基线与证据索引](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)——严格区分单算子 V2 内部收益、完整 V2 vs Stock、模型实际传导。
-4. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——已经确定的原则及被废弃的方向。
-5. [DFlash K7 Stock/V2四象限实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——先Stock Eager，再V2 Eager；Graph受控研究。
-6. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
-7. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
+4. [R2 V2 Runner无Triton全量任务锁定](csrc/_310P/memfabric_mm_ar_v2/docs/V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)——R2-00～R2-21、测试/产物/验收/止损，不再逐报错临时扩展。
+5. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——已经确定的原则及被废弃的方向。
+6. [DFlash K7 Stock/V2四象限实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——先Stock Eager，再V2 Eager；Graph受控研究。
+7. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
+8. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
 
 ## 不可偏离的当前目标
 
