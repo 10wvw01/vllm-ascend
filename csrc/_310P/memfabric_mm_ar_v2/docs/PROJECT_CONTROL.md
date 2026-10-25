@@ -193,3 +193,8 @@
 ### R2 第2轮静态审查：通用 Ascend V2 防回归
 
 - 调整首批ABI修补：`AscendDFlashSpeculator.set_attn`改为按实际继承的上游签名兼容新5参数或旧3参数，不为310P3修复而破坏其它设备旧ABI；`NPUModelRunner.postprocess`保留旧版受保护回调，vLLM0.27.1使用`postprocess_sampled`。真正上游0.27.1及310P无Triton执行仍需进一步验证，不能宣称合格。
+
+### R2-01/02 固定ABI与Triton全路径静态审计（第一次覆盖，非闭环）
+
+- 已创建 [vLLM0.27.1↔Ascend V2 API/ABI矩阵](V2_API_ABI_MATRIX.md) 和 [310P Eager必经Triton替代矩阵](V2_TRITON_REPLACEMENT_MATRIX.md)，识别GPU BlockTables多组gather/slot mapping、GPU采样rejection flatten、上游post_update和DFlash多组prepare_dflash_inputs等前次漏列入口。当前**10项BLOCKED、1项UNWIRED、1项UNVERIFIED、1项UNRESOLVED**。
+- `tools/310p_mm_ar/test_v2_runtime_audit.py` 增加CPU源码合同：检查上游GPU input helper仍在本地V2 import、Worker fail-closed及固定SHA文档；它不替代上游真实路径解析、CPU golden与NPU adapter。**R2-02 OPEN / R2-A NOT-GO**。

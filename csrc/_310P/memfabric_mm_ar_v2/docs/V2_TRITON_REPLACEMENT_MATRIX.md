@@ -1,0 +1,34 @@
+# R2-02｜310P3 Triton-free V2 Eager必经路径与替代矩阵
+
+> 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。
+>
+> 运行期：310P3无功能性Triton，`HAS_TRITON=False`。vLLM自带`TritonPlaceholder.jit`只是导入用装饰器，不实现`kernel[grid]`。**配置跳过Triton校验≠允许真正调用Triton内核**。
+
+| ID | 调用源→Triton函数 | 现场可达性（Eager, Target / DFlash K7） | 替代来源/设计 | 状态 |
+|---|---|---|---|---|
+| T01 | Ascend V2 `prepare_inputs` →上游 `input_batch.prepare_prefill_inputs` | Prefill **必经** | 310P AscendC/torch_npu读prompt与prefill lookahead；要保持chunk prefill边界 | BLOCKED |
+| T02 | Ascend V2 `prepare_inputs`→ `prepare_pos_seq_lens` | 每批 **必经** | 310P int32 staged position/seq_len，不走不对齐 int64 Add | BLOCKED |
+| T03 | Ascend V2 `prepare_inputs`→ `combine_sampled_and_draft_tokens` | 每批 **必经** | 分块prompt尾/last_sampled/draft tokens；ModelState bonus count0/1、logits_indices | BLOCKED |
+| T04 | Ascend V2 `prepare_inputs`→`expand_idx_mapping` | 仅含draft token批次 **必经** | index expansion、mask、padding，对照上游gold | BLOCKED |
+| T05 | GPU V2 `BlockTables.get_block_tables`→`_gather_block_tables_kernel` | KV Attn有效请求 **必经** | NPU安全多Group BlockTables；不能直接复用旧V1派生input_batch对象 | BLOCKED |
+| T06 | GPU V2 `BlockTables.compute_slot_mappings`→`_compute_slot_mappings_kernel` | KV Attn **必经** | NPU多KV Group独立blocksize和GID，含DFlash5滑窗1全注意力 | BLOCKED |
+| T07 | 上游 `Sampler`或`RejectionSampler`→`get_num_sampled_and_rejected` | Decode/Spec sampling **必经** | NPU sampled/rejected及prefill-mask，避免输出数错 | BLOCKED |
+| T08 | 上游`RejectionSampler`→`_flatten_sampled_kernel` | K7 Verify **必经** | NPU rejection、sample positions与随机数接口，FP16重复测试 | BLOCKED |
+| T09 | `GPUModelRunner.postprocess_sampled`→上游`post_update` | 有生成token **必经** | NPU维护num_computed、last_token、all_tokens、bin_counts；已存在AscendV2函数但**未在GPU runner继承路径接线** | BLOCKED |
+| T10 | `GPUModelRunner.postprocess_num_computed_tokens`→`post_update_num_computed_tokens` | PP>1/其它分支；**当前TP2/PP1可能不可达，需Trace证实** | 保留禁止默认/显式阻断PP；如实际调用必须替代 | UNVERIFIED |
+| T11 | `DFlashSpeculator.propose`→上游`prepare_dflash_inputs` | DFlash K7每Draft group **必经** | 310P原`npu_copy_and_expand_dflash_inputs`可复用**语义**，需另写V2 ABI适配；不能直接调用V1 Proposer | BLOCKED |
+| T12 | 我方 `worker/v2/input_batch.py:post_update`的`_post_update_kernel` | 本地函数存在，**未证实当前GPU ModelRunner自动引用** | 避免假替换；只有调整实际`GPUModelRunner.postprocess_sampled`调用才算覆盖 | UNWIRED |
+| T13 | GPU V2 `ModelState`/KV初始化、采样辅助模块/Graph Manager等隐式Triton或CUDA调用 | 尚未穷尽；**需要逐路径import/AST静态和真实设备Trace** | 对每个继承方法审查`torch.cuda`、`triton`、`torch._inductor`及单次运行需的CANN替代 | UNRESOLVED |
+
+## 实施准则（严禁投机捷径）
+
+1. 优先**消灭T01～T09、T11的真实调用**再讨论worker解除阻断。替代实现必须有相同Tensor shape/dtype/device、非因果/滑窗 semantics、负例/随机种子/请求混批和输出gold。
+2. 只能在自己的310P任务分支接线，并限制影响作用域；单独负责其它Ascend设备的原有Triton路径。不允许全局覆盖 `vllm.triton_utils.HAS_TRITON`，也不允许临时覆盖全局 `torch.cuda` 而不证明真实路径。
+3. 若 `T13` 仍UNRESOLVED，**不能**用“前11项都已改好”声称完成G0或静态GO。每发现一个路径追加ID/UT/实机止损点。
+4. Graph路径仍独立`R3`；本表仅Eager，不因关闭Graph省掉DFlash输入Triton。
+5. 可复用的310P历史代码：`_310p/block_table.py`、`_310p/spec_decode/dflash_proposer_310.py`、`_310p/attention/metadata_builder.py`、`_310p/ops/*`；这些来自旧V1 Runner使用环境，须通过V2 ABI/物理KV mapping逐项证据对齐。
+6. CPU-only合同PASS≠设备可用；旧GateE/首写/507014与KVER11/SO装载身份另验。
+
+## 追踪判定
+
+当前 `BLOCKED`：10项（T01～T09、T11）；`UNWIRED`：T12；`UNVERIFIED`：T10；`UNRESOLVED`：T13。**R2-02仍OPEN，不得在机器上运行或解除V2 Runner fail-closed。**
