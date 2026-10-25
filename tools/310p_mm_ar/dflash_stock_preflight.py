@@ -172,7 +172,7 @@ def optional_probes(enable_imports: bool) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--target", default="/home/models/Qwen3.6-35B-A3B-w8a8")
+    parser.add_argument("--target", default="/home/models/Qwen/Qwen3.6-35B-A3B-w8a8")
     parser.add_argument("--draft", default="/home/models/Qwen3.6-35B-A3B-DFlash")
     parser.add_argument("--num-speculative-tokens", type=int, default=7)
     parser.add_argument("--import-smoke", action="store_true",

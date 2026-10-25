@@ -27,7 +27,13 @@ class K7TrialContract(unittest.TestCase):
         self.assertEqual(p["speculative"]["method"], "dflash")
         self.assertEqual(p["speculative"]["num_speculative_tokens"], 7)
         self.assertEqual(p["speculative"]["model"], trial.DRAFT)
-        self.assertEqual(p["speculative"]["draft_tensor_parallel_size"], 2)
+        self.assertEqual(set(p["speculative"]), {"method", "model", "num_speculative_tokens"})
+        self.assertEqual(trial.TARGET, "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8")
+        serve = p["server_command"]
+        self.assertEqual(serve[serve.index("--host") + 1], "0.0.0.0")
+        self.assertEqual(serve[serve.index("--max-num-seqs") + 1], "16")
+        self.assertEqual(serve[serve.index("--gpu-memory-utilization") + 1], "0.90")
+        self.assertNotIn("--safetensors-load-strategy", serve)
         self.assertEqual(p["TP"], 2)
         self.assertEqual(p["env_overrides"]["VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR"], "0")
         self.assertEqual(p["env_overrides"]["VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE"], "0")
@@ -67,6 +73,9 @@ class K7TrialContract(unittest.TestCase):
             self.assertEqual(cmd[cmd.index("--random-output-len") + 1], out_len)
             self.assertIn("--ignore-eos", cmd)
         self.assertEqual(full["benchmark_command"][full["benchmark_command"].index("--max-concurrency") + 1], "10")
+        self.assertEqual(full["benchmark_command"][full["benchmark_command"].index("--tokenizer") + 1], trial.TARGET)
+        self.assertNotIn("--num-warmups", full["benchmark_command"])
+
 
     def test_bad_multiprocess_and_worktree_is_rejected(self):
         with self.assertRaises(ValueError):

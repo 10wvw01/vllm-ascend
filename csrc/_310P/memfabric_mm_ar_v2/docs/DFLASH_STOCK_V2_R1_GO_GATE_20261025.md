@@ -4,7 +4,7 @@
 
 ## 1. 冻结合同与四个独立运行组
 
-目标模型：/home/models/Qwen3.6-35B-A3B-w8a8；草稿：/home/models/Qwen3.6-35B-A3B-DFlash；num_speculative_tokens=7，额外显式draft_tensor_parallel_size=2（来自原上游TP2验收脚本），TP=2/单卡双Die。理论8个验证位置不是实测physical/padded M。
+目标模型：/home/models/Qwen/Qwen3.6-35B-A3B-w8a8；草稿：/home/models/Qwen3.6-35B-A3B-DFlash；num_speculative_tokens=7，TP=2/单卡双Die。严格使用用户给出的DFlash JSON（不额外显式添加draft_tensor_parallel_size）；vLLM v0.24.0 对非mlp_speculator模型默认将未设置的draft TP解析为目标TP=2，**必须由现场实际Worker日志确认**。理论8个验证位置不是实测physical/padded M。
 
 | 顺序 | 运行组 | 数据与裁决 |
 |---|---|---|
@@ -71,3 +71,14 @@ Graph仅在两组Eager已有审阅证据、Stock原始完整基线正常、设�
 ## 6. 裁决
 
 **研发/静态阶段：PRECHECK-GO，允许进入310P3服务器做G0和CPU检查。真实硬件条件：UNKNOWN；只有现场G0全PASS才能做Stock+DFlash Eager短冒烟。** V2+DFlash Eager严格排在Stock后；Graph受控诊断排在两组Eager后。无任何新真实K7性能或Graph通过声明。
+
+## 7. 用户原始启动参数的逐项校准（2026-10-25）
+
+用户给定的正式业务服务端：
+- Target模型绝对路径：`/home/models/Qwen/Qwen3.6-35B-A3B-w8a8`，不同于早期推断的`/home/models/Qwen3.6-35B-A3B-w8a8`。本轮G0和R1脚本**均已改成用户路径**；现场不存在则G0失败，而不是自动选另一个。
+- --host 0.0.0.0（服务端监听全部地址，现场需要提前确认网络隔离/访问控制）；--port 8000；--served-model-name qwen3.6-35b-a3b-w8a8；--tensor-parallel-size 2；--quantization ascend；--dtype float16；--max-model-len 8192；**--max-num-seqs 16**；--max-num-batched-tokens 4096；**--gpu-memory-utilization 0.90**；以及全部prefix/chunked/async、Mamba缓存、additional-config参数，已与用户基线统一。
+- DFlash JSON严格为`{"method":"dflash","model":"/home/models/Qwen3.6-35B-A3B-DFlash","num_speculative_tokens":7}`；之前脚本显式增加draft TP=2，本轮已删除以匹配用户原样。vLLM v0.24.0 `SpeculativeConfig._verify_and_get_draft_tp()`会对一般draft模型沿用target TP=2，现场必须核实。
+- 删除额外的`--safetensors-load-strategy eager`及Bench的`--num-warmups`选项以减少基线漂移；Bench仍使用独立的result目录、bench.json文件及更完整的TTFT/TPOT/ITL统计/明细，业务负载与用户完全相同（50请求/4096/2048/并发10/ignore-eos）。
+- **刻意保留唯一重要运行模式差异**：Eager smoke和Eager full显式设`cudagraph_mode=NONE`（对应禁用Graph），用来隔离依赖、模型和V2 Eager问题；只有Graph研究组才设`FULL_DECODE_ONLY`。
+- **用户的Graph `cudagraph_capture_sizes:[10]`不能直接视为K7有效配置**。我们自己的DFlash FULL Decode dispatcher用`uniform_decode_query_len=1+K=8`检验`candidate % uniform_decode_query_len == 0`；10%8=2，对K7的常规单请求验证形状无法通过；batch10理论80 token也超出单一capture尺寸10。R1为独立受控Graph实验，选择候选尺寸`[8,16,32,64,80]`，必须真机验证并记录是否遭拒、实际Padded M与Graph Replay，不擅自宣称已跑通。
+- **端到端报告必须分别写明**：与用户命令字段相同、因Eager/Graph目的不同而有意差异、仅为证据管理增加的日志/目录/采样字段。不可把Eager实验的收益直接称为用户原始Graph配置性能。

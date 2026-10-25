@@ -22,7 +22,7 @@ import urllib.request
 
 SPEC_TOKENS = 7
 VERIFY_WIDTH = SPEC_TOKENS + 1
-TARGET = "/home/models/Qwen3.6-35B-A3B-w8a8"
+TARGET = "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8"
 DRAFT = "/home/models/Qwen3.6-35B-A3B-DFlash"
 GRAPH_SIZES = (8, 16, 32, 64, 80)
 EXTRA = {
@@ -53,9 +53,10 @@ def build_plan(*, arm: str, mode: str, phase: str, devices: str, port: int,
         raise ValueError("V2 needs verified absolute KVER11 JSON path, never auto-select installed files")
     if not output_dir.is_absolute():
         raise ValueError("output directory must be absolute and unused")
-    spec = {"method": "dflash", "model": DRAFT, "num_speculative_tokens": SPEC_TOKENS,
-            "draft_tensor_parallel_size": 2}
-    # draft TP=2 follows original upstream 310P 35B DFlash acceptance helper.
+    # Match the owner's speculative-config JSON exactly. For the Qwen3 DFlash
+    # draft, vLLM v0.24.0 resolves an omitted draft TP to target TP=2.
+    # G0 must still verify the effective runtime draft TP from worker logs.
+    spec = {"method": "dflash", "model": DRAFT, "num_speculative_tokens": SPEC_TOKENS}
     env = {
         "ASCEND_RT_VISIBLE_DEVICES": devices,
         "VLLM_WORKER_MULTIPROC_METHOD": "spawn",
@@ -80,13 +81,13 @@ def build_plan(*, arm: str, mode: str, phase: str, devices: str, port: int,
         "cudagraph_num_of_warmups": 0,
     }
     server = [
-        "vllm", "serve", TARGET, "--host", "127.0.0.1", "--port", str(port),
+        "vllm", "serve", TARGET, "--host", "0.0.0.0", "--port", str(port),
         "--served-model-name", "qwen3.6-35b-a3b-w8a8", "--dtype", "float16",
         "--tensor-parallel-size", "2", "--quantization", "ascend",
-        "--gpu-memory-utilization", "0.85", "--max-num-seqs", "10",
+        "--gpu-memory-utilization", "0.90", "--max-num-seqs", "16",
         "--max-num-batched-tokens", "4096", "--max-model-len", "8192",
         "--trust-remote-code", "--no-enable-prefix-caching", "--enable-chunked-prefill",
-        "--async-scheduling", "--safetensors-load-strategy", "eager",
+        "--async-scheduling",
         "--mamba-ssm-cache-dtype", "float16", "--mamba-cache-mode", "align",
         "--speculative-config", compact(spec), "--additional-config", compact(EXTRA),
         "--compilation-config", compact(compilation),
@@ -99,7 +100,6 @@ def build_plan(*, arm: str, mode: str, phase: str, devices: str, port: int,
         "--random-input-len", str(4096), "--random-output-len", str(2048 if full else 32),
         "--num-prompts", str(50 if full else 2),
         "--max-concurrency", str(10 if full else 1), "--ignore-eos",
-        "--num-warmups", str(5 if full else 1),
         "--percentile-metrics", "ttft,tpot,itl", "--metric-percentiles", "50,90,99,99.9",
         "--save-result", "--save-detailed", "--result-dir", str(output_dir),
         "--result-filename", "bench.json",

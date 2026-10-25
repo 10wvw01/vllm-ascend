@@ -137,3 +137,10 @@
 - V2正式Serving仅2048～4096融合；真实DFlash Verify/Decode的physical M及实际融合调用数仍UNKNOWN。Eager V2必须取得正式Kernel双Ranktrace和首调数值证据，Stock不能被V2选层污染。
 - 修复只读环境探针中过严的pip check合同：上游310P Docker故意卸载Triton/Triton-Ascend，仅这两类明确未安装错误带标识放行；其余Python分发、API和安装冲突照常拦截。
 - **源码工具已经写入本主线，最后CI应以实测run成功记录为准；服务器NPU和模型实验本轮全部NOT_RUN。准入裁决为PRECHECK-GO，仅进入310P3现场G0，正式上机冒烟仍以现场全部门禁PASS为前提。**
+
+## 10. R1服务端/客户端启动合同对齐用户原始参数（2026-10-25）
+
+- 之前的实验脚本与用户完整启动命令不完全一致，现正式修正：Target由`/home/models/Qwen3.6-35B-A3B-w8a8`改为`/home/models/Qwen/Qwen3.6-35B-A3B-w8a8`；Host改`0.0.0.0`（实机前需网络隔离确认）；max-num-seqs 10→16、gpu-memory-utilization 0.85→0.90。移除额外`--safetensors-load-strategy eager`、Bench额外`--num-warmups`，DFlash JSON不再显式增加draft TP，按vLLM v0.24.0运行时自然解析并由现场验证。
+- 模型Bench正式负载仍是4096输入/2048输出/50请求/并发10/ignore-eos，与用户命令一致；Bench明细及分位数据、结果文件隔离目录是诊断附加，不是不同业务场景。
+- 唯一刻意保留核心行为差异：**Eager组用cudagraph_mode=NONE**以排除Graph；用户原始FULL_DECODE_ONLY `capture_sizes=[10]`在K7/Verify宽度8的描述符整除规则下不合法，因此Graph研究组用候选`[8,16,32,64,80]`并进行实机鉴别。Stock和V2各自同模式严格一致，Graph不能继承Eager结论。
+- 说明与操作完整见 [R1 DFlash K7 准入合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)第7节；本轮仅更新测试资产与文档，**未在310P实机运行，现场准入仍从G0开始**。
