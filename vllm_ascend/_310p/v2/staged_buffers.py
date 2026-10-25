@@ -5,7 +5,8 @@ GPUModelRunner still constructs UVA RequestState and Triton BlockTables before
 Ascend overrides them. Keep NPUWorker310 fail-closed until that constructor
 and every inherited caller are replaced/reviewed.
 
-All H2D writes below are explicitly BLOCKING and 32-byte-row padded.
+Matrix H2D writes below are explicitly BLOCKING and 32-byte-row padded.
+1-D state writes use device index_copy_ to preserve concurrent GPU-owned slots.
 This is a correctness-first Eager contract, not a performance/async claim.
 """
 from __future__ import annotations
@@ -114,11 +115,33 @@ class NPUStagedWriteTensor:
     def apply_write(self) -> None:
         import torch
 
-        for row in self.plan.commit():
+        # 1-D state (num_computed_tokens/total_len) is also mutated by the
+        # sampling kernel on device. Copying a stale CPU mirror of the whole
+        # vector would SILENTLY erase accepted tokens in other live requests.
+        # Scatter only the newly staged indices via a device kernel.
+        pending = tuple(self.plan._pending)
+        dirty = self.plan.commit()
+        if self.plan.vector:
+            offsets = sorted({
+                offset + i
+                for _row, offset, values in pending
+                for i in range(len(values))
+            })
+            if offsets:
+                indices = torch.tensor(offsets, dtype=torch.int64, device=self.gpu.device)
+                values = torch.tensor(
+                    [self.plan.data[0][i] for i in offsets],
+                    dtype=self.dtype, device=self.gpu.device
+                )
+                self._storage.index_copy_(0, indices, values)
+            return
+
+        # Matrix rows are CPU-authoritative only at add/replace time; callers
+        # MUST NOT stage an active GPU-mutated row. Full padded-row H2D copies
+        # avoid 310P short unaligned DMA. This restriction is a GO gate.
+        for row in dirty:
             source = torch.tensor(self.plan.data[row], dtype=self.dtype, device="cpu")
-            dest = self._storage if self.plan.vector else self._storage[row]
-            # Synchronous full padded row copy, no Triton/UVA/raw pointer access.
-            dest.copy_(source, non_blocking=False)
+            self._storage[row].copy_(source, non_blocking=False)
 
     def clear_staged_writes(self) -> None:
         self.plan.clear_staged_writes()
