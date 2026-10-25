@@ -78,3 +78,9 @@ NPUModelRunner310V2Candidate.load_model
 - **下个严格范围**：在不接入Worker的条件下实现device-native的per-group Mamba物理BlockTable寻址/状态复制消费接口，处理跨请求物理冲突与device-side失败标志，再提供与ModelState签名一致的未注册adapter及CPU模拟调用序列；其后分别审查NPU ABI和Stream，在用户单独批准后才开始最小设备验证。
 
 本稿不存在目标工件身份/运行时实际类或Kernel命中的新取证，仍为冻结公开源码 + 隔离候选。
+
+## 6. 已执行的CPU结果与新增机器审计
+
+- commit `6af14903383d6321c2cd53c327f885216aeeefe4` 的 [GitHub Actions](https://github.com/10wvw01/vllm-ascend/actions/runs/40244285125)：Torch CPU **213项通过**；治理unittest **211项执行（55项无Torch按合同跳过）**；pytest **54项通过**；原46项静态准入仍 **0/46 NO-GO**。
+- 新增 stdlib `tools/310p_mm_ar/test_r2_p0_e_modelstate_wiring_static.py`，自动检查 Worker/Hybrid双保护、T09 `post_update → ModelState.postprocess_state`顺序、unregistered设备候选未被错误导入、Host GDNMove与device Decision的ABI隔离以及审计文档的阻断结论。
+- 该机器审计仅覆盖本仓的可见静态源码，不把冻结上游的`init_model_state`实际选择宣称成动态取证。**设备上的Torch-NPU ABI、真实Device Validity Gate与Mamba物理缓存Copy仍NOT_RUN/NOT_IMPLEMENTED**。

@@ -340,3 +340,5 @@
 - [完整审计与接线缺口](R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)：新增**未注册** `vllm_ascend/_310p/v2/hybrid_state_device_meta.py`，将T30-A块索引/旧接受数与T31-A采样数+post_update后位置计算改为Torch device-owned Tensor操作；按8 req_slot×4 int32=128B物理整行更新，拒绝逐请求D2H。`prepare_attn`生成GDN接受数Tensor与非spec=-1哨兵，CPU合同新测试验证控制流。
 - **新确认P0阻塞**：现有`hybrid_state_npu.py:GDNWholeBlockCopy310Candidate.execute`仅接收Host计算的`GDNMove310`和CPU物理BT；本轮设备决策`src/dst/bias/mask`是Device Tensor，**不能用隐藏`.item()`强行桥接**。必须另实现device-native per-Mamba Group BT寻址/复制/动态有效性消费和Stream所有权，才允许接到真实ModelState。
 - 冻结上游先`prepare_attn`块表、后T30 preprocess、再ModelState.prepare_attn/forward；T31在post_update之后，顺序不可偷换。模型真实工厂/ModelState对象仍NOT_OBSERVED；Worker与Hybrid align加载的保护未改，PR#7仍Draft、R2-A STATIC-NO-GO 0/46，无设备测试、无性能新基线、自研Draft未读。
+
+- **2026-10-26补充**：R2-P0-E T30-A/T31-A device-owned metadata CPU合同已在工作分支CI验证通过；增加`tools/310p_mm_ar/test_r2_p0_e_modelstate_wiring_static.py`锁住Worker和Hybrid早拒绝、model_state后处理顺序、Host`GDNMove`不被当作设备复制器的明确分界。**现有CPU证据不改变静态准入0/46。**
