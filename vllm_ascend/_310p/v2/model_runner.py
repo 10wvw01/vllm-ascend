@@ -113,6 +113,7 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
         from vllm.v1.worker.gpu.model_runner import GPUModelRunner
 
         from .request_state import NPURequestState
+        from .draft_handler import NPUDraftTokensHandler310V2
 
         # Upstream GPU init is invoked *exactly once*. The temporary GPU
         # DFlashSpeculator is skipped because Ascend V2 creates its own draft
@@ -121,6 +122,7 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
             GPUModelRunner.__init__,
             {
                 "RequestState": NPURequestState,
+                "DraftTokensHandler": NPUDraftTokensHandler310V2,
                 "init_speculator": lambda _cfg, _device: None,
                 "torch": _TorchNPUProxy(torch),
             },

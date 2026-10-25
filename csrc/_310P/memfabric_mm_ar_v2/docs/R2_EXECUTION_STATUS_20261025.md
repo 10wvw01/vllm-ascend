@@ -219,3 +219,9 @@
 
 - `NPUStagedWriteTensor.apply_write`原vector分支对`self._storage`逐int32/int64索引`index_copy_`，会形成短粒度持久设备写，和310P3已识别的对齐风险不符。现按32字节物理行聚合待写索引，`index_select`先读取设备当前行，`torch.where`只覆盖staged位置，再`index_copy_`整行提交；同一物理行其余已被`post_update`修改的请求状态从设备读而非使用过期CPU镜像。Torch CPU覆盖跨行、同位置last-wins、int64与尾部padding。
 - 仍需NPU3`index_select/where/index_copy_`的32B粒度和同流排序静态核实及设备证据；异步失败poison保护尚非事务提交。不可标T14/T16 READY，不解除Worker fail-closed。
+
+### P0-10 冻结DraftTokensHandler的构造级CUDA Stream/Event（2026-10-25；仍NO-GO）
+
+- 静审`GPUModelRunner.__init__`还发现`DraftTokensHandler(self.device)`：该类位于上游独立模块，`__init__`直接调用其模块全局`torch.cuda.Stream(device)`和`torch.cuda.Event(blocking=True)`。310P Runner仅对GPU父构造的`torch`变量使用NPU代理**不会传递到DraftTokensHandler模块**；此前代码会在真正Runner构造期误入CUDA。
+- 新增`_310p/v2/draft_handler.py:NPUDraftTokensHandler310V2`，冻结构造函数的局部globals clone注入`DraftTokensHandler`。无grammar的DFlash K7维持上游`get_draft_tokens`全-1回退语义，不构造CUDA流/事件；grammar或形状异常写前拒绝。CPU语义+源码合同`test_v2_draft_handler_no_cuda.py`。
+- 仍需完整继承路径、NPU输出异步复制、TP2及设备生命周期静审。T13/T15、Worker、40节点门禁仍NO-GO。
