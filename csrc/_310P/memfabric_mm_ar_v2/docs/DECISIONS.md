@@ -91,3 +91,11 @@
 - 取舍与未采纳的方案：
 - 代码和当前默认路由影响：
 - 验证门槛、回退方案和需要更新的控制台章节：
+
+
+## ADR-013｜R2-A 310P V2 Eager状态写失败必须整体Fail-Closed（候选、未准入）｜2026-10-25
+
+- **触发证据**：上游vLLM0.27.1 GPU `StagedWriteTensor/FusedStagedWriter`通过Triton完成写回，310P无Triton候选改为顺序Eager H2D；原候选提前提交CPU plan、跨组复制无异常屏障，可能形成KV半提交。DFlash直接使用BlockTables持久slot buffer也暴露了旧候选只返回新tensor的错误。
+- **决策（仅R2代码候选）**：设备写全部完成后才提交CPU镜像；单组/多组、num_blocks上传、RequestState新增/上传任一步异常，都标记整个对应State/BlockTables `poisoned`并禁止后续append/gather/slot/请求复用。Runner未来必须停止本批次并销毁状态，不允许在部分成功的KV/Token基础上重试；不宣称跨组原子提交或自动回滚。
+- **安全边界**：T02/T04与T05/T06/T14/T15/T16仍未接入310P专属Runner，设备Eager算子支持、stream/in-flight同步、短写、UVA构造链仍NO-GO；不得解除NPUWorker310的NOT_IMPLEMENTED。其它Ascend设备保持原有路径，Stock默认不变。若未来真实Runner无法提供失败后可靠销毁/同步，该方案不得晋级。
+- **验证**：纯Python gold、Torch2.10 CPU故障注入/多组复用/持久slot别名；CI SHA和静态审查必须逐轮绑定，310P3实机保持NOT_RUN。此ADR不构成用户授权上机。
