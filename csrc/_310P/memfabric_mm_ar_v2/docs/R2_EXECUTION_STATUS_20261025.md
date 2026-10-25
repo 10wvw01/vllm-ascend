@@ -163,3 +163,8 @@
 - 逐读`patch_v2/patch_triton.py`发现仅替换T07/T08/T09/T11远远不够：它还把采样Gumbel/温度、penalties、min_p、bad_words、logprob、结构化输出及完整rejection_sample接到**Ascend V2 Triton实现**。明确新增T17～T24，另将`GPUModelRunner.sample_tokens`K7 `draft_tokens[idx_mapping]=draft_tokens`短宽设备写登记为T25。
 - P0：Ascend V2 `rejection_sampler_utils.py`在非贪心路径`u=0`强制接受Draft，缺乏概率正确性；且T25可能跨行/跨请求写。**不得以T11和T09候选CPU绿宣称采样链闭环**。
 - 准入门禁从16个T+15个ABI=31扩展为**25个T+15个ABI=40个节点**；所有新增项无READY证据，R2-A继续STATIC NO-GO / ONDEVICE NOT_RUN。历史31节点CI结果只作为旧口径记录；Worker NOT_IMPLEMENTED和PR#7 DRAFT保持不变。
+
+### T17/T18 Eager采样安全子集候选（2026-10-25；NO-GO）
+
+- 新增`_310p/v2/gumbel_ops.py`和`test_v2_gumbel_ops.py`：T18对温度0/1保持原值、其余按FP32除法再回写整张量；T17仅提供确定性贪心`argmax`，保持冻结ABI的int64输出；请求索引设备resident校验、随机temperature>0和FP64/processed logits明确拒绝。Torch CPU合同覆盖greedy、温度与错误先拒绝。
+- **不能标T17/T18 READY**：尚未接入真实Sampler，`torch._assert_async` NPU支持未知；尤其温度>0不能用贪心替代随机Gumbel/Philox分布，且T23概率rejection仍是P0。Worker继续NOT_IMPLEMENTED，R2-A STATIC NO-GO。
