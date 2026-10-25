@@ -66,3 +66,7 @@
 ### 2026-10-25｜R2-P0 Hybrid/GDN专属状态设计阶段交付
 
 完成[Target Hybrid ModelState完整静态设计与两轮源码审查](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)：T30、T31拆为四段最小非Triton状态语义，提供纯标准库参考决策和边界UT，固定conv SD/DS、temporal K7/TP2的复制契约。**这是静态设计而不是新的可运行NPU kernel**；Worker及align早拒绝都未修改，R2-A依然NO-GO。下一步在独立未注册的310P候选中实施最小4段，验证NPU缓存所有权和流时序，不读取私有Draft。
+
+### 2026-10-25｜R2-P0-E的实际代码交付（工作分支，尚未合主线）
+
+[R2-P0-E Target Hybrid/GDN Tensor搬运原型](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_HYBRID_TENSOR_CANDIDATE_20261025.md)已在`work/310p-v2-r2-implementation-20261025`实现多Mamba Group、Conv SD/DS/Temporal的可执行CPU Torch Tensor状态搬运及故障注入，**不是NPU实现**、不属于新的MM融合Kernel调优结果。静态阻断仍在、PR#7继续DRAFT；下一步需要310P设备T30/T31独立候选、真实ABI/stream审查与完整静态准入。自研Draft NDA资料未读。

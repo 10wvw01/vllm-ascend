@@ -321,3 +321,10 @@
 - **T30=preprocess索引/接受数更新 + 跨Block GDN precopy**；**T31=K7接受数scatter + postalign GDN state copy**。conv SD/DS与temporal的字节/块表索引规则不同；接受数1..8、`src==dst,bias>0`仍需搬运；不允许改`align=none`绕过。文档分别完成公开源码条件/公式S1、310P局部候选/异常/ABI S2两轮审计。
 - 仅增加`tools/310p_mm_ar/r2_hybrid_align_reference.py`的**零torch/零NPU拷贝决策参考**及其UT；未编写或部署任何运行时Hybrid kernel。当前Worker `NOT_IMPLEMENTED`、候选`load_model`提前align拒绝都保持。**R2-A STATIC-NO-GO 0/46；PR#7 DRAFT；Graph/设备NOT_RUN**。
 - 后续最小开发面仅为Target的ModelState/Metadata/Request生命周期与四段复制语义，不扩展通用Triton兼容。实际运行时的ModelState对象、BlockTable物理布局、torch_npu设备写/流能力尚未证明，设计审查通过不等于可进实机。
+
+### 2026-10-25｜R2-P0-E 第一阶段：真实CPU Tensor GDN缓存搬运实现
+
+- [代码与审查](R2_P0_E_HYBRID_TENSOR_CANDIDATE_20261025.md)：独立未注册`vllm_ascend/_310p/v2/hybrid_state.py`，新增**可执行CPU Torch Tensor** T30/T31四段状态迁移候选；输入只允许公开Target语义下TP2/K7、每Mamba KV Group物理BT、Conv SD/DS/Temporal，按旧接受数实现precopy，按post_update计数实现postalign。
+- 提供CPU真实数据字节级gold（包括两Mamba group、不同状态dtype、同块重叠、混合req_slot顺序）和失败poison/无原地重试合约；`tools/310p_mm_ar/test_v2_hybrid_tensor_state.py`由CPU-Torch CI验证。
+- **重要限定**：并非可直接接线的vLLM ModelState，当前Candidate显式拒绝NPU设备、未接上游prepare_attn、未核实真实设备small-write/stream/async所有权；用户未提供Draft私有信息，未读取。**NPU四段与模型接线仍未实现**。
+- 正式Serving/Worker保护、Hybrid align`load_model`守卫不变；准入继续`R2-A STATIC-NO-GO: 0/46`、PR#7 DRAFT、310P设备NOT_RUN。下一步P0-E/NPU ABI、未注册设备搬运候选和ModelState绑定，仅有真实证据才能STATIC-GO。

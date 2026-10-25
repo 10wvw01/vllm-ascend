@@ -301,3 +301,8 @@
 - [专属ModelState设计与两轮审查](R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)：冻结0.27.1的前向前`preprocess_mamba_align_fused_kernel → precopy_mamba_align_fused_kernel`及采样后`_scatter_num_accepted_kernel → postprocess_mamba_fused_kernel`四段最小语义；明确TP2 GDN conv SD/DS及temporal索引、K7 1..8计数、BlockTable per-group物理映射、req-slot ownership/stream与重用的硬门槛。
 - 新增[纯标准库Oracle](../../../../tools/310p_mm_ar/r2_hybrid_align_reference.py)和[测试](../../../../tools/310p_mm_ar/test_r2_hybrid_align_reference.py)，仅数学决策级CPU合同，不做Torch/NPU state copy，也不碰保密Draft。
 - **STATIC DESIGN done / STATIC IMPLEMENTATION NOT DONE**。不改310P V2 Worker及`load_model`守卫，不合PR、不启动设备。46个正式准入节点仍0/46；下一工作为Target专属4段状态实现的独立310P候选、ABI验证、CPU Tensor gold、可执行代码两轮深审后再谈STATIC-GO。
+
+### 2026-10-25｜R2-P0-E Torch CPU Tensor原型与真实设备实施边界
+
+- [T30/T31最小状态Tensor原型](R2_P0_E_HYBRID_TENSOR_CANDIDATE_20261025.md)新增`_310p/v2/hybrid_state.py`和`tools/310p_mm_ar/test_v2_hybrid_tensor_state.py`：实际拷贝合成Conv SD/DS与Temporal缓存；按active batch行查per-Mamba-group物理BT，K7接受数，old/new state col，cross-block precopy及same-block bias>0 postcopy；源快照避免原地覆盖，先计划后提交，复制异常poison。未依赖任何自研Draft代码。
+- 此组件**当前仅CPU Tensor**，与冻结上游ModelState ABI并不直接兼容，主动拒绝NPU Tensor；NPU设备正确性、32B small-write、stream/event、实物cache地址与读写生命周期仍需最小设备实现和门禁。Worker`NOT_IMPLEMENTED`与Candidate Hybrid align阻断不动，`0/46 STATIC-NO-GO`，不得请求实机。
