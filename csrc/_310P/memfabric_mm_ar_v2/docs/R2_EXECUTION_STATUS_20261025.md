@@ -57,3 +57,12 @@
 ### T05静态复核修复：request reuse后KV旧尾部泄漏
 
 - 审查发现：原候选`gather_block_tables`将整个旧block row复制到batch缓存；`overwrite=True`只重置`num_blocks`和有效前缀，旧尾部仍可能被attention误读。已修改为按每组设备`num_blocks`对选中的**整条物理padded行**做`torch.where`零化，补Torch CPU reuse回归；纯Python gold此前已经要求无效尾部为0。此处仍待NPU Eager op支持核实，不可宣布T05 READY。
+
+
+## 2026-10-25 R2-A 持续源码研发：T06/T14/T15/T16 P0 修正（STATIC NO-GO）
+
+- 本轮直接修改`_310p/v2/block_tables.py`、`staged_buffers.py`、`request_state.py`及其CPU gold/torch测试，新增独立CPU Torch CI工作；非状态摘要。修复DFlash读`block_tables.slot_mappings`持久存储却未更新的错误（固定上游`DFlashSpeculator.propose`使用该属性），保持slot映射地址稳定并对padding尾部填PAD。纯Python gold允许`positions`只含实际token，测试覆盖错误长度。
+- T14写失败安全性：修复旧版`plan.commit()`早于设备H2D的半提交/丢写问题；新方案只在设备写全部成功后提交CPU镜像，单组/多组异常都进入不可恢复`poisoned`状态并拒绝继续，等待Runner统一abort/销毁。多组Eager串行写**仍不是原子事务**，不能用此代替stream同步或失败回滚。
+- T15/T16复用安全：新请求stage整条token行清零后覆盖前缀；清理复用slot的prefill lookahead；未提交token行拒绝释放，防止旧pending写污染新request。NPU`index_fill_`和stream/event依赖未获设备证据，`next_prefill_tokens`及活跃采样行数据所有权未闭环。
+- **验证口径**：此前PR#7 HEAD`126db642` project-control CI PASS；本轮代码HEAD以实时GitHub PR为准。轻量CI通过只表示无torch合同；新增`r2-torch-cpu-contracts`在PR上执行torch2.10.0/py3.12动态tensor测试，必须实际读job结果，不能将待运行或Skip当PASS。
+- **准入判定仍为R2-A STATIC NO-GO / ONDEVICE NOT_RUN**。`GPUModelRunner.__init__`原UVA构造、`initialize_kv_cache`原GPU BlockTables、T01~04/T07~09/T11采样与DFlash prepare、T13继承、GDN/Mamba/W8A8/TP2、真实stream和物理blocksize仍未完成；Worker NOT_IMPLEMENTED不变，PR#7继续DRAFT。下一批必须优先完整构造链替换，不得把候选模块接线当作完成真实Runner。
