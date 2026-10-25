@@ -47,3 +47,8 @@
 - **发现的P0数据所有权缺口**：上游GPU采样 `post_update` 会修改设备端 `total_len/num_computed_tokens/all_token_ids`；若从陈旧CPU镜像整向量回写，会覆盖其它活跃请求。本轮修复候选1D为dirty-index scatter并补回归；矩阵只允许CPU权威的新增/替换行全行回写，活跃GPU改写行的再staging、异步in-flight可见性、异常半提交仍待端到端审查。`next_prefill_tokens`重用后的清理和310P小写入安全尚未核实。
 - **CI口径**：原基线`9022f7dc`的61/61 unittest、54/54 pytest PASS；本轮新增GitHub CI运行结果须按最新SHA单独记录，CPU Torch tensor测试在无torch的轻量CI环境可能Skip，不能把Skip写成PASS；尚未执行独立310P3硬件测试或两轮运行时深审。NPUWorker310的NOT_IMPLEMENTED必须保留。
 - **下一步**：冻结0.27.1的GPUModelRunner构造与所有 `RequestState/BlockTables` 访问点，设计真正不经父类UVA构造的专属Runner；对 `searchsorted/index_copy_`、请求重用、并发写顺序和DFlash out缓冲补无设备可执行gold；再逐一替代T01～09/T11、采样和ModelState。任何无法保证设备语义的操作保持fail-closed。
+
+### T05/T06 CPU gold加强（同轮后续提交）
+
+- 新增`_310p/v2/block_table_gold.py`和`test_v2_block_table_gold.py`：无torch必跑，覆盖两组64→32与128→128物理块展开、不同kernel blocksize的slot、请求重用overwrite、padded gather、尾部/未分配PAD、空请求、容量失败的跨组原子性及负例。Eager候选复用同一`expand_physical_block_ids`函数，减少gold与实现漂移。
+- **测试层级必须区分**：以上是纯Python语义gold；`test_v2_no_uva_adapters.py`和`test_v2_staged_buffers.py`中的Torch CPU动态tensor合同在轻量GitHub CI不安装torch时会Skip；310P NPU真实算子支持和UVA构造链未解决。R2-A仍NO-GO。
