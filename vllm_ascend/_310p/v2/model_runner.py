@@ -149,6 +149,49 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPUDFlashSpeculator310V2(vllm_config, device)
 
+    @torch.inference_mode()
+    def execute_model(
+        self,
+        scheduler_output,
+        intermediate_tensors=None,
+        dummy_run: bool = False,
+        skip_attn_for_dummy_run: bool = False,
+        is_profile: bool = False,
+    ):
+        """Retain upstream execution but fix its 310P-specific dummy batch ABI.
+
+        GPUModelRunner.execute_model uses module-global InputBatch.make_dummy
+        rather than self.prepare_inputs for dummy/profile. Bind AscendInputBatch
+        only for this instance; other model runners remain unchanged.
+        """
+        import inspect
+        from vllm.v1.worker.gpu.model_runner import GPUModelRunner
+        from vllm_ascend.worker.v2.input_batch import AscendInputBatch
+
+        execute = _clone_upstream_function(
+            inspect.unwrap(GPUModelRunner.execute_model),
+            {"InputBatch": AscendInputBatch},
+        )
+        return execute(
+            self, scheduler_output, intermediate_tensors,
+            dummy_run=dummy_run,
+            skip_attn_for_dummy_run=skip_attn_for_dummy_run,
+            is_profile=is_profile,
+        )
+
+    @torch.inference_mode()
+    def _dummy_sampler_run(self, hidden_states):
+        """Bind inherited sampler profiling to the Ascend dummy InputBatch."""
+        import inspect
+        from vllm.v1.worker.gpu.model_runner import GPUModelRunner
+        from vllm_ascend.worker.v2.input_batch import AscendInputBatch
+
+        dummy = _clone_upstream_function(
+            inspect.unwrap(GPUModelRunner._dummy_sampler_run),
+            {"InputBatch": AscendInputBatch},
+        )
+        return dummy(self, hidden_states)
+
     def _remove_request(self, req_id: str) -> bool:
         """Preflight before inherited ModelState releases the request slot.
 
@@ -241,6 +284,15 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         Does not register this runner or permit non-greedy/spec logprobs.
         """
+        # T13/T30/T31: frozen MambaHybridModelState align state
+        # preprocess/postprocess launches Triton even in ordinary Stock Eager.
+        # Refuse before model weights are loaded, not at the first forward.
+        if (self.model_config.is_hybrid
+                and self.cache_config.mamba_cache_mode == "align"):
+            raise NotImplementedError(
+                "310P V2 T30/T31 hybrid Mamba align preprocess/"
+                "postprocess still requires Triton; no 310P kernel approved"
+            )
         from vllm.v1.worker.gpu.model_runner import GPUModelRunner
         from .sampler import NPUSampler310V2, NPURejectionSampler310V2
         from .sampler_state import NPUStructuredOutputsWorker310V2
