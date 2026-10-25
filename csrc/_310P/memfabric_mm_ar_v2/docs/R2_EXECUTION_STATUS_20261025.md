@@ -79,3 +79,9 @@
 
 - 新发现：仅`NPUStagedWriteTensor`poisoned还不够，`NPUBlockTables`可能在某组写成功/另一组失败后仍被上游调用gather/slot；`NPURequestState.add_request`设备重置失败时CPU req-id/空闲slot已部分改变。已新增容器级`_poisoned`保护，任何多组KV/num_blocks H2D异常或请求新增/状态回写异常都阻断后续调用，补Torch CPU注入失败回归。
 - 此保护要求未来Runner具备**异常后停止调度并销毁状态**的全链路实现；目前没有接线，也不等于事务原子/设备已验证。参考[ADR-013](DECISIONS.md)；**STATIC NO-GO**不变。
+
+
+### R2-A 静态准入可执行门禁（持续NO-GO）
+
+- 增加`r2_static_admission.py --check/--report`及`R2_STATIC_ADMISSION_EVIDENCE.json`空证据账，明确追踪16个Triton/UVA/ownership节点和15个ABI节点。所有必经项均需真实接线、CPU合同、设备算子静审和两轮独立review证据才可升级；`--check`在当前状态应以exit 2拒绝准入，`--report`在GitHub CI只输出真实NO-GO状态。
+- T16和ABI-13~15已提升为表格显式行，不再藏在正文注释里；`test_r2_static_admission.py`覆盖缺证据、重复ID、合成完整性（合成测试不代表真实review）。当前绝不移除Worker NOT_IMPLEMENTED，PR#7仍DRAFT。
