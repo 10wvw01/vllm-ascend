@@ -117,3 +117,8 @@
 ### R2-A T03 输入组合gold新增（2026-10-25）
 
 - 新增冻结0.27.1 `combine_sampled_and_draft_tokens`的Eager候选和stdlib gold/Torch CPU随机合同，覆盖bonus0/1、K7、prefill不覆写与prompt尾。未接入实际V2 ModelRunner，设备Eager算子支持/同步及CPU元数据不变量未验证；仍STATIC NO-GO。
+
+### 2026-10-25 R2-02必经采样路径追加（原任务范围不缩减）
+
+- 冻结上游0.27.1+我方`patch_v2/patch_triton.py`再审发现T17～T24的Ascend V2 Triton采样/拒绝/grammar/logprob实际入口，及T25 K7 Draft行短宽写。**强制静态门禁由31扩为40项**；参见`V2_TRITON_REPLACEMENT_MATRIX.md`，不得只补T01～T16就解除Worker阻断。
+- 新增`R2_STATIC_REVIEW.md`：当前只完成作者第一轮风险审查（NO-GO），第二轮独立审查NOT_RUN。新增`R2_ONDEVICE_HANDOFF_RUNBOOK.md`只规定未来GO后的G0/SO指纹/双Rank独占/回滚；当前禁止委托实机。
