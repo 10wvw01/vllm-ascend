@@ -66,3 +66,10 @@
 - T15/T16复用安全：新请求stage整条token行清零后覆盖前缀；清理复用slot的prefill lookahead；未提交token行拒绝释放，防止旧pending写污染新request。NPU`index_fill_`和stream/event依赖未获设备证据，`next_prefill_tokens`及活跃采样行数据所有权未闭环。
 - **验证口径**：此前PR#7 HEAD`126db642` project-control CI PASS；本轮代码HEAD以实时GitHub PR为准。轻量CI通过只表示无torch合同；新增`r2-torch-cpu-contracts`在PR上执行torch2.10.0/py3.12动态tensor测试，必须实际读job结果，不能将待运行或Skip当PASS。
 - **准入判定仍为R2-A STATIC NO-GO / ONDEVICE NOT_RUN**。`GPUModelRunner.__init__`原UVA构造、`initialize_kv_cache`原GPU BlockTables、T01~04/T07~09/T11采样与DFlash prepare、T13继承、GDN/Mamba/W8A8/TP2、真实stream和物理blocksize仍未完成；Worker NOT_IMPLEMENTED不变，PR#7继续DRAFT。下一批必须优先完整构造链替换，不得把候选模块接线当作完成真实Runner。
+
+
+### R2-A T02/T04 输入侧源码候选（仍NO-GO）
+
+- 本轮新增`vllm_ascend/_310p/v2/input_ops.py`，冻结上游`prepare_pos_seq_lens/expand_idx_mapping`参数；配套无torch`input_gold.py`与Torch CPU测试`test_v2_input_ops.py`。T02通过int32计算position后cast到int64，T04通过device searchsorted展开K7/混合batch；二者不执行Triton，但**尚未接入实际Ascend V2 Runner**。
+- 已确认上游0.27.1`GPUModelRunner.prepare_attn`先调用BlockTables的gather/slot；`DFlashSpeculator.propose`直接读取持久`slot_mappings`，不是只用prepare_attn的返回值；当前修补是必要但非充分条件。
+- **CPU CI已实际完成的旧SHA证据**：`284c7167d065d8df0076aa7826317d8244dafe2c` 的project-control **76 unittest OK（2 skipped: Torch无依赖）+54 pytest PASS**；独立Python3.12/torch2.10.0+cpu job **53 unittest OK**（Run 40164802716）。新增T02/T04后的SHA须另读最新CI，不能继承旧绿。Worker仍fail-closed，PR#7 DRAFT，设备NOT_RUN。
