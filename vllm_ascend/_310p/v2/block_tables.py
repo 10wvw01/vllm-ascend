@@ -73,7 +73,12 @@ class NPUBlockTables:
             (self.num_kv_cache_groups, max_num_batched_tokens),
             PAD_SLOT_ID, dtype=torch.int64, device=device
         )
+        self._poisoned = False
         self.init_block_table_layout_tensors()
+
+    def _assert_healthy(self) -> None:
+        if self._poisoned:
+            raise RuntimeError("310P3 V2 KV BlockTables poisoned by partial commit")
 
     def _make_ptr_tensor(self, x: Iterable) -> object:
         import torch
@@ -84,6 +89,7 @@ class NPUBlockTables:
 
     def init_block_table_layout_tensors(self) -> None:
         import torch
+        self._assert_healthy()
         self.block_table_ptrs = self._make_ptr_tensor(
             [b.gpu for b in self.block_tables]
         )
@@ -104,6 +110,7 @@ class NPUBlockTables:
         new_block_ids: tuple[list[int], ...],
         overwrite: bool,
     ) -> None:
+        self._assert_healthy()
         if not 0 <= req_index < self.max_num_reqs:
             raise ValueError("request index out of bounds")
         if len(new_block_ids) != self.num_kv_cache_groups:
@@ -119,18 +126,30 @@ class NPUBlockTables:
             if start + len(expanded) > self.block_tables[g].plan.cols:
                 raise ValueError("KV block table capacity exceeded")
             pending.append((g, start, expanded))
-        for g, start, expanded in pending:
-            self.block_tables[g].stage_write(req_index, start, expanded)
-            self.num_blocks.np[g, req_index] = start + len(expanded)
+        try:
+            for g, start, expanded in pending:
+                self.block_tables[g].stage_write(req_index, start, expanded)
+                self.num_blocks.np[g, req_index] = start + len(expanded)
+        except Exception:
+            self._poisoned = True
+            raise
 
     def apply_staged_writes(self) -> None:
-        if self.fused_writer is None:
-            self.block_tables[0].apply_write()
-        else:
-            self.fused_writer.apply(
-                self.block_tables, self.block_table_ptrs, self.block_table_strides
-            )
-        self.num_blocks.copy_to_uva()
+        self._assert_healthy()
+        try:
+            if self.fused_writer is None:
+                self.block_tables[0].apply_write()
+            else:
+                self.fused_writer.apply(
+                    self.block_tables, self.block_table_ptrs, self.block_table_strides
+                )
+            self.num_blocks.copy_to_uva()
+        except Exception:
+            # Partial group writes or failed count upload invalidate all
+            # subsequent gather/slot results. The Runner must abort the
+            # batch and tear down the BlockTables, never retry in place.
+            self._poisoned = True
+            raise
 
     def gather_block_tables(
         self,
@@ -140,6 +159,7 @@ class NPUBlockTables:
         out_ptrs=None,
     ) -> tuple:
         import torch
+        self._assert_healthy()
         if out is not None or out_ptrs is not None:
             raise NotImplementedError("310P3 external DFlash gather buffers unreviewed")
         num_reqs = idx_mapping.numel()
@@ -171,6 +191,7 @@ class NPUBlockTables:
         return tuple(result)
 
     def get_dummy_block_tables(self, num_reqs: int) -> tuple:
+        self._assert_healthy()
         if not 0 <= num_reqs <= self.max_num_reqs:
             raise ValueError("invalid dummy request count")
         for storage in self._input_storage:
@@ -186,6 +207,7 @@ class NPUBlockTables:
         out=None,
     ):
         import torch
+        self._assert_healthy()
         if out is not None:
             raise NotImplementedError("310P3 external DFlash slot output unreviewed")
         if not 0 <= num_tokens_padded <= self.max_num_batched_tokens:
@@ -249,6 +271,7 @@ class NPUBlockTables:
         return self.slot_mappings[:, :num_tokens_padded]
 
     def get_dummy_slot_mappings(self, num_tokens: int):
+        self._assert_healthy()
         if not 0 <= num_tokens <= self.max_num_batched_tokens:
             raise ValueError("invalid dummy token count")
         self.slot_mappings.fill_(PAD_SLOT_ID)
