@@ -64,3 +64,7 @@
 
 - R2-00～R2-21是未来代码/实机工作项；尚未发生V2 Model Runner+DFlash、V2融合或Graph的新实测，不得新增LLM吞吐、acceptance、L1或L2性能数字。
 - 比较口径预先锁定为：S1=V2 Runner+Stock MM+HCCL AR；S2=同V2 Runner+正式MM+MemFabric AR；历史V1 Runner独立标S0，不能用S0→S2声称融合收益。见[R2总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)。
+
+## R1-B现场证据归档（R2-00，仅事实，非新性能）
+
+- [R1-B原始报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)和[evidence/r1b_20261025](../evidence/r1b_20261025/) 已由历史独立取证分支选择性导入唯一主线。G0 PASS；Stock+DFlash加载Target后因草稿混合Attention架构校验失败，**V2 Eager与两组full / Graph全部NOT_RUN**；新增输出速率、TTFT、ITL、acceptance、physical M / fusion hit均UNKNOWN。

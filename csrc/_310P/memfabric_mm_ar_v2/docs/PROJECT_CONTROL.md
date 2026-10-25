@@ -178,3 +178,9 @@
 - R2 顺序：A 逐接口ABI/全调用链Triton盘点→310P专属V2 Worker+Runtime、纯NPU非Triton输入/状态、DFlash多KV、Qwen W8A8/GDN和采样、CPU合同/两轮静审→B 非投机V2 Target Stock Eager→C V2 Stock+DFlash K7→D 同V2 Runner接MemFabric融合 L1/L2；Graph/507014长稳列为R3独立验收。
 - 关键已知缺口：`NPUWorker310`现仍V1派生并对V2显式拒绝；现有Ascend V2 DFlash `set_attn` API与vLLM 0.27.1不一致、输入和状态更新包含Triton；多KV GID/不同BlockSize/Sliding+Full、rejection与GDN/Mamba未获310P Eager证据。**任务列表不是实现完成声明。**
 - 工作规则：R2-A由ChatGPT负责GitHub源码/UT/两轮静态审查/PR及CI，在达到静态GO且现场G0得到许可后，才交由用户委托OpenCode按分级Stop/GO上机。Stock默认保留，不改V1、不改上游、不默认启V2，失真Graph不计PASS。R1-B现场分支报告与ADR-010须先选择性归档，主线性能基线标记本轮 NO-NEW-PERF。
+
+## 15. R2-00 R1-B原始实机证据选择性归档（2026-10-25）
+
+- 已从历史 `work/310p-r1b-stock-eager-smoke-nogo-20261025@f51aa689` **只导入报告和 evidence/r1b_20261025 下原始证据 blob（含原始压缩完整日志）**，没有合并旧任务代码/项目状态；保留其元数据及原始 SHA，便于回溯。
+- R1-B新事实：G0 **PASS**；Target双Rank完成1324条权重加载；Stock+DFlash K7 **FAIL**：原草稿5滑窗+1全注意力在V1 Runner校验失败；未做V2实际运行。后续full bench与Graph **NOT_RUN**，新吞吐/融合收益UNKNOWN，不能用该失败判断 310P V2 能否推理。R2目标是修复V2 Runtime与无Triton调用路径，不改V1或草稿配置。
+- 证据：[R1-B现场报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md) 与 [原始目录](../evidence/r1b_20261025/)；原始现场只读身份、SO、G0、Rank回溯与恢复状态详见报告。注意R2的当前分支/代码和历史R1-B对应不同提交及不同执行时间，不得把历史G0直接用于下一次上机。
