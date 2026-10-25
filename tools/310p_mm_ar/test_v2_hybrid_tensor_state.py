@@ -154,6 +154,48 @@ class TestTargetHybridTensorState(unittest.TestCase):
         self.assertEqual(owner.snapshot(7), (0, 3))
         self.assertEqual(owner.snapshot(2), (0, 2))
 
+    def test_two_active_requests_use_separate_batch_rows_not_req_slots(self):
+        owner, gs = self.create(rows=2)
+        gs[0].block_table[1] = torch.tensor(
+            [6, 7, 8, 9, 4, 5, 2, 3, 0, 1], dtype=torch.int32
+        )
+        owner.add_request(7, 10)
+        owner.add_request(2, 10)
+        owner.postprocess_state([7, 2], [4, 3], [12, 13])
+        original = gs[0].layers[0].conv.clone()
+        temporal = gs[0].layers[0].temporal.clone()
+        # req_slot=2 is row0, req_slot=7 is row1, not row[req_slot].
+        owner.preprocess_state([2, 7], [15, 15], [2, 2])
+        self.assertEqual(owner.snapshot(2), (1, 1))
+        self.assertEqual(owner.snapshot(7), (1, 1))
+        # Request 2: old accepted=3 -> shift 2; row0 blocks 2->0.
+        torch.testing.assert_close(gs[0].layers[0].conv[0, :8],
+                                   original[2, 2:], rtol=0, atol=0)
+        # Request 7: old accepted=4 -> shift 3; row1 blocks 6->7.
+        torch.testing.assert_close(gs[0].layers[0].conv[7, :7],
+                                   original[6, 3:], rtol=0, atol=0)
+        torch.testing.assert_close(gs[0].layers[0].temporal[0],
+                                   temporal[1], rtol=0, atol=0)
+        torch.testing.assert_close(gs[0].layers[0].temporal[7],
+                                   temporal[9], rtol=0, atol=0)
+
+    def test_second_kv_group_preflight_failure_does_not_touch_first(self):
+        owner, gs = self.create(groups=2)
+        owner.add_request(0, 10)
+        owner.postprocess_state([0], [4], [12])
+        conv0 = gs[0].layers[0].conv.clone()
+        temp0 = gs[0].layers[0].temporal.clone()
+        conv1 = gs[1].layers[0].conv.clone()
+        # Second group has invalid destination col1; first group must
+        # remain intact even though its valid copies were planned first.
+        gs[1].block_table[0, 1] = -1
+        with self.assertRaises(ValueError):
+            owner.preprocess_state([0], [15], [2])
+        self.assertTrue(owner.poisoned)
+        torch.testing.assert_close(gs[0].layers[0].conv, conv0)
+        torch.testing.assert_close(gs[0].layers[0].temporal, temp0)
+        torch.testing.assert_close(gs[1].layers[0].conv, conv1)
+
     def test_remove_then_reuse_slot_starts_neutral(self):
         owner, _ = self.create()
         owner.add_request(0, 10)
