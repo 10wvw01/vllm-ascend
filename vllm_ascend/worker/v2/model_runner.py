@@ -223,9 +223,12 @@ class NPUModelRunner(GPUModelRunner):
             )
             num_draft_tokens_per_req = num_draft_tokens_arr
             total_num_draft_tokens = int(num_draft_tokens_arr.sum())
-            total_num_logits = num_reqs + total_num_draft_tokens
+            # Match the vLLM 0.27.1 ModelState contract: bonus-token count
+            # is supplied by the model, not assumed to be one.
+            num_bonus_tokens = self.model_state.num_new_sampled_tokens_per_step
+            total_num_logits = num_reqs * num_bonus_tokens + total_num_draft_tokens
 
-            num_logits = num_draft_tokens_arr + 1
+            num_logits = num_draft_tokens_arr + num_bonus_tokens
             cu_num_logits_np = np.empty(num_reqs + 1, dtype=np.int32)
             cu_num_logits_np[0] = 0
             np.cumsum(num_logits, out=cu_num_logits_np[1:])
@@ -303,6 +306,7 @@ class NPUModelRunner(GPUModelRunner):
             self.req_states.draft_tokens,
             cu_num_logits,
             total_num_logits,
+            self.model_state.num_new_sampled_tokens_per_step,
         )
 
         input_ids = self.input_buffers.input_ids[:num_tokens_after_padding]
@@ -365,25 +369,8 @@ class NPUModelRunner(GPUModelRunner):
 
         return self.input_batch
 
-    def postprocess(
-        self,
-        input_batch,
-        sampled_tokens,
-        num_sampled,
-        num_rejected,
-    ):
-        """Override GPUModelRunner.postprocess for Ascend NPUs.
-        npu attention backends need seq_lens_cpu to work.
-        so we need to copy num_computed_tokens back to cpu here.
-        """
-        super().postprocess(
-            input_batch,
-            sampled_tokens,
-            num_sampled,
-            num_rejected,
-        )
-
-        self._copy_num_computed_tokens_to_cpu()
+    # vLLM 0.27.1 GPUModelRunner has no postprocess() method; the
+    # postprocess_sampled() override below is the valid state-update hook.
 
     def postprocess_sampled(
         self,
@@ -407,7 +394,7 @@ class NPUModelRunner(GPUModelRunner):
     def _copy_num_computed_tokens_to_cpu(self):
         # npu attention backend still need to use seq_lens_cpu,
         # we need to copy num_computed_tokens back to cpu.
-        default_stream = torch.cuda.current_stream()
+        default_stream = torch.npu.current_stream()
         assert self.num_computed_tokens_stream is not None
         assert self.num_computed_tokens_cpu is not None
         with torch.npu.stream(self.num_computed_tokens_stream):

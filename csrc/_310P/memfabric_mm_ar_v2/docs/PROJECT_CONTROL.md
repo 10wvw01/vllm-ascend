@@ -184,3 +184,8 @@
 - 已从历史 `work/310p-r1b-stock-eager-smoke-nogo-20261025@f51aa689` **只导入报告和 evidence/r1b_20261025 下原始证据 blob（含原始压缩完整日志）**，没有合并旧任务代码/项目状态；保留其元数据及原始 SHA，便于回溯。
 - R1-B新事实：G0 **PASS**；Target双Rank完成1324条权重加载；Stock+DFlash K7 **FAIL**：原草稿5滑窗+1全注意力在V1 Runner校验失败；未做V2实际运行。后续full bench与Graph **NOT_RUN**，新吞吐/融合收益UNKNOWN，不能用该失败判断 310P V2 能否推理。R2目标是修复V2 Runtime与无Triton调用路径，不改V1或草稿配置。
 - 证据：[R1-B现场报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md) 与 [原始目录](../evidence/r1b_20261025/)；原始现场只读身份、SO、G0、Rank回溯与恢复状态详见报告。注意R2的当前分支/代码和历史R1-B对应不同提交及不同执行时间，不得把历史G0直接用于下一次上机。
+
+### R2-01 / R2-06首批真实ABI源代码修订（仍不能上机）
+
+- 与固定上游 `vLLM@6e448d0` 比对已确认：Ascend V2 DFlash `set_attn` 少 `target_input_buffers,target_attn_groups`；旧 `build_draft_attn_metadatas` 在0.27.1调用链不存在且少必填参数；Ascend V2 ModelRunner 的 `postprocess` 调用上游已删除的方法；`torch.cuda.current_stream()` 不适合310P；组合 speculative logits 应显式传 ModelState bonus-token 个数。
+- 上述五项修订均已纳入本 R2 开发分支，并新增 `tools/310p_mm_ar/test_v2_runner_abi_0271.py` 纯CPU AST合同测试；仅证明这些**局部接口**更接近冻结上游，不证明 V2 Worker、Triton-free算子、DFlash KV/ModelState/TP2可执行。已知必经Triton仍阻断，不允许修改worker的NOT_IMPLEMENTED防护。

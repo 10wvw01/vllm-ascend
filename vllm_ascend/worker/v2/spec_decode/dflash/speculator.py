@@ -43,8 +43,18 @@ class AscendDFlashSpeculator(DFlashSpeculator):
         model_state: Any,
         kv_cache_config: Any,
         block_tables: Any,
+        target_input_buffers: Any,
+        target_attn_groups: Any,
     ) -> None:
-        super().set_attn(model_state, kv_cache_config, block_tables)
+        # vLLM 0.27.1 DraftModelSpeculator.set_attn includes both target
+        # buffers and attention groups. These are needed for draft prefill.
+        super().set_attn(
+            model_state,
+            kv_cache_config,
+            block_tables,
+            target_input_buffers,
+            target_attn_groups,
+        )
         self._context_slot_mappings = torch.zeros(
             len(self.draft_kv_cache_group_ids),
             self.max_num_tokens,
@@ -67,18 +77,10 @@ class AscendDFlashSpeculator(DFlashSpeculator):
 
         self.attn_backends = attn_backends
 
-    # NOTE: upstream vLLM named this to _build_draft_attn_metadatas;
-    # keep the current name for now as upstream may change it again.
-    def build_draft_attn_metadatas(self, num_reqs_padded):
-        num_tokens_padded = num_reqs_padded * self.num_query_per_req
-        with build_attn_metadata_wrapper():
-            attn_metadata = self._build_draft_attn_metadata(
-                num_reqs=num_reqs_padded,
-                num_reqs_padded=num_reqs_padded,
-                num_tokens_padded=num_tokens_padded,
-                causal=self.dflash_causal,
-            )
-        return [attn_metadata]
+    # vLLM 0.27.1 constructs draft metadata via the inherited
+    # _build_draft_attn_metadata(..., seq_lens_cpu_upper_bound, step, causal)
+    # method. Do not reintroduce the removed no-arguments compatibility
+    # wrapper: it incorrectly called that method without mandatory arguments.
 
     def propose(
         self,
