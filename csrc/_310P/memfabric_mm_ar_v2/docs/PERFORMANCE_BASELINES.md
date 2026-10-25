@@ -49,3 +49,9 @@
 3. 两Rank正确性、协议状态、长尾/错误、数据形状与独立诊断trace。
 4. 为什么只传导这些：真实调用数量、Prefill/Decode/Verify覆盖、输出Layout转换、等待/重叠、Graph回退、其它主要Kernel占比。
 5. 一个明确的下轮Kernel改动/优化方向、rollback、实机G0准入和需要的报告链接。
+
+## 2026-10-25 R1 Stock/V2+DFlash K7：无任何新性能数据（G0 NO-GO）
+
+- R1 现场轮次在只读依赖 G0 即裁决 **NO-GO**（6 blockers，根因为工具 pin 停留在 vllm 0.24.0 时代与探针冷导入顺序伪影，详见 [R1_G0_ONDEVICE_NOGO_REPORT_20261025.md](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md)），Stock/V2+DFlash Eager 与 Graph 四组**全部 NOT_RUN**。
+- **本条目不包含任何 L0/L1/L2 数字**：无吞吐、TTFT/TPOT/ITL、接受率、Forward 次数、融合覆盖率或 Graph 数据；历史 SEL-01/F1-C/D4 等结论不变，仍以此前各自报告为准。
+- 下一轮若修复后 G0 通过并完成四组运行，须按上方"下一轮报告固定模板"另立新条目入账。
