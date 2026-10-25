@@ -71,8 +71,16 @@ class NPUModelRunner(GPUModelRunner):
         if self.ascend_config.eplb_config.dynamic_eplb:
             raise NotImplementedError("dynamic_eplb is not supported by Ascend NPU model runner v2.")
 
-        with torch_cuda_wrapper():
-            super().__init__(vllm_config, device)
+        # The optional 310P3 runner supplies a *private bound copy* of the
+        # frozen GPU constructor with non-UVA factories. Never construct GPU
+        # UVA state and delete it afterwards on 310P3. Other NPUs retain the
+        # original upstream-compatible initialization path.
+        constructor = getattr(self, "_310p_v2_parent_constructor", None)
+        if constructor is None:
+            with torch_cuda_wrapper():
+                super().__init__(vllm_config, device)
+        else:
+            constructor(vllm_config, device)
 
         # because we will override these attribute, delete these attribute to
         # make sure it's collected by python gc immediately.
@@ -89,7 +97,10 @@ class NPUModelRunner(GPUModelRunner):
 
         # AscendRequestState has extra `num_computed_tokens_cpu` attribute.
         # so reinitialize req_states here.
-        self.req_states: AscendRequestState = AscendRequestState(
+        state_factory = getattr(
+            self, "_310p_v2_state_factory", AscendRequestState
+        )
+        self.req_states: AscendRequestState = state_factory(
             max_num_reqs=self.max_num_reqs,
             max_model_len=self.max_model_len,
             max_num_batched_tokens=self.max_num_tokens,

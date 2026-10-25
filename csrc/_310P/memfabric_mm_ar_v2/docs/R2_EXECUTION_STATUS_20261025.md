@@ -124,3 +124,8 @@
 
 - 实际新增 `_310p/v2/post_update_gold.py` 与 `test_v2_post_update_gold.py`：对照上游 `gpu/input_batch.py:_post_update_kernel`，覆盖有效/负数遮蔽state idx、K7部分接受/拒绝、bin_counts重复token、最后采样token、prefill/query长度增量、容量与词表越界、拒绝半提交及80组随机守恒关系；只用标准库、完全不依赖安装Triton/Torch。
 - **T09状态仍BLOCKED**：CPU reference 不是NPU kernel，也未把真正`GPUModelRunner.postprocess_sampled`的上游Triton绑定换成310P3实现，仍需要真实device-safe 32B写、row ownership/stream验证与统一Runner生命周期。当前 Worker `NOT_IMPLEMENTED` 保留、实机不得准入。
+
+### R2-03 第一阶段：安全的真正V2父构造/RequestState工厂入口（仍NO-GO）
+
+- 在`worker/v2/model_runner.py`增加**仅当310P子类主动声明**时才调用的构造/RequestState工厂钩子，其他Ascend默认行为逐字保留。新增`_310p/v2/model_runner.py:NPUModelRunner310V2Candidate`，通过仅复制冻结上游GPUModelRunner.__init__函数的globals隔离注入`NPURequestState`、310P NPU Stream代理和无GPU draft临时初始化；**不修改共享模块全局符号、不在GPU父构造先分配UVA再删除**。
+- 该入口还强制核对vLLM0.27.1、NPU TP2、PP1、Eager、V2明确打开。此候选**没有注册到Worker**；`initialize_kv_cache`仍显式拒绝，避免误进上游Triton BlockTables。后续必须将冻结`GPUModelRunner.initialize_kv_cache`的Attention/KV/Sampler实际调用全部切换到310P实现，经两轮静审才能移除故意fail-closed。
