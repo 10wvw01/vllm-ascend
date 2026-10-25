@@ -129,6 +129,18 @@ class K7TrialContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Graph research"):
             trial.execute(case("stock", mode="graph"), True, True, True)
 
+    def test_preflight_missing_and_bad_status_fail_stop(self):
+        with self.assertRaisesRegex(RuntimeError, "wrong G0"):
+            trial.validate_readonly_preflight({})
+        valid = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
+                 "num_speculative_tokens": 7,
+                 "verdict": {"static_go": True, "blockers": []},
+                 "probes": {"pip_check": {"exit_code": 0}}}
+        trial.validate_readonly_preflight(valid)
+        valid["verdict"]["static_go"] = False
+        with self.assertRaisesRegex(RuntimeError, "G0 not passed"):
+            trial.validate_readonly_preflight(valid)
+
     def test_execute_is_gated_before_file_or_server_work(self):
         with self.assertRaisesRegex(RuntimeError, "G0"):
             trial.execute(case("stock"), False, False, False)

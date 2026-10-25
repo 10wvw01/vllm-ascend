@@ -193,10 +193,25 @@ def stop_own_process_group(proc: subprocess.Popen) -> None:
         proc.wait(timeout=10)
 
 
+def validate_readonly_preflight(report: dict) -> None:
+    if report.get("mode") != "STOCK_DFLASH_G0_READ_ONLY":
+        raise RuntimeError("wrong G0 diagnostic report")
+    v = report.get("verdict", {})
+    if not v.get("static_go") or v.get("blockers"):
+        raise RuntimeError("Stock+DFlash dependency G0 not passed; preserve diagnostic and STOP")
+    pip_check = report.get("probes", {}).get("pip_check", {})
+    if pip_check.get("exit_code") != 0:
+        raise RuntimeError("pip check not clean in G0 report")
+    if report.get("num_speculative_tokens") != 7:
+        raise RuntimeError("wrong G0 K configuration")
+
+
 def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
-            graph_authorized: bool = False, eager_reviewed: bool = False) -> int:
+            graph_authorized: bool = False, eager_reviewed: bool = False,
+            readonly_preflight: dict | None = None) -> int:
     if not (approved and exclusive and restore):
         raise RuntimeError("separate G0, device exclusive, backup/restore evidence needed")
+    validate_readonly_preflight(readonly_preflight or {})
     if manifest.get("mode") == "graph" and not (graph_authorized and eager_reviewed):
         raise RuntimeError("Graph research is gated: review BOTH Eager baselines and authorize it explicitly")
     if manifest.get("contract") != "R1_DFLASH_K7_TP2_STOCK_V2_20261025":
@@ -258,6 +273,8 @@ def main() -> int:
     plan.add_argument("--dir", required=True, type=Path)
     run = sub.add_parser("execute")
     run.add_argument("--manifest", type=Path, required=True)
+    run.add_argument("--preflight", type=Path, required=True,
+                     help="G0 readonly JSON from dflash_stock_preflight.py")
     run.add_argument("--g0-approved", action="store_true")
     run.add_argument("--exclusive-approved", action="store_true")
     run.add_argument("--restore-reviewed", action="store_true")
@@ -279,8 +296,9 @@ def main() -> int:
         return 0
     obj = json.loads(args.manifest.read_text(encoding="utf-8"))
     if args.command == "execute":
+        preflight = json.loads(args.preflight.read_text(encoding="utf-8"))
         return execute(obj, args.g0_approved, args.exclusive_approved, args.restore_reviewed,
-                       args.graph_research_authorized, args.eager_baselines_reviewed)
+                       args.graph_research_authorized, args.eager_baselines_reviewed, preflight)
     location = Path(obj["output_dir"])
     log = location / "server.log"
     bench = location / "bench.json"
