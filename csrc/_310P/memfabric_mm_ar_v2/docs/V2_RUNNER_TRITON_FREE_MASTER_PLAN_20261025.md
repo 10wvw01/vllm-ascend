@@ -100,3 +100,9 @@
 - 进入设备前的状态必须写作 `STATIC-GO / ONDEVICE-NOT_RUN`；配置豁免PR#5当前只证明CPU级特定条件跳过Triton校验，不等于V2 Runtime GO。
 
 **基线参考**：[310P V2校验豁免PR#5](https://github.com/10wvw01/vllm-ascend/pull/5)；[R1-B现场证据分支](https://github.com/10wvw01/vllm-ascend/tree/work/310p-r1b-stock-eager-smoke-nogo-20261025)；[工程准入合同](ENGINEERING_GATES.md)。
+
+
+### R2-A 静态准入可执行账本（2026-10-25）
+
+- 新增`tools/310p_mm_ar/r2_static_admission.py --check`：严格读取冻结0.27.1的ABI-01~15和T01~16表格行，缺失、BLOCKED、UNVERIFIED、UNWIRED、NO均返回`STATIC-NO-GO`（exit 2）；只有显式READY/PASS且每节点具备源码/CPU测试/实际路由/设备算子静审/两轮审查证据，才可输出`STATIC-CHECKS-COMPLETE`。不可把`STATIC-CHECKS-COMPLETE`当作自动上机授权。
+- `R2_STATIC_ADMISSION_EVIDENCE.json`当前刻意留空并标记`NO-GO/ONDEVICE_NOT_RUN`；禁止把CPU Torch绿或候选文件存在自动填为READY。CI仅调用`--report`打印阻断账，保证研发分支可以在NO-GO状态继续提交和跑CPU回归；人工准入必须调用`--check`并完成两轮静审。
