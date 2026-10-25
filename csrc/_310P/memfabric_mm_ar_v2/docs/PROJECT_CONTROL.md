@@ -160,3 +160,14 @@
 
 - 审查除G0诊断本身以外的启动边界：旧报告可能来自另一安装、另一Python或同名editable代码。Trial新增 `validate_runtime_identity` 校验预检报告Python执行器、真实vllm CLI脚本shebang、vllm/vllm_ascend真实根目录、四个关键分发版本与当前状态完全一致；CI用合成目录/假包元数据测试不一致时FAIL。不得据此声称实际服务已加载。
 - 审查确认：对V2的build artifact校验仅检查当前隔离worktree里文件是否存在，**不验证设备已经正确装载、Host/Device ABI及SO哈希**；这些仍是OpenCode现场G0人工门禁，不允许用“存在文件”替代签名/运行期映射证据。
+
+## 13. 310P3 V2 Model Runner 的 Triton 验证豁免（2026-10-25，研发阶段）
+
+- 来源：[R1-B现场分支](https://github.com/10wvw01/vllm-ascend/tree/work/310p-r1b-stock-eager-smoke-nogo-20261025)：真实G0 PASS，Stock+DFlash加载Target后被混合sliding/full Draft的V1多KV组门禁阻断；显式启V2又被上游 `Model Runner V2 requires Triton` 阻断。此证据尚未通过本次代码分支替代/抹除，Stock+DFlash smoke仍FAIL；未有V2模型/Kernel性能数据。
+- 用户决策：**优先310P3 V2 Runner（不再改造V1多KV组）**。官方不支持Triton设备的事实只支持采用非Triton后端的架构方向，不代表上游V2 GPU Runner可直接运行。
+- 本次落地**仅一项条件豁免**：平台patch在`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`、`VLLM_USE_V2_MODEL_RUNNER=1`、真实310P3、vLLM 0.27.1、TP2、Eager(cudagraph_mode=NONE)、无投机或DFlash时，跳过上游 `_validate_v2_model_runner` 中的Triton存在性检查，保留其它上游unsupported_features/reasoning检查。没有设置开关时，完整调用原上游验证。绝不写`HAS_TRITON=True`，不替换依赖、不启用Graph。
+- **安全关键**：`NPUWorker310.init_device`对V2标志增加显式`NOT_IMPLEMENTED`拦截，保证验证豁免后不会被旧310P Worker静默路由到V1，也不会误将通用GPU V2 Triton Kernel上机运行。故本次是**CONFIG-GATE-ONLY**，**不是**Stock+DFlash服务GO或310P3实机GO。
+- 下一阶段另起短期工作分支：实现并审阅310P V2专用Worker/ModelRunner，完成真实vLLM 0.27.1的DFlash Speculator set_attn ABI、input_batch/状态更新Triton替代、多KV Group/Attention、W8A8+GDN+TP2契约，以及两轮静态审查与CPU测试后，才可申请受控NPU Eager。
+
+### V2豁免二轮复审补充
+- 单独设置`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`而未强制`VLLM_USE_V2_MODEL_RUNNER=1`，此前会由env-only属性继续选V1，存在“绕过成功但实为V1”的污染可能；已调整属性为明确抛错（仅310P并仅豁免开关打开时），并对flag-off的旧V1默认/显式False做回归。
