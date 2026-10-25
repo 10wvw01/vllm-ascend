@@ -168,3 +168,8 @@
 
 - 新增`_310p/v2/gumbel_ops.py`和`test_v2_gumbel_ops.py`：T18对温度0/1保持原值、其余按FP32除法再回写整张量；T17仅提供确定性贪心`argmax`，保持冻结ABI的int64输出；请求索引设备resident校验、随机temperature>0和FP64/processed logits明确拒绝。Torch CPU合同覆盖greedy、温度与错误先拒绝。
 - **不能标T17/T18 READY**：尚未接入真实Sampler，`torch._assert_async` NPU支持未知；尤其温度>0不能用贪心替代随机Gumbel/Philox分布，且T23概率rejection仍是P0。Worker继续NOT_IMPLEMENTED，R2-A STATIC NO-GO。
+
+### T23 Greedy K7 Rejection Eager候选（2026-10-25；STATIC NO-GO）
+
+- 新增`_310p/v2/rejection_ops.py`和`test_v2_rejection_ops.py`，固定冻结上游`rejection_sample` 14参数ABI，纯Torch Eager处理K7+bonus=8、混合长度、按下一个logits位置取draft token、首个不匹配截断并回填Target argmax、返回int64 [N,8]+int32计数；Torch CPU gold/错误测试覆盖全部接受、首步拒绝、中途拒绝、prefill短batch和异常。
+- **只实现Greedy温度=0**：温度>0/FP64/synthetic/block verification均明确拒绝，不伪造概率分布。还未替代真实`RejectionSampler._verify`全局绑定，`torch._assert_async`/NPU动态索引和随机分布均未通过静审；T23仍BLOCKED，T17～T25全部保持NO-GO。
