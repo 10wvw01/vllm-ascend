@@ -86,7 +86,7 @@ class BlockTablesGold:
             raise ValueError("query offsets must start at zero")
         if any(a > b for a, b in zip(query_start_loc, query_start_loc[1:])):
             raise ValueError("query offsets must be nondecreasing")
-        if not 0 <= query_start_loc[-1] <= num_tokens_padded <= len(positions):
+        if not 0 <= query_start_loc[-1] <= len(positions) <= num_tokens_padded:
             raise ValueError("invalid token span")
         if any(not 0 <= i < self.max_reqs for i in idx_mapping):
             raise ValueError("invalid persistent request index")
