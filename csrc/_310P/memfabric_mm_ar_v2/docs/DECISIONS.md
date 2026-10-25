@@ -43,9 +43,17 @@
 - 落地：`.github/workflows/310p_mm_ar_project_gate.yml`、`tools/310p_mm_ar/project_gate.py`、`ENGINEERING_GATES.md`；实际运行结果与上机G0另行取证。
 - 安全：MemFabric源码SHA、Host/Device安装SO SHA256、进程实际装载地址及KVER应分别核对；未获用户授权不自动切换服务器worktree或替换运行库。
 
+## ADR-008｜DFlash K7的Stock/V2受控实机四象限｜2026-10-25｜有效
+- 本次独立模型组：Stock+DFlash Eager和V2+DFlash Eager；都锁定目标Qwen3.6-35B-A3B-w8a8、草稿Qwen3.6-35B-A3B-DFlash、K7、TP2/单卡双Die，按上游TP2验收惯例指定draft TP=2，不照搬K15。
+- 必须G0→Stock Eager smoke→V2 Eager smoke→同口径Stock/V2 4096输入/2048输出/batch10/50请求；Graph仅在Eager证据人工审阅后分别做Stock和V2短烟测，V2 Graph不当成已支持或已通过。
+- 正式V2只在2048～4096融合，Verify/Decode大多仍为Stock，禁止将开启V2称为解码融合成功；任何Graph收益必须有原生capture/replay+双Rank设备融合调用证据。
+- 新脚本仅增加测试/诊断与协议文档，Kernel/Host/Serving和上游DFlash源码保持不变。所有执行受G0 JSON、设备独占、恢复审批和Graph单独授权约束。
+- 上游310P Docker主动卸载Triton与Triton-Ascend，pip check仅对明确的两类“未安装”缺包提供窄例外，不容忍其余异常。
+- 详见 [R1 DFlash K7 准入协议](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)。G0现场、Eager和Graph目前均NOT_RUN；发布Gate E及首写风险仍未关闭。
+
 ## 后续决策的写入模板
 
-`ADR-008｜YYYY-MM-DD｜有效/被替代`
+`ADR-009｜YYYY-MM-DD｜有效/被替代`
 
 - 决策：
 - 触发证据（SHA、报告、原始JSON或现场路径）：

@@ -127,3 +127,13 @@
 ### 上游依赖审计工具的 GitHub CI 结果（2026-10-25）
 - [CI run 40128444031](https://github.com/10wvw01/vllm-ascend/actions/runs/40128444031)，提交 `4f97de5e00451f3cc089c175e1105efa78c04b78`：治理/诊断单测 **12/12 PASS**，既有V2源码合同 **54/54 PASS**，元数据/改动闭环检查PASS。
 - 仅证明检查工具在GitHub无NPU环境下可执行。历史Stock+DFlash故障根因与服务器实际vLLM/torch/transformers依赖均仍 **UNKNOWN**；Graph/V2不因该CI改变验收状态。
+
+
+## 9. R1：Stock+DFlash 和 V2+DFlash 正式研发与实机准入（2026-10-25）
+
+- 用户配置固定：DFlash模型 /home/models/Qwen3.6-35B-A3B-DFlash，K7；目标 /home/models/Qwen3.6-35B-A3B-w8a8；TP2单卡双Die。上游相同TP2投机测试会把draft TP显式配置为2，本轮沿用。
+- 新增 [R1四象限实机合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)、tools/310p_mm_ar/dflash_v2_trial.py及纯CPU合同UT；第一层准入是只读依赖G0，实际设备身份和SO/KVER/Gate E情况仍需OpenCode现场核验。
+- 顺序：G0通过后Stock+DFlash Eager smoke→V2+DFlash Eager smoke→两个独立Eager完整4096/2048/TP2/batch10/50请求；Graph待两组Eager经过审阅后另行做Stock、V2两组短烟测。V2 Graph历史没有有效PASS，不能将V2 Prefill Eager和Graph Replay混算。
+- V2正式Serving仅2048～4096融合；真实DFlash Verify/Decode的physical M及实际融合调用数仍UNKNOWN。Eager V2必须取得正式Kernel双Ranktrace和首调数值证据，Stock不能被V2选层污染。
+- 修复只读环境探针中过严的pip check合同：上游310P Docker故意卸载Triton/Triton-Ascend，仅这两类明确未安装错误带标识放行；其余Python分发、API和安装冲突照常拦截。
+- **源码工具已经写入本主线，最后CI应以实测run成功记录为准；服务器NPU和模型实验本轮全部NOT_RUN。准入裁决为PRECHECK-GO，仅进入310P3现场G0，正式上机冒烟仍以现场全部门禁PASS为前提。**
