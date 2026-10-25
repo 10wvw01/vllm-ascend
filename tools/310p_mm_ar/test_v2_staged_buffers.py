@@ -117,6 +117,40 @@ class TestTorchBackends(unittest.TestCase):
         self.assertEqual(t.gpu[8].item(), 9)
         self.assertEqual(t.gpu[3].item(), 38)
 
+    def test_device_commit_failure_poisoned_and_plan_preserved(self):
+        from unittest.mock import patch
+
+        torch = self.torch
+        t = module.NPUStagedWriteTensor((2, 5), torch.int32, "cpu")
+        t.stage_write(1, 0, [4, 5])
+        with patch.object(torch, "tensor", side_effect=RuntimeError("H2D failure")):
+            with self.assertRaisesRegex(RuntimeError, "H2D failure"):
+                t.apply_write()
+        self.assertEqual(t.plan.pending_count, 1)
+        self.assertEqual(t.plan.data[1][:2], [0, 0])
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            t.apply_write()
+        t.clear_staged_writes()
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            t.apply_write()
+
+    def test_multigroup_partial_failure_poisoned(self):
+        torch = self.torch
+        a = module.NPUStagedWriteTensor((2, 3), torch.int32, "cpu")
+        b = module.NPUStagedWriteTensor((2, 3), torch.int32, "cpu")
+        a.stage_write(0, 0, [3])
+        b.stage_write(0, 0, [4])
+        def fail_second():
+            raise RuntimeError("second group failed")
+        b.apply_write = fail_second
+        with self.assertRaisesRegex(RuntimeError, "second group failed"):
+            module.NPUFusedStagedWriter("cpu", 4).apply([a, b])
+        self.assertTrue(a._poisoned)
+        self.assertTrue(b._poisoned)
+        self.assertEqual(b.plan.pending_count, 1)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            a.apply_write()
+
     def test_backed_copy_and_multi_group_fused(self):
         torch = self.torch
         b = module.NPUBackedTensor((2, 3), torch.int32, "cpu")
