@@ -129,3 +129,9 @@
 
 - 在`worker/v2/model_runner.py`增加**仅当310P子类主动声明**时才调用的构造/RequestState工厂钩子，其他Ascend默认行为逐字保留。新增`_310p/v2/model_runner.py:NPUModelRunner310V2Candidate`，通过仅复制冻结上游GPUModelRunner.__init__函数的globals隔离注入`NPURequestState`、310P NPU Stream代理和无GPU draft临时初始化；**不修改共享模块全局符号、不在GPU父构造先分配UVA再删除**。
 - 该入口还强制核对vLLM0.27.1、NPU TP2、PP1、Eager、V2明确打开。此候选**没有注册到Worker**；`initialize_kv_cache`仍显式拒绝，避免误进上游Triton BlockTables。后续必须将冻结`GPUModelRunner.initialize_kv_cache`的Attention/KV/Sampler实际调用全部切换到310P实现，经两轮静审才能移除故意fail-closed。
+
+### R2-10 T09 Eager Torch状态回写候选与真实310P子类接线（仍NO-GO）
+
+- 新增`_310p/v2/post_update_ops.py`实现冻结上游0.27.1参数+310P必要的CPU scheduler state-id / padded last-sampled存储；非Triton地更新sampled token prefix、num_computed、last_sampled、total_len、output_bin_counts（含重复token），对pad -1 行通过CPU active-row列表排除，依赖Device tensor运算，未用`.item()`。相应`test_v2_post_update_ops.py`与前一轮gold做Torch CPU差分/负例。
+- 310P的`NPUModelRunner310V2Candidate.postprocess_sampled`已明确调用本地T09实现、调用ModelState postprocess并使用NPU stream更新CPU长度；不会走上游GPU Triton post_update。其他Ascend Runner保持原有逻辑不变。
+- **T09仍BLOCKED**：这是针对NPU未来使用的CPU Torch Eager候选；310P3全行index_copy_、输出bin_counts /单元素状态向量、事件时序与动态sample count GPU边界仍需静审并与设备真实支持核对。且KV init仍fail-closed、Worker未接、非Triton sampler与DFlash完整链未接。CPU PASS/源码真实接线≠STATIC-GO。

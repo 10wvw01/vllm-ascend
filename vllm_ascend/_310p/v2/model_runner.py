@@ -114,6 +114,40 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPURequestState(**kwargs)
 
+    def postprocess_sampled(
+        self, idx_mapping, sampled_tokens, num_sampled, num_rejected,
+        query_start_loc=None,
+    ):
+        """310P-specific T09 call chain: never call upstream Triton post_update."""
+        from .post_update_ops import post_update
+
+        if self.input_batch is None:
+            raise RuntimeError("310P V2 post_update requires prepared input_batch")
+        if self.is_last_pp_rank:
+            assert self.sampler is not None
+            output_bin_counts = self.sampler.penalties_state.output_bin_counts
+        else:
+            output_bin_counts = None
+
+        post_update(
+            idx_mapping,
+            self.req_states.num_computed_tokens.gpu,
+            self.req_states.last_sampled_tokens,
+            output_bin_counts,
+            sampled_tokens,
+            num_sampled,
+            num_rejected,
+            query_start_loc,
+            self.req_states.all_token_ids.gpu,
+            self.req_states.total_len.gpu,
+            idx_mapping_np=self.input_batch.idx_mapping_np,
+            last_sampled_storage=self.req_states._last_sampled_storage,
+        )
+        self.model_state.postprocess_state(
+            idx_mapping, num_sampled, self.req_states.num_computed_tokens.gpu
+        )
+        self._copy_num_computed_tokens_to_cpu()
+
     def initialize_kv_cache(self, kv_cache_config):
         # Must never fall back to upstream GPU BlockTables and Triton staged
         # writes simply because the bootstrap RequestState is no longer UVA.
