@@ -119,3 +119,8 @@
 - 本轮实际新增T01非Triton Torch候选 `vllm_ascend/_310p/v2/input_ops.py:prepare_prefill_inputs`，独立`prefill_gold.py`及`test_v2_prefill_ops.py`，冻结上游0.27.1七参数和`next_prefill_tokens[lookahead, req_state]`布局。覆盖混合prefill/decode、lookahead超prefill零填充、非活跃slot不变、容量负例和随机差分；**尚未接入实际Runner**。
 - 当前分支新源码提交依次为`f367bf2c`、`53bc65ef`、`3067ab12`；本条文档提交后须按**最新HEAD**读取GitHub Actions双job的实测计数。旧`2ba84b8f`的87/54/73 CPU PASS不得直接继承到新增T01代码。
 - T01仍`BLOCKED`：真实Ascend V2入口继续import上游Triton；`index_copy_`/device stream/短写与UVA构造、KV和采样未闭环，CPU侧输入元数据强校验尚未生产接线。31项强制门禁仍没有真实READY证据，PR#7保持DRAFT，`NPUWorker310`的`NOT_IMPLEMENTED`不能移除，R2-B/C/D ONDEVICE NOT_RUN。
+
+### 本次交互式续研：T09 frozen 0.27.1 PostUpdate 状态gold（仍 STATIC NO-GO）
+
+- 实际新增 `_310p/v2/post_update_gold.py` 与 `test_v2_post_update_gold.py`：对照上游 `gpu/input_batch.py:_post_update_kernel`，覆盖有效/负数遮蔽state idx、K7部分接受/拒绝、bin_counts重复token、最后采样token、prefill/query长度增量、容量与词表越界、拒绝半提交及80组随机守恒关系；只用标准库、完全不依赖安装Triton/Torch。
+- **T09状态仍BLOCKED**：CPU reference 不是NPU kernel，也未把真正`GPUModelRunner.postprocess_sampled`的上游Triton绑定换成310P3实现，仍需要真实device-safe 32B写、row ownership/stream验证与统一Runner生命周期。当前 Worker `NOT_IMPLEMENTED` 保留、实机不得准入。
