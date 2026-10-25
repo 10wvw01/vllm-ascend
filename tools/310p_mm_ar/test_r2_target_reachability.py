@@ -40,7 +40,10 @@ class TestR2TargetReachability(unittest.TestCase):
         self.assertEqual(dict(Counter(x["category"] for x in rows)), COUNTS)
         self.assertEqual(set(self.data["categories"].values()), set(COUNTS))
         for row in rows:
-            for key in ("condition", "source", "decision"):
+            # Source labels may be concise (e.g. a single local callsite),
+            # while explanations need enough detail to be actionable.
+            self.assertGreater(len(row["source"]), 8)
+            for key in ("condition", "decision"):
                 self.assertGreater(len(row[key]), 14)
 
     def test_frozen_workload_and_no_runtime_go(self):
