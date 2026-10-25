@@ -63,6 +63,11 @@ class NPURequestState:
         )
         # Ascend V2 attention expects an explicit CPU mirror.
         self.num_computed_tokens_cpu = torch.zeros(max_num_reqs, dtype=torch.int32)
+        self._poisoned = False
+
+    def _assert_healthy(self) -> None:
+        if self._poisoned:
+            raise RuntimeError("310P3 V2 RequestState poisoned by partial state mutation")
 
     @property
     def num_reqs(self) -> int:
@@ -76,6 +81,7 @@ class NPURequestState:
         num_computed_tokens: int,
         max_tokens: int,
     ) -> None:
+        self._assert_healthy()
         if req_id in self.req_id_to_index:
             raise ValueError("duplicate request id")
         if not self.free_indices:
@@ -87,42 +93,54 @@ class NPURequestState:
             raise ValueError("request exceeds model capacity")
         if not (0 <= num_computed_tokens <= prefill_len):
             raise ValueError("invalid computed token count")
-        idx = self.free_indices.pop()
-        self.req_id_to_index[req_id] = idx
-        self.index_to_req_id[idx] = req_id
-        self.max_seq_len[idx] = prompt_len + max_tokens
-        self.prompt_len.np[idx] = prompt_len
-        self.prefill_len.np[idx] = prefill_len
-        self.total_len.stage_write_elem(idx, prefill_len)
-        # A recycled row may still contain the previous request's tokens
-        # beyond the new prompt. Stage a full reset BEFORE the new prefix;
-        # only the committed, 32-byte-aligned row is copied to the device.
-        # The Runner must separately ensure no in-flight kernel owns idx.
-        self.all_token_ids.stage_write(
-            idx, 0, [0] * self.max_model_len
-        )
-        self.all_token_ids.stage_write(idx, 0, all_token_ids)
-        self.num_computed_prefill_tokens[idx] = num_computed_tokens
-        self.num_computed_tokens_np[idx] = num_computed_tokens
-        self.num_computed_tokens.stage_write_elem(idx, num_computed_tokens)
-        self.num_computed_tokens_cpu[idx] = num_computed_tokens
-        self._last_sampled_storage[idx].zero_()
-        self._draft_storage[idx].zero_()
-        # Prefill lookahead is indexed by request slot, not by req_id.
-        # A reused slot must not inherit the previous request's predictions.
-        # Device-side index_fill avoids a CPU-origin 4-byte partial H2D.
-        import torch
-        slot = torch.tensor([idx], dtype=torch.int64, device=self.device)
-        self.next_prefill_tokens.index_fill_(1, slot, 0)
+        try:
+            idx = self.free_indices.pop()
+            self.req_id_to_index[req_id] = idx
+            self.index_to_req_id[idx] = req_id
+            self.max_seq_len[idx] = prompt_len + max_tokens
+            self.prompt_len.np[idx] = prompt_len
+            self.prefill_len.np[idx] = prefill_len
+            self.total_len.stage_write_elem(idx, prefill_len)
+            # A recycled row may still contain the previous request's tokens
+            # beyond the new prompt. Stage a full reset BEFORE the new prefix;
+            # only the committed, 32-byte-aligned row is copied to the device.
+            # The Runner must separately ensure no in-flight kernel owns idx.
+            self.all_token_ids.stage_write(
+                idx, 0, [0] * self.max_model_len
+            )
+            self.all_token_ids.stage_write(idx, 0, all_token_ids)
+            self.num_computed_prefill_tokens[idx] = num_computed_tokens
+            self.num_computed_tokens_np[idx] = num_computed_tokens
+            self.num_computed_tokens.stage_write_elem(idx, num_computed_tokens)
+            self.num_computed_tokens_cpu[idx] = num_computed_tokens
+            self._last_sampled_storage[idx].zero_()
+            self._draft_storage[idx].zero_()
+            # Prefill lookahead is indexed by request slot, not by req_id.
+            # A reused slot must not inherit the previous request's predictions.
+            # Device-side index_fill avoids a CPU-origin 4-byte partial H2D.
+            import torch
+            slot = torch.tensor([idx], dtype=torch.int64, device=self.device)
+            self.next_prefill_tokens.index_fill_(1, slot, 0)
+        except Exception:
+            # CPU maps and device rows may have diverged; do not continue
+            # scheduling requests into a half-mutated slot.
+            self._poisoned = True
+            raise
 
     def apply_staged_writes(self) -> None:
-        self.prompt_len.copy_to_uva()
-        self.prefill_len.copy_to_uva()
-        self.total_len.apply_write()
-        self.all_token_ids.apply_write()
-        self.num_computed_tokens.apply_write()
+        self._assert_healthy()
+        try:
+            self.prompt_len.copy_to_uva()
+            self.prefill_len.copy_to_uva()
+            self.total_len.apply_write()
+            self.all_token_ids.apply_write()
+            self.num_computed_tokens.apply_write()
+        except Exception:
+            self._poisoned = True
+            raise
 
     def remove_request(self, req_id: str) -> int | None:
+        self._assert_healthy()
         idx = self.req_id_to_index.pop(req_id, None)
         if idx is None:
             return None
