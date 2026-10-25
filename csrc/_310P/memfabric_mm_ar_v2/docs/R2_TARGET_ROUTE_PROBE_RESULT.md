@@ -1,6 +1,6 @@
 # R2 Target 模型 DFlash 只读路由探针结果
 
-R2 阶段需要确认 Qwen3.6 目标模型配 DFlash 投机解码在 310P3 上会走到哪条实现路径，但此前只有源码阅读结论、没有可留档的统一证据。本次在锁定提交上运行只读探针 `r2_target_route_probe.py`，产出一份脱敏枚举报告：Target 判为公开 Qwen3.5 MoE 架构、上游 V2 DFlash 输入准备走 Triton 直发路径、hybrid ModelState 存在条件性 Triton 风险。本报告只做静态文本与配置字段检查，不加载模型、不运行推理，不构成设备或静态准入 PASS。
+R2 阶段需要确认 Qwen3.6 目标模型配 DFlash 投机解码在 310P3 上会走到哪条实现路径，但此前只有源码阅读结论、没有可留档的统一证据。本次在锁定提交上运行只读探针 `r2_target_route_probe.py`，产出一份脱敏枚举报告：Target 判为公开 Qwen3.5 MoE 架构、冻结上游 GPU V2 的 DFlash 输入准备源码存在 Triton 直发路径（非实际310P命中）、hybrid ModelState 存在条件性 Triton 风险。本报告只做静态文本与配置字段检查，不加载模型、不运行推理，不构成设备或静态准入 PASS。
 
 ## 1. Git 版本核对
 
@@ -78,7 +78,7 @@ R2 阶段需要确认 Qwen3.6 目标模型配 DFlash 投机解码在 310P3 上�
 
 ### 4.1 源码事实（探针对锁定提交与冻结 vLLM 0.27.1 的文本检查）
 
-- Target 架构声明：冻结 vLLM 的 `qwen3_5.py` 中，`Qwen3_5ForConditionalGeneration` 继承 `Qwen3VLForConditionalGeneration` 与 `IsHybrid`，`Qwen3_5MoeForConditionalGeneration` 在此基础上叠加 MoE；`config/model.py` 提供 `is_hybrid()`。枚举 `ISHYBRID_PUBLIC_MODEL_CLASS_PRESENT`。
+- Target 架构声明：冻结 vLLM 的 `qwen3_5.py` 中，`Qwen3_5ForConditionalGeneration` 继承 `Qwen3VLForConditionalGeneration` 与 `IsHybrid`，`Qwen3_5MoeForConditionalGeneration` 在此基础上叠加 MoE；`config/model.py` 通过 `@property` 提供 `ModelConfig.is_hybrid`（具体运行时仍需判定）。枚举 `ISHYBRID_PUBLIC_MODEL_CLASS_PRESENT`。
 - V1（legacy 310P）DFlash 路由：本仓库 `patch_idex_310.py` 与 `dflash_proposer_310.py` 存在 AscendC 源绑定（`AscendDflashProposer(.310).set_inputs_first_pass`、`npu_copy_and_expand_dflash_inputs`）。枚举 `ASCENDC_SOURCE_BINDING_PRESENT`。
 - V2 候选路由：本仓库 `v2/dflash_speculator.py` 存在 scoped 的非 Triton 输入准备候选。枚举 `SCOPED_NON_TRITON_CANDIDATE_PRESENT`。
 - 上游 GPU V2 DFlash 路由：冻结 vLLM 0.27.1 的 GPU speculator 中 `propose` 直接发射 Triton kernel（`_prepare_dflash_inputs_kernel[`）。枚举 `DIRECT_TRITON_SOURCE_PATH_PRESENT`。
@@ -86,7 +86,7 @@ R2 阶段需要确认 Qwen3.6 目标模型配 DFlash 投机解码在 310P3 上�
 
 ### 4.2 配置推断（本地 Target config.json 的字段枚举）
 
-- 本地 w8a8 目标模型的 `config.json` 声明 `model_type=qwen3_5_moe`、存在 `text_config`、`architectures` 含 `Qwen3_5MoeForConditionalGeneration`，探据此判为公开 Qwen3.5 MoE 架构兼容。枚举 `PUBLIC_QWEN35_MOE_ARCH_COMPATIBLE`。
+- 本地 w8a8 目标模型的 `config.json` 声明 `model_type=qwen3_5_moe`、`text_config.model_type=qwen3_5_moe_text`，且 `architectures` 含 `Qwen3_5MoeForConditionalGeneration`，探据此判为公开 Qwen3.5 MoE 架构兼容。枚举 `PUBLIC_QWEN35_MOE_ARCH_COMPATIBLE`。
 - 局限：`local_artifact_identity=UNVERIFIED`。未做哈希或来源核验，无法确认该本地目录与 `Eco-Tech/Qwen3.6-35B-A3B-w8a8` 发布工件逐位一致，"架构兼容"仅指 config 字段匹配，不覆盖量化方案与权重完整性。
 
 ### 4.3 ModelState 条件风险（静态存在性，非运行时结论）
