@@ -46,13 +46,18 @@ class NPURequestState:
         self.num_computed_prefill_tokens = np.zeros(max_num_reqs, dtype=np.int32)
         self.num_computed_tokens = NPUStagedWriteTensor(max_num_reqs, torch.int32, device)
         self.num_computed_tokens_np = np.zeros(max_num_reqs, dtype=np.int32)
-        self.last_sampled_tokens = torch.zeros(
-            max_num_reqs, 1, dtype=torch.int64, device=device
+        # Physical rows are 32-byte aligned: resetting a reused request
+        # must never issue a short unaligned 8-byte D2D write on 310P3.
+        self._last_sampled_storage = torch.zeros(
+            max_num_reqs, 4, dtype=torch.int64, device=device
         )
+        self.last_sampled_tokens = self._last_sampled_storage[:, :1]
         self.max_seq_len = np.zeros(max_num_reqs, dtype=np.int32)
-        self.draft_tokens = torch.zeros(
-            max_num_reqs, num_speculative_steps, dtype=torch.int64, device=device
+        draft_width = ((num_speculative_steps + 3) // 4) * 4
+        self._draft_storage = torch.zeros(
+            max_num_reqs, draft_width, dtype=torch.int64, device=device
         )
+        self.draft_tokens = self._draft_storage[:, :num_speculative_steps]
         self.next_prefill_tokens = torch.zeros(
             num_prefill_lookahead, max_num_reqs, dtype=torch.int32, device=device
         )
@@ -94,7 +99,8 @@ class NPURequestState:
         self.num_computed_tokens_np[idx] = num_computed_tokens
         self.num_computed_tokens.stage_write_elem(idx, num_computed_tokens)
         self.num_computed_tokens_cpu[idx] = num_computed_tokens
-        self.draft_tokens[idx].zero_()
+        self._last_sampled_storage[idx].zero_()
+        self._draft_storage[idx].zero_()
 
     def apply_staged_writes(self) -> None:
         self.prompt_len.copy_to_uva()
