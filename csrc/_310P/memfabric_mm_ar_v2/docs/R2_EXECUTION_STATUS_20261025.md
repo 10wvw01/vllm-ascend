@@ -312,3 +312,8 @@
 - `_310p/v2/hybrid_state_npu.py`已实现独立GDN CPU/NPU兼容Torch Tensor拷贝主体：按Mamba KV group与当前batch BT行寻址，`index_select`所有源状态，Conv SD/DS `cat`保留原尾部，`index_copy_`整块写回；Temporal按`src_col+bias`定位；目的块去重、全局预检、失败poison。
 - `PaddedInt32State310Candidate`用8×int32全行合并更新接受数，防止同一32B行的多个req_slot写冲突；无torch_npu/未显式绑定NPU Stream时拒绝设备入口，NPU发射须`confirm_completed`明确同步，禁止将enqueue当执行完成。
 - [实现/审查/ABI清单](R2_P0_E_NPU_CANDIDATE_20261025.md)；新CPU Torch gold `test_v2_hybrid_npu_candidate.py`。**非完整ModelState、真实NPU ops未实测、当前还不能解除Runner早拒绝或Worker NOT_IMPLEMENTED，静态0/46、设备NOT_RUN。**
+
+### 2026-10-26｜Device-owned T30-A/T31-A CPU Tensor合同与接线审计
+
+- [R2-P0-E Device-Owned/ModelState审计](R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)：新未注册`hybrid_state_device_meta.py`实现GPU/NPU候选设备Tensor数学和128B metadata全行写，包含动态有效性mask、explicit NPU Stream与防复用pending，既不读设备标量回Host也不接私有Draft。
+- **分界清楚**：设备决策返回的src_col/dst_col/bias尚不能给旧`GDNMove310`Host复制器；NPU侧的validity gate/device-native BT寻址/真实GDN copy+completion event和ModelState绑定仍未完成，CPU模拟ack只用于gold，NPU不允许ack越过保护。`0/46 STATIC-NO-GO`、Worker/Hybrid早拒绝都保持。

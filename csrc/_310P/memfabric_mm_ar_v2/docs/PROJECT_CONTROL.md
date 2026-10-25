@@ -334,3 +334,9 @@
 - [设备ABI与两轮源码审查](R2_P0_E_NPU_CANDIDATE_20261025.md)：新增未注册 `vllm_ascend/_310p/v2/hybrid_state_npu.py`：具备CPU/NPU Torch `index_select→cat→index_copy_`整32B物理块的GDN Conv SD/DS与Temporal搬运候选、每8个int32元素32B合并接受数行写、跨Mamba KV Group地址检查与源快照、错误poison、显式NPU Stream opt-in/同步。新 `test_v2_hybrid_npu_candidate.py` 使用Torch CPU完成真实数据路径和失败测试。
 - **这不是310P3设备实现已经可运行的证明**：当前NPU路径仅为未经设备验证的`torch_npu`操作候选；Mamba State的T30-A设备resident索引计算、T31 device-owned K7采样计数输入、ModelState`prepare_attn`/Runner接线、NPU内存写粒度和Stream/生命周期仍阻塞。CPU block table输入只允许同步权威快照，不能偷偷使用异步乐观镜像。
 - 保留Worker和Hybrid/align双重`NotImplemented`；正式MM+MemFabric不变，Stock默认不变，`R2-A STATIC-NO-GO 0/46`，PR#7 DRAFT；310P3 NPU/Graph NOT_RUN。未来实机须完成G0+ABI审核并取得单独授权。
+
+### 2026-10-26｜R2-P0-E Device-Owned T30-A/T31-A与ModelState接线静态审计
+
+- [完整审计与接线缺口](R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)：新增**未注册** `vllm_ascend/_310p/v2/hybrid_state_device_meta.py`，将T30-A块索引/旧接受数与T31-A采样数+post_update后位置计算改为Torch device-owned Tensor操作；按8 req_slot×4 int32=128B物理整行更新，拒绝逐请求D2H。`prepare_attn`生成GDN接受数Tensor与非spec=-1哨兵，CPU合同新测试验证控制流。
+- **新确认P0阻塞**：现有`hybrid_state_npu.py:GDNWholeBlockCopy310Candidate.execute`仅接收Host计算的`GDNMove310`和CPU物理BT；本轮设备决策`src/dst/bias/mask`是Device Tensor，**不能用隐藏`.item()`强行桥接**。必须另实现device-native per-Mamba Group BT寻址/复制/动态有效性消费和Stream所有权，才允许接到真实ModelState。
+- 冻结上游先`prepare_attn`块表、后T30 preprocess、再ModelState.prepare_attn/forward；T31在post_update之后，顺序不可偷换。模型真实工厂/ModelState对象仍NOT_OBSERVED；Worker与Hybrid align加载的保护未改，PR#7仍Draft、R2-A STATIC-NO-GO 0/46，无设备测试、无性能新基线、自研Draft未读。

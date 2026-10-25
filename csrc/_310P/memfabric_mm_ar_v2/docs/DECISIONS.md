@@ -99,3 +99,9 @@
 - **决策（仅R2代码候选）**：设备写全部完成后才提交CPU镜像；单组/多组、num_blocks上传、RequestState新增/上传任一步异常，都标记整个对应State/BlockTables `poisoned`并禁止后续append/gather/slot/请求复用。Runner未来必须停止本批次并销毁状态，不允许在部分成功的KV/Token基础上重试；不宣称跨组原子提交或自动回滚。
 - **安全边界**：T02/T04与T05/T06/T14/T15/T16仍未接入310P专属Runner，设备Eager算子支持、stream/in-flight同步、短写、UVA构造链仍NO-GO；不得解除NPUWorker310的NOT_IMPLEMENTED。其它Ascend设备保持原有路径，Stock默认不变。若未来真实Runner无法提供失败后可靠销毁/同步，该方案不得晋级。
 - **验证**：纯Python gold、Torch2.10 CPU故障注入/多组复用/持久slot别名；CI SHA和静态审查必须逐轮绑定，310P3实机保持NOT_RUN。此ADR不构成用户授权上机。
+
+### ADR-R2-P0-E-20261026｜设备状态决策不可经Host标量回传接入原物理复制器
+
+- 决定：唯一Target/TP2/K7 的T30-A/T31-A设备计算使用device-owned int32张量与**整128B元信息行写**；`num_sampled`与真实`num_computed_tokens`保留设备归属，禁止用乐观Host镜像或逐req`.item()/tolist()/cpu()`隐式D2H。
+- 原因：冻结vLLM真实批次的T30在Attention metadata构造前，T31在post_update之后执行；接受数和块边界可能被异步调度更新。现有`GDNWholeBlockCopy310Candidate.execute`的Host`GDNMove`不满足这一ABI。
+- 后果：先交付CPU Tensor合同与未注册设备元数据候选；NPU完整物理状态复制、device validity fail-closed、Stream ownership及ModelState适配仍为P0硬门禁。保留Worker`NOT_IMPLEMENTED`、Hybrid align早拒绝、Draft NDA、Stock默认和R2-A STATIC-NO-GO 0/46；不授予实机许可。

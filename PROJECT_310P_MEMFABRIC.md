@@ -74,3 +74,7 @@
 ### 2026-10-25｜R2-P0-E/NPU 候选 (仅工作分支)
 
 [Target GDN/T30-T31 Torch-NPU未注册候选与设备ABI审查](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_NPU_CANDIDATE_20261025.md)已完成`index_select/cat/index_copy_`整32B物理块、Conv SD/DS/Temporal、多组KV、源数据快照和8×int32合并接受数写的代码；**只有CPU Torch执行证明，真实310P3的torch_npu支持/流/物理写粒度未验证**。此工作不是正式融合Kernel变更，也没有接入vLLM Runner。主线保持`dev/310p-memfabric-mm-ar`，PR#7 DRAFT、R2-A 0/46、Worker NOT_IMPLEMENTED。
+
+### 2026-10-26｜R2-P0-E设备元数据计算 + ModelState接线审计（工作分支未合入）
+
+[审计报告](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)与未注册`_310p/v2/hybrid_state_device_meta.py`新增device-owned T30-A/T31-A Torch Tensor计算和128B整行状态更新，CPU合同覆盖prefill/spec/K7、slot映射、非Spec哨兵和请求复用。发现现有GDN物理复制器依赖Host`GDNMove`，不得隐式D2H桥接；设备原生物理BT copy/validity/Event及真实ModelState接线仍需完成。Worker与Hybrid加载守卫未解除，R2-A仍NO-GO。
