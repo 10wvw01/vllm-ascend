@@ -106,3 +106,9 @@
 
 - 新增`tools/310p_mm_ar/r2_static_admission.py --check`：严格读取冻结0.27.1的ABI-01~15和T01~16表格行，缺失、BLOCKED、UNVERIFIED、UNWIRED、NO均返回`STATIC-NO-GO`（exit 2）；只有显式READY/PASS且每节点具备源码/CPU测试/实际路由/设备算子静审/两轮审查证据，才可输出`STATIC-CHECKS-COMPLETE`。不可把`STATIC-CHECKS-COMPLETE`当作自动上机授权。
 - `R2_STATIC_ADMISSION_EVIDENCE.json`当前刻意留空并标记`NO-GO/ONDEVICE_NOT_RUN`；禁止把CPU Torch绿或候选文件存在自动填为READY。CI仅调用`--report`打印阻断账，保证研发分支可以在NO-GO状态继续提交和跑CPU回归；人工准入必须调用`--check`并完成两轮静审。
+
+
+### R2-A 采样T07/T08独立CPU合同（2026-10-25；非实机准入）
+
+- 在自有R2任务分支新增冻结0.27.1采样函数T07/T08的Torch Eager候选、stdlib gold与随机差分UT；确认T07原地写`num_sampled`和chunked prefill双清零，T08接受前缀flatten且未采样位置填0。未绑定`RejectionSampler`模块级Triton引用，不能将候选说成完整采样替代。
+- 优先级仍为GPU父构造UVA与BlockTables、输入T01/T03、采样T09/真实RejectionSampler、DFlash T11及多KV/ModelState；未有任何310P Eager实际运行或两轮可执行Runtime审查，静态门禁不放行。

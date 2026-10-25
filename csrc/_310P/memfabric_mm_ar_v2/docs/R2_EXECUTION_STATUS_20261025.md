@@ -91,3 +91,11 @@
 
 - 真实SHA `f9a60ff5f64e3d6e1595f89c5a004490557eae0d`，GitHub Actions Run `40165197698` 两个job均**SUCCESS**：轻量治理 **82 unittest OK（3 skipped：无torch）+54 pytest PASS**；独立Python3.12/torch2.10.0+cpu **61 unittest OK**（未报告skip）。
 - `r2_static_admission.py --report`在同次CI明确输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**，因两轮审查尚未PASS、31项仍未真实接线/给足证据；这是按真实任务口径的正确阻断，不因CI成功改变。R2-B/C/D **ONDEVICE NOT_RUN**；Worker仍NOT_IMPLEMENTED。
+
+
+### R2-A T07/T08 采样侧非Triton候选（本轮源码交付，仍STATIC NO-GO）
+
+- 固定上游vLLM 0.27.1 @ `6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`：`gpu.input_batch.get_num_sampled_and_rejected`原地清零chunked prefill的sampled/rejected；`gpu.spec_decode.rejection_sampler._flatten_sampled_kernel`只填已接受的token前缀，余量为0。
+- 新增`vllm_ascend/_310p/v2/sampling_ops.py`与`sampling_gold.py`，以及`test_v2_sampling_ops.py`：Torch Eager的T07原地写回与T08无host-sync的固定长度flatten，覆盖K7、非连续row stride、混合prefill、零样本、随机差分及负例；本侧CPU Torch2.10.0 7/7 UT PASS（仅本新增测试，不是全仓CI）。
+- **重要未接线事实**：上游`RejectionSampler`直接引用其模块级Triton函数和从`input_batch`导入的T07符号；新增同名候选不会自动替换。必须实现310P专属Sampler/RejectionSampler绑定，并审核`rejection_sample`自身的实际CUDA/Triton依赖及K7采样流。
+- **剩余阻断**：T01/T03/T09/T11、T13及UVA父构造和多组KV真实接线，T07/T08设备`searchsorted/index_select`可用性与无短写同步证据，CPU预校验的动态count不变量和端到端ModelState所有权；T07/T08在矩阵仍BLOCKED，31项静态门禁不能晋级。Worker NOT_IMPLEMENTED、PR#7 DRAFT、ONDEVICE NOT_RUN不变。最新新增提交的GitHub CI须按新SHA复核，不继承旧成功。

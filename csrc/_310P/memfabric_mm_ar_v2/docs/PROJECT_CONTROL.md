@@ -253,3 +253,9 @@
 
 - 真实SHA `f9a60ff5f64e3d6e1595f89c5a004490557eae0d`，GitHub Actions Run `40165197698` 两个job均**SUCCESS**：轻量治理 **82 unittest OK（3 skipped：无torch）+54 pytest PASS**；独立Python3.12/torch2.10.0+cpu **61 unittest OK**（未报告skip）。
 - `r2_static_admission.py --report`在同次CI明确输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**，因两轮审查尚未PASS、31项仍未真实接线/给足证据；这是按真实任务口径的正确阻断，不因CI成功改变。R2-B/C/D **ONDEVICE NOT_RUN**；Worker仍NOT_IMPLEMENTED。
+
+
+### 2026-10-25 R2-A T07/T08采样合同研发记录（工作分支，不代表主线GO）
+
+- 工作支路`work/310p-v2-r2-implementation-20261025`继续仅新增隔离采样候选与gold/CPU测试；主线`dev/310p-memfabric-mm-ar@a37c0212`不变，PR#7继续DRAFT。固定上游vLLM`6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`只读。
+- T07/T08候选不替换上游模块级Triton绑定，不解除`NPUWorker310`的NOT_IMPLEMENTED；所有Triton/UVA/多KV/真实采样与ModelState未审查闭环前仍**R2-A STATIC NO-GO / ONDEVICE NOT_RUN**。本次无设备、SO、模型配置和Graph操作；CPU单测仅作合同证据，GitHub CI须按本次新SHA确认。

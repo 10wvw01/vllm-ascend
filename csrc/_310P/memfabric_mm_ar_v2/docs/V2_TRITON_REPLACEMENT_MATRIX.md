@@ -60,3 +60,10 @@
 - 新增`_310p/v2/input_ops.py`，提供与固定上游0.27.1同名同参数的`prepare_pos_seq_lens`（T02）和`expand_idx_mapping`（T04）CPU Torch可运行候选；采用设备端`searchsorted/index_select/where`，位置先以int32计算再cast int64，避免直接依赖310P int64 Add；不用`.item()/tolist()`强制host同步，不调用Triton。
 - 新增`input_gold.py`和`test_v2_input_ops.py`，覆盖混合Prefill/Decode、K7 8 logits、padding、空batch、错误累计长度/容量和dtype；不安装torch的轻量CI仍执行gold，独立CPU Torch CI执行实际Tensor函数。
 - **不能升级T02/T04状态**：现有`worker/v2/model_runner.py`仍直接从上游`gpu.input_batch`导入Triton函数，候选尚未路由；310P3`searchsorted/index_select`设备算子与非阻塞stream可见性未验证；`cu_num_logits/query_start_loc`动态GPU内容一致性尚未实现不引发host同步的运行时强校验。T01/T03/T07～09/T11/T13及真实Runner仍阻断。
+
+
+### T07/T08采样候选与模块级绑定审查（2026-10-25，仍BLOCKED）
+
+- `_310p/v2/sampling_ops.py`实现T07与上游0.27.1同签名、原地更新`num_sampled`；T08实现无Triton的`flatten_sampled`（`num_logits`为host已知形状，不从device提取scalar），并以`sampling_gold.py`和`test_v2_sampling_ops.py`的K7、chunked prefill、noncontiguous stride、随机gold覆盖。仅独立CPU Torch合同，非设备PASS。
+- 上游`gpu/spec_decode/rejection_sampler.py`直接`from gpu.input_batch import get_num_sampled_and_rejected`，并在`_get_logprobs_tensors`直接启动`_flatten_sampled_kernel`。**不能**通过在310P包新增同名函数实现替换，必须在310P专属RejectionSampler/Runner实际调用路径绑定，并检查`rejection_sampler_utils.rejection_sample`是否还有其它Triton/设备限制。
+- 上游T08仅在需要logprobs时可达，但不得据此在K7目标下删除；T07每次SpecVerify可达。输入累计长度、req-id与sampled<=logits必须先在CPU scheduler侧预校验，禁止为校验增加设备`.item()`隐式同步。310P Eager`searchsorted/index_select`支持与流可见性仍未静态审查完成；状态继续BLOCKED。
