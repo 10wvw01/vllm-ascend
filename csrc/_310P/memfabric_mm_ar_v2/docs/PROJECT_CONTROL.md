@@ -203,3 +203,7 @@
 
 - 新增`vllm_ascend/_310p/v2/reference_ops.py`：不依赖torch/npu、可验证的多KV组分配/slot编号及K7 bonus + 7 mask、rejected/context/query/sample indices参考实现，附`test_v2_dflash_k7_reference.py` CPU gold和负例。
 - **仅Gold，不是NPU执行代码**：需要再将V2真正的 Triton prepare、group block tables、Attention metadata 和sampling映射接到受控310P非Triton后端，且必须验证内存布局/dtype、溢出、事件顺序。不能移除NPUWorker310拒绝标志。
+
+### R2 CI修复记录（非NPU）
+
+- 第一次加入R2审计表的CPU检测对TRITON矩阵错误要求必须包含字面`NO`，而表中阻塞统一采用`BLOCKED`；已收窄修复为接受`BLOCKED`或`NO-GO`，不更改实际Blocked判定与算子执行逻辑。
