@@ -85,3 +85,9 @@
 
 - 增加`r2_static_admission.py --check/--report`及`R2_STATIC_ADMISSION_EVIDENCE.json`空证据账，明确追踪16个Triton/UVA/ownership节点和15个ABI节点。所有必经项均需真实接线、CPU合同、设备算子静审和两轮独立review证据才可升级；`--check`在当前状态应以exit 2拒绝准入，`--report`在GitHub CI只输出真实NO-GO状态。
 - T16和ABI-13~15已提升为表格显式行，不再藏在正文注释里；`test_r2_static_admission.py`覆盖缺证据、重复ID、合成完整性（合成测试不代表真实review）。当前绝不移除Worker NOT_IMPLEMENTED，PR#7仍DRAFT。
+
+
+### R2-A GitHub CI复核：31项静态门禁保持NO-GO（2026-10-25）
+
+- 真实SHA `f9a60ff5f64e3d6e1595f89c5a004490557eae0d`，GitHub Actions Run `40165197698` 两个job均**SUCCESS**：轻量治理 **82 unittest OK（3 skipped：无torch）+54 pytest PASS**；独立Python3.12/torch2.10.0+cpu **61 unittest OK**（未报告skip）。
+- `r2_static_admission.py --report`在同次CI明确输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**，因两轮审查尚未PASS、31项仍未真实接线/给足证据；这是按真实任务口径的正确阻断，不因CI成功改变。R2-B/C/D **ONDEVICE NOT_RUN**；Worker仍NOT_IMPLEMENTED。
