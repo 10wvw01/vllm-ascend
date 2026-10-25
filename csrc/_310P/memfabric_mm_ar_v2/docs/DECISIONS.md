@@ -60,6 +60,13 @@
 - 不更新通用`requirements.txt`的过时引脚来强制所有架构升级，也不执行设备安装/改SO；另立打包元数据债务，待确认部署矩阵再改。
 - 只有现场重G0、Stock/V2 Eager及双Rank真实Kernel证据分别通过，才允许后续Graph诊断；对外部HaonanWu1仓库保持只读。
 
+
+## ADR-010｜R1-B现场NO-GO证据主线补档｜2026-10-25｜有效（原始结论不变）
+
+- 证据来源：`work/310p-r1b-stock-eager-smoke-nogo-20261025@f51aa689`。仅引入 `R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md` 与相应 `evidence/r1b_20261025/` 原始blob，保留完整server.log.gz；不引入该旧分支的控制台或工程代码，避免覆盖PR#5及R2计划。
+- 实机裁决：G0 PASS、Stock+DFlash Eager FAIL（原模型混合sliding/full attention被V1门禁拒绝）；V2、full、Graph NOT_RUN；未出现507014/507899，设备现场恢复；没有任何新的融合性能。
+- ADR-011/012后续决策是研发V2方案，不得回写改称R1-B执行通过。
+
 ## ADR-011｜310P3 V2 Triton验证条件豁免｜2026-10-25｜有效
 
 - 决策：按所有者指示优先走310P3 V2 Model Runner，停止V1多KV组扩展；在自有仓库实现**310P3+vLLM0.27.1+TP2+Eager+显式双开关**条件下仅豁免上游V2 Triton存在性检测，不修改vLLM源码、全局HAS_TRITON、非Triton V2其它校验、现有Stock生产默认。
