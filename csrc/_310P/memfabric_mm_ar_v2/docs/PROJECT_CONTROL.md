@@ -235,3 +235,9 @@
 - 修复隔离的310P V2候选：T06 DFlash直接读取的`block_tables.slot_mappings`之前未被slot计算结果写回（严重P0），现保持固定buffer地址、填充padded PAD并返回别名；T14阶段写在H2D异常前过早CPU commit，现失败poisoned并要求Runner销毁受影响状态；T15/T16请求复用先清理旧token尾部/prefill lookahead，禁止pending写尚未落地时释放。新增T02/T04 Eager Torch非Triton候选与纯Python gold，位置先以int32算再cast int64；**全部候选尚未接线**。
 - **已核实CI**：PR#7 SHA`dfb4a0faa91e937dd83122e860697913b676beaa` 的GitHub Actions Run `40164930360`：轻量治理`79 unittest OK（3 skipped，无torch）+54 pytest PASS`，独立`Python3.12/torch2.10.0+cpu`动态合同`59 unittest OK`；**不是310P3设备验证**。新增`r2-torch-cpu-contracts`作业以避免Torch测试被轻量CI Skip掩盖。
 - **STATIC NO-GO / ONDEVICE NOT_RUN**：上游GPUModelRunner构造期UVA RequestState与KV初始化GPU BlockTables尚未替换，T01/T03/T07~09/T11/T13未闭环，T02/T04/T05/T06/T14/T15/T16未接生产路由/设备算子核验，GDN/Mamba/W8A8/TP2/DFlash多Group及stream所有权未完成。Worker的`NOT_IMPLEMENTED`防护保持，Stock默认不变；不得委托上机或把CPU绿称为STATIC-GO。下一步优先构造链、完整input/sampling状态、DFlash多Group与双轮深审。
+
+
+### R2-A 追加P0复核：状态容器整体不可恢复保护（未设备准入）
+
+- 隔离候选`NPUBlockTables`与`NPURequestState`现增加`_poisoned` fail-closed：任一多组KV写、计数上传、请求新增/状态回写异常，不允许继续gather/slot/请求复用；补故障注入Torch CPU合同，详见[ADR-013](DECISIONS.md)。这不是跨组原子事务；未来Runner仍须实现异常abort、in-flight同步和销毁，当前未接线。
+- PR#7仍DRAFT，主线与Stock默认不变，310P3 **STATIC NO-GO / ONDEVICE NOT_RUN**。新增代码后的CI以最新GitHub SHA为准，旧`dfb4a0fa`绿不可外推。
