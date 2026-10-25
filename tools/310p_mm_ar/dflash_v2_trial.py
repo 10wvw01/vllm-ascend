@@ -83,7 +83,7 @@ def build_plan(*, arm: str, mode: str, phase: str, devices: str, port: int,
         "vllm", "serve", TARGET, "--host", "127.0.0.1", "--port", str(port),
         "--served-model-name", "qwen3.6-35b-a3b-w8a8", "--dtype", "float16",
         "--tensor-parallel-size", "2", "--quantization", "ascend",
-        "--gpu-memory-utilization", "0.90", "--max-num-seqs", "10",
+        "--gpu-memory-utilization", "0.85", "--max-num-seqs", "10",
         "--max-num-batched-tokens", "4096", "--max-model-len", "8192",
         "--trust-remote-code", "--no-enable-prefix-caching", "--enable-chunked-prefill",
         "--async-scheduling", "--safetensors-load-strategy", "eager",
@@ -193,9 +193,12 @@ def stop_own_process_group(proc: subprocess.Popen) -> None:
         proc.wait(timeout=10)
 
 
-def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool) -> int:
+def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
+            graph_authorized: bool = False, eager_reviewed: bool = False) -> int:
     if not (approved and exclusive and restore):
         raise RuntimeError("separate G0, device exclusive, backup/restore evidence needed")
+    if manifest.get("mode") == "graph" and not (graph_authorized and eager_reviewed):
+        raise RuntimeError("Graph research is gated: review BOTH Eager baselines and authorize it explicitly")
     if manifest.get("contract") != "R1_DFLASH_K7_TP2_STOCK_V2_20261025":
         raise ValueError("unrecognized manifest")
     directory = Path(manifest["output_dir"])
@@ -258,6 +261,8 @@ def main() -> int:
     run.add_argument("--g0-approved", action="store_true")
     run.add_argument("--exclusive-approved", action="store_true")
     run.add_argument("--restore-reviewed", action="store_true")
+    run.add_argument("--graph-research-authorized", action="store_true")
+    run.add_argument("--eager-baselines-reviewed", action="store_true")
     check = sub.add_parser("verify")
     check.add_argument("--manifest", type=Path, required=True)
     args = p.parse_args()
@@ -274,7 +279,8 @@ def main() -> int:
         return 0
     obj = json.loads(args.manifest.read_text(encoding="utf-8"))
     if args.command == "execute":
-        return execute(obj, args.g0_approved, args.exclusive_approved, args.restore_reviewed)
+        return execute(obj, args.g0_approved, args.exclusive_approved, args.restore_reviewed,
+                       args.graph_research_authorized, args.eager_baselines_reviewed)
     location = Path(obj["output_dir"])
     log = location / "server.log"
     bench = location / "bench.json"

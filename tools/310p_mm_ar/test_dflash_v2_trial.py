@@ -125,6 +125,10 @@ class K7TrialContract(unittest.TestCase):
         self.assertEqual(env["VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR"], "0")
         self.assertEqual(env["DUMMY_UNRELATED"], "safe")
 
+    def test_graph_requires_extra_readiness(self):
+        with self.assertRaisesRegex(RuntimeError, "Graph research"):
+            trial.execute(case("stock", mode="graph"), True, True, True)
+
     def test_execute_is_gated_before_file_or_server_work(self):
         with self.assertRaisesRegex(RuntimeError, "G0"):
             trial.execute(case("stock"), False, False, False)
