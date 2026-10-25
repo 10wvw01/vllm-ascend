@@ -62,3 +62,7 @@
 ### 2026-10-25 目标模型T01～T31静态调用链裁剪
 
 在用户唯一场景`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3单卡双Die/TP2/PP1、4096/2048/batch10、DFlash K7上，已完成[目标专属模型路由裁剪](csrc/_310P/memfabric_mm_ar_v2/docs/R2_TARGET_REACHABILITY_CUT_20261025.md)及逐T机器账。19项候选阶段核心、7项仅greedy候选禁止的功能、1项PP1分支排除、1项候选覆盖、1项继承审计待闭环、2项Hybrid align硬风险。**目前真实runtime全部NOT_RUN；用户尚未冻结greedy采样策略，因此不得将7项条件功能永久删掉**。本轮只更新取证文档及静态合同，不扩大兼容代码。
+
+### 2026-10-25｜R2-P0 Hybrid/GDN专属状态设计阶段交付
+
+完成[Target Hybrid ModelState完整静态设计与两轮源码审查](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)：T30、T31拆为四段最小非Triton状态语义，提供纯标准库参考决策和边界UT，固定conv SD/DS、temporal K7/TP2的复制契约。**这是静态设计而不是新的可运行NPU kernel**；Worker及align早拒绝都未修改，R2-A依然NO-GO。下一步在独立未注册的310P候选中实施最小4段，验证NPU缓存所有权和流时序，不读取私有Draft。

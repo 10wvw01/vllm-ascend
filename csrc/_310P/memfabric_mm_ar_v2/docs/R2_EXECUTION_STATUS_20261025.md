@@ -295,3 +295,9 @@
 ## 2026-10-25｜静态模型专属可达性裁剪已经落盘
 
 [分支文件](R2_TARGET_REACHABILITY_CUT_20261025.md)和[31条结构化判定](R2_TARGET_REACHABILITY_CUT_20261025.json)将31个T项分类19+7+1+1+1+2。该统计是**假定未来接线的310P V2候选控制流条件分类**，当前Worker阻断所以**所有V2设备路径都NOT_RUN**。保留T30/T31 Hybrid align条件风险；T08仅logprobs触发、T10非last PP rank在PP1不走。候选greedy-only限制不等于用户采样策略已确认。本轮仅文档/CPU分类合同，不新增kernel、不改变Worker/Stock/46门禁。
+
+### 2026-10-25｜R2-P0 Hybrid GDN ModelState 静态设计结束，执行仍未准入
+
+- [专属ModelState设计与两轮审查](R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)：冻结0.27.1的前向前`preprocess_mamba_align_fused_kernel → precopy_mamba_align_fused_kernel`及采样后`_scatter_num_accepted_kernel → postprocess_mamba_fused_kernel`四段最小语义；明确TP2 GDN conv SD/DS及temporal索引、K7 1..8计数、BlockTable per-group物理映射、req-slot ownership/stream与重用的硬门槛。
+- 新增[纯标准库Oracle](../../../../tools/310p_mm_ar/r2_hybrid_align_reference.py)和[测试](../../../../tools/310p_mm_ar/test_r2_hybrid_align_reference.py)，仅数学决策级CPU合同，不做Torch/NPU state copy，也不碰保密Draft。
+- **STATIC DESIGN done / STATIC IMPLEMENTATION NOT DONE**。不改310P V2 Worker及`load_model`守卫，不合PR、不启动设备。46个正式准入节点仍0/46；下一工作为Target专属4段状态实现的独立310P候选、ABI验证、CPU Tensor gold、可执行代码两轮深审后再谈STATIC-GO。

@@ -106,3 +106,7 @@
 - **验证约束**：本轮交付`tools/310p_mm_ar/test_r2_target_reachability.py`执行机器裁剪账的完备性/一致性检查，非运行时动态trace。
 
 **最终：完成唯一Target的源码级可达性裁剪；需保留的19项候选阶段核心节点 + 2项Hybrid条件硬风险 + 1项继承审计。只在显式greedy子集下可暂绕开7项功能节点，另有T10一条PP1静态排除与T12一条候选覆盖。无新增算子、无设备运行、无正式准入。**
+
+## R2-P0 GDN/Hybrid专属审计补充（2026-10-25）
+
+[Hybrid ModelState四段状态语义与两轮静态审查](R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)已经完成，明确对应旧模型专属分类T30/T31：`preprocess index+precopy`、`accepted count scatter+postalign copy`，其中conv SD/DS与temporal不能混用复制策略，`src==dst && bias>0`必须复制。本项只生成设计、零NPU数学参考及测试；**未编写真实NPU实现，不能将原分类T30/T31升为设备READY/STATIC-GO**。用户自研Draft数据仍未读取。

@@ -314,3 +314,10 @@
 - **greedy-only仅是当前310P候选的功能门禁，不是用户已冻结采样策略。** T08 logprobs-only，不是每轮SpecVerify必经；T17/T23即便greedy仍需真实采样/拒绝语义；T26/T27/T28/T29即便禁用附加功能依然有构造/输出工作。
 - Target公开`IsHybrid`继承 +`mamba_cache_mode=align`静态高度关联T30/T31，冻结工厂还有`get_model_state_cls`优先级；当前候选`load_model`已有is_hybrid+align早拒绝，Worker更早NO-GO。不得取消守卫、不能改none绕过、不能宣称设备launch。
 - 原46项门禁仍为**R2-A STATIC NO-GO**，本轮不调整准入分母、不做设备运行、不扩展兼容算子、PR#7继续DRAFT。
+
+### 2026-10-25｜R2-P0 Target GDN/Hybrid ModelState 完整静态设计与两轮审计
+
+- 依唯一Target公开`Qwen3.5-MoE`模型类、冻结0.27.1`MambaHybridModelState`/ `mamba_utils`和已有脱敏现场探针，完成[Target专属Hybrid ModelState静态设计](R2_P0_TARGET_HYBRID_MODELSTATE_DESIGN_20261025.md)及[机器合同](R2_P0_HYBRID_STATE_CONTRACT_20261025.json)。自研Draft的私有源码/配置/权重**一律未读**。
+- **T30=preprocess索引/接受数更新 + 跨Block GDN precopy**；**T31=K7接受数scatter + postalign GDN state copy**。conv SD/DS与temporal的字节/块表索引规则不同；接受数1..8、`src==dst,bias>0`仍需搬运；不允许改`align=none`绕过。文档分别完成公开源码条件/公式S1、310P局部候选/异常/ABI S2两轮审计。
+- 仅增加`tools/310p_mm_ar/r2_hybrid_align_reference.py`的**零torch/零NPU拷贝决策参考**及其UT；未编写或部署任何运行时Hybrid kernel。当前Worker `NOT_IMPLEMENTED`、候选`load_model`提前align拒绝都保持。**R2-A STATIC-NO-GO 0/46；PR#7 DRAFT；Graph/设备NOT_RUN**。
+- 后续最小开发面仅为Target的ModelState/Metadata/Request生命周期与四段复制语义，不扩展通用Triton兼容。实际运行时的ModelState对象、BlockTable物理布局、torch_npu设备写/流能力尚未证明，设计审查通过不等于可进实机。
