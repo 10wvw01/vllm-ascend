@@ -112,3 +112,10 @@
 
 - 新增T03代码提交`2ba84b8fa1daa142b679a359b1db6d525dcb0423`，GitHub Actions [Run 40169623722](https://github.com/10wvw01/vllm-ascend/actions/runs/40169623722) 两个job **SUCCESS**：轻量`87 unittest OK（5 skipped：无Torch）+54 pytest PASS`；独立Python3.12/`torch 2.10.0+cpu` **73 unittest OK**。静态准入脚本同Run输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**。此成功只覆盖CPU代码合同，不是NPU、Triton调用链替代或两轮Runtime静审PASS。
 - 本轮实际新增6份源码/测试：T07/T08采样、T03组合输入的Eager候选+stdlib gold+Torch CPU合同；**仍未接入实际310P V2 Runner**。PR#7继续DRAFT，Worker NOT_IMPLEMENTED不变；R2-B/C/D ONDEVICE NOT_RUN，下一步优先UVA构造链和真实Sampler/DFlash/BlockTables绑定。
+
+
+### R2-A T01 prefill/lookahead Eager候选源码与合同（2026-10-25；STATIC NO-GO）
+
+- 本轮实际新增T01非Triton Torch候选 `vllm_ascend/_310p/v2/input_ops.py:prepare_prefill_inputs`，独立`prefill_gold.py`及`test_v2_prefill_ops.py`，冻结上游0.27.1七参数和`next_prefill_tokens[lookahead, req_state]`布局。覆盖混合prefill/decode、lookahead超prefill零填充、非活跃slot不变、容量负例和随机差分；**尚未接入实际Runner**。
+- 当前分支新源码提交依次为`f367bf2c`、`53bc65ef`、`3067ab12`；本条文档提交后须按**最新HEAD**读取GitHub Actions双job的实测计数。旧`2ba84b8f`的87/54/73 CPU PASS不得直接继承到新增T01代码。
+- T01仍`BLOCKED`：真实Ascend V2入口继续import上游Triton；`index_copy_`/device stream/短写与UVA构造、KV和采样未闭环，CPU侧输入元数据强校验尚未生产接线。31项强制门禁仍没有真实READY证据，PR#7保持DRAFT，`NPUWorker310`的`NOT_IMPLEMENTED`不能移除，R2-B/C/D ONDEVICE NOT_RUN。
