@@ -289,3 +289,5 @@
 - **锁定场景**：唯一Target `Eco-Tech/Qwen3.6-35B-A3B-w8a8`，310P3单卡双Die/TP2、input4096/output2048/batch10、K7投机；历史50请求完整压测、Eager优先和Stock对照。Draft是自研私有模型；**仅允许最小公开接口枚举，不索取或上传权重、代码、配置全文及逐层信息**。
 - 已实现只读`r2_target_route_probe.py`及纯CPU防泄密UT（配置长度和文件名限制、读取异常吞吐、输出白名单字段、密文/私有路径不泄露、V1/V2/GPU三条静态路径绑定）；搭配`R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md`指明用户可选的脱敏枚举信息。**当前未读取本地真实Target/Draft文件，未运行NPU，缺真实动态Runner/ModelState/Speculator命中**。
 - 本轮没有增加任何DFlash/Triton兼容核，也没修改V2 Worker/融合算子/模型文件。只有目标静态源码事实S阶段可阶段性完成；保密条件下的配置C、运行R仍待真实证据，R2-A STATIC-NO-GO、PR#7 DRAFT、R2-B/C/D ONDEVICE NOT_RUN。
+
+- 静态Route源码补充：冻结`qwen3_5.py`的MoE类经base继承`IsHybrid`，`ModelConfig.is_hybrid`和`init_model_state`仍有动态条件；探针额外上报`qwen35_moe_hybrid_declaration`固定枚举，**不是**实际ModelState/设备Triton命中。只读4个以上的冻结公开源码，不读自研实现。

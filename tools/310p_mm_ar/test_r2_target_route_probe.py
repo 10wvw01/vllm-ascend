@@ -71,6 +71,8 @@ class TestR2TargetRouteProbe(unittest.TestCase):
             v2 = root / "vllm_ascend/_310p/v2/dflash_speculator.py"
             worker = root / "vllm_ascend/_310p/worker_310p.py"
             gpu = root / "vllm/v1/worker/gpu/spec_decode/dflash/speculator.py"
+            model_qwen = root / "vllm/model_executor/models/qwen3_5.py"
+            model_config = root / "vllm/config/model.py"
             ms = root / "vllm/v1/worker/gpu/model_states/__init__.py"
             hybrid = root / "vllm/v1/worker/gpu/model_states/mamba_hybrid.py"
             for file, text in (
@@ -82,6 +84,11 @@ class TestR2TargetRouteProbe(unittest.TestCase):
                 (worker, "Triton-free V2 NPUWorker/ModelRunner is NOT_IMPLEMENTED"),
                 (gpu, "def propose(self): prepare_dflash_inputs(...)\n"
                       "_prepare_dflash_inputs_kernel[(1,1)]"),
+                (model_qwen, "class Qwen3_5ForConditionalGeneration("
+                             "Qwen3VLForConditionalGeneration, IsHybrid):\n"
+                             "class Qwen3_5MoeForConditionalGeneration(\n"
+                             "Qwen3_5ForConditionalGeneration, Qwen3_5_MoeMixtureOfExperts"),
+                (model_config, "def is_hybrid(self) -> bool:"),
                 (ms, "if is_hybrid: return MambaHybridModelState"),
                 (hybrid, "preprocess_mamba_align_fused_kernel[grid]\n"
                          "_scatter_num_accepted_kernel[grid]"),
@@ -110,6 +117,8 @@ class TestR2TargetRouteProbe(unittest.TestCase):
                              "PUBLIC_QWEN35_MOE_ARCH_COMPATIBLE")
             self.assertEqual(obj["routes"]["frozen_gpu_v2_dflash_input"],
                              "DIRECT_TRITON_SOURCE_PATH_PRESENT")
+            self.assertEqual(obj["routes"]["qwen35_moe_hybrid_declaration"],
+                             "ISHYBRID_PUBLIC_MODEL_CLASS_PRESENT")
             self.assertEqual(obj["routes"]["legacy_310p_dflash_input"],
                              "ASCENDC_SOURCE_BINDING_PRESENT")
             self.assertEqual(obj["routes"]["effective_runtime_runner"],

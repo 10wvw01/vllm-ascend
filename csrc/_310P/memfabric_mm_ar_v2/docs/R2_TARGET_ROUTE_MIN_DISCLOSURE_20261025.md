@@ -65,3 +65,7 @@ Q3和Q4目前都尚无完整证据。**先由公开代码/只读配置尽可能�
 - 未来要得到**R等级真实路由**，必须另经静态安全审阅，指定不修改设备的运行时类型/调用点取证，获授权再由OpenCode在310P服务器执行；本轮CPU信息不足以声称真正完整闭环或正式运行GO。
 
 **最终当前状态：源码S部分确定，模型私有信息未收集，C部分待脱敏核对，R=NOT_RUN，R2-A仍STATIC-NO-GO，PR#7 Draft、Stock默认、融合正式Kernel不动。**
+
+### Qwen35-MoE真实模型类的静态证据补充
+
+冻结上游`vllm/model_executor/models/qwen3_5.py`定义`Qwen3_5MoeForConditionalGeneration(Qwen3_5ForConditionalGeneration, Qwen3_5_MoeMixtureOfExperts)`，基类`Qwen3_5ForConditionalGeneration(Qwen3VLForConditionalGeneration, IsHybrid)`；`vllm/config/model.py:1764`的`ModelConfig.is_hybrid`仍需结合模型registry的`_model_info.is_hybrid`及`layer_types`动态判定。新增探针枚举`qwen35_moe_hybrid_declaration=ISHYBRID_PUBLIC_MODEL_CLASS_PRESENT`只代表**冻结源码模型类声明**，不是本地模型最终选到该类、或`MambaHybridModelState`设备已真实调用。用户无需披露自研Draft的类型或任何非公开实现。

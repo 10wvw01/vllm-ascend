@@ -114,6 +114,12 @@ def inspect_routes(repo_root: Path, vllm_root: Path | None) -> dict[str, str]:
     ms = (read_public_source(
         vllm_root, "vllm/v1/worker/gpu/model_states/__init__.py")
         if vllm_root else "")
+    qwen = (read_public_source(
+        vllm_root, "vllm/model_executor/models/qwen3_5.py")
+        if vllm_root else "")
+    model_config = (read_public_source(
+        vllm_root, "vllm/config/model.py")
+        if vllm_root else "")
     hybrid = (read_public_source(
         vllm_root, "vllm/v1/worker/gpu/model_states/mamba_hybrid.py")
         if vllm_root else "")
@@ -138,6 +144,15 @@ def inspect_routes(repo_root: Path, vllm_root: Path | None) -> dict[str, str]:
             "NOT_IMPLEMENTED_GUARD_PRESENT"
             if "Triton-free V2 NPUWorker/ModelRunner is NOT_IMPLEMENTED"
             in worker else "UNVERIFIED"),
+        "qwen35_moe_hybrid_declaration": (
+            "ISHYBRID_PUBLIC_MODEL_CLASS_PRESENT"
+            if ("class Qwen3_5ForConditionalGeneration("
+                "Qwen3VLForConditionalGeneration, IsHybrid)" in qwen
+                and "class Qwen3_5MoeForConditionalGeneration(" in qwen
+                and "Qwen3_5ForConditionalGeneration, Qwen3_5_MoeMixtureOfExperts"
+                in qwen
+                and "def is_hybrid(self) -> bool:" in model_config)
+            else "UNVERIFIED"),
         "gpu_hybrid_model_state": (
             "CONDITIONAL_FACTORY_PATH_PRESENT"
             if ("is_hybrid" in ms and "MambaHybridModelState" in ms

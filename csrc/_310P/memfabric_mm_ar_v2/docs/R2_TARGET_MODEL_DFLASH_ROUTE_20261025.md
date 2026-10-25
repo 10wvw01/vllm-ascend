@@ -59,3 +59,7 @@
 用户确认Draft为**自研保密模型**。既有R1-B现场报告已公开的“混合Sliding+Full导致旧Runner不兼容”是当前已存在的项目证据，不据此要求用户再提供私有模型信息，也不读取任何私有权重、源文件或训练资料。仅当具体配置核实必不可少时，允许负责人自行在服务器本地用[只读脱敏工具](../../../../tools/310p_mm_ar/r2_target_route_probe.py)分类配置，**只回传固定枚举，不上传原始文件、路径、日志、函数实现、层参数**。Draft config为可选；未提供则保持`UNVERIFIED`，不能猜造。
 
 [保密版静态/运行时三级证据合同](R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md)明确：V1定制AscendC已接入、冻结GPU V2含Triton、候选V2已有scope替代，均属S等级**静态事实**；模型分支C等级与运行时R等级未闭环，`NPUWorker310`仍`NOT_IMPLEMENTED`。接下来的工作是按真实模型条件排除不相关矩阵项，不再为所有泛模型先编码。
+
+## 5. 冻结Target模型类源码事实（比模型卡更进一步）
+
+冻结`vllm@6e448d0`的`vllm/model_executor/models/qwen3_5.py`有`Qwen3_5MoeForConditionalGeneration → Qwen3_5ForConditionalGeneration → IsHybrid`继承；`ModelConfig.is_hybrid`依赖内部ModelInfo和layer_types，`init_model_state`优先自定义get_model_state_cls，然后才按模型/模块判断是否走`MambaHybridModelState`。因此Target公开架构与Hybrid候选路径具有**更强静态关联**，但在没有本地模型config/真实Runner动态状态前**不升级T30/T31为现场必经**。新增脱敏源码字段`qwen35_moe_hybrid_declaration`，只读取冻结公开Python文件，不涉及保密Draft资料。
