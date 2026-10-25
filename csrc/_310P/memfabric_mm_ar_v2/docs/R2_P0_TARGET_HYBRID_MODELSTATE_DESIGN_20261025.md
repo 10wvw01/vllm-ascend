@@ -98,7 +98,7 @@ else:
         for every mamba KV group/state type, postcopy(src_col,dst_col,bias)
 ```
 
-- **核心语义**：`postcopy`即使源/目标列相同，`bias>0`仍需要按GDN窗口移位，不能因`src==dst`一律跳过；当`src==dst && bias==0`才是拷贝NO-OP。与T30的跨块判断不等价。
+- **核心语义**：`postcopy`即使源/目标列相同，`bias>0`仍需要按GDN窗口移位，不能因`src==dst`一律跳过；当`src==dst && bias==0`才是拷贝NO-OP。与T30的跨块判断不等价。**在`src==dst && bias>0`场景，卷积状态窗口左移的源/目的区域可能重叠；310P实现必须使用memmove式安全语义或经过审计的临时缓冲，不能假定普通copy_/index_copy_具有重叠拷贝保障。**
 - 后处理的`num_accepted_tokens`复位取决于`src==dst`，不同块时仍保留接受数；提前统一填1会破坏下一轮precopy的token偏移。
 - 多个状态类型与层共享一个请求接受数：复制过程中每层Kernel可能看到同样的元数据，NPU候选应**一次/请求计算copy计划，再执行每组状态复制，最后按事务提交可见值**，不能在处理第一层后改变其它层读取的决策。
 - Src/Dst为非法列、`bias<0`、`bias>=conv_width`、越过block table或请求slot复用与Copy in-flight相撞，都必须fail-closed/poison请求状态；不能用`clamp` silently产生错误token。
@@ -165,7 +165,7 @@ NPUHybridModelState310Candidate(DefaultModelState语义受限继承/独立组合
 
 ## 八、下一次真正要做的最小任务
 
-- **工程 P0-E1**：对照冻结`MambaHybridModelState.prepare_attn`和310P现有GDN Attention metadata backend，固定每个公开可见`MambaSpec` KV group的ABI/uint32?（以源码真实dtype为准，当前保留int32），不读取自研Draft。
+- **工程 P0-E1**：对照冻结`MambaHybridModelState.prepare_attn`和310P现有GDN Attention metadata backend，固定每个公开可见`MambaSpec` KV group的ABI/int32 BlockTable/请求索引（与冻结源码一致），不读取自研Draft。
 - **工程 P0-E2**：将四块T30/T31逻辑在**独立未注册候选**中实现安全NPU Eager路径，必须为conv SD/DS、temporal、任意group、block边界、K7计数写CPU Tensor gold / 故障注入 / request重用测试。实现前先核实所用`torch_npu`算子的支持和内存写粒度；不以CPU无异常冒充硬件可以跑。
 - **工程 P0-E3**：独立审查**状态所有权与跨Stream**，双Rank TP2/模型量化/FORWARD/多KV group真实路由；完成独立两轮针对可执行实现的代码静态审查。仍须保留Worker阻断直至完整R2总门禁通过。
 - **用户无需提供**自研模型细节。唯一可能影响P3采样工作的是正式请求的采样参数是否greedy，这与本轮Target ModelState静态合同无关。

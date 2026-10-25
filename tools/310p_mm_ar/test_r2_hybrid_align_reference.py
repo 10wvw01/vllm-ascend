@@ -129,6 +129,8 @@ class TestR2HybridAlignReference(unittest.TestCase):
         self.assertIn("T31", md)
         self.assertIn("SD", md)
         self.assertIn("DS", md)
+        self.assertIn("重叠", md)
+        self.assertIn("overlapping_in_place_conv_window_shift_requires_memmove_safe_or_staged_copy_semantics", ledger["blocking_evidence"])
         self.assertIn("NDA", md)
         self.assertIn("STATIC-NO-GO", md)
         self.assertNotIn("w00804146", md)

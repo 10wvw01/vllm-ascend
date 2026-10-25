@@ -112,7 +112,8 @@
     "int32 scatter/index_copy, Torch NPU copy/barrier, 32B writes & stream order on real NPU unverified",
     "conv SD/DS and temporal K7 shift semantics not on-device verified",
     "cache buffer initialization/reuse/abort/rollback and poisoned state not on-device verified",
-    "greedy-only candidate may not match actual business sampling policy"
+    "greedy-only candidate may not match actual business sampling policy",
+    "overlapping_in_place_conv_window_shift_requires_memmove_safe_or_staged_copy_semantics"
   ],
   "source_review": {
     "round_1": "FROZEN_SOURCE_CONDITION_AND_EQUATION_AUDIT",
