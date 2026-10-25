@@ -225,3 +225,9 @@
 - 静审`GPUModelRunner.__init__`还发现`DraftTokensHandler(self.device)`：该类位于上游独立模块，`__init__`直接调用其模块全局`torch.cuda.Stream(device)`和`torch.cuda.Event(blocking=True)`。310P Runner仅对GPU父构造的`torch`变量使用NPU代理**不会传递到DraftTokensHandler模块**；此前代码会在真正Runner构造期误入CUDA。
 - 新增`_310p/v2/draft_handler.py:NPUDraftTokensHandler310V2`，冻结构造函数的局部globals clone注入`DraftTokensHandler`。无grammar的DFlash K7维持上游`get_draft_tokens`全-1回退语义，不构造CUDA流/事件；grammar或形状异常写前拒绝。CPU语义+源码合同`test_v2_draft_handler_no_cuda.py`。
 - 仍需完整继承路径、NPU输出异步复制、TP2及设备生命周期静审。T13/T15、Worker、40节点门禁仍NO-GO。
+
+### P0-11 sample_tokens继承AsyncOutput隐式CUDA Event/Stream（2026-10-25；仍NO-GO）
+
+- 冻结`vllm/v1/worker/gpu/async_utils.py:AsyncOutput.__init__`直接调用其模块级`torch.cuda.Event(blocking=True)`、`torch.cuda.set_stream`，不会被Runner构造的NPU代理覆盖。此前复制的`sample_tokens`即使`main_stream`修为NPU，仍在每次采样时必经CUDA。
+- 新增`_310p/v2/async_output.py:NPUAsyncOutput310V2`，专属`model_runner.py`通过同名`AsyncOutput`局部导入绑定：在`postprocess_sampled`修改持久Buffer之前用**阻塞D2H**取得CPU独立快照，按实际K7接受计数裁剪输出；无CUDA Event/Stream、无异步overlap承诺，grammar/logprobs/EP fault显式拒绝。Torch CPU覆盖多请求/部分接受/请求buffer复用和异常。
+- 后续仍需310P3 D2H同流排序与设备API支持、AsyncOutput调度所有权、NPU异常传播、真实TP2/多KV验证；这是构造/运行时P0修复候选，不等于设备准入。Worker NOT_IMPLEMENTED、R2-A STATIC NO-GO、40节点0 READY不变。

@@ -18,7 +18,7 @@ import torch
 from vllm.v1.core.sched.output import GrammarOutput
 from vllm.v1.outputs import ModelRunnerOutput
 from vllm.v1.worker.gpu import pcp_manager as pcp
-from vllm.v1.worker.gpu.async_utils import AsyncOutput
+from .async_output import NPUAsyncOutput310V2 as AsyncOutput
 from vllm.v1.worker.gpu.eplb_utils import step_eplb_after
 
 
