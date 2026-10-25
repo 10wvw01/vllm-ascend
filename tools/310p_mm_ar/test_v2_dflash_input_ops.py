@@ -59,7 +59,13 @@ class TestT11Binding(unittest.TestCase):
         self.assertNotIn("@triton.jit", src)
         self.assertNotIn("triton.cdiv", src)
         self.assertNotIn("torch.cuda", src)
-        self.assertNotIn(".item()", src)
+        # A documentation comment may mention .item(); reject executable
+        # device-to-host scalar extraction, not explanatory prose.
+        tree = ast.parse(src)
+        self.assertFalse(any(
+            isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            and n.func.attr == "item" for n in ast.walk(tree)
+        ))
 
 
 class TestT11TorchCPU(unittest.TestCase):
