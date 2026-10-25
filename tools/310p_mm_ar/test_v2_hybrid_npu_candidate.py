@@ -191,7 +191,8 @@ class TestNPUHybridCandidateCPUContracts(unittest.TestCase):
     def test_cpu_confirm_completion_is_safe_and_no_pending_state(self):
         owner, _ = self.make()
         self.assertFalse(owner.device_pending)
-        self.assertEqual(owner.execute([self.c.GDNMove310(0, 0, 1, 1)]), 2)
+        # Temporal BT[src_col+bias] == BT[dst_col], so only Conv writes.
+        self.assertEqual(owner.execute([self.c.GDNMove310(0, 0, 1, 1)]), 1)
         self.assertFalse(owner.device_pending)
         owner.confirm_completed()
         self.assertFalse(owner.device_pending)
