@@ -95,16 +95,52 @@ def post_update(
     device = sampled_tokens.device
     req_rows = torch.tensor(active_rows, dtype=torch.int64, device=device)
     req_states = torch.tensor(active_ids, dtype=torch.int64, device=device)
+    # The CPU scheduler owns row identity, but the frozen GPU V2 call also
+    # passes a device idx_mapping. Check they agree BEFORE any state mutation;
+    # otherwise a stale/reused request could write another request's tokens.
+    torch._assert_async(
+        torch.all(idx_mapping.index_select(0, req_rows).to(torch.int64) == req_states),
+        "310P T09 scheduler/device request mapping divergence",
+    )
     sampled = sampled_tokens.index_select(0, req_rows)
     count = num_sampled.index_select(0, req_rows)
     rejected = num_rejected.index_select(0, req_rows)
     width = sampled.shape[1]
     token_cols = torch.arange(width, dtype=torch.int32, device=device)[None, :]
     accepted = token_cols < count[:, None]
+    old_total = total_len.index_select(0, req_states)
+    old_computed = num_computed_tokens.index_select(0, req_states)
+    if query_start_loc is None:
+        query_lens = torch.zeros_like(count)
+    else:
+        query_lens = (query_start_loc[1:] - query_start_loc[:-1]).index_select(
+            0, req_rows
+        )
+    # Device-resident assertions prevent silent clamp/overwrite of adjacent
+    # request rows when speculative counts, sampled IDs or KV positions are
+    # corrupt. NPU _assert_async support is still an explicit static blocker.
+    torch._assert_async(
+        torch.all((count >= 0) & (count <= width) & (rejected >= 0)
+                  & (query_lens >= 0)
+                  & (old_total >= 0)
+                  & (old_total + count <= all_token_ids.shape[1])
+                  & (old_computed + query_lens - rejected >= 0)
+                  & (old_computed + query_lens - rejected <= all_token_ids.shape[1])),
+        "310P T09 invalid sampled/rejected count or state capacity",
+    )
+    torch._assert_async(
+        torch.all((~accepted) | (sampled >= 0)),
+        "310P T09 invalid accepted token ID",
+    )
+    if output_bin_counts is not None:
+        torch._assert_async(
+            torch.all((~accepted) |
+                      ((sampled >= 0) & (sampled < output_bin_counts.shape[1]))),
+            "310P T09 accepted token exceeds penalty vocabulary",
+        )
 
     # Entire per-request token rows: no 4-byte NPU slice writes or dynamic
     # GPU-to-CPU count synchronization. The caller owns exclusive live slots.
-    old_total = total_len.index_select(0, req_states)
     rows = all_token_ids.index_select(0, req_states).clone()
     columns = old_total[:, None] + token_cols
     columns = columns.clamp(0, all_token_ids.shape[1] - 1).to(torch.int64)
@@ -120,7 +156,6 @@ def post_update(
     else:
         query_lens = query_start_loc[1:] - query_start_loc[:-1]
         computed_delta = query_lens.index_select(0, req_rows) - rejected
-    old_computed = num_computed_tokens.index_select(0, req_states)
     num_computed_tokens.index_copy_(0, req_states, old_computed + computed_delta)
 
     previous_last = last_sampled_storage.index_select(0, req_states).clone()

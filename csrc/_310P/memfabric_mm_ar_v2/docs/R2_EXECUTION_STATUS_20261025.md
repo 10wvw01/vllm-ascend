@@ -152,3 +152,8 @@
 - 冻结vLLM 0.27.1`DFlashSpeculator.propose`调用真实的`prepare_dflash_inputs` 24参数签名（每个KV组循环调用一次），新增`_310p/v2/dflash_input_ops.py`实现无Triton Torch Eager构造。CPU scheduler offsets/req-index预校验、设备resident sampled/rejected、K7 anchor+7 mask、context/query独立slot、temperature/seeds、PAD清理；按每组`block_size`查物理表，不假设六组相同。
 - 新增`NPUDFlashSpeculator310V2.propose`使用`inspect.unwrap(DFlashSpeculator.propose)`恢复真正的冻结函数，再用作用域函数globals克隆注入T11（原函数经`@torch.inference_mode`装饰，不unwrap会误取Torch wrapper globals）；保留Ascend per-group attention metadata context。通用Ascend V2只新增可选`_310p_v2_speculator_factory`钩子，其他设备不改变原DFlash行为；310P候选仅接受K7。
 - **NO-GO继续**：Torch CPU候选不代表310P3 `torch._assert_async/index_select/gather/copy_`可用、非因果sliding/full attention真实mask正确、DFlash分组模型KV分配及T13 sampler完整链完成；还存在冻结`GPUModelRunner.sample_tokens`对7-token draft行短宽赋值的310P内存安全风险，必须修复并审查。Worker未注册、PR#7 DRAFT、ONDEVICE NOT_RUN。
+
+### T09二次P0审查：动态计数/词表/CPU↔设备req-index写前一致性（2026-10-25）
+
+- 修复`post_update_ops.py`原先在`sampled_count>width`、`total_len+count>capacity`时用clamp掩盖非法写，以及`sampled_token_id`超过bin_counts词表时被clamp到合法ID错误计数的风险。现在在**任何设备状态修改之前**通过`torch._assert_async`验证device/CPU req index、count/rejected、总长/计算长、接受token非负和penalty vocab；失败直接拒绝、CPU Torch负例保证状态未变。
+- **设备准入仍阻断**：`torch._assert_async`在310P3 torch-npu上的可用性/错误传播/stream异步行为没有静态及实机证据；此候选不具备事务式多设备buffer提交。T09仍BLOCKED、Worker仍NOT_IMPLEMENTED、ONDEVICE NOT_RUN。

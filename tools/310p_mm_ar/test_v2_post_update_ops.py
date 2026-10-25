@@ -109,6 +109,44 @@ class TorchPostUpdate(unittest.TestCase):
                     )
                 self.assertEqual(total.tolist(), [6, 12, 20])
 
+    def test_dynamic_invalid_counts_and_vocab_do_not_mutate(self):
+        t = self.t
+        for kind in ("sample_count", "negative_count", "vocab", "capacity",
+                     "gpu_cpu_mapping"):
+            with self.subTest(kind=kind):
+                computed, laststorage, total, rows, counts = self._state()
+                idx = t.tensor([1], dtype=t.int32)
+                tokens = t.tensor([[3, 4]], dtype=t.int64)
+                sampled = t.tensor([1], dtype=t.int32)
+                rejected = t.tensor([0], dtype=t.int32)
+                cpu_ids = [1]
+                if kind == "sample_count":
+                    sampled[0] = 3
+                elif kind == "negative_count":
+                    rejected[0] = -1
+                elif kind == "vocab":
+                    tokens[0, 0] = 99
+                elif kind == "capacity":
+                    total[1] = 32
+                else:
+                    idx[0] = 2
+                before = (
+                    computed.clone(), laststorage.clone(), total.clone(),
+                    rows.clone(), counts.clone()
+                )
+                with self.assertRaisesRegex(RuntimeError, "310P T09"):
+                    self.ops.post_update(
+                        idx, computed, laststorage[:, :1], counts,
+                        tokens, sampled, rejected,
+                        t.tensor([0, 2], dtype=t.int32), rows, total,
+                        idx_mapping_np=cpu_ids,
+                        last_sampled_storage=laststorage,
+                    )
+                for now, previous in zip(
+                    (computed, laststorage, total, rows, counts), before
+                ):
+                    self.assertTrue(t.equal(now, previous))
+
     def test_frozen_source_310p_only(self):
         src = (SRC / "model_runner.py").read_text()
         self.assertIn("def postprocess_sampled(", src)
