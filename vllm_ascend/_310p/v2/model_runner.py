@@ -114,6 +114,35 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPURequestState(**kwargs)
 
+    def prepare_inputs(self, scheduler_output, batch_desc):
+        """Bind frozen Ascend V2 input to 310P3 non-Triton T01-T04 ops.
+
+        All four imports in the inherited Ascend method are module-level
+        upstream GPU Triton functions. Defining the replacements under
+        _310p/v2 does not change those bindings. This scoped clone applies
+        the four substitutes only during this candidate runner call, without
+        modifying vllm_ascend.worker.v2.model_runner module globals.
+        """
+        from vllm_ascend.worker.v2.model_runner import NPUModelRunner
+        from .input_ops import (
+            expand_idx_mapping,
+            prepare_pos_seq_lens,
+            prepare_prefill_inputs,
+        )
+        from .token_ops import combine_sampled_and_draft_tokens
+
+        prepare = _clone_upstream_function(
+            NPUModelRunner.prepare_inputs,
+            {
+                "prepare_prefill_inputs": prepare_prefill_inputs,
+                "prepare_pos_seq_lens": prepare_pos_seq_lens,
+                "expand_idx_mapping": expand_idx_mapping,
+                "combine_sampled_and_draft_tokens":
+                    combine_sampled_and_draft_tokens,
+            },
+        )
+        return prepare(self, scheduler_output, batch_desc)
+
     def postprocess_sampled(
         self, idx_mapping, sampled_tokens, num_sampled, num_rejected,
         query_start_loc=None,

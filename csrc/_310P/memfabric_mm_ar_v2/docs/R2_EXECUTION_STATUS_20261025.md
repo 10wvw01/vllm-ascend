@@ -135,3 +135,8 @@
 - 新增`_310p/v2/post_update_ops.py`实现冻结上游0.27.1参数+310P必要的CPU scheduler state-id / padded last-sampled存储；非Triton地更新sampled token prefix、num_computed、last_sampled、total_len、output_bin_counts（含重复token），对pad -1 行通过CPU active-row列表排除，依赖Device tensor运算，未用`.item()`。相应`test_v2_post_update_ops.py`与前一轮gold做Torch CPU差分/负例。
 - 310P的`NPUModelRunner310V2Candidate.postprocess_sampled`已明确调用本地T09实现、调用ModelState postprocess并使用NPU stream更新CPU长度；不会走上游GPU Triton post_update。其他Ascend Runner保持原有逻辑不变。
 - **T09仍BLOCKED**：这是针对NPU未来使用的CPU Torch Eager候选；310P3全行index_copy_、输出bin_counts /单元素状态向量、事件时序与动态sample count GPU边界仍需静审并与设备真实支持核对。且KV init仍fail-closed、Worker未接、非Triton sampler与DFlash完整链未接。CPU PASS/源码真实接线≠STATIC-GO。
+
+### R2-04 310P专属V2输入T01～T04作用域接线（候选调用链）
+
+- `NPUModelRunner310V2Candidate.prepare_inputs`现在真实调用冻结Ascend V2 `prepare_inputs`函数体，却用本地`_clone_upstream_function`仅在此Runner的方法全局字典中注入T01 `prepare_prefill_inputs`、T02 `prepare_pos_seq_lens`、T03 `combine_sampled_and_draft_tokens`、T04 `expand_idx_mapping`；不改变进程级Ascend/GPU模块。CPU AST合同核对四个原始Triton符号均被专属绑定。
+- `BLOCKED`判定不变：GPU父构造已隔离、T01～04已在**候选Runner**作用域绑定，但该Runner没有Worker注册且KV初始化主动fail-closed；其余T05～16/采样/DFlash/设备Eager算子与流未闭环，不得从“绑定成功”推出STATIC-GO。
