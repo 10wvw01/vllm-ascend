@@ -39,13 +39,18 @@ class ConstructorIsolationTests(unittest.TestCase):
     def test_rebinding_preserves_original_globals_and_kwdefaults(self):
         def parent(self, value, *, bonus=4):
             return (FAKE_CTOR_DEP(value), bonus)
+        existing = {**parent.__globals__, "FAKE_CTOR_DEP": lambda n: n}
+        parent = types.FunctionType(parent.__code__, existing,
+                                    argdefs=parent.__defaults__,
+                                    closure=parent.__closure__)
+        parent.__kwdefaults__ = {"bonus": 4}
         original_globals = parent.__globals__
         original_code = parent.__code__
         substitute = _load_bridge_source()(parent, {"FAKE_CTOR_DEP": lambda n: n + 1})
         self.assertEqual(substitute(None, 9), (10, 4))
         self.assertIs(parent.__globals__, original_globals)
         self.assertIs(parent.__code__, original_code)
-        self.assertNotIn("FAKE_CTOR_DEP", original_globals)
+        self.assertEqual(original_globals["FAKE_CTOR_DEP"](9), 9)
 
     def test_missing_upstream_global_fails_closed(self):
         with self.assertRaisesRegex(RuntimeError, "ABI drift"):
