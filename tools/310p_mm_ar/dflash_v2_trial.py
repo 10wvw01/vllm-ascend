@@ -255,7 +255,8 @@ def missing_v2_artifacts(worktree: Path) -> list[str]:
 def console_script_matches_python(script_path: str, python_executable: str) -> bool:
     """A trusted vllm console script must not use another Python environment."""
     try:
-        first = Path(script_path).open("rb").readline().decode("utf-8").strip()
+        with Path(script_path).open("rb") as fh:
+            first = fh.readline().decode("utf-8").strip()
     except (OSError, UnicodeError):
         return False
     if not first.startswith("#!"):

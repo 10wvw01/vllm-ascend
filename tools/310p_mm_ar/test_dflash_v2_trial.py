@@ -224,10 +224,11 @@ class K7TrialContract(unittest.TestCase):
             from types import SimpleNamespace
             wanted = {"vllm":"0.27.1+empty", "torch":"2.10.0",
                       "torch-npu":"2.10.0.post4","transformers":"5.17.0"}
+            installed = dict(wanted)
             report = {"python": sys.executable, "package_roots": {
                 "vllm_ascend":str(fake_root), "vllm":"/fake/vllm"},
                 "versions":wanted}
-            with (patch("importlib.metadata.version", side_effect=lambda k:wanted[k]),
+            with (patch("importlib.metadata.version", side_effect=lambda k:installed[k]),
                   patch("importlib.util.find_spec",return_value=SimpleNamespace(
                       submodule_search_locations=["/fake/vllm"]))):
                 trial.validate_runtime_identity(report, fake_root, str(script))
