@@ -27,6 +27,7 @@ class K7TrialContract(unittest.TestCase):
         self.assertEqual(p["speculative"]["method"], "dflash")
         self.assertEqual(p["speculative"]["num_speculative_tokens"], 7)
         self.assertEqual(p["speculative"]["model"], trial.DRAFT)
+        self.assertEqual(trial.DRAFT, "/home/models/Qwen/Qwen3.6-35B-A3B-DFlash")
         self.assertEqual(set(p["speculative"]), {"method", "model", "num_speculative_tokens"})
         self.assertEqual(trial.TARGET, "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8")
         serve = p["server_command"]
@@ -138,7 +139,9 @@ class K7TrialContract(unittest.TestCase):
         genuine_g0 = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
                       "num_speculative_tokens": 7,
                       "verdict": {"static_go": True, "blockers": []},
-                      "probes": {"pip_check": {"classification": "PASS"}}}
+                      "model_paths": {"target": trial.TARGET, "draft": trial.DRAFT},
+                      "probes": {"pip_check": {"classification": "PASS"},
+                                 "isolated_import_probe": {"exit_code": 0}}}
         with self.assertRaisesRegex(RuntimeError, "Graph research"):
             trial.execute(case("stock", mode="graph"), True, True, True,
                           readonly_preflight=genuine_g0)
@@ -149,13 +152,53 @@ class K7TrialContract(unittest.TestCase):
         valid = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
                  "num_speculative_tokens": 7,
                  "verdict": {"static_go": True, "blockers": []},
-                 "probes": {"pip_check": {"exit_code": 0, "classification": "PASS"}}}
+                 "model_paths": {"target": trial.TARGET, "draft": trial.DRAFT},
+                 "probes": {"pip_check": {"exit_code": 0, "classification": "PASS"},
+                            "isolated_import_probe": {"exit_code": 0}}}
         trial.validate_readonly_preflight(valid)
-        valid["probes"]["pip_check"]["classification"] = "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"
+        valid["probes"]["pip_check"]["classification"] = "KNOWN_SERVER_STATE_WAIVED"
         trial.validate_readonly_preflight(valid)
         valid["verdict"]["static_go"] = False
         with self.assertRaisesRegex(RuntimeError, "G0 not passed"):
             trial.validate_readonly_preflight(valid)
+
+
+    def test_vllm_ascend_resolves_to_same_isolated_tree(self):
+        self.assertFalse(trial.vllm_ascend_outside_this_worktree(
+            "/wt/tools/310p_mm_ar/dflash_v2_trial.py", Path("/wt/vllm_ascend")))
+        self.assertTrue(trial.vllm_ascend_outside_this_worktree(
+            "/wt/tools/310p_mm_ar/dflash_v2_trial.py", Path("/elsewhere/vllm_ascend")))
+        self.assertTrue(trial.vllm_ascend_outside_this_worktree(
+            "/wt/tools/310p_mm_ar/dflash_v2_trial.py", None))
+
+    def test_missing_v2_build_outputs_are_detected_without_import(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as base:
+            root = Path(base)
+            pkg = root / "vllm_ascend"
+            pkg.mkdir()
+            self.assertEqual(len(trial.missing_v2_artifacts(root)), 3)
+            (pkg / "libmf310p_v2_trial_device.so").touch()
+            (pkg / "libmf310p_device.so").touch()
+            (pkg / "vllm_ascend_C.cpython-312-aarch64-linux-gnu.so").touch()
+            self.assertEqual(trial.missing_v2_artifacts(root), [])
+
+    def test_g0_execution_requires_serve_order_import_and_paths(self):
+        good = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
+                "num_speculative_tokens": 7,
+                "verdict": {"static_go": True, "blockers": []},
+                "model_paths": {"target": trial.TARGET, "draft": trial.DRAFT},
+                "probes": {"pip_check": {"classification": "KNOWN_SERVER_STATE_WAIVED",
+                                          "unexpected_lines": []},
+                           "isolated_import_probe": {"exit_code": 0}}}
+        trial.validate_readonly_preflight(good)
+        good["probes"]["isolated_import_probe"]["exit_code"] = 1
+        with self.assertRaisesRegex(RuntimeError, "import smoke"):
+            trial.validate_readonly_preflight(good)
+        good["probes"]["isolated_import_probe"]["exit_code"] = 0
+        good["model_paths"]["draft"] = "/unverified/model"
+        with self.assertRaisesRegex(RuntimeError, "model paths"):
+            trial.validate_readonly_preflight(good)
 
     def test_execute_is_gated_before_file_or_server_work(self):
         with self.assertRaisesRegex(RuntimeError, "G0"):

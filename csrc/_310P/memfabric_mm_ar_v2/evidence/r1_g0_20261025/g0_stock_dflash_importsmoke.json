@@ -1,0 +1,82 @@
+{
+  "mode": "STOCK_DFLASH_G0_READ_ONLY",
+  "num_speculative_tokens": 7,
+  "logical_verify_width_example": 8,
+  "note": "logical width is not measured physical/padded M",
+  "python": "/usr/local/python3.12.13/bin/python3",
+  "python_version": "3.12.13",
+  "cwd": "/home/w00804146/310P/vllm-ascend-r1",
+  "pythonpath": "/home/w00804146/310P/vllm-ascend-r1",
+  "sys_path": [
+    "/home/w00804146/310P/vllm-ascend-r1/tools/310p_mm_ar",
+    "/home/w00804146/310P/vllm-ascend-r1",
+    "/usr/local/python3.12.13/lib/python312.zip",
+    "/usr/local/python3.12.13/lib/python3.12",
+    "/usr/local/python3.12.13/lib/python3.12/lib-dynload",
+    "/usr/local/python3.12.13/lib/python3.12/site-packages",
+    "__editable__.vllm-0.27.1+empty.finder.__path_hook__"
+  ],
+  "package_roots": {
+    "vllm": "/vllm-workspace/vllm/vllm",
+    "vllm_ascend": "/home/w00804146/310P/vllm-ascend-r1/vllm_ascend"
+  },
+  "versions": {
+    "vllm": "0.27.1+empty",
+    "torch": "2.10.0",
+    "torch-npu": "2.10.0.post4",
+    "transformers": "5.17.0",
+    "vllm-ascend": "0.1.dev4877+gb9a293d95.d20261015",
+    "arctic-inference": null,
+    "numba": "0.65.0",
+    "regex": "2026.9.10",
+    "compressed-tensors": "0.17.0",
+    "memfabric-hybrid": "1.2.0",
+    "memcache-hybrid": null,
+    "triton-ascend": null
+  },
+  "api_files": {
+    "vllm/model_executor/models/qwen3_dflash.py": true,
+    "vllm/v1/spec_decode/dflash.py": true,
+    "vllm/v1/worker/cp_utils.py": true,
+    "vllm_ascend/_310p/model_runner_310p.py": true,
+    "vllm_ascend/_310p/spec_decode/dflash_proposer_310.py": true,
+    "vllm_ascend/patch/worker/patch_idex_310.py": true,
+    "vllm/cp_utils.get_total_cp_world_size": false
+  },
+  "memfabric_flags": {
+    "VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR": null,
+    "VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE": null
+  },
+  "model_config_present": {
+    "target": true,
+    "draft": true
+  },
+  "verdict": {
+    "static_go": false,
+    "blockers": [
+      "PIN_MISMATCH:vllm:0.27.1+empty:expected=0.24.0",
+      "PIN_MISMATCH:torch-npu:2.10.0.post4:expected=2.10.0.post2",
+      "PIN_MISMATCH:transformers:5.17.0:expected=5.13.0",
+      "MISSING_SOURCE_API:vllm/cp_utils.get_total_cp_world_size",
+      "PIP_CHECK_UNEXPECTED_FAILURE_OR_UNREADABLE",
+      "ISOLATED_IMPORT_FAILED_OR_TIMED_OUT"
+    ],
+    "observations": [
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:arctic-inference",
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:memcache-hybrid",
+      "UPSTREAM_DECLARED_OR_OPTIONAL_NOT_INSTALLED:triton-ascend"
+    ]
+  },
+  "probes": {
+    "pip_check": {
+      "exit_code": 1,
+      "output": "vllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires arctic-inference, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires memcache-hybrid, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires pandas-stubs, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires quart, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 requires triton-ascend, which is not installed.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement fastapi<0.124.0, but you have fastapi 0.136.3.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement torch-npu==2.10.0.post2, but you have torch-npu 2.10.0.post4.\nvllm-ascend 0.1.dev4877+gb9a293d95.d20261015 has requirement transformers==5.13.0, but you have transformers 5.17.0.\n",
+      "classification": "UNEXPECTED_DEPENDENCY_BREAKAGE"
+    },
+    "isolated_import_probe": {
+      "exit_code": 1,
+      "traceback_tail": "Traceback (most recent call last):\n  File \"<string>\", line 3, in <module>\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/_310p/model_runner_310p.py\", line 59, in <module>\n    from vllm_ascend._310p.dflash_full_and_piecewise import (\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/_310p/dflash_full_and_piecewise.py\", line 28, in <module>\n    from vllm_ascend.attention.attention_v1 import AscendAttentionState\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/attention/attention_v1.py\", line 68, in <module>\n    from vllm_ascend.device.device_op import DeviceOperator\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/device/device_op.py\", line 31, in <module>\n    from vllm_ascend.ops.triton.fla.chunk_scaled_dot_kkt import chunk_scaled_dot_kkt_fwd_kernel\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/ops/__init__.py\", line 21, in <module>\n    import vllm_ascend.ops.fused_moe.fused_moe  # noqa\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/ops/fused_moe/fused_moe.py\", line 41, in <module>\n    from vllm_ascend.ops.fused_moe.experts_selector import select_experts, zero_experts_compute\n  File \"/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/ops/fused_moe/experts_selector.py\", line 25, in <module>\n    from vllm_ascend.device.device_op import DeviceOperator\nImportError: cannot import name 'DeviceOperator' from partially initialized module 'vllm_ascend.device.device_op' (most likely due to a circular import) (/home/w00804146/310P/vllm-ascend-r1/vllm_ascend/device/device_op.py)\nINFO 10-25 01:19:49 [__init__.py:52] Available plugins for group vllm.platform_plugins:\nINFO 10-25 01:19:49 [__init__.py:54] - ascend -> vllm_ascend:register\nINFO 10-25 01:19:49 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.\nINFO 10-25 01:19:49 [__init__.py:237] Platform plugin ascend is activated\nINFO 10-25 01:19:49 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.\nINFO 10-25 01:19:53 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.\n[ERROR] 2026-10-25-01:19:54 (PID:461879, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception\n"
+    }
+  },
+  "limitations": "No vllm serve, CANN/NPU kernel, Graph, or actual model inference executed"
+}

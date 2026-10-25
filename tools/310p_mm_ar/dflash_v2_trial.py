@@ -23,7 +23,9 @@ import urllib.request
 SPEC_TOKENS = 7
 VERIFY_WIDTH = SPEC_TOKENS + 1
 TARGET = "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8"
-DRAFT = "/home/models/Qwen3.6-35B-A3B-DFlash"
+# 2026-10-25 actual on-device G0 discovered this directory, despite the
+# earlier user-provided path lacking /Qwen/. No silent fallback is allowed.
+DRAFT = "/home/models/Qwen/Qwen3.6-35B-A3B-DFlash"
 GRAPH_SIZES = (8, 16, 32, 64, 80)
 EXTRA = {
     "enable_flashcomm1": False,
@@ -200,11 +202,53 @@ def validate_readonly_preflight(report: dict) -> None:
     if not v.get("static_go") or v.get("blockers"):
         raise RuntimeError("Stock+DFlash dependency G0 not passed; preserve diagnostic and STOP")
     pip_check = report.get("probes", {}).get("pip_check", {})
-    if pip_check.get("classification") not in (
-            "PASS", "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"):
+    if pip_check.get("classification") not in ("PASS", "KNOWN_SERVER_STATE_WAIVED"):
         raise RuntimeError("pip check contains unexpected or unreadable dependency failure")
+    if pip_check.get("unexpected_lines"):
+        raise RuntimeError("unexpected pip dependencies remain, preserve full pip check")
     if report.get("num_speculative_tokens") != 7:
         raise RuntimeError("wrong G0 K configuration")
+    # Do not accept a static-only G0 to authorize the expensive model smoke.
+    # This probe uses the verified actual serve import order, not cold Runner.
+    if report.get("probes", {}).get("isolated_import_probe", {}).get("exit_code") != 0:
+        raise RuntimeError("real serve-order import smoke not passed; G0 STOP")
+    paths = report.get("model_paths") or {}
+    if (paths.get("target") != TARGET or paths.get("draft") != DRAFT):
+        raise RuntimeError("preflight model paths differ from the frozen trial contract")
+
+
+
+def vllm_ascend_outside_this_worktree(tool_file: str, package_root: Path | None) -> bool:
+    """Prevent Python editable installs from silently resolving another worktree."""
+    if package_root is None:
+        return True
+    worktree = Path(tool_file).resolve().parents[2]
+    return worktree not in package_root.resolve().parents
+
+
+def resolve_vllm_ascend_root() -> Path | None:
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("vllm_ascend")
+    except (ImportError, AttributeError, ValueError):
+        return None
+    if spec is None:
+        return None
+    places = list(spec.submodule_search_locations or [])
+    if places:
+        return Path(places[0])
+    return Path(spec.origin).parent if spec.origin else None
+
+
+def missing_v2_artifacts(worktree: Path) -> list[str]:
+    """Require build outputs inside the isolated code line, not another tree."""
+    package = worktree / "vllm_ascend"
+    expected = ("libmf310p_v2_trial_device.so", "libmf310p_device.so")
+    missing = [name for name in expected if not (package / name).is_file()]
+    if not list(package.glob("vllm_ascend_C*.so")):
+        missing.append("vllm_ascend_C*.so")
+    return missing
 
 
 def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
@@ -213,6 +257,8 @@ def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
     if not (approved and exclusive and restore):
         raise RuntimeError("separate G0, device exclusive, backup/restore evidence needed")
     validate_readonly_preflight(readonly_preflight or {})
+    if ((readonly_preflight or {}).get("python") != sys.executable):
+        raise RuntimeError("preflight Python executable differs from current interpreter")
     if manifest.get("mode") == "graph" and not (graph_authorized and eager_reviewed):
         raise RuntimeError("Graph research is gated: review BOTH Eager baselines and authorize it explicitly")
     if manifest.get("contract") != "R1_DFLASH_K7_TP2_STOCK_V2_20261025":
@@ -231,6 +277,18 @@ def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
             raise RuntimeError("unsafe MF first-write/KFC bypass found")
     if shutil.which("vllm") is None:
         raise RuntimeError("vllm executable not found in current Python environment")
+    module_root = resolve_vllm_ascend_root()
+    if vllm_ascend_outside_this_worktree(__file__, module_root):
+        raise RuntimeError(
+            "vllm_ascend resolves to another worktree; prepend the isolated "
+            "worktree to PYTHONPATH (preserving existing CANN site-packages)")
+    if manifest["arm"] == "v2":
+        missing = missing_v2_artifacts(Path(__file__).resolve().parents[2])
+        if missing:
+            raise RuntimeError(
+                "V2 artifacts missing in this worktree: " + ", ".join(missing)
+                + "; build in isolated worktree or ask approval to copy "
+                "matching SHA256 artifacts; never import another worktree SO")
     port = int(manifest["server_command"][manifest["server_command"].index("--port") + 1])
     with socket.socket() as sock:
         if sock.connect_ex(("127.0.0.1", port)) == 0:
