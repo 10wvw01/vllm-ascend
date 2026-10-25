@@ -259,3 +259,8 @@
 
 - 工作支路`work/310p-v2-r2-implementation-20261025`继续仅新增隔离采样候选与gold/CPU测试；主线`dev/310p-memfabric-mm-ar@a37c0212`不变，PR#7继续DRAFT。固定上游vLLM`6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`只读。
 - T07/T08候选不替换上游模块级Triton绑定，不解除`NPUWorker310`的NOT_IMPLEMENTED；所有Triton/UVA/多KV/真实采样与ModelState未审查闭环前仍**R2-A STATIC NO-GO / ONDEVICE NOT_RUN**。本次无设备、SO、模型配置和Graph操作；CPU单测仅作合同证据，GitHub CI须按本次新SHA确认。
+
+
+### 2026-10-25 R2-A T03 CPU候选研发（工作分支）
+
+- `work/310p-v2-r2-implementation-20261025`新增T03 sampled/draft输入组合Eager候选、纯Python gold和Torch CPU测试；T07/T08上轮`3467c8f4`的真实GitHub CI已成功（85治理UT含4 Skip、54 pytest、68 Torch CPU UT），不等于本次T03 CI或310P设备GO。仍保留上游Triton绑定、NPUWorker310 NOT_IMPLEMENTED，PR#7 DRAFT，R2-A STATIC NO-GO / ONDEVICE NOT_RUN。

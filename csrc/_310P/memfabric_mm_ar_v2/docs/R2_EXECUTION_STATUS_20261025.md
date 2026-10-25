@@ -99,3 +99,10 @@
 - 新增`vllm_ascend/_310p/v2/sampling_ops.py`与`sampling_gold.py`，以及`test_v2_sampling_ops.py`：Torch Eager的T07原地写回与T08无host-sync的固定长度flatten，覆盖K7、非连续row stride、混合prefill、零样本、随机差分及负例；本侧CPU Torch2.10.0 7/7 UT PASS（仅本新增测试，不是全仓CI）。
 - **重要未接线事实**：上游`RejectionSampler`直接引用其模块级Triton函数和从`input_batch`导入的T07符号；新增同名候选不会自动替换。必须实现310P专属Sampler/RejectionSampler绑定，并审核`rejection_sample`自身的实际CUDA/Triton依赖及K7采样流。
 - **剩余阻断**：T01/T03/T09/T11、T13及UVA父构造和多组KV真实接线，T07/T08设备`searchsorted/index_select`可用性与无短写同步证据，CPU预校验的动态count不变量和端到端ModelState所有权；T07/T08在矩阵仍BLOCKED，31项静态门禁不能晋级。Worker NOT_IMPLEMENTED、PR#7 DRAFT、ONDEVICE NOT_RUN不变。最新新增提交的GitHub CI须按新SHA复核，不继承旧成功。
+
+
+### R2-A T03输入组合候选（2026-10-25；未接Runner）
+
+- 固定上游0.27.1 `input_batch._combine_sampled_and_draft_tokens_kernel`：bonus-token 0/1、K7 draft末尾、`seq_len<=prefill_len`不覆写、prompt尾部不能被last_sampled覆盖、`logits_indices`按每请求query尾部生成。新增`_310p/v2/token_ops.py`、`token_gold.py`、`test_v2_token_ops.py`，本侧Torch2.10 CPU 5/5 UT PASS（只指新增测试）；随机混合请求/负例覆盖。
+- T03使用整条`input_ids` Eager D2D copy，避免小尺寸scatter候选，但设备`searchsorted/index_select/where/copy_`及流次序、输入padding、CPU scheduler的累计长度/req-id前置校验均未审查完成；实际Ascend V2 Runner仍从上游导入Triton同名函数，**不能标READY**。
+- 上一提交`3467c8f4d23120eaf4c6e073713cfdae4f43d8e4`的真实GitHub Actions Run `40169496168` **SUCCESS**：轻量治理85项unittest OK（4 skipped：无Torch）+54 pytest PASS；独立Python3.12/Torch2.10.0 CPU 68项unittest OK；门禁`0/31 STATIC-NO-GO`。T03新增提交需要单独读取CI，不能沿用该SHA结果。Worker继续NOT_IMPLEMENTED、PR#7 DRAFT、ONDEVICE NOT_RUN。

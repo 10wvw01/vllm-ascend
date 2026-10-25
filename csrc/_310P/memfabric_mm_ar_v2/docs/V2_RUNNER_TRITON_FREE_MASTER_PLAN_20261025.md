@@ -112,3 +112,8 @@
 
 - 在自有R2任务分支新增冻结0.27.1采样函数T07/T08的Torch Eager候选、stdlib gold与随机差分UT；确认T07原地写`num_sampled`和chunked prefill双清零，T08接受前缀flatten且未采样位置填0。未绑定`RejectionSampler`模块级Triton引用，不能将候选说成完整采样替代。
 - 优先级仍为GPU父构造UVA与BlockTables、输入T01/T03、采样T09/真实RejectionSampler、DFlash T11及多KV/ModelState；未有任何310P Eager实际运行或两轮可执行Runtime审查，静态门禁不放行。
+
+
+### R2-A T03 输入组合gold新增（2026-10-25）
+
+- 新增冻结0.27.1 `combine_sampled_and_draft_tokens`的Eager候选和stdlib gold/Torch CPU随机合同，覆盖bonus0/1、K7、prefill不覆写与prompt尾。未接入实际V2 ModelRunner，设备Eager算子支持/同步及CPU元数据不变量未验证；仍STATIC NO-GO。
