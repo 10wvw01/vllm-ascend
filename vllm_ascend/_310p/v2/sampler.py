@@ -23,6 +23,24 @@ class NPUSampler310V2(Sampler):
         # FlashInfer is a CUDA implementation, never silently route 310P here.
         self.use_flashinfer = False
 
+    def apply_sampling_params(
+        self, logits, expanded_idx_mapping, idx_mapping_np, pos,
+        input_ids, expanded_local_pos, skip_top_k_top_p=False,
+    ):
+        """Fail closed before patched Ascend Triton penalties/top-p kernels.
+
+        Frozen Sampler.apply_sampling_params invokes modules whose Eager
+        implementations are not audited for 310P3. The greedy fast path
+        returns logits without any such kernels, exactly as upstream does.
+        Do NOT silently approximate penalties, temperatures or bad words.
+        """
+        if self._requires_logits_processing(idx_mapping_np):
+            raise NotImplementedError(
+                "310P3 V2 non-default sampling parameter kernels T18-T24 "
+                "are not yet implemented; refusing the Triton route"
+            )
+        return logits
+
     def __call__(self, *args, **kwargs):
         call = _clone_upstream_function(
             Sampler.__call__,

@@ -204,3 +204,7 @@
 ### 第一轮静审发现并修复T13 NPU main_stream错误继承
 
 - 冻结GPUModelRunner@0.27.1 的`main_stream`是`@cached_property`，调用`torch.cuda.current_stream(self.device)`，不属于之前克隆父构造函数的局部globals作用域，因而不能靠`_TorchNPUProxy`保证无CUDA调用。专属`NPUModelRunner310V2Candidate`新增同名NPU cached_property以显式返回`torch.npu.current_stream(self.device)`；补AST合同`test_v2_runner_npu_main_stream.py`。这修的是**一处真实继承边界**，并非完整T13结束，Worker仍fail-closed。
+
+### 310P V2采样T18～T24真实分支阻断修复（仍NO-GO）
+
+- 冻结vLLM Sampler@0.27.1 的`apply_sampling_params`在有温度、penalties、bad_words、logit_bias/min_p/top-p参数时可能调用未替代的Ascend Triton内核。专属`NPUSampler310V2.apply_sampling_params`增加显式greedy/默认参数前置fail-closed，非默认直接`NotImplementedError`，不能静默当贪心推理或掉入Triton；CPU AST合约守护方法接口。**这不是T18～T24实现完成**，仅阻断危险隐式调用；正常业务如需非贪心须补正确算子及概率采样。
