@@ -283,3 +283,9 @@
 - 先区分310P旧V1 DFlash（`AscendDflashProposer310`通过AscendC算子代替Triton）与通用GPU V2 DFlash（上游`_prepare_dflash_inputs_kernel`），当前V2 Worker不可运行，历史R1-B提前在Draft多KV group门禁失败。冻结上游存在Triton函数不等于本目标实际命中。
 - 纠正T30/T31源代码证据定性：冻结`mamba_cache_mode`默认`none`，但R2主计划确有`--mamba-cache-mode align`，因此条件风险仍需模型→ModelState路径核验；旧“Target实际必经”说法缺运行证据，不计现场证实。46项保守静态库存不强制未可达分支直接立刻编码。
 - 本轮不新增V2兼容算子，不修改V2 Worker保护或实机。下一步优先落实特定模型的全量真实入口/分支标记和不必要兼容范围排除，再按需实现最小缺口。
+
+### R2目标模型/自研DFlash保密条件下路由审计（2026-10-25）
+
+- **锁定场景**：唯一Target `Eco-Tech/Qwen3.6-35B-A3B-w8a8`，310P3单卡双Die/TP2、input4096/output2048/batch10、K7投机；历史50请求完整压测、Eager优先和Stock对照。Draft是自研私有模型；**仅允许最小公开接口枚举，不索取或上传权重、代码、配置全文及逐层信息**。
+- 已实现只读`r2_target_route_probe.py`及纯CPU防泄密UT（配置长度和文件名限制、读取异常吞吐、输出白名单字段、密文/私有路径不泄露、V1/V2/GPU三条静态路径绑定）；搭配`R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md`指明用户可选的脱敏枚举信息。**当前未读取本地真实Target/Draft文件，未运行NPU，缺真实动态Runner/ModelState/Speculator命中**。
+- 本轮没有增加任何DFlash/Triton兼容核，也没修改V2 Worker/融合算子/模型文件。只有目标静态源码事实S阶段可阶段性完成；保密条件下的配置C、运行R仍待真实证据，R2-A STATIC-NO-GO、PR#7 DRAFT、R2-B/C/D ONDEVICE NOT_RUN。

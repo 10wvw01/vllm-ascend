@@ -53,3 +53,9 @@
 - 冻结vLLM源码：`https://github.com/vllm-project/vllm/tree/6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`
 - 自有310P V1 Patch与DFlash Proposer：`vllm_ascend/patch/worker/patch_idex_310.py`、`vllm_ascend/_310p/spec_decode/dflash_proposer_310.py`
 - 历史实机证据：`R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md`、`DFLASH_STOCK_V2_R1_GO_GATE_20261025.md`
+
+## 4. 自研Draft NDA：最小披露闭环（2026-10-25）
+
+用户确认Draft为**自研保密模型**。既有R1-B现场报告已公开的“混合Sliding+Full导致旧Runner不兼容”是当前已存在的项目证据，不据此要求用户再提供私有模型信息，也不读取任何私有权重、源文件或训练资料。仅当具体配置核实必不可少时，允许负责人自行在服务器本地用[只读脱敏工具](../../../../tools/310p_mm_ar/r2_target_route_probe.py)分类配置，**只回传固定枚举，不上传原始文件、路径、日志、函数实现、层参数**。Draft config为可选；未提供则保持`UNVERIFIED`，不能猜造。
+
+[保密版静态/运行时三级证据合同](R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md)明确：V1定制AscendC已接入、冻结GPU V2含Triton、候选V2已有scope替代，均属S等级**静态事实**；模型分支C等级与运行时R等级未闭环，`NPUWorker310`仍`NOT_IMPLEMENTED`。接下来的工作是按真实模型条件排除不相关矩阵项，不再为所有泛模型先编码。

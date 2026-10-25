@@ -299,3 +299,10 @@
 - **已确认源码事实**：310P旧Runner/DFlash定制通过`patch_idex_310.py`选择`AscendDflashProposer310.set_inputs_first_pass`并调用AscendC `npu_copy_and_expand_dflash_inputs`；它**不等于通用GPU V2 DFlash必跑Triton**。上游0.27.1 GPU V2 `DFlashSpeculator.propose→prepare_dflash_inputs→_prepare_dflash_inputs_kernel`确有Triton；当前310P V2 Worker仍`NOT_IMPLEMENTED`，**无具体Target+DFlash V2设备kernel命中证据**。R1-B Stock在Draft 5 Sliding+1 Full的V1 Runner门禁提前FAIL；不能误当Triton执行失败。
 - **T13审计修正**：源代码T30的`MambaHybridModelState.preprocess_state`仅当hybrid且`mamba_cache_mode=align`等条件满足；上游字段默认`none`，但**当前R2既定Serve参数明确为`--mamba-cache-mode align`**，仍必须核实真实ModelState选择、入口、Device路由，不能声称已现场命中。T31同样需核真实动态工厂/采样路径。46项是保守静态库存，不是46项都已经被本Target真实触发；实施优先级应按该模型可达证据裁剪，不再为未确认的泛模型分支开发。
 - **策略**：暂停继续编码额外Triton/UVA通用兼容层。先基于Target`config.json`和R2实际Serve参数形成确切模型→Runner→ModelState→DFlash函数→Kernel选择表；对确认命中的缺口做最小替代和CPU合同，再做两轮静审。Stock默认、Worker`NOT_IMPLEMENTED`、PR#7 Draft、0/46 NO-GO、ONDEVICE NOT_RUN均未更动。
+
+### 2026-10-25 自研Draft保密条件下的唯一模型路由核查（R2-A非设备）
+
+- 用户明确**DFlash Draft自研且受保密条款约束**。开发不需要权重、训练数据/方法、原始config、private代码和逐层详细配置；任何“为了完成选路审查而要求上传私有信息”均不符合项目约束。
+- 自有工作分支新增[只读、脱敏、固定枚举的路由探针](../../../../tools/310p_mm_ar/r2_target_route_probe.py)及[最小披露合同](R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md)，只读`config.json`的公开家族判断及Draft布局类别，并对现有公开源码绑定判定；**不 import vLLM/torch、不打开权重/私有代码、不运行设备/Serve、不打印文件路径或原始模型内容**。Draft配置为可选输入，允许“保密不提供”。
+- 真实模型/R2 V2 Runner/ModelState/DFlash函数命中**尚未获得设备证据**：从源码有Triton≠本业务会实际发Triton。静态风险账46项继续保留，但不等于46条都必须新实现；根据用户锁定唯一`Eco-Tech/Qwen3.6-35B-A3B-w8a8`及TP2/4096/2048/batch10/K7的可达性逐项缩小。当前只收集脱敏枚举，需与历史R1-B证据交叉校验，后续才交付最小必要改动。
+- **禁止兼容性代码扩展、解除V2 Worker保护、上机、读取/推送私有文件、合并PR#7或修改Stock默认**；CPU/仓库静态审查不构成执行GO。
