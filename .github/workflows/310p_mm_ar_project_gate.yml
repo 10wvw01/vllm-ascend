@@ -41,3 +41,31 @@ jobs:
           else
             python3 tools/310p_mm_ar/project_gate.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
           fi
+
+  r2-torch-cpu-contracts:
+    # Keep heavy CPU Torch separate from the no-Torch governance gate.
+    # This is NOT a 310P3/NPU execution test.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'work/310p-v2-r2-implementation-20261025' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU Torch (no Triton or CUDA runtime)
+        run: |
+          python -m pip install 'numpy>=1.26,<3'
+          python -m pip install 'torch==2.10.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify CPU tensor contracts without skips
+        run: |
+          python - <<'PY'
+          import torch, numpy
+          assert torch.__version__.startswith("2.10.0"), torch.__version__
+          assert not torch.cuda.is_available(), "unexpected CUDA device in CPU gate"
+          print("CPU Torch:", torch.__version__, "NumPy:", numpy.__version__)
+          PY
+          python -m unittest discover -s tools/310p_mm_ar -p 'test_v2_*.py' -v
