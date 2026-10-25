@@ -82,3 +82,16 @@ Graph仅在两组Eager已有审阅证据、Stock原始完整基线正常、设�
 - **刻意保留唯一重要运行模式差异**：Eager smoke和Eager full显式设`cudagraph_mode=NONE`（对应禁用Graph），用来隔离依赖、模型和V2 Eager问题；只有Graph研究组才设`FULL_DECODE_ONLY`。
 - **用户的Graph `cudagraph_capture_sizes:[10]`不能直接视为K7有效配置**。我们自己的DFlash FULL Decode dispatcher用`uniform_decode_query_len=1+K=8`检验`candidate % uniform_decode_query_len == 0`；10%8=2，对K7的常规单请求验证形状无法通过；batch10理论80 token也超出单一capture尺寸10。R1为独立受控Graph实验，选择候选尺寸`[8,16,32,64,80]`，必须真机验证并记录是否遭拒、实际Padded M与Graph Replay，不擅自宣称已跑通。
 - **端到端报告必须分别写明**：与用户命令字段相同、因Eager/Graph目的不同而有意差异、仅为证据管理增加的日志/目录/采样字段。不可把Eager实验的收益直接称为用户原始Graph配置性能。
+
+## 8. R1-B 整合后 310P3 实机准入与止损合同
+
+> 前轮 frozen G0=NO-GO、四组NOT_RUN，详见 [R1现场原始报告](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md)。本附录取代前文中**过时的**vLLM v0.24 pin、Draft原始路径以及“可选导入探针”安排；保留所有现场安全门禁。**未授权自动修改服务器环境或清空占用。**
+
+1. **源码冻结**：只从 `dev/310p-memfabric-mm-ar` 更新/创建隔离worktree，记录commit SHA、`git status`和`PYTHONPATH`。真正serve用的`vllm_ascend`必须解析为本隔离worktree而不是已有editable主工作树。更新原始报告不代表生产二进制已重新编译。
+2. **目标/草稿路径**：Target `/home/models/Qwen/Qwen3.6-35B-A3B-w8a8`，Draft **现场确认** `/home/models/Qwen/Qwen3.6-35B-A3B-DFlash`。该路径与用户早期提供的不含Qwen目录版本不同；一律用实际`config.json`检测并把差异记录报告，严禁无证据自动找另一个目录。Stock和V2一致。
+3. **软件依赖**：冻结已知服务器 vLLM 0.27.1（真实源码git@6e448d0）、torch2.10.0、torch-npu 2.10.0.post4、transformers5.17.0；不是重新安装0.24时代旧环境。先在真实 Python3.12.13 上用 `python tools/310p_mm_ar/dflash_stock_preflight.py --import-smoke --out <新目录>/g0_dflash.json`，确认 `static_go=true`、`blockers=[]`、`isolated_import_probe.exit_code=0` 及每条pip警告均属**明确列出的**已知状态；新增依赖/版本/导入错误立即NO-GO并保留完整原始日志。
+4. **环境保护**：重新核验同一NPU43520双Die 6/7独占（不能仅凭上一轮快照）、设备表/宿主机PID/端口8000+8581、CANN/驱动、HCCL+IB/KFC安全、Host双路径SO、Device SO和KVER11真实文件及SHA；任何不一致先STOP。设备4旧残留显存/hugepages无须在本轮触碰。
+5. **V2 SO准入**：隔离worktree天然缺失gitignored的`vllm_ascend_C*.so`、`libmf310p_v2_trial_device.so`、`libmf310p_device.so`；**不得**偷偷从另一worktree import或无备份替换正在使用的安装库。优先隔离编译；若确须复用现成SO，提供前后SHA、ABI及备份回滚计划并获用户明确批准后才做；Trial已增加缺失阻断。
+6. **两个Eager短测及完整业务**：先Stock Eager smoke（input4096/output32、两请求），检查真实DFlash服务加载及草稿推理、K7、双Rank无异常，成功再V2 Eager smoke并验证正式V2选层/首调位精确、双Rank真实NPU Kernel命中。两者通过才分别执行Eager 4096/2048、50req、maxConcurrency10/batch10、ignoreEOS；保存接受率、Target Forward、physical/padded M、TTFT/ITL/TPOT和原始rank日志。脚本返回路由“提示”不等于融合通过；必须核设备trace。无法重现实机只报告UNKNOWN/FAIL。
+7. **Graph不默认执行**：完成双组Eager审阅后另行人工批准受控Stock Graph smoke→V2 Graph smoke；Graph候选 `[8,16,32,64,80]` 仍未经实机通过。旧V2 Graph失败、Graph Stock-vs-Stock伪命中史仍有效；不自动跑长稳。
+8. **首写/通信故障处理**：出现507014/507899、无错误码的静默数值损坏、双Rank阻塞、导入混树或SO不一致立即停止，不能用关KFC/cache clean/同步保护绕过；回传所有manifest、G0 JSON、两个Rank、Kernel trace、模型输出、SO加载`/proc/*/maps`与停止后环境清单。新证据只提交自有项目仓库分支，并同步PERFORMANCE_BASELINES/PROJECT_CONTROL。

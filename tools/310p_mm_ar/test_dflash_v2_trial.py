@@ -138,6 +138,7 @@ class K7TrialContract(unittest.TestCase):
     def test_graph_requires_extra_readiness(self):
         genuine_g0 = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
                       "num_speculative_tokens": 7,
+                      "python": sys.executable,
                       "verdict": {"static_go": True, "blockers": []},
                       "model_paths": {"target": trial.TARGET, "draft": trial.DRAFT},
                       "probes": {"pip_check": {"classification": "PASS"},
