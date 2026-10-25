@@ -227,3 +227,11 @@
 - R2分支新增`_310p/v2/staged_buffers.py`、`request_state.py`、`block_tables.py`和CPU合同测试：在不改上游/不装Triton的前提下，分别实现Eager 32B padded staged write、1D状态dirty scatter、无UVA RequestState候选、多组不同blocksize的gather/slot候选。所有模块**尚未接入**真实Runner；无310P实机测试，CPU Torch合同可能在轻量CI中Skip。
 - 审查新增P0：原GPUModelRunner父构造先触发UVA，后替换req_states不安全；原GPU BlockTables也在KV初始化触发Triton；sampling GPU状态与CPU staging所有权存在陈旧镜像覆盖风险。候选只局部消减风险，不能将T05/T06/T14/T15/T16标READY；其它T01~09/T11和DFlash/GDN/Mamba仍未实现。
 - 保留`NPUWorker310`的`NOT_IMPLEMENTED`、PR#7 DRAFT，**R2-A STATIC NO-GO / R2-B/C/D ONDEVICE NOT_RUN**。禁止因CI绿启动设备；下一步继续冻结构造链、非Triton输入/采样和真实DFlash KV协议。
+
+
+## 2026-10-25 R2-A GitHub源码续研：CPU Tensor合同实跑，静态准入仍NO-GO
+
+- 唯一主线`dev/310p-memfabric-mm-ar@a37c0212f4222317552e56c357a77930f85696f2`保持不动；全部新增代码/测试/CI/状态仅在`work/310p-v2-r2-implementation-20261025`，PR#7 **DRAFT、未合并**。未触碰外部仓库/310P服务器、SO、模型配置或Triton真实性。
+- 修复隔离的310P V2候选：T06 DFlash直接读取的`block_tables.slot_mappings`之前未被slot计算结果写回（严重P0），现保持固定buffer地址、填充padded PAD并返回别名；T14阶段写在H2D异常前过早CPU commit，现失败poisoned并要求Runner销毁受影响状态；T15/T16请求复用先清理旧token尾部/prefill lookahead，禁止pending写尚未落地时释放。新增T02/T04 Eager Torch非Triton候选与纯Python gold，位置先以int32算再cast int64；**全部候选尚未接线**。
+- **已核实CI**：PR#7 SHA`dfb4a0faa91e937dd83122e860697913b676beaa` 的GitHub Actions Run `40164930360`：轻量治理`79 unittest OK（3 skipped，无torch）+54 pytest PASS`，独立`Python3.12/torch2.10.0+cpu`动态合同`59 unittest OK`；**不是310P3设备验证**。新增`r2-torch-cpu-contracts`作业以避免Torch测试被轻量CI Skip掩盖。
+- **STATIC NO-GO / ONDEVICE NOT_RUN**：上游GPUModelRunner构造期UVA RequestState与KV初始化GPU BlockTables尚未替换，T01/T03/T07~09/T11/T13未闭环，T02/T04/T05/T06/T14/T15/T16未接生产路由/设备算子核验，GDN/Mamba/W8A8/TP2/DFlash多Group及stream所有权未完成。Worker的`NOT_IMPLEMENTED`防护保持，Stock默认不变；不得委托上机或把CPU绿称为STATIC-GO。下一步优先构造链、完整input/sampling状态、DFlash多Group与双轮深审。
