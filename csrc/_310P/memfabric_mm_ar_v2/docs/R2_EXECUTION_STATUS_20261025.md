@@ -106,3 +106,9 @@
 - 固定上游0.27.1 `input_batch._combine_sampled_and_draft_tokens_kernel`：bonus-token 0/1、K7 draft末尾、`seq_len<=prefill_len`不覆写、prompt尾部不能被last_sampled覆盖、`logits_indices`按每请求query尾部生成。新增`_310p/v2/token_ops.py`、`token_gold.py`、`test_v2_token_ops.py`，本侧Torch2.10 CPU 5/5 UT PASS（只指新增测试）；随机混合请求/负例覆盖。
 - T03使用整条`input_ids` Eager D2D copy，避免小尺寸scatter候选，但设备`searchsorted/index_select/where/copy_`及流次序、输入padding、CPU scheduler的累计长度/req-id前置校验均未审查完成；实际Ascend V2 Runner仍从上游导入Triton同名函数，**不能标READY**。
 - 上一提交`3467c8f4d23120eaf4c6e073713cfdae4f43d8e4`的真实GitHub Actions Run `40169496168` **SUCCESS**：轻量治理85项unittest OK（4 skipped：无Torch）+54 pytest PASS；独立Python3.12/Torch2.10.0 CPU 68项unittest OK；门禁`0/31 STATIC-NO-GO`。T03新增提交需要单独读取CI，不能沿用该SHA结果。Worker继续NOT_IMPLEMENTED、PR#7 DRAFT、ONDEVICE NOT_RUN。
+
+
+### R2-A T03/T07/T08 新增代码CI核实（2026-10-25）
+
+- 新增T03代码提交`2ba84b8fa1daa142b679a359b1db6d525dcb0423`，GitHub Actions [Run 40169623722](https://github.com/10wvw01/vllm-ascend/actions/runs/40169623722) 两个job **SUCCESS**：轻量`87 unittest OK（5 skipped：无Torch）+54 pytest PASS`；独立Python3.12/`torch 2.10.0+cpu` **73 unittest OK**。静态准入脚本同Run输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**。此成功只覆盖CPU代码合同，不是NPU、Triton调用链替代或两轮Runtime静审PASS。
+- 本轮实际新增6份源码/测试：T07/T08采样、T03组合输入的Eager候选+stdlib gold+Torch CPU合同；**仍未接入实际310P V2 Runner**。PR#7继续DRAFT，Worker NOT_IMPLEMENTED不变；R2-B/C/D ONDEVICE NOT_RUN，下一步优先UVA构造链和真实Sampler/DFlash/BlockTables绑定。

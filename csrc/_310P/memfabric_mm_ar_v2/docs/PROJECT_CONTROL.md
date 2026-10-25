@@ -264,3 +264,8 @@
 ### 2026-10-25 R2-A T03 CPU候选研发（工作分支）
 
 - `work/310p-v2-r2-implementation-20261025`新增T03 sampled/draft输入组合Eager候选、纯Python gold和Torch CPU测试；T07/T08上轮`3467c8f4`的真实GitHub CI已成功（85治理UT含4 Skip、54 pytest、68 Torch CPU UT），不等于本次T03 CI或310P设备GO。仍保留上游Triton绑定、NPUWorker310 NOT_IMPLEMENTED，PR#7 DRAFT，R2-A STATIC NO-GO / ONDEVICE NOT_RUN。
+
+
+### 2026-10-25 R2-A T03/T07/T08 GitHub CI核验（工作分支）
+
+- PR#7代码`2ba84b8fa1daa142b679a359b1db6d525dcb0423`的[GitHub Actions Run 40169623722](https://github.com/10wvw01/vllm-ascend/actions/runs/40169623722) **SUCCESS**：87治理unittest（5 skipped：无torch）+54 pytest，独立torch2.10 CPU 73 unittest OK；`r2_static_admission --report`仍 **0/31 STATIC NO-GO**。新增代码是T03/T07/T08隔离候选，不是可执行Runner或NPU GO；主线与服务器均未修改，PR#7保持DRAFT。
