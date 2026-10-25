@@ -143,7 +143,15 @@ class NPURequestState:
             self._poisoned = True
             raise
 
-    def remove_request(self, req_id: str) -> int | None:
+    def assert_can_release_request(self, req_id: str) -> int | None:
+        """Non-mutating preflight for the inherited GPU runner release order.
+
+        Frozen GPUModelRunner._remove_request invokes model_state.remove_request
+        BEFORE req_states.remove_request because ModelState still needs the
+        request slot. A late pending-write error in the latter would otherwise
+        leave ModelState freed while the request maps still own that slot.
+        This preflight is not a device in-flight stream completion fence.
+        """
         self._assert_healthy()
         idx = self.req_id_to_index.get(req_id)
         if idx is None:
@@ -166,6 +174,12 @@ class NPURequestState:
                 )
         # No pending writes for this slot. Stream completion/in-flight
         # ownership is a separate runtime admission gate (T16).
+        return idx
+
+    def remove_request(self, req_id: str) -> int | None:
+        idx = self.assert_can_release_request(req_id)
+        if idx is None:
+            return None
         del self.req_id_to_index[req_id]
         del self.index_to_req_id[idx]
         self.free_indices.append(idx)

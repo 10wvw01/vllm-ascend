@@ -149,6 +149,18 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
 
         return NPUDFlashSpeculator310V2(vllm_config, device)
 
+    def _remove_request(self, req_id: str) -> bool:
+        """Preflight before inherited ModelState releases the request slot.
+
+        Frozen GPUModelRunner._remove_request calls ModelState.remove_request
+        first. If a staged token/length/count write is pending, rejecting only
+        in RequestState.remove_request is too late: the two owners diverge.
+        The preflight checks all three staged buffers without changing state.
+        In-flight NPU stream ownership is still a separate T16 NO-GO gate.
+        """
+        self.req_states.assert_can_release_request(req_id)
+        return super()._remove_request(req_id)
+
     def add_requests(self, scheduler_output):
         """Reject unsupported generation paths before any request/KV mutation."""
         from .sampling_scope import validate_greedy_310p_sampling_params

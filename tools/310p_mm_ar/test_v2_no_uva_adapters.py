@@ -4,6 +4,7 @@ This tests semantic tensor behavior, NOT NPU op availability or runner wiring.
 The GitHub lightweight gate has no torch: tests skip cleanly there, while the
 pure-Python staged-write golden remains mandatory.
 """
+import ast
 import importlib.util
 import pathlib
 import sys
@@ -143,12 +144,16 @@ class TestCandidateAdapters(unittest.TestCase):
                 buffer = getattr(s, name)
                 buffer.stage_write_elem(idx, 7)
                 with self.assertRaisesRegex(RuntimeError, f"pending {name} writes"):
+                    s.assert_can_release_request("old")
+                with self.assertRaisesRegex(RuntimeError, f"pending {name} writes"):
                     s.remove_request("old")
                 self.assertEqual(s.req_id_to_index["old"], idx)
                 self.assertEqual(s.index_to_req_id[idx], "old")
                 self.assertNotIn(idx, s.free_indices)
                 buffer.clear_staged_writes()
 
+        self.assertEqual(s.assert_can_release_request("old"), idx)
+        self.assertEqual(s.req_id_to_index["old"], idx)
         self.assertEqual(s.remove_request("old"), idx)
         self.assertEqual(s.free_indices.count(idx), 1)
         s.add_request("new", 2, [3, 4], 0, 3)
@@ -253,6 +258,36 @@ class TestCandidateAdapters(unittest.TestCase):
             self.block_module.NPUBlockTables(
                 [64], 2, 16, [2], "cpu", [64], cp_size=2
             )
+
+
+class TestInheritedReleaseOrder(unittest.TestCase):
+    def test_preflight_before_frozen_model_state_release(self):
+        # The real vLLM 0.27.1 inherited method calls ModelState.remove_request
+        # before RequestState.remove_request. Guard our override by AST without
+        # importing the heavyweight vLLM/torch-npu runner in lightweight CI.
+        tree = ast.parse((SRC / "model_runner.py").read_text())
+        candidate = next(
+            node for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "NPUModelRunner310V2Candidate"
+        )
+        method = next(
+            node for node in candidate.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_remove_request"
+        )
+        calls = [
+            (ast.unparse(node.func), node.lineno)
+            for node in ast.walk(method)
+            if isinstance(node, ast.Call)
+        ]
+        preflight = next(
+            line for name, line in calls
+            if name == "self.req_states.assert_can_release_request"
+        )
+        inherited = next(
+            line for name, line in calls if name == "super()._remove_request"
+        )
+        self.assertLess(preflight, inherited)
 
 
 if __name__ == "__main__":
