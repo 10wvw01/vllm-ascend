@@ -95,3 +95,8 @@ Graph仅在两组Eager已有审阅证据、Stock原始完整基线正常、设�
 6. **两个Eager短测及完整业务**：先Stock Eager smoke（input4096/output32、两请求），检查真实DFlash服务加载及草稿推理、K7、双Rank无异常，成功再V2 Eager smoke并验证正式V2选层/首调位精确、双Rank真实NPU Kernel命中。两者通过才分别执行Eager 4096/2048、50req、maxConcurrency10/batch10、ignoreEOS；保存接受率、Target Forward、physical/padded M、TTFT/ITL/TPOT和原始rank日志。脚本返回路由“提示”不等于融合通过；必须核设备trace。无法重现实机只报告UNKNOWN/FAIL。
 7. **Graph不默认执行**：完成双组Eager审阅后另行人工批准受控Stock Graph smoke→V2 Graph smoke；Graph候选 `[8,16,32,64,80]` 仍未经实机通过。旧V2 Graph失败、Graph Stock-vs-Stock伪命中史仍有效；不自动跑长稳。
 8. **首写/通信故障处理**：出现507014/507899、无错误码的静默数值损坏、双Rank阻塞、导入混树或SO不一致立即停止，不能用关KFC/cache clean/同步保护绕过；回传所有manifest、G0 JSON、两个Rank、Kernel trace、模型输出、SO加载`/proc/*/maps`与停止后环境清单。新证据只提交自有项目仓库分支，并同步PERFORMANCE_BASELINES/PROJECT_CONTROL。
+
+### 第二轮源码审查追加门槛
+
+- `dflash_v2_trial.py execute`在启动vllm之前再次将**当前Python可执行文件、vllm控制台脚本shebang、vllm与vllm_ascend源码路径、四个关键Python分发版本**与同轮G0 JSON进行对照。静态报告重用/在错误虚拟环境运行不会自动放行。
+- 开启`--import-smoke`的G0应由现场确认不会干扰其他任务；导入探针退出成功仍仅允许Stock模型**受控短冒烟**，不能作为DFlash或Graph运行结果。

@@ -251,14 +251,69 @@ def missing_v2_artifacts(worktree: Path) -> list[str]:
     return missing
 
 
+
+def console_script_matches_python(script_path: str, python_executable: str) -> bool:
+    """A trusted vllm console script must not use another Python environment."""
+    try:
+        first = Path(script_path).open("rb").readline().decode("utf-8").strip()
+    except (OSError, UnicodeError):
+        return False
+    if not first.startswith("#!"):
+        return False
+    shebang = first[2:].split()
+    if not shebang:
+        return False
+    if Path(shebang[0]).name == "env":
+        # Accept /usr/bin/env python3 only when that interpreter on PATH
+        # resolves to the exact same Python executing this tool.
+        if len(shebang) != 2 or shebang[1] not in ("python", "python3"):
+            return False
+        target = shutil.which(shebang[1])
+    else:
+        target = shebang[0]
+    try:
+        return bool(target) and Path(target).samefile(python_executable)
+    except (OSError, ValueError):
+        return False
+
+
+def validate_runtime_identity(report: dict, module_root: Path | None,
+                              vllm_cmd: str | None) -> None:
+    """Bind G0 to actual Python, installed distributions, import paths, CLI."""
+    if report.get("python") != sys.executable:
+        raise RuntimeError("G0 Python executable changed since preflight")
+    if vllm_cmd is None or not console_script_matches_python(vllm_cmd, sys.executable):
+        raise RuntimeError("vllm executable does not use the G0 Python; STOP")
+    expected = (report.get("package_roots") or {}).get("vllm_ascend")
+    if not expected or module_root is None or Path(expected).resolve() != module_root.resolve():
+        raise RuntimeError("vllm_ascend import root changed since G0; STOP")
+    import importlib.metadata as metadata
+    import importlib.util
+
+    for package in ("vllm", "torch", "torch-npu", "transformers"):
+        wanted = (report.get("versions") or {}).get(package)
+        try:
+            present = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            present = None
+        if not wanted or present != wanted:
+            raise RuntimeError("distribution changed since G0: " + package)
+    vllm_root = (report.get("package_roots") or {}).get("vllm")
+    try:
+        spec = importlib.util.find_spec("vllm")
+    except (ImportError, ValueError, AttributeError):
+        spec = None
+    locations = list(spec.submodule_search_locations or []) if spec else []
+    if not vllm_root or not locations or Path(vllm_root).resolve() != Path(locations[0]).resolve():
+        raise RuntimeError("vllm source root changed since G0; STOP")
+
+
 def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
             graph_authorized: bool = False, eager_reviewed: bool = False,
             readonly_preflight: dict | None = None) -> int:
     if not (approved and exclusive and restore):
         raise RuntimeError("separate G0, device exclusive, backup/restore evidence needed")
     validate_readonly_preflight(readonly_preflight or {})
-    if ((readonly_preflight or {}).get("python") != sys.executable):
-        raise RuntimeError("preflight Python executable differs from current interpreter")
     if manifest.get("mode") == "graph" and not (graph_authorized and eager_reviewed):
         raise RuntimeError("Graph research is gated: review BOTH Eager baselines and authorize it explicitly")
     if manifest.get("contract") != "R1_DFLASH_K7_TP2_STOCK_V2_20261025":
@@ -275,9 +330,11 @@ def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
             raise RuntimeError("KVER11 file unavailable; G0 NO-GO")
         if any(os.environ.get(k) for k in GUARD_VARS):
             raise RuntimeError("unsafe MF first-write/KFC bypass found")
-    if shutil.which("vllm") is None:
+    cli_path = shutil.which("vllm")
+    if cli_path is None:
         raise RuntimeError("vllm executable not found in current Python environment")
     module_root = resolve_vllm_ascend_root()
+    validate_runtime_identity(readonly_preflight or {}, module_root, cli_path)
     if vllm_ascend_outside_this_worktree(__file__, module_root):
         raise RuntimeError(
             "vllm_ascend resolves to another worktree; prepend the isolated "

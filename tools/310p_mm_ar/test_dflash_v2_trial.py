@@ -201,6 +201,44 @@ class K7TrialContract(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "model paths"):
             trial.validate_readonly_preflight(good)
 
+
+    def test_console_script_belongs_to_same_python(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as td:
+            path = Path(td) / "vllm"
+            path.write_text("#!" + sys.executable + "\nprint('stub')\n")
+            self.assertTrue(trial.console_script_matches_python(str(path), sys.executable))
+            path.write_text("#!/not-existing/python\n")
+            self.assertFalse(trial.console_script_matches_python(str(path), sys.executable))
+            path.write_text("not-a-shebang\n")
+            self.assertFalse(trial.console_script_matches_python(str(path), sys.executable))
+
+    def test_g0_version_source_and_console_binding(self):
+        from unittest.mock import patch
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as td:
+            script = Path(td) / "vllm"
+            script.write_text("#!" + sys.executable + "\n")
+            fake_root = Path(td) / "vllm_ascend"
+            fake_root.mkdir()
+            from types import SimpleNamespace
+            wanted = {"vllm":"0.27.1+empty", "torch":"2.10.0",
+                      "torch-npu":"2.10.0.post4","transformers":"5.17.0"}
+            report = {"python": sys.executable, "package_roots": {
+                "vllm_ascend":str(fake_root), "vllm":"/fake/vllm"},
+                "versions":wanted}
+            with patch("importlib.metadata.version", side_effect=lambda k:wanted[k]), \\
+                 patch("importlib.util.find_spec",return_value=SimpleNamespace(
+                     submodule_search_locations=["/fake/vllm"])):
+                trial.validate_runtime_identity(report, fake_root, str(script))
+                report["versions"]["transformers"] = "5.13.0"
+                with self.assertRaisesRegex(RuntimeError,"distribution changed"):
+                    trial.validate_runtime_identity(report,fake_root,str(script))
+                report["versions"]["transformers"] = "5.17.0"
+                report["package_roots"]["vllm_ascend"] = "/wrong/tree"
+                with self.assertRaisesRegex(RuntimeError,"import root changed"):
+                    trial.validate_runtime_identity(report,fake_root,str(script))
+
     def test_execute_is_gated_before_file_or_server_work(self):
         with self.assertRaisesRegex(RuntimeError, "G0"):
             trial.execute(case("stock"), False, False, False)
