@@ -247,3 +247,9 @@
 
 - 研发分支新增`tools/310p_mm_ar/r2_static_admission.py --check`和`R2_STATIC_ADMISSION_EVIDENCE.json`，16条Triton/UVA/ownership + 15条ABI明确检查；当前账本空、`STATIC-NO-GO`，缺失review或接线不能借CI绿绕过。CI调用`--report`只展示NO-GO，静态GO需真实两轮审查与独立`--check`、用户再批准实机。
 - 所有代码仍仅在PR#7工作分支；未改外部上游、现场SO、Draft config或NPUWorker310阻断。后续需完成真正Runner父类构造替代和T01~T16实际调用链，不能用现有Torch候选充当设备路径。
+
+
+### R2-A GitHub CI复核：31项静态门禁保持NO-GO（2026-10-25）
+
+- 真实SHA `f9a60ff5f64e3d6e1595f89c5a004490557eae0d`，GitHub Actions Run `40165197698` 两个job均**SUCCESS**：轻量治理 **82 unittest OK（3 skipped：无torch）+54 pytest PASS**；独立Python3.12/torch2.10.0+cpu **61 unittest OK**（未报告skip）。
+- `r2_static_admission.py --report`在同次CI明确输出 **`R2-A STATIC-NO-GO: 0/31 mandatory nodes`**，因两轮审查尚未PASS、31项仍未真实接线/给足证据；这是按真实任务口径的正确阻断，不因CI成功改变。R2-B/C/D **ONDEVICE NOT_RUN**；Worker仍NOT_IMPLEMENTED。
