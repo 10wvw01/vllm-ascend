@@ -4,6 +4,7 @@
 
 import logging
 from typing import Any, cast
+from inspect import signature
 
 import torch
 from vllm.config import VllmConfig, get_layers_from_vllm_config
@@ -43,18 +44,26 @@ class AscendDFlashSpeculator(DFlashSpeculator):
         model_state: Any,
         kv_cache_config: Any,
         block_tables: Any,
-        target_input_buffers: Any,
-        target_attn_groups: Any,
+        target_input_buffers: Any = None,
+        target_attn_groups: Any = None,
     ) -> None:
-        # vLLM 0.27.1 DraftModelSpeculator.set_attn includes both target
-        # buffers and attention groups. These are needed for draft prefill.
-        super().set_attn(
-            model_state,
-            kv_cache_config,
-            block_tables,
-            target_input_buffers,
-            target_attn_groups,
-        )
+        # vLLM 0.27.1 requires both target buffers and attention groups,
+        # while earlier Ascend-supported versions used only three inputs.
+        # Inspect the actual inherited ABI instead of breaking other NPUs.
+        if "target_input_buffers" in signature(DFlashSpeculator.set_attn).parameters:
+            if target_input_buffers is None or target_attn_groups is None:
+                raise TypeError(
+                    "vLLM 0.27.1 DFlash requires target_input_buffers and target_attn_groups"
+                )
+            super().set_attn(
+                model_state,
+                kv_cache_config,
+                block_tables,
+                target_input_buffers,
+                target_attn_groups,
+            )
+        else:
+            super().set_attn(model_state, kv_cache_config, block_tables)
         self._context_slot_mappings = torch.zeros(
             len(self.draft_kv_cache_group_ids),
             self.max_num_tokens,

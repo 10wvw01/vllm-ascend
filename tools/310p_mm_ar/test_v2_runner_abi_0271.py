@@ -38,6 +38,8 @@ class V2AbiTests(unittest.TestCase):
             x for x in ast.walk(method) if isinstance(x, ast.Call)
             and isinstance(x.func, ast.Attribute) and x.func.attr == "set_attn"
         )
+        # The frozen upstream ABI receives all five params in the 0.27.1
+        # branch; legacy upstream receives only three.
         self.assertEqual(len(call.args), 5)
         self.assertEqual(len(call.keywords), 0)
 
@@ -49,8 +51,15 @@ class V2AbiTests(unittest.TestCase):
     def test_runner_has_no_removed_upstream_postprocess_hook(self):
         cls = _class(RUNNER, "NPUModelRunner")
         methods = [x.name for x in cls.body if isinstance(x, ast.FunctionDef)]
-        self.assertNotIn("postprocess", methods)
+        # Compatibility keeps the legacy method guarded, while 0.27.1
+        # flows through postprocess_sampled.
+        self.assertIn("postprocess", methods)
         self.assertIn("postprocess_sampled", methods)
+        legacy = _method(cls, "postprocess")
+        self.assertTrue(any(
+            isinstance(x, ast.Call) and isinstance(x.func, ast.Name)
+            and x.func.id == "getattr" for x in ast.walk(legacy)
+        ))
 
     def test_stream_is_npu_not_cuda(self):
         cls = _class(RUNNER, "NPUModelRunner")

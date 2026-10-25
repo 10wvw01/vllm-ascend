@@ -189,3 +189,7 @@
 
 - 与固定上游 `vLLM@6e448d0` 比对已确认：Ascend V2 DFlash `set_attn` 少 `target_input_buffers,target_attn_groups`；旧 `build_draft_attn_metadatas` 在0.27.1调用链不存在且少必填参数；Ascend V2 ModelRunner 的 `postprocess` 调用上游已删除的方法；`torch.cuda.current_stream()` 不适合310P；组合 speculative logits 应显式传 ModelState bonus-token 个数。
 - 上述五项修订均已纳入本 R2 开发分支，并新增 `tools/310p_mm_ar/test_v2_runner_abi_0271.py` 纯CPU AST合同测试；仅证明这些**局部接口**更接近冻结上游，不证明 V2 Worker、Triton-free算子、DFlash KV/ModelState/TP2可执行。已知必经Triton仍阻断，不允许修改worker的NOT_IMPLEMENTED防护。
+
+### R2 第2轮静态审查：通用 Ascend V2 防回归
+
+- 调整首批ABI修补：`AscendDFlashSpeculator.set_attn`改为按实际继承的上游签名兼容新5参数或旧3参数，不为310P3修复而破坏其它设备旧ABI；`NPUModelRunner.postprocess`保留旧版受保护回调，vLLM0.27.1使用`postprocess_sampled`。真正上游0.27.1及310P无Triton执行仍需进一步验证，不能宣称合格。

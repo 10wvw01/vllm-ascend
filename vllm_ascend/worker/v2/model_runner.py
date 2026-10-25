@@ -369,8 +369,17 @@ class NPUModelRunner(GPUModelRunner):
 
         return self.input_batch
 
-    # vLLM 0.27.1 GPUModelRunner has no postprocess() method; the
-    # postprocess_sampled() override below is the valid state-update hook.
+    # Keep the pre-0.27 legacy hook for other NPUs. vLLM 0.27.1
+    # calls postprocess_sampled() below, not this legacy hook.
+    def postprocess(self, input_batch, sampled_tokens, num_sampled, num_rejected):
+        legacy_postprocess = getattr(super(), "postprocess", None)
+        if legacy_postprocess is None:
+            raise RuntimeError(
+                "Legacy postprocess() is not part of this upstream GPUModelRunner; "
+                "use postprocess_sampled() for vLLM 0.27.1"
+            )
+        legacy_postprocess(input_batch, sampled_tokens, num_sampled, num_rejected)
+        self._copy_num_computed_tokens_to_cpu()
 
     def postprocess_sampled(
         self,
