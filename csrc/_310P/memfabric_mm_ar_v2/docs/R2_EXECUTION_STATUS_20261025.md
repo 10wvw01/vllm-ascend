@@ -241,3 +241,5 @@
 
 - 静审发现`NPURequestState.remove_request`只检查`all_token_ids`矩阵待提交写，未检查`total_len`与`num_computed_tokens`一维向量待提交写；在token row已提交但长度/计算计数仍排队时释放slot，会允许旧请求延迟写污染后续复用的请求。现先完整检查三类buffer，再原子修改两个req映射和free_indices；向量按`StagedWritePlan._pending`的offset而非row检查，保留旧token pending错误合同。
 - 增加Torch CPU合同：token row已提交、两个vector分别留有未提交写时均拒绝释放，拒绝后req映射/free列表不变，清理待提交后允许释放并复用，复用后的长度/计算计数为新请求值。此为真实代码修复，CI需在新SHA核实；**不能据此认为in-flight NPU stream/异常传播/异步提交安全**，T16仍BLOCKED，44项强制静态准入证据保持0/44、PR#7 DRAFT、Worker NOT_IMPLEMENTED、ONDEVICE NOT_RUN。下一步继续审计device-owned row写入和实际GPUModelRunner继承调用链。
+
+- 新代码SHA `710bd56e1905cf5848de38d3fdb3172fb4c4c72a` 对应 [GitHub Actions Run 40182388545](https://github.com/10wvw01/vllm-ascend/actions/runs/40182388545) 双job **SUCCESS**：轻量138 unittest OK（13 skip）+54 pytest PASS；独立Torch2.10 CPU **158 unittest OK**，较上一SHA新增1项回收/复用合同。准入检查仍明确`R2-A STATIC-NO-GO: 0/44 mandatory nodes`、双轮审查未PASS。该CPU成功不代表NPU stream和设备生命周期可用。
