@@ -198,3 +198,8 @@
 
 - 已创建 [vLLM0.27.1↔Ascend V2 API/ABI矩阵](V2_API_ABI_MATRIX.md) 和 [310P Eager必经Triton替代矩阵](V2_TRITON_REPLACEMENT_MATRIX.md)，识别GPU BlockTables多组gather/slot mapping、GPU采样rejection flatten、上游post_update和DFlash多组prepare_dflash_inputs等前次漏列入口。当前**10项BLOCKED、1项UNWIRED、1项UNVERIFIED、1项UNRESOLVED**。
 - `tools/310p_mm_ar/test_v2_runtime_audit.py` 增加CPU源码合同：检查上游GPU input helper仍在本地V2 import、Worker fail-closed及固定SHA文档；它不替代上游真实路径解析、CPU golden与NPU adapter。**R2-02 OPEN / R2-A NOT-GO**。
+
+### R2-07/08 多Group/DFlash K7参考语义合同（第一批）
+
+- 新增`vllm_ascend/_310p/v2/reference_ops.py`：不依赖torch/npu、可验证的多KV组分配/slot编号及K7 bonus + 7 mask、rejected/context/query/sample indices参考实现，附`test_v2_dflash_k7_reference.py` CPU gold和负例。
+- **仅Gold，不是NPU执行代码**：需要再将V2真正的 Triton prepare、group block tables、Attention metadata 和sampling映射接到受控310P非Triton后端，且必须验证内存布局/dtype、溢出、事件顺序。不能移除NPUWorker310拒绝标志。
