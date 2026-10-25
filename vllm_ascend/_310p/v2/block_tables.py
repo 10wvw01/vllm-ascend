@@ -149,13 +149,23 @@ class NPUBlockTables:
             raise ValueError("idx_mapping must be on same NPU device")
         indices = idx_mapping.to(dtype=torch.int64)
         result = []
-        for src, dest, logical in zip(
+        for g, (src, dest, logical) in enumerate(zip(
             self.block_tables, self._input_storage, self.input_block_tables
-        ):
+        )):
             # Full padded rows: avoid 310P3 unaligned short D2D writes.
+            # Mask stale blocks beyond num_blocks: overwrite/reused requests
+            # must not expose an old KV allocation through the gather result.
             dest.zero_()
             if num_reqs:
                 selected = torch.index_select(src._storage, 0, indices)
+                counts = self.num_blocks.gpu[g].index_select(0, indices)
+                columns = torch.arange(
+                    src.plan.padded_cols, device=idx_mapping.device
+                )
+                selected = torch.where(
+                    columns[None, :] < counts[:, None],
+                    selected, torch.zeros_like(selected)
+                )
                 dest[:num_reqs].copy_(selected)
             result.append(logical[:num_reqs_padded])
         return tuple(result)
