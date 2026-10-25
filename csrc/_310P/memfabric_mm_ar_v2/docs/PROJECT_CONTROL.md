@@ -306,3 +306,11 @@
 - 自有工作分支新增[只读、脱敏、固定枚举的路由探针](../../../../tools/310p_mm_ar/r2_target_route_probe.py)及[最小披露合同](R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md)，只读`config.json`的公开家族判断及Draft布局类别，并对现有公开源码绑定判定；**不 import vLLM/torch、不打开权重/私有代码、不运行设备/Serve、不打印文件路径或原始模型内容**。Draft配置为可选输入，允许“保密不提供”。
 - 真实模型/R2 V2 Runner/ModelState/DFlash函数命中**尚未获得设备证据**：从源码有Triton≠本业务会实际发Triton。静态风险账46项继续保留，但不等于46条都必须新实现；根据用户锁定唯一`Eco-Tech/Qwen3.6-35B-A3B-w8a8`及TP2/4096/2048/batch10/K7的可达性逐项缩小。当前只收集脱敏枚举，需与历史R1-B证据交叉校验，后续才交付最小必要改动。
 - **禁止兼容性代码扩展、解除V2 Worker保护、上机、读取/推送私有文件、合并PR#7或修改Stock默认**；CPU/仓库静态审查不构成执行GO。
+
+## 2026-10-25｜唯一Target静态调用链裁剪（无兼容代码开发）
+
+- 冻结`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3双Die/TP2/PP1、4096/2048/batch10、DFlash K7；[只读脱敏探针](R2_TARGET_ROUTE_PROBE_RESULT.md)已归档，私有Draft完全未读取。**Target本地工件SHA未核，Runner/ModelState/设备Triton未观察。**
+- 新增[模型专属31项调用链裁剪](R2_TARGET_REACHABILITY_CUT_20261025.md)、[逐项机器账](R2_TARGET_REACHABILITY_CUT_20261025.json)、`tools/310p_mm_ar/test_r2_target_reachability.py`：**19候选阶段核心、7仅greedy-only候选禁用功能、1 PP1非最后rank排除、1旧函数被当前候选覆盖、1继承审计未闭环、2 Hybrid align条件阻断**。
+- **greedy-only仅是当前310P候选的功能门禁，不是用户已冻结采样策略。** T08 logprobs-only，不是每轮SpecVerify必经；T17/T23即便greedy仍需真实采样/拒绝语义；T26/T27/T28/T29即便禁用附加功能依然有构造/输出工作。
+- Target公开`IsHybrid`继承 +`mamba_cache_mode=align`静态高度关联T30/T31，冻结工厂还有`get_model_state_cls`优先级；当前候选`load_model`已有is_hybrid+align早拒绝，Worker更早NO-GO。不得取消守卫、不能改none绕过、不能宣称设备launch。
+- 原46项门禁仍为**R2-A STATIC NO-GO**，本轮不调整准入分母、不做设备运行、不扩展兼容算子、PR#7继续DRAFT。

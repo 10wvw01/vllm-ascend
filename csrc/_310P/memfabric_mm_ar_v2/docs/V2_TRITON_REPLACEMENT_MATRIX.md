@@ -1,5 +1,9 @@
 # R2-02｜310P3 Triton-free V2 Eager必经路径与替代矩阵
 
+
+> **目标专属裁剪已另行完成（2026-10-25）**：[31项逐条可达性及最小实施面](R2_TARGET_REACHABILITY_CUT_20261025.md)，[机器可读条件判定](R2_TARGET_REACHABILITY_CUT_20261025.json)。本表的旧“必经”等表述是**保守泛化盘点**；目标口径应以新的带前置条件裁剪为准。特别是**T08仅请求logprobs才触发**；T10仅已知非last PP rank路径且本期PP1；T18～22/24须先锁定采样策略；当前候选只允许greedy，不等于用户确认greedy。本文保持原46条静态风险账，**不删除准入阻断**。
+
+
 > **纠偏（2026-10-25）**：本表盘点的是通用GPU→310P候选的**静态潜在调用路径**，并非指定模型已现场执行29/31条Triton。唯一Target锁定`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3/TP2、4096/2048/batch10+DFlash K7；原310P V1 DFlash输入已经AscendC替换，冻结GPU V2 DFlash仍含Triton。当前V2 Worker尚未启动。详见 [具体模型路由证据](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)，实现任务必须先有动态分支条件证据。
 >
 > 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。

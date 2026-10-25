@@ -291,3 +291,7 @@
 - 本轮没有增加任何DFlash/Triton兼容核，也没修改V2 Worker/融合算子/模型文件。只有目标静态源码事实S阶段可阶段性完成；保密条件下的配置C、运行R仍待真实证据，R2-A STATIC-NO-GO、PR#7 DRAFT、R2-B/C/D ONDEVICE NOT_RUN。
 
 - 静态Route源码补充：冻结`qwen3_5.py`的MoE类经base继承`IsHybrid`，`ModelConfig.is_hybrid`和`init_model_state`仍有动态条件；探针额外上报`qwen35_moe_hybrid_declaration`固定枚举，**不是**实际ModelState/设备Triton命中。只读4个以上的冻结公开源码，不读自研实现。
+
+## 2026-10-25｜静态模型专属可达性裁剪已经落盘
+
+[分支文件](R2_TARGET_REACHABILITY_CUT_20261025.md)和[31条结构化判定](R2_TARGET_REACHABILITY_CUT_20261025.json)将31个T项分类19+7+1+1+1+2。该统计是**假定未来接线的310P V2候选控制流条件分类**，当前Worker阻断所以**所有V2设备路径都NOT_RUN**。保留T30/T31 Hybrid align条件风险；T08仅logprobs触发、T10非last PP rank在PP1不走。候选greedy-only限制不等于用户采样策略已确认。本轮仅文档/CPU分类合同，不新增kernel、不改变Worker/Stock/46门禁。

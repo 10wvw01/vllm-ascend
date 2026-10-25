@@ -58,3 +58,7 @@
 ### 自研DFlash保密边界与唯一模型选路（2026-10-25）
 
 用户确认Draft是自研模型，受保密条款约束。**不得索取、上传、归档任何Draft权重、源码、原始config、逐层架构、训练资料**。新增只读脱敏枚举工具`tools/310p_mm_ar/r2_target_route_probe.py`与 [最小披露/真实路由审计合同](csrc/_310P/memfabric_mm_ar_v2/docs/R2_TARGET_ROUTE_MIN_DISCLOSURE_20261025.md)，只输出固定路径枚举，不做设备/动态import、不采集敏感材料。静态S事实部分已确认，实际运行时R还未观测；在配置与函数可达性闭环前**暂停新增泛化V2/Triton兼容算子**。唯一Target、310P3 TP2、4096/2048/batch10、DFlash K7和Stock对照不变。
+
+### 2026-10-25 目标模型T01～T31静态调用链裁剪
+
+在用户唯一场景`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3单卡双Die/TP2/PP1、4096/2048/batch10、DFlash K7上，已完成[目标专属模型路由裁剪](csrc/_310P/memfabric_mm_ar_v2/docs/R2_TARGET_REACHABILITY_CUT_20261025.md)及逐T机器账。19项候选阶段核心、7项仅greedy候选禁止的功能、1项PP1分支排除、1项候选覆盖、1项继承审计待闭环、2项Hybrid align硬风险。**目前真实runtime全部NOT_RUN；用户尚未冻结greedy采样策略，因此不得将7项条件功能永久删掉**。本轮只更新取证文档及静态合同，不扩大兼容代码。
