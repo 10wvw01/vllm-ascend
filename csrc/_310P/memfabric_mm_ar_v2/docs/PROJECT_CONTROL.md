@@ -211,3 +211,8 @@
 ### R2文档级CPU断言清理
 
 - 审计表使用两种状态列：ABI表为`| NO |`，Triton表为`BLOCKED`。首次两个CI循环均因测试对状态字面值过度假设而FAIL，现按真实表格列值校准测试；不变更代码路径或实机状态。
+
+### R2 审查发现新增P0：GPU V2 RequestState/UVA及KV staging
+
+- 对上游0.27.1 `gpu/block_table.py`、`gpu/buffer_utils.py`、`gpu/states.py`补充审查：除了已列多组gather/slot映射，KV分配时`apply_staged_writes`依赖 **Triton `_apply_write_kernel`**；`RequestState`构造又通过`UvaBackedTensor`/`StagedWriteTensor`依赖UVA。这些是先于DFlash推理的实际数据所有权路径，并非“装上Triton”可解。
+- 310P3的UVA是否可用**尚未由现场确认**；需设计保留slot/状态契约的NPU安全替代或用真实相容性探针证明可用。已更新R2-01/02矩阵新增 T14/T15；**仍明确R2-A=NO-GO**，不得因ABI局部修补/CPU gold通过解除Worker锁。

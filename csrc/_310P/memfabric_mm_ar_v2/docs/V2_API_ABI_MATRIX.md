@@ -29,3 +29,9 @@
 ## 审查结果与变更纪律
 
 首轮已确认并修复部分静态ABI，但 **DFlash V2 Runtime、310P非Triton数据路径、W8A8/GDN、双Rank数据正确性均尚未完成**；剩余12个合约点不得因本地合同测试绿而自动闭环。下一步必须将R2-02的每个必经Triton函数映射到真实310P路径，单测完备并复核上游ABI，再决定移除Worker防护；不得在R2-A期间宣布实机GO。
+
+## 第二轮继承数据结构审视（新增P0）
+
+- 上游 `gpu/block_table.BlockTables.apply_staged_writes` 单/多组均调用 `gpu/buffer_utils._apply_write_kernel`（Triton）。此前仅发现`gather_block_tables/compute_slot_mappings`；如果只替换后两者仍会在新增KV块时失败。
+- 上游 `gpu.states.RequestState` 构造依赖 `StagedWriteTensor(uva_instead_of_gpu=True)` 与`UvaBackedTensor`，两者初始化需 `UvaBufferPool`，后者要求 `is_uva_available()` 且 `get_accelerator_view_from_cpu_tensor` 可在设备上成功映射。**未有310P3实机证据证明可用，也不得猜测一律不支持**；G0静态契约需为其建立替代或特征级守卫。
+- 由此，安全准入不能仅解决DFlash多KV输入：`RequestState/UVA→StagedWrite→BlockTables→Sampling/PostUpdate` 是一个连贯数据所有权协议，局部patch某个Triton函数会产生空KV/错误指针风险。
