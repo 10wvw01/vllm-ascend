@@ -216,3 +216,7 @@
 
 - 对上游0.27.1 `gpu/block_table.py`、`gpu/buffer_utils.py`、`gpu/states.py`补充审查：除了已列多组gather/slot映射，KV分配时`apply_staged_writes`依赖 **Triton `_apply_write_kernel`**；`RequestState`构造又通过`UvaBackedTensor`/`StagedWriteTensor`依赖UVA。这些是先于DFlash推理的实际数据所有权路径，并非“装上Triton”可解。
 - 310P3的UVA是否可用**尚未由现场确认**；需设计保留slot/状态契约的NPU安全替代或用真实相容性探针证明可用。已更新R2-01/02矩阵新增 T14/T15；**仍明确R2-A=NO-GO**，不得因ABI局部修补/CPU gold通过解除Worker锁。
+
+### R2 实际实施状态总账（对话/跨分支唯一恢复入口）
+
+- 详见 [R2执行状态动态账](R2_EXECUTION_STATUS_20261025.md)。截至R2分支`6163344`：R2-00 GitHub证据归档PASS（PR#8已并入主线）；R2-01/02 ABI/Triton静态审计仅PARTIAL，R2-03～10尚无可运行310P V2后端；R2-11/12 CPU CI 61项治理/ABI/语义UT +54项既有V2 pytest PASS；R2-13两轮运行时审查未完成。**当前STATIC NO-GO；不需要用户上机**。
