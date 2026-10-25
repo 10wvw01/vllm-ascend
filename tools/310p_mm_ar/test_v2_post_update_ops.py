@@ -203,6 +203,32 @@ class TorchPostUpdate(unittest.TestCase):
         for actual, expected in zip((computed, laststorage, total, rows), before):
             self.assertTrue(t.equal(actual, expected))
 
+    def test_corrupt_int32_state_overflow_cannot_bypass_capacity_check(self):
+        t = self.t
+        for corrupt in ("total_len", "num_computed_tokens"):
+            with self.subTest(corrupt=corrupt):
+                computed, laststorage, total, rows, _counts = self._state()
+                if corrupt == "total_len":
+                    total[1] = 2**31 - 1
+                else:
+                    computed[1] = 2**31 - 1
+                before = [x.clone() for x in (computed, laststorage, total, rows)]
+                with self.assertRaisesRegex(RuntimeError, "state capacity"):
+                    self.ops.post_update(
+                        t.tensor([1], dtype=t.int32), computed,
+                        laststorage[:, :1], None,
+                        t.tensor([[7, -1, -1, -1]], dtype=t.int64),
+                        t.tensor([1], dtype=t.int32),
+                        t.tensor([0], dtype=t.int32),
+                        t.tensor([0, 1], dtype=t.int32),
+                        rows, total,
+                        idx_mapping_np=[1], last_sampled_storage=laststorage,
+                    )
+                for actual, expected in zip(
+                    (computed, laststorage, total, rows), before
+                ):
+                    self.assertTrue(t.equal(actual, expected))
+
     def test_frozen_source_310p_only(self):
         src = (SRC / "model_runner.py").read_text()
         self.assertIn("def postprocess_sampled(", src)

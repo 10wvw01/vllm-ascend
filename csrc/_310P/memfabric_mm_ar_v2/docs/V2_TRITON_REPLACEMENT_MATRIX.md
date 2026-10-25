@@ -14,7 +14,7 @@
 | T06 | GPU V2 `BlockTables.compute_slot_mappings`→`_compute_slot_mappings_kernel` | KV Attn **必经** | 多Group Eager候选已接，0e819f23补32B物理行与整缓冲copy；需设备验证非连续逻辑view stride、算子/流、5 Sliding+1 Full异构blocksize与mask | BLOCKED |
 | T07 | 上游 `Sampler`或`RejectionSampler`→`get_num_sampled_and_rejected` | Decode/Spec sampling **必经** | NPU sampled/rejected及prefill-mask，避免输出数错 | BLOCKED |
 | T08 | 上游`RejectionSampler`→`_flatten_sampled_kernel` | K7 Verify **必经** | NPU rejection、sample positions与随机数接口，FP16重复测试 | BLOCKED |
-| T09 | `GPUModelRunner.postprocess_sampled`→上游`post_update` | 有生成token **必经** | NPU维护num_computed、last_token、all_tokens、bin_counts；已存在AscendV2函数但**未在GPU runner继承路径接线** | BLOCKED |
+| T09 | `GPUModelRunner.postprocess_sampled`→上游`post_update` | 有生成token **必经** | 310P专属候选已override并调用`post_update_ops.py`，补masked尾部重复列覆写、Token int32溢出/旧状态容量与空penalty预检CPU负例；310P3`_assert_async/scatter_add_/index_copy_`、多Buffer原子性/异常/Stream未审，通用Ascend仍保留Triton | BLOCKED |
 | T10 | `GPUModelRunner.postprocess_num_computed_tokens`→`post_update_num_computed_tokens` | PP>1/其它分支；**当前TP2/PP1可能不可达，需Trace证实** | 保留禁止默认/显式阻断PP；如实际调用必须替代 | UNVERIFIED |
 | T11 | `DFlashSpeculator.propose`→上游`prepare_dflash_inputs` | DFlash K7每Draft group **必经** | 310P原`npu_copy_and_expand_dflash_inputs`可复用**语义**，需另写V2 ABI适配；不能直接调用V1 Proposer | BLOCKED |
 | T12 | 我方 `worker/v2/input_batch.py:post_update`的`_post_update_kernel` | 本地函数存在，**未证实当前GPU ModelRunner自动引用** | 避免假替换；只有调整实际`GPUModelRunner.postprocess_sampled`调用才算覆盖 | UNWIRED |

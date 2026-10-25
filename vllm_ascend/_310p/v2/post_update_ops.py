@@ -124,6 +124,12 @@ def post_update(
         torch.all((count >= 0) & (count <= width) & (rejected >= 0)
                   & (query_lens >= 0)
                   & (old_total >= 0)
+                  & (old_total <= all_token_ids.shape[1])
+                  & (old_computed >= 0)
+                  & (old_computed <= all_token_ids.shape[1])
+                  # First bound each int32 state to physical row capacity.
+                  # Otherwise e.g. INT_MAX + 1 wraps negative and incorrectly
+                  # passes the old (sum <= capacity) predicate.
                   & (old_total + count <= all_token_ids.shape[1])
                   & (old_computed + query_lens - rejected >= 0)
                   & (old_computed + query_lens - rejected <= all_token_ids.shape[1])),

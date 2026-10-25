@@ -48,3 +48,5 @@
 - **P0-14：T06 KV Slot Mapping短行写。** 原`slot_mappings[group,max_tokens]`的物理stride及`[:, :active_tokens].copy_`未确保32B行完整提交；现用物理padding及全行构造/整缓冲写（`0e819f23`），两组异构blocksize及非8倍数token CPU测试通过。仍需真实310P3 Attention接受非连续逻辑view的stride/alias合同、NPU算子/流验证，T06继续BLOCKED，不能视作STATIC-GO。
 
 - **P0-15：T09接近Token行尾时 masked 列与accepted列冲突**。原`rows.scatter_`以clamp后的列写入，sample宽度大于剩余容量时无效列可擦掉合法已接受Token。新增accepted-only delta `scatter_add_`和空penalty词表、int64→int32越界写前检查及Torch CPU负例。**设备`scatter_add_`、同流顺序与多Buffer原子性仍未核验，静态审查不通过，第二轮独立深审NOT_RUN**。
+
+- **P0-16：T09旧持久长度int32溢出绕过容量**。CPU算术确认`INT_MAX+1`回绕负数可通过原`old_total+count<=capacity`判断；写前检查旧total/computed属于实际物理容量，保证合法范围下后续运算不溢出。新增坏状态状态不变负例。T09仍需设备算子和异常传播审查，**NO-GO**。

@@ -262,3 +262,9 @@
 - 纯Torch CPU最小复现：row width=32、old_total=31、sample width=4、accepted=1时，原`scatter_`将尾部无效列clamp到31，与真实accepted列重合，后续旧值覆写合法Token（期望7，实际旧值）。这是候选T09静默错误，不代表310P3设备已运行。
 - 本分支修为accepted-only delta `scatter_add_`（无效列delta=0）；空`output_bin_counts`词表从晚检查改为写前拒绝；accepted int64超出持久int32范围在写前拒绝；新增Torch CPU尾列、异常不变更状态回归。先以此次SHA对应GitHub CI核验，不能复用旧Run。
 - `torch._assert_async/scatter_add_/index_copy_`的310P3支持及异步时序仍UNKNOWN；多Buffer写异常所有权尚未封闭。T09/ABI-04仍BLOCKED/NO，**0/44 STATIC NO-GO**；Worker NOT_IMPLEMENTED、PR#7 Draft、R2-B/C/D ONDEVICE NOT_RUN。
+
+### R2-A T09进一步容量溢出防护与矩阵源代码一致性审计（2026-10-25）
+
+- 补充独立CPU复现：`old_total=int32_max`、`count=1`时，原`old_total+count`溢出为负数，`<=model_capacity`可能错误放行；修复为写前校验`0<=old_total,old_computed<=physical_token_capacity`，保证后续int32加法在合法物理状态边界内，不再用溢出结果掩盖错误。新增坏状态注入回归并验证所有状态未改。
+- 同步更新ABI-01/04/08/09和T09的矩阵叙述：候选Runner已有局部替代连线，而不是“完全未接线”；但整条T13、设备算子与完整采样仍缺证据，状态不升级。GitHub CI `40191324453` 已验证前一提交 `4aba82db` 双job PASS（139 unittest/13 skip+54 pytest、独立166 Torch CPU），本次新SHA的CI仍需独立核验。
+- 静态门禁维持 `0/44 STATIC-NO-GO`，PR#7 Draft，Worker NOT_IMPLEMENTED，现场未授权、不上机。

@@ -280,3 +280,9 @@
 
 - 310P专属V2候选的`post_update_ops.py`在row仅余1个槽、sampler宽度大于1时，原`scatter_`对重复clamp列的masked写可能覆盖真实accepted Token；改为只对accepted位置累计差值，并将空penalty vocab和int64接受token→int32范围校验提前到首次持久写之前。附Torch CPU边界回归；无NPU或性能结果。
 - 当前仍**R2-A STATIC NO-GO 0/44**；T09/ABI-04依旧BLOCKED/NO，第二轮静审未开始，NPU Worker仍NOT_IMPLEMENTED，PR#7继续Draft，Stock默认与主线未变。此修订CPU CI尚待按新SHA核验，设备写原子性/流/错误传播仍是实机准入阻塞。
+
+### R2-A ABI矩阵与T09容量溢出复核（2026-10-25，仅研发支路）
+
+- 上一提交`4aba82dbecf2649087d0044ff57fca6b6135721a`已由[CI 40191324453](https://github.com/10wvw01/vllm-ascend/actions/runs/40191324453)双job验证：轻量139 unittest OK(13 skip)、既有54 pytest PASS、独立Torch CPU166 unittest OK；R2-A准入仍0/44 NO-GO。
+- 本轮又发现T09 `old_total=int32_max`与`count=1`相加溢出后可能错误通过容量条件，候选添加旧total/computed的物理容量上下界写前校验和失败不变更状态CPU测试，并纠正`V2_API_ABI_MATRIX` / `V2_TRITON_REPLACEMENT_MATRIX`中未反映已接专属候选路径的旧说法。新提交需重新核验CI；**本轮没有新310P设备正确性、S1/S2/L1/L2数据**。
+- 仍保持`NPUWorker310.NOT_IMPLEMENTED`、PR#7 Draft、Stock默认，T09/ABI-04仍BLOCKED/NO，29T+15ABI 共44节点0项完整READY、R2-B/C/D ONDEVICE NOT_RUN。
