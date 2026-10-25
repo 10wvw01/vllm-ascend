@@ -269,3 +269,9 @@
 ### 2026-10-25 R2-A T03/T07/T08 GitHub CI核验（工作分支）
 
 - PR#7代码`2ba84b8fa1daa142b679a359b1db6d525dcb0423`的[GitHub Actions Run 40169623722](https://github.com/10wvw01/vllm-ascend/actions/runs/40169623722) **SUCCESS**：87治理unittest（5 skipped：无torch）+54 pytest，独立torch2.10 CPU 73 unittest OK；`r2_static_admission --report`仍 **0/31 STATIC NO-GO**。新增代码是T03/T07/T08隔离候选，不是可执行Runner或NPU GO；主线与服务器均未修改，PR#7保持DRAFT。
+
+
+### 2026-10-25 R2-A T01源码续研（非静态准入）
+
+- 仅自有R2任务分支新增冻结vLLM0.27.1 `prepare_prefill_inputs`的Torch Eager候选与stdlib CPU oracle、随机/负例Torch合同，覆盖prefill、lookahead、混合decode及请求slot隔离；参见`R2_EXECUTION_STATUS_20261025.md`和`V2_TRITON_REPLACEMENT_MATRIX.md`。T01仍未接生产Runner，所有GPU V2 UVA/BlockTables、T09/T11及采样多KV调用链仍阻断。
+- **R2-A STATIC NO-GO / R2-B/C/D ONDEVICE NOT_RUN**；Worker fail-closed与PR#7 DRAFT不变，CI绿不能替代310P设备算子、stream/所有权审查及两轮静态深审。新代码CI必须按新SHA取证，不复用旧计数。
