@@ -220,3 +220,10 @@
 ### R2 实际实施状态总账（对话/跨分支唯一恢复入口）
 
 - 详见 [R2执行状态动态账](R2_EXECUTION_STATUS_20261025.md)。截至R2分支`6163344`：R2-00 GitHub证据归档PASS（PR#8已并入主线）；R2-01/02 ABI/Triton静态审计仅PARTIAL，R2-03～10尚无可运行310P V2后端；R2-11/12 CPU CI 61项治理/ABI/语义UT +54项既有V2 pytest PASS；R2-13两轮运行时审查未完成。**当前STATIC NO-GO；不需要用户上机**。
+
+
+## 16. R2隔离数据所有权候选实现（2026-10-25，仍STATIC NO-GO）
+
+- R2分支新增`_310p/v2/staged_buffers.py`、`request_state.py`、`block_tables.py`和CPU合同测试：在不改上游/不装Triton的前提下，分别实现Eager 32B padded staged write、1D状态dirty scatter、无UVA RequestState候选、多组不同blocksize的gather/slot候选。所有模块**尚未接入**真实Runner；无310P实机测试，CPU Torch合同可能在轻量CI中Skip。
+- 审查新增P0：原GPUModelRunner父构造先触发UVA，后替换req_states不安全；原GPU BlockTables也在KV初始化触发Triton；sampling GPU状态与CPU staging所有权存在陈旧镜像覆盖风险。候选只局部消减风险，不能将T05/T06/T14/T15/T16标READY；其它T01~09/T11和DFlash/GDN/Mamba仍未实现。
+- 保留`NPUWorker310`的`NOT_IMPLEMENTED`、PR#7 DRAFT，**R2-A STATIC NO-GO / R2-B/C/D ONDEVICE NOT_RUN**。禁止因CI绿启动设备；下一步继续冻结构造链、非Triton输入/采样和真实DFlash KV协议。
