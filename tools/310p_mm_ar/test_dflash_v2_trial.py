@@ -126,8 +126,13 @@ class K7TrialContract(unittest.TestCase):
         self.assertEqual(env["DUMMY_UNRELATED"], "safe")
 
     def test_graph_requires_extra_readiness(self):
+        genuine_g0 = {"mode": "STOCK_DFLASH_G0_READ_ONLY",
+                      "num_speculative_tokens": 7,
+                      "verdict": {"static_go": True, "blockers": []},
+                      "probes": {"pip_check": {"classification": "PASS"}}}
         with self.assertRaisesRegex(RuntimeError, "Graph research"):
-            trial.execute(case("stock", mode="graph"), True, True, True)
+            trial.execute(case("stock", mode="graph"), True, True, True,
+                          readonly_preflight=genuine_g0)
 
     def test_preflight_missing_and_bad_status_fail_stop(self):
         with self.assertRaisesRegex(RuntimeError, "wrong G0"):
