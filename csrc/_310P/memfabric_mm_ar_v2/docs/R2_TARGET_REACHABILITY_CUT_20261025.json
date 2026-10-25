@@ -156,14 +156,14 @@
       "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
       "condition": "min_p非零时；greedy候选min_p=0",
       "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
-      "decision": "未移植，必须请求前拒绝"
+      "decision": "greedy候选明确要求min_p=0；非零参数必须在请求入队前拒绝，不能隐式忽略"
     },
     {
       "id": "T21",
       "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
       "condition": "bad_words非空时；greedy候选拒绝",
       "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
-      "decision": "未移植，必须请求前拒绝"
+      "decision": "greedy候选明确拒绝bad_words非空请求；未实现NPU禁词算子前不可进入执行"
     },
     {
       "id": "T22",
