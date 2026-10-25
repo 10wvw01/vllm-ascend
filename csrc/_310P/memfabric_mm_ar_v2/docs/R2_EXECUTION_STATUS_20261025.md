@@ -179,3 +179,9 @@
 - 新增`_310p/v2/sampler.py`：专属`NPUSampler310V2`对冻结`Sampler.__call__`绑定T07、`Sampler.sample`绑定T17 Greedy候选，强制禁用CUDA FlashInfer；`NPURejectionSampler310V2`对冻结`RejectionSampler.__call__`绑定T07、`_verify`绑定T23 Greedy候选。若请求logprobs，拒绝未替代T08/T22 Triton。
 - 专属`NPUModelRunner310V2Candidate.load_model`作用域clone冻结`GPUModelRunner.load_model`并注入这两个候选工厂；通用Ascend/上游全局方法保持不变。源码AST合同测试验证绑定而不误报为设备通过。
 - **仍NO-GO**：T19～T22/24采样参数分支与T25窄写、GPU ModelState/流/Graph/TP2和NPU`torch._assert_async`未闭环；且专属Runner未注册、T23非贪心显式拒绝。静态门禁仍0/40，ONDEVICE NOT_RUN。
+
+### T25 310P K7 7×int64 窄写的专属V2 sample_tokens替换（CPU候选，仍NO-GO）
+
+- 直接从冻结上游`GPUModelRunner.sample_tokens`逐段移植整段执行顺序到`NPUModelRunner310V2Candidate.sample_tokens`，仅将`self.req_states.draft_tokens[idx_mapping]=draft_tokens`改成`_310p_v2_store_draft_tokens`。保留异步ModelRunnerOutput构建、postprocess、DFlash propose、KV connector顺序及`step_eplb_after`装饰器。后续按冻结源码进行逐行静态差异审计。
+- 新增`_310p/v2/draft_storage.py`，对持久8宽int64底层缓冲进行完整64B行`index_copy_`，保证K7逻辑7宽view别名与跨request重用/旧padding清零；CPU scheduler去重/合法性检查及`torch._assert_async`确保GPU设备req-index一致。对应`test_v2_draft_storage.py`覆盖多请求/复用/异常。
+- **尚不满足T25 READY**：新代码仍属于未注册的候选Runner，`torch._assert_async/index_copy_`与NPU短写、异步输出、device stream和GDN/Mamba/TP2需要静审/设备验证。Worker NOT_IMPLEMENTED继续保留。
