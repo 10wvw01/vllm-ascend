@@ -47,7 +47,7 @@ class AuditContracts(unittest.TestCase):
         for file in ("V2_API_ABI_MATRIX.md", "V2_TRITON_REPLACEMENT_MATRIX.md"):
             with self.subTest(file=file):
                 doc = (DOCS / file).read_text()
-                self.assertTrue("BLOCKED" in doc.upper() or "NO-GO" in doc.upper())
+                self.assertTrue("| NO |" in doc.upper() or "BLOCKED" in doc.upper())
                 self.assertTrue(len(doc) > 1000)
 
     def test_git_commit_is_pinned_in_abi_matrix(self):
