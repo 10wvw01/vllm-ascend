@@ -328,3 +328,9 @@
 - 提供CPU真实数据字节级gold（包括两Mamba group、不同状态dtype、同块重叠、混合req_slot顺序）和失败poison/无原地重试合约；`tools/310p_mm_ar/test_v2_hybrid_tensor_state.py`由CPU-Torch CI验证。
 - **重要限定**：并非可直接接线的vLLM ModelState，当前Candidate显式拒绝NPU设备、未接上游prepare_attn、未核实真实设备small-write/stream/async所有权；用户未提供Draft私有信息，未读取。**NPU四段与模型接线仍未实现**。
 - 正式Serving/Worker保护、Hybrid align`load_model`守卫不变；准入继续`R2-A STATIC-NO-GO: 0/46`、PR#7 DRAFT、310P设备NOT_RUN。下一步P0-E/NPU ABI、未注册设备搬运候选和ModelState绑定，仅有真实证据才能STATIC-GO。
+
+### 2026-10-25｜R2-P0-E/NPU 设备操作候选（静态编码，严禁误报实机）
+
+- [设备ABI与两轮源码审查](R2_P0_E_NPU_CANDIDATE_20261025.md)：新增未注册 `vllm_ascend/_310p/v2/hybrid_state_npu.py`：具备CPU/NPU Torch `index_select→cat→index_copy_`整32B物理块的GDN Conv SD/DS与Temporal搬运候选、每8个int32元素32B合并接受数行写、跨Mamba KV Group地址检查与源快照、错误poison、显式NPU Stream opt-in/同步。新 `test_v2_hybrid_npu_candidate.py` 使用Torch CPU完成真实数据路径和失败测试。
+- **这不是310P3设备实现已经可运行的证明**：当前NPU路径仅为未经设备验证的`torch_npu`操作候选；Mamba State的T30-A设备resident索引计算、T31 device-owned K7采样计数输入、ModelState`prepare_attn`/Runner接线、NPU内存写粒度和Stream/生命周期仍阻塞。CPU block table输入只允许同步权威快照，不能偷偷使用异步乐观镜像。
+- 保留Worker和Hybrid/align双重`NotImplemented`；正式MM+MemFabric不变，Stock默认不变，`R2-A STATIC-NO-GO 0/46`，PR#7 DRAFT；310P3 NPU/Graph NOT_RUN。未来实机须完成G0+ABI审核并取得单独授权。

@@ -70,3 +70,7 @@
 ### 2026-10-25｜R2-P0-E的实际代码交付（工作分支，尚未合主线）
 
 [R2-P0-E Target Hybrid/GDN Tensor搬运原型](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_HYBRID_TENSOR_CANDIDATE_20261025.md)已在`work/310p-v2-r2-implementation-20261025`实现多Mamba Group、Conv SD/DS/Temporal的可执行CPU Torch Tensor状态搬运及故障注入，**不是NPU实现**、不属于新的MM融合Kernel调优结果。静态阻断仍在、PR#7继续DRAFT；下一步需要310P设备T30/T31独立候选、真实ABI/stream审查与完整静态准入。自研Draft NDA资料未读。
+
+### 2026-10-25｜R2-P0-E/NPU 候选 (仅工作分支)
+
+[Target GDN/T30-T31 Torch-NPU未注册候选与设备ABI审查](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_NPU_CANDIDATE_20261025.md)已完成`index_select/cat/index_copy_`整32B物理块、Conv SD/DS/Temporal、多组KV、源数据快照和8×int32合并接受数写的代码；**只有CPU Torch执行证明，真实310P3的torch_npu支持/流/物理写粒度未验证**。此工作不是正式融合Kernel变更，也没有接入vLLM Runner。主线保持`dev/310p-memfabric-mm-ar`，PR#7 DRAFT、R2-A 0/46、Worker NOT_IMPLEMENTED。

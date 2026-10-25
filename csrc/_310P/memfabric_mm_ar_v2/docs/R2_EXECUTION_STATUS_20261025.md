@@ -306,3 +306,9 @@
 
 - [T30/T31最小状态Tensor原型](R2_P0_E_HYBRID_TENSOR_CANDIDATE_20261025.md)新增`_310p/v2/hybrid_state.py`和`tools/310p_mm_ar/test_v2_hybrid_tensor_state.py`：实际拷贝合成Conv SD/DS与Temporal缓存；按active batch行查per-Mamba-group物理BT，K7接受数，old/new state col，cross-block precopy及same-block bias>0 postcopy；源快照避免原地覆盖，先计划后提交，复制异常poison。未依赖任何自研Draft代码。
 - 此组件**当前仅CPU Tensor**，与冻结上游ModelState ABI并不直接兼容，主动拒绝NPU Tensor；NPU设备正确性、32B small-write、stream/event、实物cache地址与读写生命周期仍需最小设备实现和门禁。Worker`NOT_IMPLEMENTED`与Candidate Hybrid align阻断不动，`0/46 STATIC-NO-GO`，不得请求实机。
+
+### 2026-10-25｜R2-P0-E/NPU Torch-native全物理块操作候选
+
+- `_310p/v2/hybrid_state_npu.py`已实现独立GDN CPU/NPU兼容Torch Tensor拷贝主体：按Mamba KV group与当前batch BT行寻址，`index_select`所有源状态，Conv SD/DS `cat`保留原尾部，`index_copy_`整块写回；Temporal按`src_col+bias`定位；目的块去重、全局预检、失败poison。
+- `PaddedInt32State310Candidate`用8×int32全行合并更新接受数，防止同一32B行的多个req_slot写冲突；无torch_npu/未显式绑定NPU Stream时拒绝设备入口，NPU发射须`confirm_completed`明确同步，禁止将enqueue当执行完成。
+- [实现/审查/ABI清单](R2_P0_E_NPU_CANDIDATE_20261025.md)；新CPU Torch gold `test_v2_hybrid_npu_candidate.py`。**非完整ModelState、真实NPU ops未实测、当前还不能解除Runner早拒绝或Worker NOT_IMPLEMENTED，静态0/46、设备NOT_RUN。**
