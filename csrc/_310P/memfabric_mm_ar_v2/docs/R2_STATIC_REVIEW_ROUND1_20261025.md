@@ -50,3 +50,6 @@
 - **P0-15：T09接近Token行尾时 masked 列与accepted列冲突**。原`rows.scatter_`以clamp后的列写入，sample宽度大于剩余容量时无效列可擦掉合法已接受Token。新增accepted-only delta `scatter_add_`和空penalty词表、int64→int32越界写前检查及Torch CPU负例。**设备`scatter_add_`、同流顺序与多Buffer原子性仍未核验，静态审查不通过，第二轮独立深审NOT_RUN**。
 
 - **P0-16：T09旧持久长度int32溢出绕过容量**。CPU算术确认`INT_MAX+1`回绕负数可通过原`old_total+count<=capacity`判断；写前检查旧total/computed属于实际物理容量，保证合法范围下后续运算不溢出。新增坏状态状态不变负例。T09仍需设备算子和异常传播审查，**NO-GO**。
+
+- **P0-17：Inherited Dummy 输入ABI分叉。** 正常`execute_model→self.prepare_inputs`动态派发310P，dummy分支直接使用冻结GPU module-global`InputBatch.make_dummy`，`_dummy_sampler_run`亦然。专属310P候选通过`inspect.unwrap`及局部globals克隆注入`AscendInputBatch`；源码AST校验不改上游。实际`AscendInputBatch.make_dummy`别名/`asdict`、Attention/Stream/首调未验证。
+- **P0-18：T13遗漏Hybrid Mamba Align两条实在执行路径。** `init_model_state`选择hybrid ModelState后：Forward preprocess含`preprocess_mamba_align_fused_kernel`和precopy Triton；采样postprocess含`_scatter_num_accepted_kernel`及align postcopy Triton。本期配置align触发，Target Stock也不例外。新记**T30/T31**分别BLOCKED，并在310P候选load前fail-closed；**0/46 STATIC NO-GO**、第二轮独立审查NOT_RUN。详见`R2_T13_INHERITANCE_AUDIT_20261025.md`。

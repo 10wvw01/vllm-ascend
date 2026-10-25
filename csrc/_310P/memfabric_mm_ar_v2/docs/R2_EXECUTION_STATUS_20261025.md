@@ -268,3 +268,11 @@
 - 补充独立CPU复现：`old_total=int32_max`、`count=1`时，原`old_total+count`溢出为负数，`<=model_capacity`可能错误放行；修复为写前校验`0<=old_total,old_computed<=physical_token_capacity`，保证后续int32加法在合法物理状态边界内，不再用溢出结果掩盖错误。新增坏状态注入回归并验证所有状态未改。
 - 同步更新ABI-01/04/08/09和T09的矩阵叙述：候选Runner已有局部替代连线，而不是“完全未接线”；但整条T13、设备算子与完整采样仍缺证据，状态不升级。GitHub CI `40191324453` 已验证前一提交 `4aba82db` 双job PASS（139 unittest/13 skip+54 pytest、独立166 Torch CPU），本次新SHA的CI仍需独立核验。
 - 静态门禁维持 `0/44 STATIC-NO-GO`，PR#7 Draft，Worker NOT_IMPLEMENTED，现场未授权、不上机。
+
+### R2-01/02 T13完整继承源码审查第一批闭环（2026-10-25；NO-GO）
+
+- 审计入口：冻结`GPUModelRunner`→Ascend V2`NPUModelRunner`→310P候选，按构造、load、KV、normal/dummy execute、ModelState动态委托、sampling、postprocess、shutdown划分。详见 [R2-T13源码审计](R2_T13_INHERITANCE_AUDIT_20261025.md)。完整设备运行闭包仍未穷尽，T13不得升级READY。
+- **P0-17**：`execute_model(dummy_run=True)`、`_dummy_sampler_run`沿用上游module-global`InputBatch.make_dummy`，绕过Ascend的dummy`seq_lens_np/attn_state`。310P候选采用局部globals clone+unwrap注入`AscendInputBatch`；非310P Runner/上游模块不变；仅可称静态候选。
+- **P0-18**：冻结Hybrid`MambaHybridModelState.preprocess_state`的`preprocess_mamba_align_fused_kernel`及`run_fused_precopy`、`postprocess_state`的`_scatter_num_accepted_kernel`及`run_fused_postprocess_align`仍必经Triton；本项目`mamba_cache_mode=align`，**Target Stock Eager已受阻，非DFlash专属**。新增正式 **T30/T31**，候选load_model在模型加载前拒绝该未移植路径；不修改模型config/偷用Triton。
+- gate从历史**0/44**更正为**0/46**（T01～T31 + ABI-01～15）；新增AST防回归`test_v2_t13_inherited_paths.py`，审计/工程代码交叉引用。**STATIC NO-GO、Worker NOT_IMPLEMENTED、PR#7 Draft、ONDEVICE NOT_RUN**。新SHA CI待实际结果确认，本轮未修改设备、SO或融合路由。
+- 下轮技术优先级：T30/T31真正NPU安全实现+Mamba短写、T13剩余ModelState factory/Attention/allocator/Stream/异常可达路径；之后才考虑双轮独立审查与R2-15 G0。

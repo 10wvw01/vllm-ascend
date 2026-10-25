@@ -286,3 +286,9 @@
 - 上一提交`4aba82dbecf2649087d0044ff57fca6b6135721a`已由[CI 40191324453](https://github.com/10wvw01/vllm-ascend/actions/runs/40191324453)双job验证：轻量139 unittest OK(13 skip)、既有54 pytest PASS、独立Torch CPU166 unittest OK；R2-A准入仍0/44 NO-GO。
 - 本轮又发现T09 `old_total=int32_max`与`count=1`相加溢出后可能错误通过容量条件，候选添加旧total/computed的物理容量上下界写前校验和失败不变更状态CPU测试，并纠正`V2_API_ABI_MATRIX` / `V2_TRITON_REPLACEMENT_MATRIX`中未反映已接专属候选路径的旧说法。新提交需重新核验CI；**本轮没有新310P设备正确性、S1/S2/L1/L2数据**。
 - 仍保持`NPUWorker310.NOT_IMPLEMENTED`、PR#7 Draft、Stock默认，T09/ABI-04仍BLOCKED/NO，29T+15ABI 共44节点0项完整READY、R2-B/C/D ONDEVICE NOT_RUN。
+
+### 2026-10-25 R2-01/02 T13冻结继承调用链审计（工作分支）
+
+- 固定上游`vllm@6e448d0`源码逐阶段追踪GPU→Ascend V2→310P候选：normal prepare_inputs动态绑定已存在，但dummy/profile的`InputBatch.make_dummy`保持GPU module-global，新增仅310P私有clone替换为`AscendInputBatch`，不改变其它Ascend/GPU runner或设备Worker状态。
+- 发现T13以前未捕获的**真实必经**Triton：Hybrid Mamba Align Forward中`preprocess_mamba_align_fused_kernel`和`run_fused_precopy`，采样后`_scatter_num_accepted_kernel`和`run_fused_postprocess_align`。**普通Stock Target Eager同样受阻**。现在分别列T30/T31（BLOCKED），不以一个T13笼统概括；310P候选`load_model`在模型分配前拒绝未移植hybrid align以防静默进入GPU Triton。完整方案仍未研发完成。
+- 正式门禁因源码新路径更新为**31条T+15 ABI=46项，0/46 STATIC NO-GO**；历史44保留旧时间点真实性。本轮并未完成第二轮深审/310P3算子支持验证，Worker`NOT_IMPLEMENTED`、PR#7 Draft、Stock默认、R2-B/C/D NOT_RUN均不变。报告见 [T13继承源码审计](R2_T13_INHERITANCE_AUDIT_20261025.md)，本轮CPU新提交CI应以对应GitHub SHA核验。
