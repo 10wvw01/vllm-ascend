@@ -59,3 +59,8 @@
 
 - [R1-B现场报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-r1b-stock-eager-smoke-nogo-20261025/csrc/_310P/memfabric_mm_ar_v2/docs/R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)：G0通过，Stock+DFlash Eager加载Target后Draft初始化FAIL；V2 Eager、完整业务和Graph均NOT_RUN，L0/L1/L2无新数字。
 - 新增的V2 Triton豁免仅改变 **310P3 V2配置校验** 且Worker提前拒绝未移植V2，不构成任何业务结果，也不修改已有D4/SEL-01/F1-C性能。
+
+## 2026-10-25 R2任务锁定（计划，无新测量）
+
+- R2-00～R2-21是未来代码/实机工作项；尚未发生V2 Model Runner+DFlash、V2融合或Graph的新实测，不得新增LLM吞吐、acceptance、L1或L2性能数字。
+- 比较口径预先锁定为：S1=V2 Runner+Stock MM+HCCL AR；S2=同V2 Runner+正式MM+MemFabric AR；历史V1 Runner独立标S0，不能用S0→S2声称融合收益。见[R2总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)。
