@@ -200,3 +200,7 @@
 ### R2首轮静态深审（代码真实范围，NO-GO）
 
 - 已出具[R2运行时第一轮静态深审](R2_STATIC_REVIEW_ROUND1_20261025.md)，审查专属V2构造/KV多Group、T01～T04/T09/T11、Greedy sampling、T25原位缓冲/持久状态；确认8项P0缺口，覆盖不等于PASS。Worker继续fail-closed、PR仍Draft、40项证据未升级。第二轮仅在完成生产代码闭环后开展。
+
+### 第一轮静审发现并修复T13 NPU main_stream错误继承
+
+- 冻结GPUModelRunner@0.27.1 的`main_stream`是`@cached_property`，调用`torch.cuda.current_stream(self.device)`，不属于之前克隆父构造函数的局部globals作用域，因而不能靠`_TorchNPUProxy`保证无CUDA调用。专属`NPUModelRunner310V2Candidate`新增同名NPU cached_property以显式返回`torch.npu.current_stream(self.device)`；补AST合同`test_v2_runner_npu_main_stream.py`。这修的是**一处真实继承边界**，并非完整T13结束，Worker仍fail-closed。

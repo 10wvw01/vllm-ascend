@@ -12,6 +12,7 @@ Eager functions, samplers, mixed-attention and KV ownership are connected.
 from __future__ import annotations
 
 import types
+from functools import cached_property
 
 import torch
 from vllm.v1.core.sched.output import GrammarOutput
@@ -91,6 +92,17 @@ from vllm_ascend.worker.v2.model_runner import NPUModelRunner as _AscendNPUModel
 
 class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
     """Staged non-UVA 310P3 V2 constructor, not yet an executable Runner."""
+
+    @cached_property
+    def main_stream(self):
+        """Bind inherited GPUModelRunner.main_stream to the actual NPU stream.
+
+        The upstream 0.27.1 cached property uses torch.cuda.current_stream.
+        A constructor-local torch proxy does not replace that descriptor:
+        this dedicated override prevents a later CUDA stream lookup from
+        accidentally escaping the private globals construction boundary.
+        """
+        return torch.npu.current_stream(self.device)
 
     def __init__(self, vllm_config, device):
         _validate_310p_v2_constructor_contract(vllm_config, device)
