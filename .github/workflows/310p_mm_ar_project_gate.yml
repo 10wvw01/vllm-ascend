@@ -28,6 +28,8 @@ jobs:
         run: python -m unittest discover -s tools/310p_mm_ar -p 'test_*.py' -v
       - name: Existing V2 CPU/source-contract regression
         run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: R2-A static admission inventory (NO-GO is expected)
+        run: python3 tools/310p_mm_ar/r2_static_admission.py --report
       - name: Validate project entry and state files
         run: python3 tools/310p_mm_ar/project_gate.py --static
       - name: Validate change ledger requirements
