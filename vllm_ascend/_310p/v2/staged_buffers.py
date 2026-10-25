@@ -115,33 +115,53 @@ class NPUStagedWriteTensor:
     def apply_write(self) -> None:
         import torch
 
-        # 1-D state (num_computed_tokens/total_len) is also mutated by the
-        # sampling kernel on device. Copying a stale CPU mirror of the whole
-        # vector would SILENTLY erase accepted tokens in other live requests.
-        # Scatter only the newly staged indices via a device kernel.
+        if getattr(self, "_poisoned", False):
+            raise RuntimeError("310P3 staged buffer poisoned by failed device commit")
         pending = tuple(self.plan._pending)
-        dirty = self.plan.commit()
-        if self.plan.vector:
-            offsets = sorted({
-                offset + i
-                for _row, offset, values in pending
-                for i in range(len(values))
-            })
-            if offsets:
-                indices = torch.tensor(offsets, dtype=torch.int64, device=self.gpu.device)
+        if not pending:
+            return
+        # Do NOT commit the CPU plan before device writes complete. The
+        # previous implementation lost pending writes if an NPU copy failed.
+        # Construct the proposed state without mutating the committed mirror.
+        dirty = tuple(sorted({row for row, _offset, _values in pending}))
+        try:
+            if self.plan.vector:
+                # The device owns all other live indices (post_update mutates
+                # them). Never upload the stale full-vector CPU mirror.
+                changes = {}
+                for _row, offset, values in pending:
+                    for i, value in enumerate(values):
+                        changes[offset + i] = value
+                offsets = sorted(changes)
+                indices = torch.tensor(
+                    offsets, dtype=torch.int64, device=self.gpu.device
+                )
                 values = torch.tensor(
-                    [self.plan.data[0][i] for i in offsets],
+                    [changes[i] for i in offsets],
                     dtype=self.dtype, device=self.gpu.device
                 )
                 self._storage.index_copy_(0, indices, values)
-            return
-
-        # Matrix rows are CPU-authoritative only at add/replace time; callers
-        # MUST NOT stage an active GPU-mutated row. Full padded-row H2D copies
-        # avoid 310P short unaligned DMA. This restriction is a GO gate.
-        for row in dirty:
-            source = torch.tensor(self.plan.data[row], dtype=self.dtype, device="cpu")
-            self._storage[row].copy_(source, non_blocking=False)
+            else:
+                # Only newly owned or explicitly recycled rows may be staged:
+                # post_update owns active rows on device. Full 32B-aligned
+                # rows avoid short, potentially unsafe 310P3 DMA writes.
+                proposed = {
+                    row: list(self.plan.data[row]) for row in dirty
+                }
+                for row, offset, values in pending:
+                    proposed[row][offset:offset + len(values)] = values
+                for row in dirty:
+                    source = torch.tensor(
+                        proposed[row], dtype=self.dtype, device="cpu"
+                    )
+                    self._storage[row].copy_(source, non_blocking=False)
+        except Exception:
+            # Some groups/rows may already have been copied; retrying could
+            # expose a half-committed KV state. Poison until Runner aborts
+            # the affected batch and tears down this adapter.
+            self._poisoned = True
+            raise
+        self.plan.commit()
 
     def clear_staged_writes(self) -> None:
         self.plan.clear_staged_writes()
@@ -183,7 +203,7 @@ class NPUBackedTensor:
         if n is not None and not 0 <= n <= len(self.cpu):
             raise ValueError("invalid row count")
         self._gpu_storage.copy_(self._cpu_storage, non_blocking=False)
-        return self.gpu
+        return self.gpu if n is None else self.gpu[:n]
 
 
 class NPUFusedStagedWriter:
@@ -202,5 +222,14 @@ class NPUFusedStagedWriter:
         for tensor in tensors:
             if not isinstance(tensor, NPUStagedWriteTensor):
                 raise TypeError("unsafe foreign staged tensor")
-        for tensor in tensors:
-            tensor.apply_write()
+        if any(getattr(tensor, "_poisoned", False) for tensor in tensors):
+            raise RuntimeError("310P3 fused write includes a poisoned buffer")
+        try:
+            for tensor in tensors:
+                tensor.apply_write()
+        except Exception:
+            # Cross-group Eager writes are not atomic. Never continue after
+            # a partial group commit and silently mix different KV epochs.
+            for tensor in tensors:
+                tensor._poisoned = True
+            raise
