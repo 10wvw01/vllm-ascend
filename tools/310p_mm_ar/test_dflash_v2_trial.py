@@ -78,6 +78,22 @@ class K7TrialContract(unittest.TestCase):
                              devices="0,1", port=8123, store_port=8123,
                              orch_json=None, output_dir=Path("/tmp/a"))
 
+    def test_model_paths_are_real_server_locations(self):
+        # 2026-10-25 on-device G0: models live under /home/models/Qwen/ and
+        # the previous constants pointed at non-existent paths.
+        self.assertEqual(trial.TARGET, "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8")
+        self.assertEqual(trial.DRAFT, "/home/models/Qwen/Qwen3.6-35B-A3B-DFlash")
+        bench = case()["benchmark_command"]
+        self.assertEqual(bench[bench.index("--tokenizer") + 1], trial.TARGET)
+
+    def test_vllm_ascend_must_resolve_to_this_worktree(self):
+        tool = "/wt/tools/310p_mm_ar/dflash_v2_trial.py"
+        self.assertFalse(trial.vllm_ascend_outside_this_worktree(
+            tool, Path("/wt/vllm_ascend")))
+        self.assertTrue(trial.vllm_ascend_outside_this_worktree(
+            tool, Path("/other/vllm-ascend/vllm_ascend")))
+        self.assertTrue(trial.vllm_ascend_outside_this_worktree(tool, None))
+
     def test_stock_contamination_never_passes(self):
         m = case()
         clean = trial.classify(m, "normal stock serve", {"completed": 2})

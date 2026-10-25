@@ -22,8 +22,10 @@ import urllib.request
 
 SPEC_TOKENS = 7
 VERIFY_WIDTH = SPEC_TOKENS + 1
-TARGET = "/home/models/Qwen3.6-35B-A3B-w8a8"
-DRAFT = "/home/models/Qwen3.6-35B-A3B-DFlash"
+# Real 310P3 server model locations (verified by the 2026-10-25 on-device G0;
+# the earlier constants lacked the Qwen/ directory level and did not exist).
+TARGET = "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8"
+DRAFT = "/home/models/Qwen/Qwen3.6-35B-A3B-DFlash"
 GRAPH_SIZES = (8, 16, 32, 64, 80)
 EXTRA = {
     "enable_flashcomm1": False,
@@ -201,10 +203,39 @@ def validate_readonly_preflight(report: dict) -> None:
         raise RuntimeError("Stock+DFlash dependency G0 not passed; preserve diagnostic and STOP")
     pip_check = report.get("probes", {}).get("pip_check", {})
     if pip_check.get("classification") not in (
-            "PASS", "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"):
+            "PASS", "KNOWN_SERVER_STATE_WAIVED",
+            "UPSTREAM_310P_INTENTIONAL_TRITON_MISSING_ONLY"):
         raise RuntimeError("pip check contains unexpected or unreadable dependency failure")
     if report.get("num_speculative_tokens") != 7:
         raise RuntimeError("wrong G0 K configuration")
+
+
+def vllm_ascend_outside_this_worktree(tool_file: str, package_root: Path | None) -> bool:
+    """True when the importable vllm_ascend is NOT the code line of this tool.
+
+    The site-packages editable install maps vllm_ascend to whichever worktree
+    built it; without this guard a trial manifest pinned to one SHA could
+    silently execute another worktree's code.
+    """
+    if package_root is None:
+        return True
+    worktree = Path(tool_file).resolve().parents[2]
+    return worktree not in package_root.resolve().parents
+
+
+def resolve_vllm_ascend_root() -> Path | None:
+    try:
+        import importlib.util
+
+        spec = importlib.util.find_spec("vllm_ascend")
+    except (ImportError, AttributeError, ValueError):
+        return None
+    if spec is None:
+        return None
+    places = list(spec.submodule_search_locations or [])
+    if places:
+        return Path(places[0])
+    return Path(spec.origin).parent if spec.origin else None
 
 
 def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
@@ -231,6 +262,11 @@ def execute(manifest: dict, approved: bool, exclusive: bool, restore: bool,
             raise RuntimeError("unsafe MF first-write/KFC bypass found")
     if shutil.which("vllm") is None:
         raise RuntimeError("vllm executable not found in current Python environment")
+    if vllm_ascend_outside_this_worktree(__file__, resolve_vllm_ascend_root()):
+        raise RuntimeError(
+            "importable vllm_ascend does not resolve to this worktree; export "
+            "PYTHONPATH=<this worktree>:$PYTHONPATH (keep the CANN entries) so "
+            "the executed code line matches the manifest")
     port = int(manifest["server_command"][manifest["server_command"].index("--port") + 1])
     with socket.socket() as sock:
         if sock.connect_ex(("127.0.0.1", port)) == 0:

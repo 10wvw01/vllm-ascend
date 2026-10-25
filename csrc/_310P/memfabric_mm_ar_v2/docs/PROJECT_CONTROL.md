@@ -1,6 +1,6 @@
 # 310P3 MM+MemFabric AR｜项目控制台（唯一权威当前状态）
 
-> **维护于** `10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`；2026-10-25。**新对话优先读本文件**。这是活动状态与交接合同，不是覆盖历史实验报告。所有未在当前主线更新的旧 README、PLAN、实验总结都只作为历史证据。
+> **维护于** `10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`；2026-10-25（R1 现场 G0 NO-GO 已入账，见 §10）。**新对话优先读本文件**。这是活动状态与交接合同，不是覆盖历史实验报告。所有未在当前主线更新的旧 README、PLAN、实验总结都只作为历史证据。
 >
 > **主线创建基底：** `perf/310p-u1-fullchain-attribution-20261025` @ `d0d57b94df06…`。基底已包含 D4 Tile2048 正式 Kernel、F1-C 实验及 U1 测试工具；U1 仅完成源码/静态审查，**没有新的 U1 实机证据**；主线建立本身没有修改正式设备 Kernel、Host ABI、通信协议或 Serving 开关。
 
@@ -137,3 +137,10 @@
 - V2正式Serving仅2048～4096融合；真实DFlash Verify/Decode的physical M及实际融合调用数仍UNKNOWN。Eager V2必须取得正式Kernel双Ranktrace和首调数值证据，Stock不能被V2选层污染。
 - 修复只读环境探针中过严的pip check合同：上游310P Docker故意卸载Triton/Triton-Ascend，仅这两类明确未安装错误带标识放行；其余Python分发、API和安装冲突照常拦截。
 - **源码工具已经写入本主线，最后CI应以实测run成功记录为准；服务器NPU和模型实验本轮全部NOT_RUN。准入裁决为PRECHECK-GO，仅进入310P3现场G0，正式上机冒烟仍以现场全部门禁PASS为前提。**
+
+## 10. R1 现场 G0 执行完毕：依赖准入 NO-GO，四组全部 NOT_RUN（2026-10-25）
+
+- OpenCode 按 [R1四象限合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md) 在隔离 worktree（主线 HEAD `07586f2f2`）完成现场 G0：CPU 合同 26/26+54/54 PASS、设备/SO/KVER/HCCL/端口全部核对并归档；但冻结合同 preflight 裁决 **static_go=false（6 blockers）**，按"G0 未全部通过禁止启动模型"，Stock/V2 Eager 与 Graph 四组**全部 NOT_RUN**，无任何模型加载、无 NPU 推理、无系统改动。完整报告与原始证据：[R1_G0_ONDEVICE_NOGO_REPORT_20261025.md](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md)、`evidence/r1_g0_20261025/`。
+- **根因（全部定位，非环境缺包）**：① pin 停留在 vllm 0.24.0 时代——服务器实况为官方 vllm-project/vllm@6e448d0（v0.27.1，DFlash 文件在树内）+ torch-npu 2.10.0.post4 + transformers 5.17.0，本仓代码已适配（`1b6abadc8`）而 requirements.txt 元数据未同步；② cp_utils v0.26/0.27 改名，我方已有 shim 而工具 AST 检查不识别；③ pip check 20 条均为已知可选缺包/过时元数据冲突；④ `--import-smoke` 探针冷导入顺序触发 `device_op→ops→fused_moe→experts_selector→device_op` 循环导入——受控取证证明真实 serve 顺序（`NPUPlatform.pre_register_and_update` 先行）全链健康，该形态即历史"Stock+DFlash 疑似缺依赖"最可能直接根因（历史 traceback 缺失，只能标高置信候选）。
+- **附加现场发现**：工具模型路径常量缺 `Qwen/` 目录级（服务器实况 `/home/models/Qwen/...`）；R1 隔离 worktree 无 `vllm_ascend_C`/`libmf310p_v2_trial_device` 等 gitignored SO 构建产物（主 worktree 现存 SO 与主线生产源码 diff 为空、SHA 已归档），V2 组启动前必须解决 SO 供给；editable 安装默认指向主 worktree，R1 试验必须 `PYTHONPATH=<r1-worktree>:$PYTHONPATH`。
+- **同批提交（work/310p-mm-ar-r1-g0-nogo-20261025，待评审）**：preflight 工具 pin/双 lane/pip 分类/探针顺序修复、trial 工具真实模型路径与 worktree 一致性守卫、纯 CPU 测试同步（30/30+54/54 PASS）。修复后工具对同一未改变环境复测 `static_go=true`、import 探针 exit=0——NO-GO/GO 差异完全在工具合同层。**本轮裁决以冻结合同原始输出为准，修复未经评审不得用于放行；requirements.txt 过时 pin 的更新需所有者另行批准。**

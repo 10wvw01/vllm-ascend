@@ -71,3 +71,9 @@ Graph仅在两组Eager已有审阅证据、Stock原始完整基线正常、设�
 ## 6. 裁决
 
 **研发/静态阶段：PRECHECK-GO，允许进入310P3服务器做G0和CPU检查。真实硬件条件：UNKNOWN；只有现场G0全PASS才能做Stock+DFlash Eager短冒烟。** V2+DFlash Eager严格排在Stock后；Graph受控诊断排在两组Eager后。无任何新真实K7性能或Graph通过声明。
+
+## 附录：2026-10-25 现场 G0 勘误与裁决（不改动上文冻结内容）
+
+- 现场 G0 按第 3 节执行完毕，**裁决 NO-GO**（6 blockers），R1-1～R1-6 全部 NOT_RUN。完整证据、逐项根因（工具 pin 停留在 vllm 0.24.0 时代 / cp_utils 双 lane / pip check 已知状态 / 探针冷导入顺序伪影）与修复后复测见 [R1_G0_ONDEVICE_NOGO_REPORT_20261025.md](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md)。
+- 模型真实路径为 `/home/models/Qwen/Qwen3.6-35B-A3B-w8a8` 与 `/home/models/Qwen/Qwen3.6-35B-A3B-DFlash`（比上文与原工具常量多一级 `Qwen/`）；本文其余路径约定不变。
+- 服务器实况 vllm 为官方 vllm-project/vllm@6e448d0（v0.27.1，DFlash 文件在树内），torch-npu 2.10.0.post4，transformers 5.17.0；本仓代码已适配该版本（1b6abadc8），requirements.txt 元数据未同步。后续轮次 pin 基线以评审通过的工具修复为准。
