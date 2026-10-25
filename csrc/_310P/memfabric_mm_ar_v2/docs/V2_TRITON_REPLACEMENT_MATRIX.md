@@ -1,6 +1,6 @@
 # R2-02｜310P3 Triton-free V2 Eager必经路径与替代矩阵
 
-> 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。
+> **纠偏（2026-10-25）**：本表盘点的是通用GPU→310P候选的**静态潜在调用路径**，并非指定模型已现场执行29/31条Triton。唯一Target锁定`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3/TP2、4096/2048/batch10+DFlash K7；原310P V1 DFlash输入已经AscendC替换，冻结GPU V2 DFlash仍含Triton。当前V2 Worker尚未启动。详见 [具体模型路由证据](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)，实现任务必须先有动态分支条件证据。\n>\n> 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。
 >
 > 运行期：310P3无功能性Triton，`HAS_TRITON=False`。vLLM自带`TritonPlaceholder.jit`只是导入用装饰器，不实现`kernel[grid]`。**配置跳过Triton校验≠允许真正调用Triton内核**。
 
@@ -38,8 +38,8 @@
 | T28 | 冻结`GPUModelRunner.__init__`→`DraftTokensHandler.__init__`→`torch.cuda.Stream/Event` | **Runner构造必经**；私有`torch`代理不影响该类自身模块globals | 专属`NPUDraftTokensHandler310V2`，保留无grammar全-1 DraftTokenIds回退；设备/异步边界待双审 | BLOCKED |
 | T29 | 冻结`GPUModelRunner.sample_tokens`→`AsyncOutput.__init__`→`torch.cuda.Event/set_stream` | **每次生成token必经**；即使main_stream已改NPU | 专属`NPUAsyncOutput310V2`同步D2H快照、K7按count裁剪；无性能重叠承诺，需设备/调度/stream审查 | BLOCKED |
 
-| T30 | `GPUModelRunner.execute_model` → hybrid `model_state.preprocess_state` → `preprocess_mamba_align_fused_kernel[grid]` → `MambaSpecDecodeGPUContext.run_fused_precopy` | **Qwen hybrid + mamba_cache_mode=align Eager Forward必经**，包括 Target Stock、DFlash Target | 两条冻结上游Triton launch；需非Triton状态块迁移与CPU/设备/流正确性，候选在模型load前拒绝，不能无条件NO-OP | BLOCKED |
-| T31 | `GPUModelRunner.sample_tokens` → 310P `postprocess_sampled` → hybrid `model_state.postprocess_state` → `_scatter_num_accepted_kernel[grid]` 与 `run_fused_postprocess_align` | **hybrid每次采样回写必经**，含Stock和K7；额外4B短写/alias风险 | 非Triton接受数、mask/reqslot、align后状态保存与K7拒绝语义；需310P跨流/短写/负例/异常证明 | BLOCKED |
+| T30 | `GPUModelRunner.execute_model` → hybrid `model_state.preprocess_state` → `preprocess_mamba_align_fused_kernel[grid]` → `MambaSpecDecodeGPUContext.run_fused_precopy` | **条件可达，尚非Target实测必经**：需实际`is_hybrid`→`MambaHybridModelState` + `mamba_cache_mode=align` + 正常Forward；R2计划的确配置align | 两条冻结上游Triton launch；需非Triton状态块迁移与CPU/设备/流正确性，候选在模型load前拒绝，不能无条件NO-OP | BLOCKED |
+| T31 | `GPUModelRunner.sample_tokens` → 310P `postprocess_sampled` → hybrid `model_state.postprocess_state` → `_scatter_num_accepted_kernel[grid]` 与 `run_fused_postprocess_align` | **条件可达，现场未测**：具体Target须选中上游MambaHybridModelState且确有采样回写；align附加postcopy，需确认真实采样/请求重用分支 | 非Triton接受数、mask/reqslot、align后状态保存与K7拒绝语义；需310P跨流/短写/负例/异常证明 | BLOCKED |
 
 
 ## 实施准则（严禁投机捷径）

@@ -276,3 +276,10 @@
 - **P0-18**：冻结Hybrid`MambaHybridModelState.preprocess_state`的`preprocess_mamba_align_fused_kernel`及`run_fused_precopy`、`postprocess_state`的`_scatter_num_accepted_kernel`及`run_fused_postprocess_align`仍必经Triton；本项目`mamba_cache_mode=align`，**Target Stock Eager已受阻，非DFlash专属**。新增正式 **T30/T31**，候选load_model在模型加载前拒绝该未移植路径；不修改模型config/偷用Triton。
 - gate从历史**0/44**更正为**0/46**（T01～T31 + ABI-01～15）；新增AST防回归`test_v2_t13_inherited_paths.py`，审计/工程代码交叉引用。**STATIC NO-GO、Worker NOT_IMPLEMENTED、PR#7 Draft、ONDEVICE NOT_RUN**。新SHA CI待实际结果确认，本轮未修改设备、SO或融合路由。
 - 下轮技术优先级：T30/T31真正NPU安全实现+Mamba短写、T13剩余ModelState factory/Attention/allocator/Stream/异常可达路径；之后才考虑双轮独立审查与R2-15 G0。
+
+### 2026-10-25 R2目标模型/实际DFlash路由优先级纠偏
+
+- 已固定唯一业务：`Eco-Tech/Qwen3.6-35B-A3B-w8a8`，310P3单卡双DieTP2，input4096/output2048、batch10、DFlash K7，50req Eager验收，原生Stock对照。真实Draft仍为5 Sliding+1 Full的独立模型。详情 [R2模型路由核查](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。
+- 先区分310P旧V1 DFlash（`AscendDflashProposer310`通过AscendC算子代替Triton）与通用GPU V2 DFlash（上游`_prepare_dflash_inputs_kernel`），当前V2 Worker不可运行，历史R1-B提前在Draft多KV group门禁失败。冻结上游存在Triton函数不等于本目标实际命中。
+- 纠正T30/T31源代码证据定性：冻结`mamba_cache_mode`默认`none`，但R2主计划确有`--mamba-cache-mode align`，因此条件风险仍需模型→ModelState路径核验；旧“Target实际必经”说法缺运行证据，不计现场证实。46项保守静态库存不强制未可达分支直接立刻编码。
+- 本轮不新增V2兼容算子，不修改V2 Worker保护或实机。下一步优先落实特定模型的全量真实入口/分支标记和不必要兼容范围排除，再按需实现最小缺口。

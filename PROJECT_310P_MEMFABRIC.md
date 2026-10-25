@@ -15,6 +15,15 @@
 7. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
 8. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
 
+## 唯一模型与业务场景（2026-10-25 用户重新锁定；高于一般模型兼容性推断）
+
+- **推理框架**：本仓 `10wvw01/vllm-ascend`，冻结上游 `vllm@0.27.1 / 6e448d0`；不是抽象的任意GPU V2。
+- **硬件**：Ascend **310P3 单卡双 Die，TP=2、PP=1**。
+- **唯一 Target 模型 ID**：**`Eco-Tech/Qwen3.6-35B-A3B-w8a8`**（[ModelScope](https://www.modelscope.cn/models/Eco-Tech/Qwen3.6-35B-A3B-w8a8)），ModelSlim/Ascend **W8A8**；现场历史Target路径`/home/models/Qwen/Qwen3.6-35B-A3B-w8a8`，需对本地`config.json`/量化配置和ModelScope ID再核对，不可直接认为路径即版本身份证据。
+- **指定负载**：输入 **4096 tokens**、输出 **2048 tokens**、**batch/并发=10**、启用 **DFlash K=7**。研发验收沿用 **50 requests**、Eager主基线、Stock独立对照；Graph为单独R3阶段。
+- **DFlash Draft（与Target不是同一个模型）**：历史现场`/home/models/Qwen/Qwen3.6-35B-A3B-DFlash`、5 Sliding + 1 Full；身份/配置现场只读核验。
+- 详细不可漂移合同和“310P专属DFlash究竟会不会走Triton”的分路径源码核查见 [目标场景与DFlash实路径审计](csrc/_310P/memfabric_mm_ar_v2/docs/R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。**优先确认模型/具体Runner/实际可达函数，不能凭通用GPU源码里有Triton就继续扩充兼容代码。**
+
 ## 不可偏离的当前目标
 
 - **Ascend 310P3 单卡双 Die / TP=2**；同 Kernel 完成 FP16 MM + MemFabric SDMA AllReduce + Add，Stock MM+HCCL 是唯一有效的完整算子最终性能对照。

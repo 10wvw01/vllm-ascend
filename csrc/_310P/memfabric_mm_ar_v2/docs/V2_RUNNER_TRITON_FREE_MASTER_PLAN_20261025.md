@@ -4,7 +4,7 @@
 >
 > 适用范围：**我们自己的** `10wvw01/vllm-ascend`；官方 vLLM `/vllm-workspace/vllm` @ `6e448d0ea9bf…` 只读且实际版本 `0.27.1+empty`；HaonanWu1 的 310P DFlash 分支只读；MemFabric 官方/安装库不因本 R2 修改。发现新的必经调用路径时须**追加任务、风险和验收**，不得用「已全部覆盖」掩盖未审计路径。
 
-> [R2当前执行状态及阻断账](R2_EXECUTION_STATUS_20261025.md)：持续更新已完成/未完成及下一步；不得将PR中的局部CI结果写成设备GO。
+> **2026-10-25模型优先审计约束**：唯一Target=`Eco-Tech/Qwen3.6-35B-A3B-w8a8`，设备310P3单卡双Die/TP2，input4096/output2048/batch10，启用DFlash K7；50请求Eager+Stock独立对照。先阅读[R2目标模型+DFlash真实路由核查](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。通用GPU V2有Triton **≠** 已证明指定模型/310P实际调用；未经真实函数可达性确认不得扩充兼容性代码。**本表既有--mamba-cache-mode align不变**，但依然要求验证实际ModelState与执行入口。\n>\n> [R2当前执行状态及阻断账](R2_EXECUTION_STATUS_20261025.md)：持续更新已完成/未完成及下一步；不得将PR中的局部CI结果写成设备GO。
 
 ## 1. 目标、交付边界和执行原则
 

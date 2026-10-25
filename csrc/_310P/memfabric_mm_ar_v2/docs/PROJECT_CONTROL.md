@@ -292,3 +292,10 @@
 - 固定上游`vllm@6e448d0`源码逐阶段追踪GPU→Ascend V2→310P候选：normal prepare_inputs动态绑定已存在，但dummy/profile的`InputBatch.make_dummy`保持GPU module-global，新增仅310P私有clone替换为`AscendInputBatch`，不改变其它Ascend/GPU runner或设备Worker状态。
 - 发现T13以前未捕获的**真实必经**Triton：Hybrid Mamba Align Forward中`preprocess_mamba_align_fused_kernel`和`run_fused_precopy`，采样后`_scatter_num_accepted_kernel`和`run_fused_postprocess_align`。**普通Stock Target Eager同样受阻**。现在分别列T30/T31（BLOCKED），不以一个T13笼统概括；310P候选`load_model`在模型分配前拒绝未移植hybrid align以防静默进入GPU Triton。完整方案仍未研发完成。
 - 正式门禁因源码新路径更新为**31条T+15 ABI=46项，0/46 STATIC NO-GO**；历史44保留旧时间点真实性。本轮并未完成第二轮深审/310P3算子支持验证，Worker`NOT_IMPLEMENTED`、PR#7 Draft、Stock默认、R2-B/C/D NOT_RUN均不变。报告见 [T13继承源码审计](R2_T13_INHERITANCE_AUDIT_20261025.md)，本轮CPU新提交CI应以对应GitHub SHA核验。
+
+### 2026-10-25 R2开发方向纠偏：锁死单一Target场景，区分310P DFlash/V2 Triton事实
+
+- **用户唯一完整合同**：`vllm-ascend + 310P3 单卡双Die + Eco-Tech/Qwen3.6-35B-A3B-w8a8(W8A8) + TP2 + input4096 + output2048 + batch/concurrency10 + DFlash K7`，历史验收50req、Stock独立对照、Eager先行；Draft单独为`Qwen3.6-35B-A3B-DFlash`(5 Sliding + 1 Full)。详细且可供交接的ModelScope/源码/历史证据见 [单模型DFlash路由核查](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。主线仓只锁约束，本轮代码仅在work分支。
+- **已确认源码事实**：310P旧Runner/DFlash定制通过`patch_idex_310.py`选择`AscendDflashProposer310.set_inputs_first_pass`并调用AscendC `npu_copy_and_expand_dflash_inputs`；它**不等于通用GPU V2 DFlash必跑Triton**。上游0.27.1 GPU V2 `DFlashSpeculator.propose→prepare_dflash_inputs→_prepare_dflash_inputs_kernel`确有Triton；当前310P V2 Worker仍`NOT_IMPLEMENTED`，**无具体Target+DFlash V2设备kernel命中证据**。R1-B Stock在Draft 5 Sliding+1 Full的V1 Runner门禁提前FAIL；不能误当Triton执行失败。
+- **T13审计修正**：源代码T30的`MambaHybridModelState.preprocess_state`仅当hybrid且`mamba_cache_mode=align`等条件满足；上游字段默认`none`，但**当前R2既定Serve参数明确为`--mamba-cache-mode align`**，仍必须核实真实ModelState选择、入口、Device路由，不能声称已现场命中。T31同样需核真实动态工厂/采样路径。46项是保守静态库存，不是46项都已经被本Target真实触发；实施优先级应按该模型可达证据裁剪，不再为未确认的泛模型分支开发。
+- **策略**：暂停继续编码额外Triton/UVA通用兼容层。先基于Target`config.json`和R2实际Serve参数形成确切模型→Runner→ModelState→DFlash函数→Kernel选择表；对确认命中的缺口做最小替代和CPU合同，再做两轮静审。Stock默认、Worker`NOT_IMPLEMENTED`、PR#7 Draft、0/46 NO-GO、ONDEVICE NOT_RUN均未更动。
