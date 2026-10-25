@@ -208,3 +208,9 @@
 ### 310P V2采样T18～T24真实分支阻断修复（仍NO-GO）
 
 - 冻结vLLM Sampler@0.27.1 的`apply_sampling_params`在有温度、penalties、bad_words、logit_bias/min_p/top-p参数时可能调用未替代的Ascend Triton内核。专属`NPUSampler310V2.apply_sampling_params`增加显式greedy/默认参数前置fail-closed，非默认直接`NotImplementedError`，不能静默当贪心推理或掉入Triton；CPU AST合约守护方法接口。**这不是T18～T24实现完成**，仅阻断危险隐式调用；正常业务如需非贪心须补正确算子及概率采样。
+
+### P0-09 采样器嵌套UVA及StructuredOutputs CUDA Stream构造（2026-10-25；NO-GO）
+
+- 深审冻结上游 `Sampler.__init__` 发现此前仅在Runner构造时替换`RequestState`仍不够：它还创建`SamplingStates`（5个`UvaBackedTensor`）、`PenaltiesState`（3个）、`LogitBiasState`（4个+GPU StagedWrite）、`BadWordsState`（1个+GPU StagedWrite）、`LogprobTokenIdsState`（1个+GPU StagedWrite）。而原`NPUSampler310V2.__init__`使用`super().__init__`，在真实load_model时**必定再次进入UVA构造**。另`GPUModelRunner.load_model`的`StructuredOutputsWorker`即使无grammar也在构造时调用`torch.cuda.Stream()`。
+- 新增`_310p/v2/sampler_state.py`：对上述五个冻结状态构造器使用局部globals clone注入`NPUBackedTensor`/`NPUStagedWriteTensor`；`NPUSampler310V2`私有克隆`Sampler.__init__`替换所有工厂并禁止FlashInfer；`GPUModelRunner.load_model`私有clone再注入`NPUStructuredOutputsWorker310V2`，无grammar时不创建CUDA stream，有grammar明确fail-closed。没有修改上游模块全局符号。
+- 新增CPU真实构造替代测试和源码合同`test_v2_sampler_uva_constructor.py`。这只消除两处新发现的构造级P0，**不是T13/T15准入完成**：采样State多buffer生命周期、异步流、310P3 Device ABI、其它继承路径与ModelState仍需两轮静审，40节点证据不升级，Worker NOT_IMPLEMENTED和PR DRAFT保持。

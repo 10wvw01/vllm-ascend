@@ -229,12 +229,14 @@ class NPUModelRunner310V2Candidate(_AscendNPUModelRunner):
         """
         from vllm.v1.worker.gpu.model_runner import GPUModelRunner
         from .sampler import NPUSampler310V2, NPURejectionSampler310V2
+        from .sampler_state import NPUStructuredOutputsWorker310V2
 
         load = _clone_upstream_function(
             GPUModelRunner.load_model,
             {
                 "Sampler": NPUSampler310V2,
                 "RejectionSampler": NPURejectionSampler310V2,
+                "StructuredOutputsWorker": NPUStructuredOutputsWorker310V2,
             },
         )
         return load(self, *args, **kwargs)

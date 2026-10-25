@@ -18,8 +18,24 @@ from .model_runner import _clone_upstream_function
 
 
 class NPUSampler310V2(Sampler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self, max_num_reqs, vocab_size, device, req_states,
+        logprobs_mode="raw_logprobs", num_speculative_tokens=1,
+        use_fp64_gumbel=False,
+    ):
+        # Frozen Sampler.__init__ nests FIVE constructors that allocate UVA.
+        # Bind every one locally BEFORE construction, not replace afterwards.
+        from .sampler_state import make_npu_sampler_state_factories
+
+        overrides = make_npu_sampler_state_factories(device)
+        overrides["flashinfer_sampler_supported"] = lambda: False
+        init = _clone_upstream_function(Sampler.__init__, overrides)
+        init(
+            self, max_num_reqs=max_num_reqs, vocab_size=vocab_size,
+            device=device, req_states=req_states, logprobs_mode=logprobs_mode,
+            num_speculative_tokens=num_speculative_tokens,
+            use_fp64_gumbel=use_fp64_gumbel,
+        )
         # FlashInfer is a CUDA implementation, never silently route 310P here.
         self.use_flashinfer = False
 
