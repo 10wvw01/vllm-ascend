@@ -57,13 +57,16 @@ class TestCandidateAdapters(unittest.TestCase):
         self.assertEqual(s._draft_storage.stride(0), 8)
         s._last_sampled_storage[idx].fill_(42)
         s._draft_storage[idx].fill_(99)
+        s.next_prefill_tokens[:, idx].fill_(66)
         self.assertEqual(s.remove_request("a"), idx)
         s.add_request("b", 2, [21, 22], 1, 10)
         self.assertEqual(s.req_id_to_index["b"], idx)
         self.assertEqual(s.last_sampled_tokens[idx, 0].item(), 0)
         self.assertEqual(s.draft_tokens[idx].tolist(), [0] * 7)
+        self.assertEqual(s.next_prefill_tokens[:, idx].tolist(), [0])
         s.apply_staged_writes()
         self.assertEqual(s.all_token_ids.gpu[idx, :2].tolist(), [21, 22])
+        self.assertEqual(s.all_token_ids.gpu[idx, 2:].tolist(), [0] * 14)
         self.assertIsNone(s.remove_request("missing"))
 
     def test_request_invalid_is_transactional(self):
@@ -77,6 +80,16 @@ class TestCandidateAdapters(unittest.TestCase):
                 s.add_request(*args)
         self.assertEqual(s.num_reqs, 0)
         self.assertEqual(len(s.free_indices), 1)
+
+    def test_pending_request_release_is_fail_closed(self):
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        s.add_request("a", 2, [1, 2], 0, 3)
+        with self.assertRaisesRegex(RuntimeError, "pending token writes"):
+            s.remove_request("a")
+        self.assertEqual(s.num_reqs, 1)
+        self.assertEqual(s.req_id_to_index["a"], 0)
+        s.apply_staged_writes()
+        self.assertEqual(s.remove_request("a"), 0)
 
     def test_multigroup_physical_block_and_padding(self):
         t = self.torch
