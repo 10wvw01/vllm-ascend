@@ -1,6 +1,8 @@
 # R2-02｜310P3 Triton-free V2 Eager必经路径与替代矩阵
 
-> **纠偏（2026-10-25）**：本表盘点的是通用GPU→310P候选的**静态潜在调用路径**，并非指定模型已现场执行29/31条Triton。唯一Target锁定`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3/TP2、4096/2048/batch10+DFlash K7；原310P V1 DFlash输入已经AscendC替换，冻结GPU V2 DFlash仍含Triton。当前V2 Worker尚未启动。详见 [具体模型路由证据](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)，实现任务必须先有动态分支条件证据。\n>\n> 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。
+> **纠偏（2026-10-25）**：本表盘点的是通用GPU→310P候选的**静态潜在调用路径**，并非指定模型已现场执行29/31条Triton。唯一Target锁定`Eco-Tech/Qwen3.6-35B-A3B-w8a8`、310P3/TP2、4096/2048/batch10+DFlash K7；原310P V1 DFlash输入已经AscendC替换，冻结GPU V2 DFlash仍含Triton。当前V2 Worker尚未启动。详见 [具体模型路由证据](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)，实现任务必须先有动态分支条件证据。
+>
+> 本文来源：锁定上游 `vllm@6e448d0`、我方Ascend V2及310P模块静态复核。**保守估计，不等于动态覆盖证明**。CPU测试和调用图可静态发现入口；必须在实际纯NPU适配完成并验证接口后才能把某条改为`READY`。
 >
 > 运行期：310P3无功能性Triton，`HAS_TRITON=False`。vLLM自带`TritonPlaceholder.jit`只是导入用装饰器，不实现`kernel[grid]`。**配置跳过Triton校验≠允许真正调用Triton内核**。
 

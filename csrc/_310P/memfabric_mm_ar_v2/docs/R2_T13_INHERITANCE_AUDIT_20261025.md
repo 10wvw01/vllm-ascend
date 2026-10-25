@@ -1,6 +1,8 @@
 # R2-01/02：T13 V2 完整继承调用链静态审计（2026-10-25）
 
-> **2026-10-25 范围纠偏（优先阅读）**：本报告最初把“冻结GPU V2 + Hybrid Align条件满足时的Triton入口”表述为目标模型**已经确定每步必经**，缺少模型config→动态ModelState选择→310P实际Runner的可达证据。**撤回未经验证的真实必经断言**；T30/T31保持源码风险项而非设备实证。冻结vLLM的`mamba_cache_mode`默认`none`，但本工程R2启动方案明确传`--mamba-cache-mode align`；仍应审，不得当成已运行。V1 310P DFlash早有AscendC输入替代，上游GPU V2才有`_prepare_dflash_inputs_kernel`。目标模型限定为`Eco-Tech/Qwen3.6-35B-A3B-w8a8`，详见 [特定模型路由核查](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。历史正文保留原审查时间点，优先以上述修正口径解读。\n>\n> 冻结上游：`vllm-project/vllm@6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`；我方基线：`10wvw01/vllm-ascend:work/310p-v2-r2-implementation-20261025@9c50342369e5`（本轮起点）。目标：310P3单卡双Die、TP2、PP1、Eager、Qwen3.6 Target Stock与DFlash K7。审查方式：冻结源码逐入口/类方法/委托的跨模块调用图复核；不含真实NPU执行。**判定：源代码调用链审查取得新缺口，T13仍UNRESOLVED；静态准入NO-GO。**
+> **2026-10-25 范围纠偏（优先阅读）**：本报告最初把“冻结GPU V2 + Hybrid Align条件满足时的Triton入口”表述为目标模型**已经确定每步必经**，缺少模型config→动态ModelState选择→310P实际Runner的可达证据。**撤回未经验证的真实必经断言**；T30/T31保持源码风险项而非设备实证。冻结vLLM的`mamba_cache_mode`默认`none`，但本工程R2启动方案明确传`--mamba-cache-mode align`；仍应审，不得当成已运行。V1 310P DFlash早有AscendC输入替代，上游GPU V2才有`_prepare_dflash_inputs_kernel`。目标模型限定为`Eco-Tech/Qwen3.6-35B-A3B-w8a8`，详见 [特定模型路由核查](R2_TARGET_MODEL_DFLASH_ROUTE_20261025.md)。历史正文保留原审查时间点，优先以上述修正口径解读。
+>
+> 冻结上游：`vllm-project/vllm@6e448d0ea9bf3d88d898b65449ca6dc2aec170ac`；我方基线：`10wvw01/vllm-ascend:work/310p-v2-r2-implementation-20261025@9c50342369e5`（本轮起点）。目标：310P3单卡双Die、TP2、PP1、Eager、Qwen3.6 Target Stock与DFlash K7。审查方式：冻结源码逐入口/类方法/委托的跨模块调用图复核；不含真实NPU执行。**判定：源代码调用链审查取得新缺口，T13仍UNRESOLVED；静态准入NO-GO。**
 
 ## 1. 继承合同、为何局部替代不等于整条路径安全
 
