@@ -37,3 +37,13 @@
 - 仅向自有`10wvw01/vllm-ascend`仓库提交短期分支和PR；上游 `vllm-project/vllm` 与 `HaonanWu1/vllm-ascend`只读。
 - 不编辑DFlash config/layer_types、不安装Triton、不关闭`HAS_TRITON`真实性、不消除不当CUDA兼容性校验、不自动启用Graph。
 - 直到完整静态门槛关闭，**PR#7不得合入且Worker fail-closed必须保持**；现场由用户批准并交OpenCode，不允许本侧宣称已实机PASS。
+
+
+## 2026-10-25 R2-A T05/T06/T14/T15 隔离候选实现（继续 NO-GO）
+
+- 本轮实际源码新增 `vllm_ascend/_310p/v2/staged_buffers.py`（CPU事务写计划、32B padded矩阵H2D、1D状态只更新dirty index的device `index_copy_`，避免新请求覆盖其它活跃请求的GPU采样状态）、`request_state.py`（不调用上游UVA父构造的独立RequestState候选）、`block_tables.py`（每组独立物理/Kernel blocksize、append/overwrite、padded gather、slot mapping候选）。新增 `test_v2_staged_buffers.py` 和 `test_v2_no_uva_adapters.py`；只在本R2任务分支，未改变生产入口。
+- **T14/T15未闭环**：上游 `GPUModelRunner.__init__` 在Ascend替换RequestState前已构造UVA `RequestState`，后续 `initialize_kv_cache` 还构造原GPU `BlockTables`；必须以310P专属Runner完整消除这些父类构造调用，不能用构造后 `del self.req_states` 冒充替换。新增类目前未接入，故仍NO-GO。
+- **T05/T06仍阻断**：Torch `index_select/searchsorted/index_copy_` 等只是Eager候选，尚未核实310P3 torch-npu支持及同步/流行为；DFlash `out/out_ptrs` 外部缓存接口被明确 `NotImplementedError` 拒绝。多组不同物理blocksize仅有CPU合同，不代表5 Sliding+1 Full后端接通。
+- **发现的P0数据所有权缺口**：上游GPU采样 `post_update` 会修改设备端 `total_len/num_computed_tokens/all_token_ids`；若从陈旧CPU镜像整向量回写，会覆盖其它活跃请求。本轮修复候选1D为dirty-index scatter并补回归；矩阵只允许CPU权威的新增/替换行全行回写，活跃GPU改写行的再staging、异步in-flight可见性、异常半提交仍待端到端审查。`next_prefill_tokens`重用后的清理和310P小写入安全尚未核实。
+- **CI口径**：原基线`9022f7dc`的61/61 unittest、54/54 pytest PASS；本轮新增GitHub CI运行结果须按最新SHA单独记录，CPU Torch tensor测试在无torch的轻量CI环境可能Skip，不能把Skip写成PASS；尚未执行独立310P3硬件测试或两轮运行时深审。NPUWorker310的NOT_IMPLEMENTED必须保留。
+- **下一步**：冻结0.27.1的GPUModelRunner构造与所有 `RequestState/BlockTables` 访问点，设计真正不经父类UVA构造的专属Runner；对 `searchsorted/index_copy_`、请求重用、并发写顺序和DFlash out缓冲补无设备可执行gold；再逐一替代T01～09/T11、采样和ModelState。任何无法保证设备语义的操作保持fail-closed。
