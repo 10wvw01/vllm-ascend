@@ -52,3 +52,8 @@
 
 - 新增`_310p/v2/block_table_gold.py`和`test_v2_block_table_gold.py`：无torch必跑，覆盖两组64→32与128→128物理块展开、不同kernel blocksize的slot、请求重用overwrite、padded gather、尾部/未分配PAD、空请求、容量失败的跨组原子性及负例。Eager候选复用同一`expand_physical_block_ids`函数，减少gold与实现漂移。
 - **测试层级必须区分**：以上是纯Python语义gold；`test_v2_no_uva_adapters.py`和`test_v2_staged_buffers.py`中的Torch CPU动态tensor合同在轻量GitHub CI不安装torch时会Skip；310P NPU真实算子支持和UVA构造链未解决。R2-A仍NO-GO。
+
+
+### T05静态复核修复：request reuse后KV旧尾部泄漏
+
+- 审查发现：原候选`gather_block_tables`将整个旧block row复制到batch缓存；`overwrite=True`只重置`num_blocks`和有效前缀，旧尾部仍可能被attention误读。已修改为按每组设备`num_blocks`对选中的**整条物理padded行**做`torch.where`零化，补Torch CPU reuse回归；纯Python gold此前已经要求无效尾部为0。此处仍待NPU Eager op支持核实，不可宣布T05 READY。
