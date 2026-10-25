@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS = Path("csrc/_310P/memfabric_mm_ar_v2/docs")
 UPSTREAM_SHA = "6e448d0ea9bf3d88d898b65449ca6dc2aec170ac"
 REQUIRED = (
-    *(f"T{i:02d}" for i in range(1, 17)),
+    *(f"T{i:02d}" for i in range(1, 26)),
     *(f"ABI-{i:02d}" for i in range(1, 16)),
 )
 REQUIRED_EVIDENCE = (
@@ -74,6 +74,12 @@ def audit(root: Path) -> dict:
     if not isinstance(entries, dict):
         reasons.append("evidence entries must be a dictionary")
         entries = {}
+    # Fail closed if the matrix discovers a new kernel/ABI without adding it
+    # to the mandatory admission inventory. Otherwise T26+ could silently
+    # escape the STATIC-GO evidence check.
+    untracked = sorted(set(matrices) - set(REQUIRED))
+    if untracked:
+        reasons.append(f"untracked mandatory matrix IDs: {untracked}")
     checks = {}
     for key in REQUIRED:
         state = matrices.get(key, "MISSING")

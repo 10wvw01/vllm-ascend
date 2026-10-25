@@ -23,6 +23,16 @@
 | T15 | `GPUModelRunner.__init__`→`gpu.states.RequestState`→`StagedWriteTensor(uva_instead_of_gpu=True)`、`UvaBackedTensor`→`UvaBufferPool` | **Runner构造期**；当前Ascend`AscendRequestState`继承此父类（需检查310P是否有实际UVA映射支持），与T14共同形成先于Kernel的P0门槛 | 310P3可用性需严审`is_uva_available`和`get_accelerator_view_from_cpu_tensor`；若不支持需独立NPU-safe RequestState/BufferPool实现 | UNVERIFIED/P0 |
 | T16 | 310P staged writes ↔ GPU post_update 设备所有权与in-flight写序 | 新请求/请求复用/采样每批可能触发 | dirty-index scatter + poison保护候选；需stream/event barrier、活跃行回写与错误销毁全链 | BLOCKED |
 
+| T17 | `worker/v2/sample/gumbel.py:gumbel_sample` → `_gumbel_sample_kernel` | Sampler随机采样/温度>0 **可达**，patch_v2显式替换上游全局 | 310P无Triton的确定性/随机数等价Gumbel实现，冻结seed/position分布合同 | BLOCKED |
+| T18 | `worker/v2/sample/gumbel.py:apply_temperature` → `_temperature_kernel` | 采样温度缩放 **可达** | 设备Torch/AscendC温度变换、0/1特殊值和FP32语义 | BLOCKED |
+| T19 | `worker/v2/sample/penalties.py:apply_penalties/bincount` → 两个Triton kernel | 频率/重复惩罚、prompt统计 **按采样参数可达** | 无Triton bincount/penalties及CPU gold；确保请求重用不污染 | BLOCKED |
+| T20 | `worker/v2/sample/min_p.py:apply_min_p` → `_min_p_kernel` | min_p采样 **条件可达** | Torch Eager masked logits与稳定归一化合同，未接线 | BLOCKED |
+| T21 | `worker/v2/sample/bad_words.py:apply_bad_words` → `_bad_words_kernel` | 禁词约束 **条件可达** | NPU安全禁词mask、prefix匹配与请求生命周期 | BLOCKED |
+| T22 | `worker/v2/sample/logprob.py:compute_token_logprobs/compute_topk_logprobs` → `_topk_log_softmax_kernel/_ranks_kernel` | logprobs输出/采样日志 **条件可达** | FP32 logsumexp、top-k/rank、输出形状的无Triton合同 | BLOCKED |
+| T23 | `worker/v2/spec_decode/rejection_sampler_utils.py:rejection_sample` → `_probabilistic_rejection_kernel/_resample_kernel` 等 | DFlash K7 rejection verify **必经** | **P0：Ascend现有实现温度>0分支令u=0恒接受，不能冒充正确拒绝采样**；需真正概率采样/Greedy合同及无Triton实现 | BLOCKED |
+| T24 | `worker/v2/structured_outputs.py:_apply_grammar_bitmask_kernel` | 结构化输出条件可达；本期是否禁用须可执行证明 | 若不可达提供双审证明，否则非Triton grammar mask实现 | UNVERIFIED |
+| T25 | 冻结`GPUModelRunner.sample_tokens`对`req_states.draft_tokens[idx_mapping] = draft_tokens`的K7短宽写 | DFlash K7每次提案 **必经**，非Triton但310P写粒度风险 | 32B padded 8-token整行更新/无跨请求覆盖及in-flight ownership；禁止直接7×int64窄视图scatter | BLOCKED |
+
 
 ## 实施准则（严禁投机捷径）
 
@@ -80,3 +90,9 @@
 - 固定上游0.27.1 `gpu.input_batch.prepare_prefill_inputs`七参数：仅 `num_computed_tokens < prefill_len` 的请求读取 `all_token_ids` 并更新 `input_ids`，`next_prefill_tokens` 按 **[lookahead, req_state]** 布局写入，超出prefill的lookahead填0；混合decode行及非活跃slot保持原值。
 - 新增 `_310p/v2/input_ops.py:prepare_prefill_inputs` Torch Eager候选、`prefill_gold.py`纯stdlib oracle、`test_v2_prefill_ops.py`混合prefill/decode、越界负例、随机差分和Torch CPU合同；不使用Triton、UVA、设备标量`.item()`。其`index_copy_`可能更新值不变的非prefill列，仍需审查310P3写粒度、并发所有权和stream顺序。
 - **不可标READY**：原Ascend V2仍绑定上游同名Triton函数；上游UVA构造链与BlockTables、采样、DFlash仍未替换。CPU scheduler须预校验req-state唯一、累计长度和`computed+query_len`容量；尚无310P3算子支持/动态stream证据，Worker NOT_IMPLEMENTED继续保留。
+
+### R2-A 第二轮T13路径发现（2026-10-25；矩阵由31项扩展至40项）
+
+- 通过`patch/worker/patch_v2/patch_triton.py`逐个追踪真实全局patch到`worker/v2/sample/{gumbel,penalties,min_p,bad_words,logprob}.py`、`structured_outputs.py`、`spec_decode/rejection_sampler_utils.py`，确认这些文件包含**实际执行的Triton launch**，而非仅定义未调用kernel。T17～T24明确登记并维持BLOCKED/UNVERIFIED；T25为冻结GPU V2 sample_tokens的K7窄写P0，不能被T11/T09 CPU合同掩盖。
+- 特别记录：Ascend`_probabilistic_rejection_kernel`在温度>0时设置`u=0`并始终接受Draft，这不等于原始概率拒绝采样。需确定目标采样策略、给出分布正确性或禁用的静态证据；不能以“能输出token”作为正确性验收。
+- `r2_static_admission.py`强制纳入T17～T25；未知额外矩阵ID将触发NO-GO而不被静默忽略。原31项历史CI结果仍是当时有效的**旧版本口径**，后续按40项新门禁统计。T13仍保持UNRESOLVED，直到完整可达路径审查闭环。

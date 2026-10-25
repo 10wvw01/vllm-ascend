@@ -157,3 +157,9 @@
 
 - 修复`post_update_ops.py`原先在`sampled_count>width`、`total_len+count>capacity`时用clamp掩盖非法写，以及`sampled_token_id`超过bin_counts词表时被clamp到合法ID错误计数的风险。现在在**任何设备状态修改之前**通过`torch._assert_async`验证device/CPU req index、count/rejected、总长/计算长、接受token非负和penalty vocab；失败直接拒绝、CPU Torch负例保证状态未变。
 - **设备准入仍阻断**：`torch._assert_async`在310P3 torch-npu上的可用性/错误传播/stream异步行为没有静态及实机证据；此候选不具备事务式多设备buffer提交。T09仍BLOCKED、Worker仍NOT_IMPLEMENTED、ONDEVICE NOT_RUN。
+
+### R2-02静态调用链补漏：新增T17～T25九项必审（2026-10-25）
+
+- 逐读`patch_v2/patch_triton.py`发现仅替换T07/T08/T09/T11远远不够：它还把采样Gumbel/温度、penalties、min_p、bad_words、logprob、结构化输出及完整rejection_sample接到**Ascend V2 Triton实现**。明确新增T17～T24，另将`GPUModelRunner.sample_tokens`K7 `draft_tokens[idx_mapping]=draft_tokens`短宽设备写登记为T25。
+- P0：Ascend V2 `rejection_sampler_utils.py`在非贪心路径`u=0`强制接受Draft，缺乏概率正确性；且T25可能跨行/跨请求写。**不得以T11和T09候选CPU绿宣称采样链闭环**。
+- 准入门禁从16个T+15个ABI=31扩展为**25个T+15个ABI=40个节点**；所有新增项无READY证据，R2-A继续STATIC NO-GO / ONDEVICE NOT_RUN。历史31节点CI结果只作为旧口径记录；Worker NOT_IMPLEMENTED和PR#7 DRAFT保持不变。
