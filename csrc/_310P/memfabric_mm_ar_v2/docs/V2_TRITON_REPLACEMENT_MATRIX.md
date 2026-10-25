@@ -73,3 +73,10 @@
 
 - `_310p/v2/token_ops.py`保持冻结0.27.1 `combine_sampled_and_draft_tokens` ABI（bonus=0/1、原位`input_ids`、返回int64`logits_indices`），`token_gold.py`及`test_v2_token_ops.py`覆盖K7、prompt尾保护、chunked prefill、padding、混合request、随机CPU Torch差分。该候选使用整条Eager D2D写回，不是已核实的310P3小写安全方案。
 - 实际`worker/v2/model_runner.py`仍从`gpu.input_batch`直接绑定Triton函数，尚未有310P专属Runner；需要静审设备`searchsorted/index_select/where/copy_`和stream/event、scheduler累计长度/req-id合法性与多group DFlash配合，T03维持BLOCKED。
+
+
+### T01 prefill/lookahead no-Triton候选（2026-10-25，UNWIRED，仍BLOCKED）
+
+- 固定上游0.27.1 `gpu.input_batch.prepare_prefill_inputs`七参数：仅 `num_computed_tokens < prefill_len` 的请求读取 `all_token_ids` 并更新 `input_ids`，`next_prefill_tokens` 按 **[lookahead, req_state]** 布局写入，超出prefill的lookahead填0；混合decode行及非活跃slot保持原值。
+- 新增 `_310p/v2/input_ops.py:prepare_prefill_inputs` Torch Eager候选、`prefill_gold.py`纯stdlib oracle、`test_v2_prefill_ops.py`混合prefill/decode、越界负例、随机差分和Torch CPU合同；不使用Triton、UVA、设备标量`.item()`。其`index_copy_`可能更新值不变的非prefill列，仍需审查310P3写粒度、并发所有权和stream顺序。
+- **不可标READY**：原Ascend V2仍绑定上游同名Triton函数；上游UVA构造链与BlockTables、采样、DFlash仍未替换。CPU scheduler须预校验req-state唯一、累计长度和`computed+query_len`容量；尚无310P3算子支持/动态stream证据，Worker NOT_IMPLEMENTED继续保留。
