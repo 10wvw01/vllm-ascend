@@ -37,3 +37,8 @@
 **NOT_RUN，不能代签。** 需要与代码作者不同的审查者按冻结上游方法入口逐项复核：UVA/stream/所有真实Triton launch、采样随机数分布、5+1 group/物理blocksize、KV零化与复用、错误路径、双Rank/TP2生命周期、静态证据。审查者记录逐项SHA、失败样本、复验CI、签字/时间，不能用“脚本全绿”代替逻辑审查。
 
 **最终判定：R2-A STATIC NO-GO / R2-B/C/D ONDEVICE NOT_RUN。**
+
+## 2026-10-25 CPU双job回归与新增Greedy作用域绑定（作者补审）
+
+- `213816dec35ceff8cda8059cf405ef245eb73d29` Run `40174498389` 两个job SUCCESS：轻量122 unittest（Torch用例skip）+54 pytest；独立Torch CPU 130 unittest；静态门禁`0/40`。
+- 已新增T17/T18安全Greedy子集、T23 K7 Greedy拒绝候选，并把T07/T17/T23以私有globals绑定到专属Sampler/RejectionSampler、冻结GPU load_model。**这并未消除T19～T22/T24的采样参数/Logprobs/grammar Triton，更没有实现temperature>0的概率拒绝或T25安全Draft行写。**第二轮独立审查仍NOT_RUN，所有P0保持开放。

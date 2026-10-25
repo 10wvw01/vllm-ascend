@@ -185,3 +185,9 @@
 - 直接从冻结上游`GPUModelRunner.sample_tokens`逐段移植整段执行顺序到`NPUModelRunner310V2Candidate.sample_tokens`，仅将`self.req_states.draft_tokens[idx_mapping]=draft_tokens`改成`_310p_v2_store_draft_tokens`。保留异步ModelRunnerOutput构建、postprocess、DFlash propose、KV connector顺序及`step_eplb_after`装饰器。后续按冻结源码进行逐行静态差异审计。
 - 新增`_310p/v2/draft_storage.py`，对持久8宽int64底层缓冲进行完整64B行`index_copy_`，保证K7逻辑7宽view别名与跨request重用/旧padding清零；CPU scheduler去重/合法性检查及`torch._assert_async`确保GPU设备req-index一致。对应`test_v2_draft_storage.py`覆盖多请求/复用/异常。
 - **尚不满足T25 READY**：新代码仍属于未注册的候选Runner，`torch._assert_async/index_copy_`与NPU短写、异步输出、device stream和GDN/Mamba/TP2需要静审/设备验证。Worker NOT_IMPLEMENTED继续保留。
+
+### 2026-10-25 GitHub CPU双job实测核对（最新代码SHA 213816de）
+
+- 代码提交`213816dec35ceff8cda8059cf405ef245eb73d29`对应GitHub Actions Run [40174498389](https://github.com/10wvw01/vllm-ascend/actions/runs/40174498389) **SUCCESS**：轻量治理 **122 unittest OK（含Torch缺依赖skip）+54 pytest PASS**；独立Python3.12/Torch2.10 CPU **130 unittest OK**。同一Run静态门禁明确输出 **`R2-A STATIC-NO-GO: 0/40 mandatory nodes`**。
+- 本轮新增真实候选源码：T11六组K7 prepare +冻结DFlash propose作用域绑定、T09写前动态验证、T17/T18 Greedy/温度安全子集、T23 Greedy rejection及冻结Sampler/RejectionSampler工厂局部接线；另发现T17～T25九项被旧矩阵遗漏的必经Triton/所有权风险。CPU CI只证明该SHA的CPU语义，不等于NPU算子可用、随机分布正确、Target/DFlash真实Runner或双轮静审PASS。
+- **最终状态仍STATIC NO-GO / ONDEVICE NOT_RUN**；`NPUWorker310`的`NOT_IMPLEMENTED`未动、PR#7仍DRAFT。下一轮优先T19～T22/T24的非Triton真实采样与概率拒绝、T25整行K7写、ModelState/attention的T13 ABI穷尽及device ops静审。
