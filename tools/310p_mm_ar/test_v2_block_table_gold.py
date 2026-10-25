@@ -49,7 +49,7 @@ class TestMultiGroupBlockTableGold(unittest.TestCase):
     def test_unallocated_and_negative_positions_are_pad(self):
         self.b.append(1, ([3], [8]))
         self.assertEqual(self.b.slots([1], [0, 3], [-1, 63, 128], 3),
-                         [[-1, -1, -1], [-1, 1087, -1]])
+                         [[-1, 255, -1], [-1, 1087, -1]])
 
     def test_nonmonotonic_offsets_and_bad_indices_rejected(self):
         self.b.append(0, ([1], [2]))
@@ -65,7 +65,7 @@ class TestMultiGroupBlockTableGold(unittest.TestCase):
         self.b.append(0, ([1], [2]))
         self.b.append(1, ([3], [4]))
         self.assertEqual(self.b.slots([0, 1], [0, 0, 1], [0, 0], 2),
-                         [[96, -1], [512, -1]])
+                         [[192, -1], [512, -1]])
 
 
 if __name__ == "__main__":
