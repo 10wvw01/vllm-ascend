@@ -18,6 +18,9 @@
 | ABI-10 | `GPUModelRunner.initialize_kv_cache` / `init_kv_cache` /`ModelState` | Ascend V2 `initialize_kv_cache`、`attn_utils` | 需要核对W8A8与Mamba/GDN、multi KV Group、每层block_size/真实kernel block size、不同窗口mask及请求复用；没有310P3 V2实机证据 | NO |
 | ABI-11 | `GPUModelRunner.execute_model` / `shutdown` / `torch.cuda.*` | AscendV2继承 | inherited执行并非全部经`torch_cuda_wrapper`，检查流、device内存、profiling、Graph manager/Context、Eager的CG manager=NULL路径，不能盲目解除NOT_IMPLEMENTED | NO |
 | ABI-12 | 上游 `VllmConfig._validate_v2_model_runner` 与 `use_v2_model_runner` | 平台patch已完成 | 310P3双开关、vLLM0.27.1、TP2 Eager只豁免Triton，剩余feature检查保留；Worker因未移植V2仍主动报NOT_IMPLEMENTED | 配置准入已PASS，Runtime NO |
+| ABI-13 | `GPUModelRunner.__init__` 直接构造UVA `RequestState` | 独立 `NPURequestState` 候选尚未取代父构造 | P0，必须专属Runner完全绕过原UVA构造 | NO |
+| ABI-14 | `GPUModelRunner.initialize_kv_cache` 构造GPU `BlockTables` | `NPUBlockTables`候选未接线 | P0，KV init/多Group/DFlash实际入口未替换 | NO |
+| ABI-15 | `post_update`修改设备端Token/length状态 | 310P CPU staged mirror、dirty-index候选 | P0，in-flight所有权/异步写序未审计闭环 | NO |
 
 ## 0.27.1主要签名与调用源
 
