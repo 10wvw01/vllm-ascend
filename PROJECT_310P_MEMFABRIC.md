@@ -38,6 +38,8 @@
 | U1 统一诊断工具 | 已纳入 GitHub 纯CPU源码/合成数据合同回归；**U1真实设备运行仍NOT_RUN**，不是研发主目标 |
 | 统一主线 | **本分支**；已有[专用CI](https://github.com/10wvw01/vllm-ascend/actions/runs/40126962427)：治理6/6 + V2源码合同54/54 PASS；正式Kernel未因治理改变 |
 
+**2026-10-27 A1-TTFT 历史证据复用与最小补测：**[历史L1～L4证据审计及受控实验设计](csrc/_310P/memfabric_mm_ar_v2/docs/L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md) 已纳入当前A1分支；旧版2026-10-21已有四层方向性链，但最新D4完整Stock L1与同场Prefill TTFT归因仍缺证。G0/Smoke/Profiler/E2E依旧NOT_RUN，不能将该计划当作执行授权。
+
 ## 每次新会话请这样开始
 
 > 阅读 `10wvw01/vllm-ascend` 的 `dev/310p-memfabric-mm-ar:PROJECT_310P_MEMFABRIC.md` 和其链接的 `PROJECT_CONTROL.md`、`DECISIONS.md`、`PERFORMANCE_BASELINES.md`、`BRANCH_GOVERNANCE.md`；核查远程主线 HEAD 和未合入变更。**先报告当前有效结论和下一步动作，再继续我本次的需求。禁止把历史实验报告当作新决策，禁止改动 HaonanWu1 仓库。** 如文档与代码冲突，用源码和新证据定位冲突，并同步更新控制台，不能自行静默改变方向。
