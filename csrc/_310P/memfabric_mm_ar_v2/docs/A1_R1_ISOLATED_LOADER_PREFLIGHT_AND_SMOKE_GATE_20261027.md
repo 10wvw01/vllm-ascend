@@ -1,5 +1,7 @@
 # A1-R1｜隔离装载、环境恢复及 M2048 Smoke 准入合同（2026-10-27）
 
+> **2026-10-27 更新：此文档已被[同一批次贯通 Smoke/L1/L2/L3 的最新授权与执行合同](A1_R1_ONE_BATCH_THROUGH_L3_20261027.md)替代。** 用户明确批准环境准入通过后首次M2048 Smoke及其成功后的连续性能验证，**不再要求每个正常阶段分别返回用户审批**。本文件仍可参考隔离装载/回滚细节，但其中“R1A后必须再申请R1B”等旧管理约束不再生效；异常STOP、他人环境隔离、数值与实际加载真实性硬门仍有效。
+
 > 主线[大M实验总账](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)负责状态；本文件属于A1实施分支[PR#9](https://github.com/10wvw01/vllm-ascend/pull/9)。用户已授权着手**准备**，R1A可交OpenCode进行纯CPU和只读检查；**真实部署、建池、KFC、M2048双Rank Kernel依然必须R1A审证后另外放行**。服务器正在运行其它任务，旧卡余量及环境身份不自动沿用。
 
 ## 1. R0已审核事实与新变化
