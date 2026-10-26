@@ -93,7 +93,10 @@ L3 无Profiler轻量Stock/V2 Screen
 
 | ID / 阶段 | 做什么；解决的问题 | 负责人 / 验收要点 | 状态（2026-10-27） | 实际结果/证据与下一个动作 |
 |---|---|---|---|---|
-| G-01 安全准入 | **原仓CPU合同 + 四卡只读G0**；确认双Die、独占、Host双SO/Device/KVER11、冷池恢复方案 | 现场执行，研发侧审证，用户签批；得到完整G0包 | **NOT_RUN** | 当前没有新G0或CPU PASS。下一步按[工作分支CPU/G0合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_CPU_G0_ACCEPTANCE_20261026.md)执行只读取证 |
+| E-01 重进场只读 | **服务器切过别的分支后重扫四卡、CANN/Python/真实SO与Git工作树**；防止误用旧环境、影响其它任务 | OpenCode现场，研发侧审核；`environment_inventory.json`、`card_selection.json`与四卡证据齐 | **工具已在PR#9 Draft；现场 NOT_RUN** | [A1重进场脚本](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/test/perf/a1_reentry_readonly.py)只读；下一步在用户委托后执行BATCH-R0，不自动签发G0 |
+| E-02 修复溯源 | **找回2026-10-23经实机验证的MemFabric三处SetAccess物理DeviceID补丁与1dc46d7d SO**；防止新构建缺映射致507899 | OpenCode现场取证、研发侧审查；旧`mf-fix`本地diff/git/stash/二进制完整SHA或证明丢失 | **远端7分支静审完成；现场查找 NOT_RUN** | 镜像7分支未发现修复；2026-10-23修复成功的服务器源码或备份待找。兜底[MemFabric Draft PR#1](https://github.com/10wvw01/memfabric_hybrid/pull/1)不得直接部署 |
+| E-03 CPU与隔离编译 | **原仓A1 CPU回归、必要时MemFabric与V2隔离staging构建和符号/ABI清单**；避免未经核验替换全局SO | OpenCode现场；CPU stdout/stderr/exit、源码SHA、编译参数和产物SHA、可恢复备份方案 | **NOT_RUN；候选源码 Draft** | 优先沿用经哈希验证的历史SO；新编译hash变化要单独审批冻结U1合同。第一批不得`pip install`到共享环境/执行KFC/Kernel |
+| G-01 安全准入 | **原仓CPU合同 + 四卡只读G0**；确认双Die、独占、Host双SO/Device/KVER11、冷池恢复方案 | 现场执行，研发侧审证，用户签批；得到完整G0包 | **NOT_RUN** | **服务器已切换其它分支，历史G0全部作废。** 第一批只可执行E-01～E-03批量准备并回传，不可直接Smoke；遵循[重进场/重编译部署合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_REENTRY_BUILD_DEPLOY_AND_BATCH_GATE_20261027.md) |
 | L1-01 Smoke | **M2048双Rank Stock/V2位精确与KFC首调冒烟**；排除冷首写/协议假成功 | 现场；G0_GO且**单独授权**，双臂状态/bit-exact/加载记录 | **BLOCKED / NOT_RUN** | 待G-01；不做性能GO；任何507014/507899/错算STOP |
 | L1-02 Screen | **M2048/4096完整Stock vs D4首轮时延**；快速识别差距与真实优化方向 | 现场；2场既有U1大M Screen、保留双Rank原始采样/尾部和SO指纹 | **BLOCKED / NOT_RUN** | 待L1-01成功与批准；M1024仅探针，不记为正式Serving命中 |
 | L1-03 路由审计 | **独立核实HCCL异步跨流尾部与V2正式D4命中**；避免W1/W4不公平Stock对照 | 研发侧+现场；Device Trace/HCCL完成Event、权重/输入布局及调用完成语义可复核 | **BLOCKED / NOT_RUN** | 待L1-02；审计失败时L1不能签发“完整链可信” |
@@ -129,6 +132,7 @@ L3 无Profiler轻量Stock/V2 Screen
 | B-03 / P0安全 | **Gate E/507014与首写潜在静默损坏**，会污染数据且阻止生产启用 | 历史故障待根治；与本轮L3收益判断分开，但异常即STOP | 故障取证与正确性回归；MemFabric团队协作/现场；正式发布前关闭 |
 | B-04 / P0准入 | 旧43520 Die7/MCU告警、不同设备号映射和SO装载身份 | 新四卡健康/G0尚无本轮新证据 | 每次四卡只读择优、同卡双Die/独占、完整SHA/恢复、许可；现场 |
 | B-05 / P1 | **历史2026-10-21 Host SO SHA记载冲突**，误导跨轮归因 | 报告6e9dc2d6 vs provenance 88d39285；未解释 | 核查旧原始安装/Trace存在性；不影响开展新同场实验；研发侧/现场 |
+| B-07 / P0环境漂移 | **服务器当前跑过其它分支**，CANN/插件/Host双路径SO/KVER和卡级占用未知；MemFabric镜像7分支的三处SetAccess未包含2026-10-23非identity物理号修复 | 只读远程源码审计已做，服务器工作树/备份/旧SO尚未查证；新PR仅Draft | 先完成E-01～E-03，证明当前确切装载版本与回滚；任何构建SHA变化/共享覆盖必须独立审查批准 |
 | B-06 / P1治理 | A1工作分支含主线已有的旧版治理文件，存在误覆盖风险 | PR#9 Draft，基底早于ADR-015/016主线合入 | 后续代码PR按新主线比较、选择性合入，经两轮审查；研发侧 |
 
 ## 5. 实机批次、结果表（新实验开始后在这里逐行追加）
@@ -161,6 +165,8 @@ L3 无Profiler轻量Stock/V2 Screen
 | 2026-10-26 | A1工具/只读G0探针已写入工作分支 | DRAFT_CODE；隔离重建CPU合同20项PASS，原仓CPU/设备NOT_RUN | [PR #9](https://github.com/10wvw01/vllm-ascend/pull/9) | 补原仓CPU + 四卡只读G0并审查 |
 | 2026-10-27 | ADR-015/016、历史盘点与L3-first回归主线 | 方向文档经PR#10合入；无新设备数值 | [PR #10](https://github.com/10wvw01/vllm-ascend/pull/10) | L1合同与L3计时实现分开推进 |
 | 2026-10-27 | **创建本大M TTFT实验唯一总账** | 任务、依赖、历史结果、风险与本轮未跑状态已登记；**不是实机GO** | 本文件与本次docs-only主线变更 | 维护M/A/G/L/O/R系列任务和第一份实际CPU/G0结果 |
+
+| 2026-10-27 | **服务器环境重进场与MemFabric物理号修复取证准备** | 原服务器其它分支已运行，旧G0作废；查远程镜像7分支没有物理映射修复，历史1dc46d7d实机SO仍需服务器源文件/备份取证；新增A1只读工具和批量准入合同，**没有原仓CPU/服务器实机新结果** | [A1准备文档](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_REENTRY_BUILD_DEPLOY_AND_BATCH_GATE_20261027.md)、[MemFabric Draft PR#1](https://github.com/10wvw01/memfabric_hybrid/pull/1) | 用户委托OpenCode仅执行BATCH-R0：只读盘点 + CPU + 历史源码/二进制溯源 + 隔离编译/恢复方案；回传审核后才评估部署/Smoke |
 
 **每轮结束至少更新四处：**①本文件第2节任务状态/结果/下一步；②第5节本轮实测批次、失败与原始证据；③第6节追加一行日期更新；④若事实改变项目当前裁决，同步 [PROJECT_CONTROL.md](PROJECT_CONTROL.md)，有经审核的新性能数值同步 [PERFORMANCE_BASELINES.md](PERFORMANCE_BASELINES.md)，新决策再追加 [DECISIONS.md](DECISIONS.md)。不修改旧实验中的原始数字，纠错使用新记录说明原因。
 
