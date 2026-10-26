@@ -1,0 +1,22 @@
+name: 310P Gate E Handoff CPU Contracts
+on:
+  push:
+    branches:
+      - diag/310p3-g1d-minimal-forensics-20261021
+  workflow_dispatch:
+
+jobs:
+  gate-e-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Syntax check of handoff assessor
+        run: |
+          python3 -m py_compile csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/gate_e_handoff_assess.py
+          python3 -m py_compile csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts/test_gate_e_handoff_assess.py
+      - name: Read-only synthetic evidence contracts (no NPU)
+        run: |
+          python3 -m unittest discover -s csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts -p 'test_gate_e_handoff_assess.py' -v
