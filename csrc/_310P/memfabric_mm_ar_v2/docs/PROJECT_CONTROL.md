@@ -213,3 +213,13 @@
 - **首批现场可委托范围 BATCH-R0**：按 [A1重进场与编译部署批量准入合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_REENTRY_BUILD_DEPLOY_AND_BATCH_GATE_20261027.md) 在**隔离工作树**一次完成四卡/环境只读快照、原仓A1 CPU和bash/python静审、旧修复源码/完整SO指纹查找、可行的隔离staging编译与备份/回滚计划。**同批不准**设备初始化/建池/KFC预部署、全局`pip install`/双Host SO覆盖、Smoke/Screen/Confirm；结果回传审核后再逐阶段放行。
 - **任务状态入账**：[实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)新增E-01/02/03及B-07记录环境漂移和修复溯源；A1只读工具与CPU测试、实施文档在Draft PR#9。没有任何新服务器原仓CPU/设备PASS或当前D4 L1/L3/L4正收益数据，Stock默认与Gate E STOP纪律不变。
 
+## 19. 2026-10-27｜A1 BATCH-R0原仓CPU/四卡取证通过，历史MemFabric修复与SO成功找回
+
+- **正式证据审查**：[R0独立验收与R1阻塞清单](A1_BATCH_R0_ACCEPTANCE_20261027.md)；现场[原始CPU、修复Patch、环境快照与结果索引](https://github.com/10wvw01/vllm-ascend/tree/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r0_reentry_20261027)，run_id`a1-r0-20261027-001`。A1现场执行SHA`235de9f6...`、归档HEAD`73114fd...`，隔离工作树未修改其它任务。
+- **原仓CPU PASS**：`unittest`34/34、`pytest`88项+27 subtests、`py_compile`、`bash -n`及U1冻结SHA/审批闸静审通过；纯CPU物理ID映射15/15。此项是原仓CPU结果，**不是NPU Smoke或L1性能结果**。
+- **MemFabric非零设备映射的历史源码终于找回**：服务器本地未推送commit`5802f55026c16e153e783d8ef26a29f813d63dd9`（三处`aclrtMemSetAccess`换物理号、MallocPhysical仍逻辑号），两份完整历史修复SO SHA`1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30`均在本地归档。旧源码Patch已纳入A1证据。**不必按兜底Draft PR#1另造新版Host SO；后续应将实际旧commit补推到正确MemFabric仓库**。
+- **服务器四卡只读取证**：16384(dev2,3)在采样时双Die OK、无可见进程且hugepages0/0，推荐作为唯一候选；5664被其它任务占用；38144 dev4有约13GB残留/hugepages全占；43520 dev7 MCU/Chip Alarm且被占用。**授权和启动前仍需复核16384的实际独占、卡健康及环境映射**；不处理其它租户进程。
+- **部署仍未准备就绪**：当前共享Host系统/Python双路径SO为`88d39285...`（未修复），当前插件目录Device SO为`b8ca96f0...`（非D4），唯D4归档SHA`2a19390c...`、插件`8eb65de9...`、KVER11`25e16b0a...`已就绪。不能把候选SO路径存在当成**实际装载通过**，不能直接修改他人工作的共享安装环境。优先审查历史S3-R/S3-R2的进程级`LD_PRELOAD`/隔离Device SO方案；若不能隔离必须独立维护窗口和快照可回滚、用户批准。
+- **门禁最新状态**：`R0_EVIDENCE_ACCEPTED / CPU_PASS / PROVENANCE_FOUND / G0_READONLY_OBSERVED / G0_APPROVAL_PENDING / DEPLOY_NO_GO / SMOKE_NOT_RUN`；U1实际G0、M2048 Smoke、L1 Screen/Confirm、L2设备归因、L3设备Step、L4正式TTFT**均无新运行结果**。Gate E/507014、首写与KFC首调安全阻塞仍保留；Stage E2/R1须独立授权，不因历史S3-R2 25/25短场正确就认定当前正式发布安全。
+- **同步唯一实验总账**：[大M Prefill TTFT实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)已更新E-01/02/03、G-01、B-01/04/07、R0原始取证批次和进度日志。主线负责目标/真相，A1 PR#9保持Draft只负责实现。
+
