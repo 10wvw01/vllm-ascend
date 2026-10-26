@@ -1,5 +1,6 @@
 # 310P3 V2 MemFabric MM+AllReduce 工程
 
+> **Gate E / 507014 向 MemFabric 团队移交（2026-10-26）：** 请优先阅读 [复现版本与现场验证合同](GATE_E_MEMFABRIC_HANDOFF_20261026.md)。本分支保存历史已复现的 G1-D 诊断源码及运行脚本；**本轮交付前实机复验尚未执行**，严禁将历史报告冒充新验证。\n\n
 > 当前状态：G3 的算子级与模型 Eager 功能正确性已验证，Eager 性能与长稳 FAIL，
 > Graph 实际未调用 V2。**请先读 [阶段归档](ARCHIVE_20261019_G3.md)**；
 > 禁止把“构建成功”或“Graph 输出与 Stock 一致”误作融合收益证明。
