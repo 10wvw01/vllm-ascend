@@ -1,19 +1,20 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
-> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-26（Asia/Singapore）。
+> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-27（Asia/Taipei）。
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
 ## 从这里恢复上下文（推荐阅读顺序）
 
-1. [项目控制台：当前结论、技术合同、最新决策、下一步、环境状态](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——**当前状态只在这里维护**。
-2. [工作分支与合入治理](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)——唯一主线、实验分支归档、代码来源与禁止事项。
-3. [统一性能基线与证据索引](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)——严格区分单算子 V2 内部收益、完整 V2 vs Stock、模型实际传导。
-4. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——**ADR-013 正式废止重建 V2 Runner / DFlash 兼容体系，禁止继续从旧 R2 开发。**
-5. [正式 V2 融合工程及薄接入](csrc/_310P/memfabric_mm_ar_v2/docs/README.md)——只改 MM+MemFabric 算子、选层与必要的 Stock 回退。
-6. [DFlash K7 Stock/V2四象限实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——先Stock Eager，再V2 Eager；Graph受控研究。
-7. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
-8. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
+1. [项目控制台：当前全项目状态、技术合同和决策](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——全项目权威状态。
+2. [大M Prefill TTFT实验总账：目标、流程、任务清单、状态、证据和进度日志](csrc/_310P/memfabric_mm_ar_v2/docs/LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)——**本轮大M实验唯一进度追踪入口**；新会话和OpenCode开始A1/L3之前必须读取。
+3. [工作分支与合入治理](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)——唯一主线、实验分支归档、代码来源与禁止事项。
+4. [统一性能基线与证据索引](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)——严格区分单算子 V2 内部收益、完整 V2 vs Stock、模型实际传导。
+5. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——ADR-013 废止重建 Runner；ADR-015 锁定TTFT；ADR-016 主线管方向。
+6. [正式 V2 融合工程及薄接入](csrc/_310P/memfabric_mm_ar_v2/docs/README.md)——只改 MM+MemFabric 算子、选层与必要的 Stock 回退。
+7. [DFlash K7 Stock/V2四象限历史实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——历史Stock/V2/DFlash取证，不代替当前大M实验总账。
+8. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
+9. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
 
 ## 不可偏离的当前目标
 
@@ -40,7 +41,7 @@
 
 ## 每次新会话请这样开始
 
-> 阅读 `10wvw01/vllm-ascend` 的 `dev/310p-memfabric-mm-ar:PROJECT_310P_MEMFABRIC.md` 和其链接的 `PROJECT_CONTROL.md`、`DECISIONS.md`、`PERFORMANCE_BASELINES.md`、`BRANCH_GOVERNANCE.md`；核查远程主线 HEAD 和未合入变更。**先报告当前有效结论和下一步动作，再继续我本次的需求。禁止把历史实验报告当作新决策，禁止改动 HaonanWu1 仓库。** 如文档与代码冲突，用源码和新证据定位冲突，并同步更新控制台，不能自行静默改变方向。
+> 阅读 `10wvw01/vllm-ascend` 的 `dev/310p-memfabric-mm-ar:PROJECT_310P_MEMFABRIC.md` 和其链接的 `PROJECT_CONTROL.md`、`LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md`、`DECISIONS.md`、`PERFORMANCE_BASELINES.md`、`BRANCH_GOVERNANCE.md`；核查远程主线 HEAD 和未合入变更。**先报告当前有效结论和下一步动作，再继续我本次的需求。禁止把历史实验报告当作新决策，禁止改动 HaonanWu1 仓库。** 如文档与代码冲突，用源码和新证据定位冲突，并同步更新控制台，不能自行静默改变方向。
 
 ## 变更纪律
 
