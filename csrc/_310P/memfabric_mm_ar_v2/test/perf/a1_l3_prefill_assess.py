@@ -92,6 +92,20 @@ def evaluate(root: Path, audit_path: Path, warmup: int = 6, measured: int = 30) 
     fail_unless(audit.get("schema") == "A1_L2_L3_CALIBRATION_ATTESTED_V1",
                 "missing L2/L3 calibration audit")
     missing = [key for key in AUDIT_TRUE if audit.get(key) is not True]
+    # L2 40-site success must be an independently produced verified report,
+    # not just a handwritten boolean in the L3 calibration sheet.
+    l2_path = audit.get("l2_verified_report")
+    if (not isinstance(l2_path, str) or not l2_path
+            or Path(l2_path).is_absolute() or ".." in Path(l2_path).parts):
+        missing.append("l2_verified_report")
+    else:
+        source = (root / l2_path).resolve()
+        if not source.is_relative_to(root.resolve()) or not source.is_file():
+            missing.append("l2_verified_report")
+        else:
+            proof = json.loads(source.read_text(encoding="utf-8"))
+            if proof.get("status") != "L2_VERIFIED" or proof.get("sites_per_rank_per_step") != 40:
+                missing.append("l2_verified_report")
     evid = audit.get("evidence_files")
     fail_unless(isinstance(evid, list) and len(evid) >= 4 and
                 all(isinstance(x, str) and not Path(x).is_absolute()
