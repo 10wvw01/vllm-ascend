@@ -4,7 +4,7 @@
 >
 > **唯一研发主线：** [dev/310p-memfabric-mm-ar](https://github.com/10wvw01/vllm-ascend/tree/dev/310p-memfabric-mm-ar)（本轮制定总账时 HEAD d5472c902c2a8576e3eb7bafb1fada0eaedce3ff；合并本总账后以实际远程 HEAD 为准）。
 > **当前实施分支：** [work/310p-mm-ar-large-m-a1-20261026](https://github.com/10wvw01/vllm-ascend/tree/work/310p-mm-ar-large-m-a1-20261026)，[PR #9（Draft）](https://github.com/10wvw01/vllm-ascend/pull/9)，已核实远端 HEAD 527882246bbdbb8fc21b0b9fe6c361bb3d25316d。
-> **权限边界：** 本文件只进行任务管理与实验设计，不授权 OpenCode 运行 Kernel、修改服务器 SO、执行 KFC、启动模型或跨阶段压测；每阶段均须完成相应安全审查并由用户批准。
+> **权限边界（2026-10-27更新）：**用户已明确授权**一次OpenCode批次从环境恢复与M2048双RankSmoke成功后条件续跑L1 Screen/Confirm、L2和L3，L3_GO且正式负载环境可审计时续跑L4**；不再逐段返回聊天审批。前提是每阶段真实身份/数值/卡健康/恢复方案的硬门均PASS；若须影响共享SO/他人服务、出现设备异常或缺乏可靠L3计时立即STOP/保全，不得用本授权跳闸或发布默认。
 
 ## 0. 一眼看懂：目标、当前状态、下一步
 
@@ -97,7 +97,8 @@ L3 无Profiler轻量Stock/V2 Screen
 | E-02 修复溯源 | **找回2026-10-23经实机验证的MemFabric三处SetAccess物理DeviceID补丁与1dc46d7d SO**；防止新构建缺映射致507899 | OpenCode现场取证、研发侧审查；旧`mf-fix`本地diff/git/stash/二进制完整SHA或证明丢失 | **PASS：原历史源与SO找回** | 本地历史`5802f550`与两份Host SO完整SHA`1dc46d7d…`已核对；原始3个源文件**Git Blob完全一致**恢复，已[合入镜像主线PR#1](https://github.com/10wvw01/memfabric_hybrid_310p/pull/1)，新main`0670f3c7…`。历史二进制未重编或重新部署；备用异语义Draft PR已关闭 |
 | E-03 CPU与隔离编译 | **原仓A1 CPU回归、必要时MemFabric与V2隔离staging构建和符号/ABI清单**；避免未经核验替换全局SO | OpenCode现场；CPU stdout/stderr/exit、源码SHA、编译参数和产物SHA、可恢复备份方案 | **CPU_PASS / HOST_BUILD_NOT_ATTEMPTED（合理）** | 原仓CPU全绿、映射15/15；已复核历史两份字节级SO与旧构建记录，无需盲目重编；下步确定隔离装载/可回滚共享部署方案，当前未安装 |
 | E-04 R1A装载预审 | **以私有目录验证Host/D4/插件/KVER完整身份、动态依赖与隔离路线，不启动设备**；防止候选SO路径对但实际加载旧SO | 研发侧提供只读核验器/UT和[R1分段合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ISOLATED_LOADER_PREFLIGHT_AND_SMOKE_GATE_20261027.md)；现场取证装载路径与原仓CPU | **DRAFT_CODE / R1A现场 NOT_RUN** | 已实现`a1_r1_loader_readonly.py`及拒绝性UT；尚未原仓执行，仍只证明静态候选身份，不声称真实Host dlopen/Device注册。`R1A`可在下一次安全批次一次做完 |
-| E-05 R1B受控恢复+短Smoke | **私有加载如可行优先，不可行则评审共享维护窗口；真实恢复后只跑最小M2048双RankStock/V2**；验证KFC/首写/物理号与位精确 | 用户逐阶段授权现场执行，研发侧审实际Rank0/1 SO/设备Kernel路径；失败STOP与可验证回滚 | **BLOCKED / R1B_NOT_RUN** | 依赖R1A报告、可用16384独占、真实加载证据与用户独立许可。**不自动连跑Screen/Confirm** |
+| E-05 单批安全恢复+Smoke | **私有真实装载优先；首次M2048双RankStock/V2正确性与自动KFC、首写协议**，通过后不再返回聊天审批 | 现场OpenCode在用户本次条件授权下执行，真实Rank0/1 SO/Kernel/卡/数值证据强制关卡；失败STOP和回滚 | **DRAFT_CODE / DEVICE_NOT_RUN** | 依赖E-04、16384或其它健康独占完整卡、私有真实装载（不能隔离需共享变更时STOP另行授权）；Smoke双Rank证据须经`a1_r1_smoke_gate.py`验收，仅ALLOW_SCREEN才连续后续阶段 |
+| E-06 单批贯通L1/L2/L3 | **一次进场完成最新D4 L1原生Stock、真实Serving40站点L2和无Profiler Prefill Event L3**，减少重复KFC/模型启动和人工交接 | 研发侧现有A1门禁与新增Smoke/L2/L3验收工具、[单批操作合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ONE_BATCH_THROUGH_L3_20261027.md)；现场同批条件续跑，失败保留分段证据 | **代码准备中 / 实机 NOT_RUN** | L1 Smoke→Screen→HCCL审计→Confirm，L2 Stock/V2两场短Profiler（各6+5），L3 Stock–V2–V2–Stock无Profiler四场（各6+30）；L3测量不成立标MEASUREMENT_NOT_READY，不将客户端4096/1当Step；有L3_GO再考虑同批正式L4 |
 | G-01 安全准入 | **原仓CPU合同 + 四卡只读G0**；确认双Die、独占、Host双SO/Device/KVER11、冷池恢复方案 | 现场执行，研发侧审证，用户签批；得到完整G0包 | **G0_READONLY_OBSERVED / APPROVAL_PENDING** | R0报告已对四卡、SHA和可恢复产物取证，**现装Host仍是`88d39285`、Device SO仍为baseline`b8ca96f0`**；无共享写入或Smoke许可，需复核16384独占与隔离装载方案；详见[审查](A1_BATCH_R0_ACCEPTANCE_20261027.md) |
 | L1-01 Smoke | **M2048双Rank Stock/V2位精确与KFC首调冒烟**；排除冷首写/协议假成功 | 现场；G0_GO且**单独授权**，双臂状态/bit-exact/加载记录 | **BLOCKED / NOT_RUN** | 待G-01；不做性能GO；任何507014/507899/错算STOP |
 | L1-02 Screen | **M2048/4096完整Stock vs D4首轮时延**；快速识别差距与真实优化方向 | 现场；2场既有U1大M Screen、保留双Rank原始采样/尾部和SO指纹 | **BLOCKED / NOT_RUN** | 待L1-01成功与批准；M1024仅探针，不记为正式Serving命中 |
@@ -174,10 +175,12 @@ L3 无Profiler轻量Stock/V2 Screen
 
 | 2026-10-27 | **R1源码恢复及隔离装载准备** | 已将原始`5802f550`补丁3个目标源码Git Blob字节级恢复并合入MemFabric镜像main`0670f3c7`；另仓语义不同备用Draft已关闭。A1新增R1静态装载检查器/CPU拒绝性测试及[R1分段合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ISOLATED_LOADER_PREFLIGHT_AND_SMOKE_GATE_20261027.md)，**新工具原仓CPU与服务器R1A均未运行；没有实际部署/Device Smoke** | [MemFabric修复PR](https://github.com/10wvw01/memfabric_hybrid_310p/pull/1)、[R1实施分支PR#9](https://github.com/10wvw01/vllm-ascend/pull/9) | 下一次委托OpenCode执行**一次高密度CPU/只读R1A**（四卡重巡、真实动态路径、私有SO staging与恢复计划），审核其证据后再独立决定R1B首次Smoke |
 
+| 2026-10-27 | **用户批准一次进场连续做M2048Smoke→L1→L2→L3（L3_GO后条件L4）** | A1实施分支新增Smoke硬闸、L2逐Rank真实40层Trace完整性校验、实验开关的NPU Event Forward→Logits采样、L3四场无Profiler ABBA分析与纯CPU负向测试、单会话Eager采集入口；**原仓CPU/新实机尚未执行，新增测量语义仍需现场Trace校准** | [单批执行合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ONE_BATCH_THROUGH_L3_20261027.md)、[A1 PR#9](https://github.com/10wvw01/vllm-ascend/pull/9) | OpenCode一次批量执行，任一实际身份/正确性/设备异常STOP；各阶段证据独立归档，禁止将Profiler或Kernel累加替代L3设备Step |
+
 **每轮结束至少更新四处：**①本文件第2节任务状态/结果/下一步；②第5节本轮实测批次、失败与原始证据；③第6节追加一行日期更新；④若事实改变项目当前裁决，同步 [PROJECT_CONTROL.md](PROJECT_CONTROL.md)，有经审核的新性能数值同步 [PERFORMANCE_BASELINES.md](PERFORMANCE_BASELINES.md)，新决策再追加 [DECISIONS.md](DECISIONS.md)。不修改旧实验中的原始数字，纠错使用新记录说明原因。
 
 **下一轮现场交接固定输出：**任务ID/开始前允许执行的阶段、实际HEAD/环境SHA、上一门禁PASS或NO-GO、操作所依据的文档、所有执行结果与异常、完成后真实状态、新结果应更新的文件、下一步是否还需要用户批准。任何“执行中”不得仅凭口头声称而改为PASS；新会话不从聊天记忆恢复状态，而从本总账与主线控制台恢复。
 
 ---
 
-**本总账最新裁决（2026-10-27，R1准备后）：**A1原仓CPU与四卡环境只读取证已完成；服务器历史修复commit`5802f550`、两份修复Host SO `1dc46d7d`已找回，生产路径仍装`88d39285`，插件目录D4设备SO仍baseline。**R0证据接受，G0和E2部署仍待审批；L1/L2/L3/L4新NPU实验未跑。** **MemFabric历史修复源码已在镜像仓main恢复**。下一步先执行R1A静态/只读装载和私有staging审核，后续独立审批R1B真实恢复+M2048 Smoke；不能跨越准入。
+**本总账最新裁决（2026-10-27，R1准备后）：**A1原仓CPU与四卡环境只读取证已完成；服务器历史修复commit`5802f550`、两份修复Host SO `1dc46d7d`已找回，生产路径仍装`88d39285`，插件目录D4设备SO仍baseline。**R0证据接受，G0和E2部署仍待审批；L1/L2/L3/L4新NPU实验未跑。** **MemFabric历史修复源码已在镜像仓main恢复**。**用户现已批准一次性条件续跑**：下一批在同一OpenCode委托中先复核当前四卡/隔离实际装载与原仓CPU，再做M2048双RankSmoke→L1→L2→L3；可靠L3_GO时可考虑同批L4正式验收。共享环境变更/故障/计时失败仍触发STOP与证据保全。
