@@ -223,3 +223,11 @@
 - **门禁最新状态**：`R0_EVIDENCE_ACCEPTED / CPU_PASS / PROVENANCE_FOUND / G0_READONLY_OBSERVED / G0_APPROVAL_PENDING / DEPLOY_NO_GO / SMOKE_NOT_RUN`；U1实际G0、M2048 Smoke、L1 Screen/Confirm、L2设备归因、L3设备Step、L4正式TTFT**均无新运行结果**。Gate E/507014、首写与KFC首调安全阻塞仍保留；Stage E2/R1须独立授权，不因历史S3-R2 25/25短场正确就认定当前正式发布安全。
 - **同步唯一实验总账**：[大M Prefill TTFT实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)已更新E-01/02/03、G-01、B-01/04/07、R0原始取证批次和进度日志。主线负责目标/真相，A1 PR#9保持Draft只负责实现。
 
+## 20. 2026-10-27｜R1：历史MemFabric原补丁已落正确GitHub仓库；隔离装载先于设备Smoke
+
+- **长期源码源头已修复**：将R0找回的`5802f550`原始Patch恢复到`10wvw01/memfabric_hybrid_310p`，3个被修改源文件分别与历史目标Git Blob SHA完全一致；[PR#1](https://github.com/10wvw01/memfabric_hybrid_310p/pull/1)已合入镜像主线`main@0670f3c7db7cfb090e8a312b9347fa039ada7da2`。这不是同SHA的Git提交（GitHub重新提交），也不代表本轮已重编或新NPU验证；**旧经过S3-R2实证的Host SO SHA`1dc46d7d...`仍为唯一复用二进制**。另一仓语义不同的备用PR现已关闭，不作为装机来源。
+- **R1最关键的新审查**：U1现有SHA门禁只证明`U1_DEVICE_SO_PATH`候选文件有效、`U1_CORE_SO_*`路径字节有效，却**没有证明运行中真正注册的是D4 Device SO**；同时A1 Python插件editable导入依赖另一任务工作树，生产系统/Python Host SO仍旧`88d39285...`、Device SO实际在装旧`b8ca96f0...`。未经私有化Loader与Device实际身份审查，禁止直接运行M2048 Smoke或修改共享安装。
+- **实施已准备，尚无新测试**：A1实施PR#9新增`test/perf/a1_r1_loader_readonly.py`及CPU拒绝性UT、[R1A静态/只读与R1B受控Smoke分段合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ISOLATED_LOADER_PREFLIGHT_AND_SMOKE_GATE_20261027.md)。只读工具严格不导入torch、不dlopen、不触NPU，显式输出实际SO装载未被证明，**原仓CPU及R1现场运行仍NOT_RUN**。
+- **当前允许的下一次委托**：单批**BATCH-R1A**（新隔离工作树→四卡/租户重扫→7个候选/在装文件SHA与ELF静态依赖→私有Host/D4 staging copy→Python插件/Device注册路径追溯→真实原仓CPU回归→可行性、维护窗口/回滚计划）。全部只读/CPU，不安装SO、不建池/KFC、不执行Kernel；回传证据后才可能独立许可**R1B**（真实装载证明、16384独占复查和最小M2048 Smoke）。R1B Smoke仅正确性准入，不会自动进入L1 Screen/Confirm/L3/L4。
+- **唯一进度台账**：[大M Prefill TTFT实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)新增E-04与E-05，E-02源归档完成、B-07运行时装载阻塞未解。主线继续Stock默认；Gate E首写/507014、Die7 Alarm/共享租户和全部阶段STOP约束不放宽。
+

@@ -94,8 +94,10 @@ L3 无Profiler轻量Stock/V2 Screen
 | ID / 阶段 | 做什么；解决的问题 | 负责人 / 验收要点 | 状态（2026-10-27） | 实际结果/证据与下一个动作 |
 |---|---|---|---|---|
 | E-01 重进场只读 | **服务器切过别的分支后重扫四卡、CANN/Python/真实SO与Git工作树**；防止误用旧环境、影响其它任务 | OpenCode现场，研发侧审核；`environment_inventory.json`、`card_selection.json`与四卡证据齐 | **PASS（仅只读取证）** | [R0环境快照及四卡证据](https://github.com/10wvw01/vllm-ascend/tree/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r0_reentry_20261027)：16384(dev2,3)为唯一候选；5664/43520被占、38144残留；不得自动签发G0，R1前须重验 |
-| E-02 修复溯源 | **找回2026-10-23经实机验证的MemFabric三处SetAccess物理DeviceID补丁与1dc46d7d SO**；防止新构建缺映射致507899 | OpenCode现场取证、研发侧审查；旧`mf-fix`本地diff/git/stash/二进制完整SHA或证明丢失 | **PASS：原历史源与SO找回** | 本地`5802f550`及归档[Patch](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r0_reentry_20261027/memfabric_fix_5802f550_setaccess_physical.patch)，两份Host SO完整SHA`1dc46d7d…`一致；优先把原commit长期归档，Draft PR#1不替代历史修复 |
+| E-02 修复溯源 | **找回2026-10-23经实机验证的MemFabric三处SetAccess物理DeviceID补丁与1dc46d7d SO**；防止新构建缺映射致507899 | OpenCode现场取证、研发侧审查；旧`mf-fix`本地diff/git/stash/二进制完整SHA或证明丢失 | **PASS：原历史源与SO找回** | 本地历史`5802f550`与两份Host SO完整SHA`1dc46d7d…`已核对；原始3个源文件**Git Blob完全一致**恢复，已[合入镜像主线PR#1](https://github.com/10wvw01/memfabric_hybrid_310p/pull/1)，新main`0670f3c7…`。历史二进制未重编或重新部署；备用异语义Draft PR已关闭 |
 | E-03 CPU与隔离编译 | **原仓A1 CPU回归、必要时MemFabric与V2隔离staging构建和符号/ABI清单**；避免未经核验替换全局SO | OpenCode现场；CPU stdout/stderr/exit、源码SHA、编译参数和产物SHA、可恢复备份方案 | **CPU_PASS / HOST_BUILD_NOT_ATTEMPTED（合理）** | 原仓CPU全绿、映射15/15；已复核历史两份字节级SO与旧构建记录，无需盲目重编；下步确定隔离装载/可回滚共享部署方案，当前未安装 |
+| E-04 R1A装载预审 | **以私有目录验证Host/D4/插件/KVER完整身份、动态依赖与隔离路线，不启动设备**；防止候选SO路径对但实际加载旧SO | 研发侧提供只读核验器/UT和[R1分段合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ISOLATED_LOADER_PREFLIGHT_AND_SMOKE_GATE_20261027.md)；现场取证装载路径与原仓CPU | **DRAFT_CODE / R1A现场 NOT_RUN** | 已实现`a1_r1_loader_readonly.py`及拒绝性UT；尚未原仓执行，仍只证明静态候选身份，不声称真实Host dlopen/Device注册。`R1A`可在下一次安全批次一次做完 |
+| E-05 R1B受控恢复+短Smoke | **私有加载如可行优先，不可行则评审共享维护窗口；真实恢复后只跑最小M2048双RankStock/V2**；验证KFC/首写/物理号与位精确 | 用户逐阶段授权现场执行，研发侧审实际Rank0/1 SO/设备Kernel路径；失败STOP与可验证回滚 | **BLOCKED / R1B_NOT_RUN** | 依赖R1A报告、可用16384独占、真实加载证据与用户独立许可。**不自动连跑Screen/Confirm** |
 | G-01 安全准入 | **原仓CPU合同 + 四卡只读G0**；确认双Die、独占、Host双SO/Device/KVER11、冷池恢复方案 | 现场执行，研发侧审证，用户签批；得到完整G0包 | **G0_READONLY_OBSERVED / APPROVAL_PENDING** | R0报告已对四卡、SHA和可恢复产物取证，**现装Host仍是`88d39285`、Device SO仍为baseline`b8ca96f0`**；无共享写入或Smoke许可，需复核16384独占与隔离装载方案；详见[审查](A1_BATCH_R0_ACCEPTANCE_20261027.md) |
 | L1-01 Smoke | **M2048双Rank Stock/V2位精确与KFC首调冒烟**；排除冷首写/协议假成功 | 现场；G0_GO且**单独授权**，双臂状态/bit-exact/加载记录 | **BLOCKED / NOT_RUN** | 待G-01；不做性能GO；任何507014/507899/错算STOP |
 | L1-02 Screen | **M2048/4096完整Stock vs D4首轮时延**；快速识别差距与真实优化方向 | 现场；2场既有U1大M Screen、保留双Rank原始采样/尾部和SO指纹 | **BLOCKED / NOT_RUN** | 待L1-01成功与批准；M1024仅探针，不记为正式Serving命中 |
@@ -132,7 +134,7 @@ L3 无Profiler轻量Stock/V2 Screen
 | B-03 / P0安全 | **Gate E/507014与首写潜在静默损坏**，会污染数据且阻止生产启用 | 历史故障待根治；与本轮L3收益判断分开，但异常即STOP | 故障取证与正确性回归；MemFabric团队协作/现场；正式发布前关闭 |
 | B-04 / P0准入 | 旧43520 Die7/MCU告警、不同设备号映射和SO装载身份 | R0四卡已只读：16384(dev2,3)候选空闲；38144孤儿内存、5664/43520占用、43520 Die7仍Alarm；R1前复核 | 每次四卡只读择优、同卡双Die/独占、完整SHA/恢复、许可；现场 |
 | B-05 / P1 | **历史2026-10-21 Host SO SHA记载冲突**，误导跨轮归因 | 报告6e9dc2d6 vs provenance 88d39285；未解释 | 核查旧原始安装/Trace存在性；不影响开展新同场实验；研发侧/现场 |
-| B-07 / P0环境漂移 | **服务器当前跑过其它分支**，实际运行时SO/插件可能漂移且共享目录覆盖影响其它租户 | R0找到本地修复`5802f550`及两份`1dc46d7d`；**当前共享Host两路径仍`88d39285`、Device SO在装`b8ca96f0`，16384为暂定候选** | 先证明私有化装载与真实Kernel身份；不能私有化则维护窗口+独立批准共享备份/部署；KFC/Smoke分开授权 |
+| B-07 / P0环境漂移 | **服务器当前跑过其它分支**，实际运行时SO/插件可能漂移且共享目录覆盖影响其它租户 | 修复源码已通过镜像PR#1恢复；**当前共享Host两路径仍`88d39285`、Device SO在装`b8ca96f0`，16384为暂定候选**。新只读装载审核工具在A1 Draft，尚未现场执行 | 先R1A证明私有化加载与真实Kernel身份；若不能隔离才提维护窗口+独立批准共享备份/部署；KFC/Smoke须分阶段授权 |
 | B-06 / P1治理 | A1工作分支含主线已有的旧版治理文件，存在误覆盖风险 | PR#9 Draft，基底早于ADR-015/016主线合入 | 后续代码PR按新主线比较、选择性合入，经两轮审查；研发侧 |
 
 ## 5. 实机批次、结果表（新实验开始后在这里逐行追加）
@@ -170,10 +172,12 @@ L3 无Profiler轻量Stock/V2 Screen
 
 | 2026-10-27 | **BATCH-R0完成并审查：CPU_PASS / MemFabric原修复找回** | A1原仓unittest34/34、pytest88+27通过；四卡只读：16384(dev2,3)候选；从本地`mf-fix`找回未推送`5802f550`及两份历史修复SO`1dc46d7d`；共享Host仍`88d39285`且D4尚未在装。**无NPU性能/Kernel执行** | [R0审核](A1_BATCH_R0_ACCEPTANCE_20261027.md)、[原始证据索引](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r0_reentry_20261027/evidence_index.json) | 准备真实修复提交长期归档，审查隔离装载优先R1方案；在用户另行许可前不覆盖生产/不启动M2048Smoke |
 
+| 2026-10-27 | **R1源码恢复及隔离装载准备** | 已将原始`5802f550`补丁3个目标源码Git Blob字节级恢复并合入MemFabric镜像main`0670f3c7`；另仓语义不同备用Draft已关闭。A1新增R1静态装载检查器/CPU拒绝性测试及[R1分段合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ISOLATED_LOADER_PREFLIGHT_AND_SMOKE_GATE_20261027.md)，**新工具原仓CPU与服务器R1A均未运行；没有实际部署/Device Smoke** | [MemFabric修复PR](https://github.com/10wvw01/memfabric_hybrid_310p/pull/1)、[R1实施分支PR#9](https://github.com/10wvw01/vllm-ascend/pull/9) | 下一次委托OpenCode执行**一次高密度CPU/只读R1A**（四卡重巡、真实动态路径、私有SO staging与恢复计划），审核其证据后再独立决定R1B首次Smoke |
+
 **每轮结束至少更新四处：**①本文件第2节任务状态/结果/下一步；②第5节本轮实测批次、失败与原始证据；③第6节追加一行日期更新；④若事实改变项目当前裁决，同步 [PROJECT_CONTROL.md](PROJECT_CONTROL.md)，有经审核的新性能数值同步 [PERFORMANCE_BASELINES.md](PERFORMANCE_BASELINES.md)，新决策再追加 [DECISIONS.md](DECISIONS.md)。不修改旧实验中的原始数字，纠错使用新记录说明原因。
 
 **下一轮现场交接固定输出：**任务ID/开始前允许执行的阶段、实际HEAD/环境SHA、上一门禁PASS或NO-GO、操作所依据的文档、所有执行结果与异常、完成后真实状态、新结果应更新的文件、下一步是否还需要用户批准。任何“执行中”不得仅凭口头声称而改为PASS；新会话不从聊天记忆恢复状态，而从本总账与主线控制台恢复。
 
 ---
 
-**本总账最新裁决（2026-10-27，BATCH-R0后）：**A1原仓CPU与四卡环境只读取证已完成；服务器历史修复commit`5802f550`、两份修复Host SO `1dc46d7d`已找回，生产路径仍装`88d39285`，插件目录D4设备SO仍baseline。**R0证据接受，G0和E2部署仍待审批；L1/L2/L3/L4新NPU实验未跑。** 下一步先隔离真实加载与备份/回滚审查，申请受控恢复+M2048 Smoke；不能跨越准入。
+**本总账最新裁决（2026-10-27，R1准备后）：**A1原仓CPU与四卡环境只读取证已完成；服务器历史修复commit`5802f550`、两份修复Host SO `1dc46d7d`已找回，生产路径仍装`88d39285`，插件目录D4设备SO仍baseline。**R0证据接受，G0和E2部署仍待审批；L1/L2/L3/L4新NPU实验未跑。** **MemFabric历史修复源码已在镜像仓main恢复**。下一步先执行R1A静态/只读装载和私有staging审核，后续独立审批R1B真实恢复+M2048 Smoke；不能跨越准入。
