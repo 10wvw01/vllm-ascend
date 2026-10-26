@@ -77,7 +77,7 @@
 
 ## ADR-012｜R2 V2 Runner全量范围与分段验收锁定｜2026-10-25｜**已由ADR-013废止**
 
-- 决策：以 [R2总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md) 的 R2-00～R2-21 + R3-01～R3-04 作为下一阶段完整任务锁定，范围是 310P3 无Triton V2 Model Runner Eager（Target Stock→DFlash Stock→MM+MemFabric融合）；先CPU/两轮静审再一轮分段实机；Graph、Gate E 与大/小M研究单独列账。
+- 决策：以 R2总执行计划（**已从当前主线删除**；仅可在废止前历史commit `a37c0212f422`追溯，不是执行入口） 的 R2-00～R2-21 + R3-01～R3-04 作为下一阶段完整任务锁定，范围是 310P3 无Triton V2 Model Runner Eager（Target Stock→DFlash Stock→MM+MemFabric融合）；先CPU/两轮静审再一轮分段实机；Graph、Gate E 与大/小M研究单独列账。
 - 边界：只允许 our `10wvw01/vllm-ascend` 增量，继续保留0.27.1环境版本、模型、K7、TP2、Stock默认、原主线和不替换未授权SO；V2校验豁免目前仍CONFIG-GATE-ONLY。绝不改V1多KV、模型layer_types或伪造Triton。
 - 验收：每一组由可追溯代码SHA/装载二进制/HCCL/两个Rank/Token正确性确认；L1完整算子与L2同V2 Runner的Stock/融合配对，S0 V1 Runner不能参与融合收益归因；Graph独立门槛。
 - 变更：发现新必经API/Kernel必须补计划与UT/静审、风险评估；扩大为核心Scheduler大改或不具备修复路径时，须经新ADR与所有者裁决，不可静默扩大。
@@ -86,7 +86,7 @@
 
 - **决策**：立即废止ADR-011/ADR-012及R2-00～R2-21通用V2 Runner、Triton、Hybrid ModelState/GDN/多KV/采样/Device Copy系统的研发与合入；PR #7 不采纳，工作分支不再作为开发/集成基础。历史取证与日志继续留档，禁止误作未来实施计划。
 - **原因**：原始目标仅是使正式`V2 MM+MemFabric AllReduce`通过模型已有`RowParallelLinear`在Stock+DFlash链路中选择性替换原生`MM+HCCL`，不需要重建DFlash或其ModelState。扩大工作违反ADR-001/ADR-004、拖慢单算子性能主线。
-- **落地**：从当前唯一主线剔除R2 Runner开发计划与Triton验证豁免（Triton拼写不代表新的feature）；恢复既有env-only Stock/V1选择；**保留V2未实现时的Worker提前拒绝**。正式融合Kernel、Host ABI、已有LinearMethod、Stock默认与历史性能账本均不动。
+- **落地**：从当前唯一主线剔除R2 Runner开发计划与Triton验证豁免；恢复既有env-only Stock/V1选择；**保留V2未实现时的Worker提前拒绝**。正式融合Kernel、Host ABI、已有LinearMethod、Stock默认与历史性能账本均不动。
 - **后续合法范围**：大M算子优化到可证硬件瓶颈；小M同kernel固定开销削减；融合算子与现有Stock+DFlash的最小选层/生命周期/数值/Graph共存适配。先取证用户提供的可运行Stock+DFlash实际源码和部署，保证同一Runner/同一模型/TP2/K7做Stock/V2 A/B。
 - **历史证据不重写**：R1-B指定旧组合中Draft构造失败为历史真实NO-GO，不能据此反证用户当前可能已运行的Stock+DFlash配置。**本ADR不代表有新设备运行或融合性能结果**。
 - **禁令**：不得复活R2工作分支、PR #7、46项Runner泛化准入、Device-Native GDN Copy Consumer等旧任务；未来任何框架级需求需另行由用户明确批准，不可默认为融合算子依赖。

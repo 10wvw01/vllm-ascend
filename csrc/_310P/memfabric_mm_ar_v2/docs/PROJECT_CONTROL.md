@@ -145,7 +145,7 @@
 - 唯一刻意保留核心行为差异：**Eager组用cudagraph_mode=NONE**以排除Graph；用户原始FULL_DECODE_ONLY `capture_sizes=[10]`在K7/Verify宽度8的描述符整除规则下不合法，因此Graph研究组用候选`[8,16,32,64,80]`并进行实机鉴别。Stock和V2各自同模式严格一致，Graph不能继承Eager结论。
 - 说明与操作完整见 [R1 DFlash K7 准入合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)第7节；本轮仅更新测试资产与文档，**未在310P实机运行，现场准入仍从G0开始**。
 
-## 11. R1-B主线选择性整合、下一次310P3准入（2026-10-25）
+## 11. R1-B主线选择性整合与历史准入记录（2026-10-25；执行计划已由§13取代）
 
 - 原始现场G0：分支 `work/310p-mm-ar-r1-g0-nogo-20261025` @ `45056500a8254787733ffb9d05e0c8efbbcb05d4`，隔离工作树从旧 `07586f2` 派生；**原始 frozen G0=NO-GO，Stock/V2+DFlash Eager/full/Graph均NOT_RUN**，保留 [现场报告](R1_G0_ONDEVICE_NOGO_REPORT_20261025.md) 和 [原始证据](../evidence/r1_g0_20261025/)。修复后 preflight 的单独静态GO不能改写历史裁决；本次工具整合也没有新的实机结果。
 - 审查确认：现场真实 Python3.12.13、官方vLLM editable v0.27.1@6e448d0、torch-npu 2.10.0.post4、transformers 5.17.0，原G0使用的v0.24/旧pin及冷导入探针不符合已知环境。按真实Serve的 `NPUPlatform.pre_register_and_update` 初始化后导入通过；历史Stock+DFlash确切失败根因仍UNKNOWN。
@@ -153,7 +153,7 @@
 - 当前Trial冻结Target `/home/models/Qwen/Qwen3.6-35B-A3B-w8a8`；现场实测Draft `/home/models/Qwen/Qwen3.6-35B-A3B-DFlash`（比用户原始草稿路径多一级`Qwen/`），不通过猜测/符号链接回退。Stock/V2两臂JSON完全相同，K=7；`max-num-seqs=16`/0.90/host0.0.0.0，input4096/output2048/50请求/concurrency10，Eager NONE vs Graph待诊断；端口对外暴露前须核验网络隔离。
 - 新G0：修复pin并同时**收窄**pip check豁免：仅允许指定声明者+指定缺包组合、精确已证实版本冲突，任何不在快照中的新依赖、冲突、空输出均STOP；强制真实Serve顺序导入探针 `exit_code=0` 才准进入模型，保持完整pip stdout/stderr。严格绑定python可执行路径、目标/草稿模型路径和本任务工作树；禁止editable finder静默指向主工作树。
 - V2之前必须在本隔离工作树内核验 `vllm_ascend_C*.so`、`libmf310p_v2_trial_device.so`、`libmf310p_device.so` 存在，并人工核对真实Host/Device SO+KVER11 SHA与已核准现场部署；**脚本不自动复制、不自动重编/重装**。
-- 下一次310P实机按 [R1-B准入与执行合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md#8-r1-b-整合后-310p3-实机准入与止损合同) 的条件推进。优先Stock+DFlash Eager smoke，之后V2 Eager smoke及两个同口径full；Graph仍需Eager双组实机结果和独立人工许可。拒绝伪命中、失败后继续跑和拿日志代替双Rank Kernel trace。
+- 历史R1-B原定的下一次310P实机按 [R1-B准入与执行合同](DFLASH_STOCK_V2_R1_GO_GATE_20261025.md#8-r1-b-整合后-310p3-实机准入与止损合同) 的条件推进。当时计划先Stock+DFlash Eager smoke，再V2 Eager smoke及两个同口径full；**这只是历史安排，2026-10-26废止Runner重建后不得照此推进通用V2迁移**。现只允许在已经跑通的Stock+DFlash同一框架中做融合薄接入；Graph仍需独立人工许可。拒绝伪命中、失败后继续跑和拿日志代替双Rank Kernel trace。
 - **截至本次合入：没有运行310P模型服务，K7实际推理PASS/Graph PASS/V2实际Kernel命中均UNKNOWN；Gate E与大M Stock L1仍未闭环。** GitHub CI只是无设备CPU合同测试，不是设备准入。
 
 ### R1-B第二轮静态审查补强（2026-10-25）
