@@ -14,7 +14,7 @@ import unittest
 from unittest.mock import patch
 
 
-SOURCE = Path(__file__).resolve().parents[6] / "vllm_ascend" / "_310p" / "a1_prefill_event_probe.py"
+SOURCE = Path(__file__).resolve().parents[5] / "vllm_ascend" / "_310p" / "a1_prefill_event_probe.py"
 spec = importlib.util.spec_from_file_location("a1_prefill_event_probe", SOURCE)
 assert spec and spec.loader
 probe = importlib.util.module_from_spec(spec)
