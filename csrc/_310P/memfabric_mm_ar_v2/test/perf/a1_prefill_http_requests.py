@@ -23,7 +23,14 @@ def api_post(port: int, endpoint: str, payload: dict | None = None) -> dict:
     req = Request(url, data=raw, headers=headers, method="POST")
     with urlopen(req, timeout=300) as response:
         data = response.read()
-    return json.loads(data) if data else {}
+    if not data:
+        return {}
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError:
+        if endpoint != "v1/completions":
+            return {"message": data.decode("utf-8", errors="replace")[:500]}
+        raise
 
 
 def send(port: int, model: str, session: str, index: int, phase: str) -> dict:
