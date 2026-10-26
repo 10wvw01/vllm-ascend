@@ -100,3 +100,12 @@
 - 取舍与未采纳的方案：
 - 代码和当前默认路由影响：
 - 验证门槛、回退方案和需要更新的控制台章节：
+
+## ADR-015｜2026-10-27｜大M最终目标锁定真实Qwen3.6 Prefill TTFT与40站点关键路径｜**有效**
+
+- **用户裁决**：大M最终性能指标是**真实Qwen3.6 Prefill对应的客户端首Token TTFT下降**；不再以独立Kernel微基准加速或整模型输出tok/s/TPOT作为大M最终成功标准。持续调优至可证实的硬件/协议瓶颈原则（ADR-002）仍有效，单算子优化作为实现路径而非最终交付。
+- **L1唯一基线**：TP2/310P3单卡双Die，原生FP16 `F.linear + HCCL AllReduce`完整链，与正式V2 MM+MemFabric AR（包含必要布局/拷贝/同步）公平同卡热态对照；实际HCCL异步跨Stream尾部、双Rank耗时/bit-exact、SO/KVER身份和异常均需留证。D4内部Tile2048 +6.26%不能冒充Stock优势，最新D4 M2048/4096相对Stock的L1仍UNKNOWN。
+- **唯一重点优化对象**：已选择的Qwen3.6 attention/GDN 40个 `o_proj/out_proj` 目标层（每Rank）在**真实Prefill设备关键路径**上的可回收时间，包括真实M和路由命中、权重/输入布局、`x.contiguous()`、SDMA/IB/DONE、双Rank同步和下游消费时刻；不转为MoE/GDN/Attention模型本体普遍优化。40站点不是对所有请求实际命中的无条件保证。
+- **验收四环**：① L1完整Stock vs V2单算子；② 真实Serving目标站点净耗时；③ Prefill步的双Rank关键路径净变化；④ 客户端TTFT含排队、分块/混合调度、首Token返回的逐请求p50/p90/p99。同场同模式证据说明为什么算子µs不能全传到TTFT；不以各层p50简单累加、TTFT变化大于/小于推算或当前旧Profiler 3.3%占比直接作GO。
+- **正式业务合同不变**：Qwen3.6-35B-A3B-w8a8普通Eager，input4096/output2048/TP2/并发10/50请求/ignore-eos；独立input4096/output1/并发1热态Eager仅用于隔离Prefill归因，不能代替正式TTFT验收。投机DFlash/Graph保持单独同模式账本及既有薄适配边界（ADR-013），不受本次焦点收敛而废止。
+- **取舍、安全及状态**：只更新项目文档、测量和后续验收目标，不更改正式Kernel/Serving、Stock默认与MemFabric协议；发布级Gate E/507014及冷首写/bit-exact仍为硬门禁。A1 PR#9目前仅待原仓CPU合同、四卡只读G0；Smoke/Screen/Confirm/Profiler与新增E2E TTFT **全部NOT_RUN**。后续分阶段人工审批，出现设备异常STOP保全现场；不能由本决策自动授权实机运行。同步更新`PROJECT_CONTROL.md`、`PERFORMANCE_BASELINES.md`、A1工作方案及仓库入口，主线仅经评审合入。
