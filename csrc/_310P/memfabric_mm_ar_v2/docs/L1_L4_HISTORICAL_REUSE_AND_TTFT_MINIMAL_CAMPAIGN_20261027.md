@@ -29,7 +29,7 @@
 2. 2026-10-22的离线审计已明确`cross-rank wall clock not calibrated`、`input copy net delta not independently validated`；历史报告的成本合计是一个可信的同向归因，不是精确跨设备追踪的因果恒等式。
 3. SEL-01的逐请求输出与当期Perf trace没有同一时间戳关联；当前D4 Tile2048的L1严格Stock对照、L2/L3同场Trace、L4正式TTFT全链**仍UNKNOWN**。不得跨日期拼旧版Stock与新D4 kernel时延。
 
-## 2. 唯一新增实验组：A1-TTFT（G0→L1→短Trace→正式E2E）
+## 2. 唯一新增实验组：A1-TTFT（G0→L1/L2→L3性能门槛→达标后L4）
 
 **不另建长期分支**：复用`work/310p-mm-ar-large-m-a1-20261026`，新文件只属于计划/未来离线分析，不修改正式Kernel/Host/MemFabric协议/Serving默认/投机Runner。不抢跑设备，**每阶段都由用户单独放行**。选择健康闲置的单张310P3物理卡双Die；旧43520 Die7/MCU告警未清除前禁止选用；ABBA全程固定同卡、版本、频率/温度记录与SO指纹。安全标准依[ADR-014四卡/KFC规则](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。
 
@@ -50,50 +50,61 @@
 - **Confirm**：仅在Screen与真实HCCL/路由独立审核合格、用户再次批准后，复用已有双轮`Stock–V2–V2–Stock`×2，共8场，每M 5 warmup+40 samples。按原U1完整性/漂移/尾部合同判定`L1_CONFIRMED`或`L1_INCONCLUSIVE/NO_GO`，不可擅自修改既定5%筛选规则来伪造正向GO。**不论L1正负，持续大M优化方向不终止**；是否进入后续短Trace由用户基于本轮设备安全决定。
 - 为解决历史W1/W4误导：短Trace校验真实Serving目标站点完成时间与独立L1实际差异，**禁止**拿逐调用Device Sync税或HCCL连续拥塞时延宣传真实模型收益。若需要新的受控“站点间隔约60ms”微基准，应先提单独源码方案/CPU审查，**不是本轮必做项**。
 
-### B. L2/L3 短窗口真实Prefill归因：只补一对Profiler会话
+### B. L2与L3时序校准：必要时只补一对短Profiler（不是L3性能GO）
 
 在L1通过真实性/安全审核且另获许可后，借用已有`tests/e2e/_310p/v2_prefill_capture.sh`采集链（在当前部署参数上静态审计并更新独立取证目录，**不可照搬旧版本的二进制和卡号**）：
 
-- **两次独立Eager serve（Stock、D4各1次）**，同样模型/代码/版本/物理双Die，input4096/output1、并发1，至少6次热态预热、后续5个短窗口请求；Profiler只用于设备时序取证，**不把带Profiler的TTFT当正式TTFT对照**。
+- **两次独立Eager serve（Stock、D4各1次）**，同样模型/代码/版本/物理双Die，input4096/output1、并发1，至少6次热态预热、后续5个短窗口请求；Profiler只用于L2布局/核路由/L3设备时序*诊断与测量口径校准*，**既不把带Profiler的TTFT当正式TTFT，也不只凭这5个Profiler请求签发L3性能GO**。历史归因机制已清楚的内核版本可减少重复Profiler频度，只有kernel/ABI/布局/归因假设有变化时重新采。
 - 为每Rank逐层采`site_index / layer_name / MM开始结束 / HCCL AR开始结束+真实完成 / V2 kernel开始结束 / input contiguous copy / output可被下一消费Kernel读取 / M / stride / physical M / staged / stream`，双Rank各40站点，每个完整Prefill请求检查目标数与实际命中（不把选层日志当Kernel命中）。
 - 从整个Prefill首目标站点到最后目标站点之后的实际依赖终点画**各Rank独立的关键路径**；标注每Step开始/结束、两Rank到达和等待、完整Step时长，记录Profiler持久AICPU核、初始化/首调数值门与停顿，不得把重叠Kernel时长简单相加。跨Rank时钟不校准时只比较**各Rank自身时差**及安全屏障/服务端步时，不能任意相减绝对时间戳。
 - 原历史分析`evidence/v2_prefill_attribution_20261021/scripts/`与`analysis/gate_a_offline_audit_20261022.json`可作为计算与异常剔除规则参考；无需重做已归档旧CSV。
 - 若Profiler路径引起507014/507899/IB/KFC/bit-exact故障则立即STOP、封存rank0/1完整原始Trace和SOSHA，不自动换卡重跑。
 
-### C. L4 TTFT无Profiler正式ABBA：4次Serve启动覆盖两种负载
+### C. L3先决性能门槛：只测真实模型Prefill步，不跑正式L4
 
-**单组四场**（前置A/B安全审批，独立输出目录；不得和Profiler场混算）：
+**正式裁决：**L3必须先对比真实Qwen3.6 Eager模型的单请求Prefill**执行关键路径**，只有可重复的正向收益才进入L4。L3失败并不是停止大M研发的条件，而是**当前候选继续回到L1/L2迭代、禁止启动正式L4**的条件。
 
-| 会话 | 臂 | 同一Serve内顺序执行的两个工作负载 |
+- **唯一主要负载**：input4096、output1、并发1、TP2、热态Eager、Stock/V2同模型/同CANN/SO/KVER/同卡双Die，实际Forward M及每Rank 40目标站点真实命中必须与B相符。无Profiler的同一服务模型路径上取真实Prefill step的设备完成跨度：从该步进入模型计算的可审计起点，到本步末尾结果/首Token logits确实对后续消费可见的终点；同时留每Rank持续时间、执行重叠/同步证据和Step标识，且二者不能用未经校准的跨Rank绝对时钟相减。**这不等于客户端4096/1 TTFT**：后者包含发送/排队/采样/返回，只作为旁证。
+- **测量实现硬门**：现有`v2_prefill_capture.sh`与U1并没有被证实能在**不启Profiler且不插入额外Device Sync**的情况下计量完整真实Prefill step；因此必须先基于当前vLLM/torch_npu真实源码审查是否存在可靠的内置Prefill step执行指标，若缺失，只允许做**低侵入、仅测试路径启用**的事件/时间戳采集并完成CPU静态审查和Profiler校准。不得重建Runner、修改模型数流、逐层`torch.npu.synchronize()`来造计时；拿不到有设备完成语义的独立指标必须标`L3_MEASUREMENT_NOT_READY`，不能用TTFT或40×Kernel p50填表。
+- **轻量Screen**：真实可审计计时就绪、全部安全门禁通过并取得**单独许可**后，仅Stock→V2两个无Profiler独立Serve，各热态若干请求（建议先至少10成功样本），冻结随机输入token、真实M、Kernel签名、双Rank映射、下游完成定义；采完整请求/Step原始时间戳与队列空闲旁证。没有方向性正收益先归因L1/L2、优化Kernel，不耗费正式长输出业务。
+- **L3正式Confirm**：仅Screen信号正向且另获许可后，做Stock→V2→V2→Stock四次无Profiler独立Serve，每场冻结同一单请求Prefill工作负载，预热后建议≥30个成功样本；按会话级ABBA检验（请求样本不是独立会话），报告均值/中位/尾部、双Rank各自完整Step、Stock跨场漂移与设备计时分辨率。正式判断的**预先冻结阈值**应来自当前Stock热态重复性、可观测的双Rank实际设备完成时间和统计不确定性：要求两组配对方向一致、收益超过测量波动上界且不以丢弃异常样本制造增益；**不规定L3必须≥5%**，因为旧测仅40站点约占完整Prefill 3.3%，5%本身可能超出本项目可改变部分的物理范围。
+- **分流裁决**：`L3_GO`（同版本可重复、显著超出噪声、数值与设备安全完好）→后续经用户另行许可启动D的正式L4；`L3_NO_GAIN`（可靠观测且零收益/负收益）或`L3_INCONCLUSIVE`（漂移/波动淹没弱收益）→暂不运行L4，先回L1完整Stock差距和L2拷贝/布局/SDMA等待持续优化，下一候选仅重测变化所影响的阶段；`L3_MEASUREMENT_NOT_READY`→先补计时证据，不可把测不到误判为算子负收益。L3结果只作为**Prefill单请求性能门槛**，并不担保真实并发10混合调度下TTFT必然改善，L4仍须独立验收。
+- **阶段成本说明**：若候选L3不达标，省去原方案4次4096/2048长输出模型会话；L3达标时才追加4次L4会话。L2短Profiler只在归因不明或内核/布局/关键路径变化时补采；**不承诺每个Kernel微调都重新跑2次Profiler+4次正式Serve**。所有设备行为仍由人工逐阶段批准，故障立即STOP保全。
+
+### D. L4 TTFT 无Profiler正式ABBA：仅L3-GO后启动的4次Serve
+
+**严格以当前版本L3-GO作为性能前置门槛**，且独立完成设备安全、数值和人工授权后，才允许启动以下四场正式TTFT负载；没有L3-GO时 **L4_NOT_RUN_BY_DESIGN**，不得为了输出吞吐去提前运行。此处是后期正式验收，不是每轮大M优化的例行测试。
+
+| 会话 | 臂 | 正式工作负载 |
 |---|---|---|
-| S1 | Stock | 先隔离Prefill：4096/1、并发1、6次warmup+10个成功稳态样本；再正式：4096/2048、并发10、50请求 |
-| F1 | D4 V2 | 完全相同 |
-| F2 | D4 V2 | 完全相同，独立重启Serve和MemFabric池 |
+| S1 | Stock | input4096/output2048/TP2/并发10/50请求/Eager |
+| F1 | 经L3确认的正式V2候选 | 完全相同 |
+| F2 | 经L3确认的正式V2候选 | 完全相同，独立Serve与MemFabric池 |
 | S2 | Stock | 完全相同 |
 
-- **这样只需4次无Profiler服务启动，不是分成8次。** 两个负载始终按相同顺序测，正式负载前确认所有前段请求与设备队列完全排空且双方同等热态；若跨负载热态漂移无法控制，则拆成独立会话重做，禁止把污染数据勉强作为有效ABBA。
+- **L4仅需4次无Profiler服务启动**，不重复L3的正式单请求Prefill筛选，避免在全部失败的Kernel候选上反复执行2048-token长输出业务。正式每场独立热态预热、所有前段请求及设备队列排空且两臂同等热态；若热态漂移超过合同门槛则标注无效、保存原始数据，不勉强宣称正收益。
 - 正式负载沿用项目强制合同：模型Qwen3.6-35B-A3B-w8a8、`--enforce-eager`、TP2、4096 input/2048 output、50请求/并发10、`--ignore-eos`、chunked-prefill/async-scheduling保持相同、相同随机种子/实际token列表、服务版本与设置一致。优先复用`tests/e2e/_310p/bench_memfabric_mm_ar_serve.sh`的启动、`vllm bench serve --save-detailed`及路由审计，必要的**组合启动器须先纯CPU审查**、不能直接绕开现有安全门禁。
 - 每请求必须保存`request_id / 发送时刻 / first_token时刻 / TTFT / 输入输出实际Token数 / 服务会话 / 设备卡+SO SHA`；服务端能被当前实际vLLM接口可靠观测到的`queue_enter/queue_leave / prefill_step_start/end / first_token_ready / response_flush`才写有效数值，否则写`UNKNOWN`。**禁止用客户端TTFT减去单请求Profiler步周期臆造排队时延。**
 - 锁定随机请求序列，保存实际发送/到达节奏；不能仅依赖`--max-concurrency 10`就假定四场队列状态完全相同。保存逐请求raw TTFT、每会话p50/p90/p99、会话级ABBA paired delta与Stock漂移；不得把50条相关请求冒充50次独立ABBA实验。若收益落在实际会话漂移包络内则`TTFT_INCONCLUSIVE`，后续增加会话由用户另行批准；不通过循环直到出现正收益制造幸存者偏差。
-- 10个单请求样本只够观察热态Prefill方向/一致性，**不能用于p99正式裁决**；正式50请求的p99也必须带不确定性说明。任何错误、跨Rank漏执行或环境漂移则保留失败场、停止本阶段并判无效。
+- L3已独立归档的4096/1单请求样本不得复制成新的L4观测；正式50请求的p99仍需带不确定性说明。任何错误、跨Rank漏执行或环境漂移则保留失败场、停止本阶段并判无效。
 
-### D. 四层统一出账（严禁混合日期/版本的L1-L4数字）
+### E. 四层统一出账（严禁混合日期/版本的L1-L4数字）
 
 | 结果字段 | 来源 | 无证据时 |
 |---|---|---|
 | `L1.stock_complete_us / fused_complete_us / delta_us` | U1 Confirm 8场完整MM+HCCL/正式D4、真实HCCL跨流审计 | UNKNOWN |
-| `L2.site_hits_per_rank / physical_M / copy_cost / downstream_visible` | B的双Rank短Trace；C无Profiler下的真实路由计数复核 | UNKNOWN |
-| `L3.prefill_step_ms / delta_ms / dual_rank_critical_path` | B的双RankStep锚定/依赖时序，按Profiler环境独立归因 | UNKNOWN |
-| `L4.single_prefill_ttft_ms / formal_ttft_p50_p90_p99` | C的4场ABBA，无Profiler的客户端逐请求观测 | UNKNOWN |
+| `L2.site_hits_per_rank / physical_M / copy_cost / downstream_visible` | B的双Rank短Trace；C的轻量服务采样校验 | UNKNOWN |
+| `L3.prefill_step_ms / delta_ms / dual_rank_critical_path / gate_status` | B的Profiler仅负责设备依赖归因/计时校准；C须提供**不启Profiler**且已验证覆盖真实双Rank Prefill设备完成边界的计时+ABBA数据 | UNKNOWN / NOT_MEASURABLE |
+| `L4.formal_ttft_p50_p90_p99` | D的4场正式4096/2048/50/10 ABBA客户端逐请求观测；**只有L3-GO才执行** | L4_NOT_RUN_BY_DESIGN |
 | `transmission_explanation` | 同期数据判断Stock基线、额外拷贝、执行重叠、双Rank与Queue；缺时间戳不得强行解释 | UNRESOLVED |
 | `comparison_identity` | 同一设备、Kernel/Host/插件/KVER、模型Eager、负载种子、真实40站点记录 | FAIL-CLOSED |
 
-**GO与继续研发分开**：L1即便优于Stock，也只给算子候选；L4必须在正式业务负载中展示稳定、可信的**TTFT下降**，才可以声称大M对Prefill终端指标带来收益。性能正向不解除Gate E/507014和冷首写安全发布阻塞。L1为负也继续极致优化，不因本轮收益小停大M线。
+**GO与继续研发分开**：L1即便优于Stock，也只给算子候选；**L3是大M日常性能筛选门槛：L3_NO_GAIN/INCONCLUSIVE/NOT_MEASURABLE时回到L1/L2持续调优、L4不开跑**；只有L3-GO才申请L4。L4必须在正式业务负载中展示稳定、可信的**TTFT下降**，才可以声称大M对Prefill终端指标带来收益。性能正向不解除Gate E/507014和冷首写安全发布阻塞。L1为负也继续极致优化，不因本轮收益小停大M线。
 
 ## 3. 实施分工、执行许可、归档
 
 - **ChatGPT（本仓研发）**：该历史复用与实验合同、严格分析器/采集工具的静态实现和两轮审查、读回GitHub实机证据后给L1～L4结论；今后正式代码优化只限Kernel/LinearMethod薄接入，不引入DFlash Runner重建。
-- **用户/OpenCode（310P3现场）**：仅按逐阶段明确许可执行CPU+四卡只读G0 → 经单独批准L1 Smoke/Screen/Confirm → 经单独批准短Profiler与无Profiler模型ABBA；每阶段上传脱敏manifest、rank0/1日志、原始样本、实际安装+装载二进制指纹、异常和恢复记录。
+- **用户/OpenCode（310P3现场）**：仅按逐阶段明确许可执行CPU+四卡只读G0 → 经单独批准L1 Smoke/Screen/Confirm → 经单独批准L2短Profiler/轻量L3 Screen与Confirm → **仅L3-GO后经单独批准**L4正式模型ABBA；每阶段上传脱敏manifest、rank0/1日志、原始样本、实际安装+装载二进制指纹、异常和恢复记录。
 - **停止/换卡原则**：G0阶段可排除不健康/被占用的整卡并在其它卡重新G0；实验中507014/507899/IB/KFC/静默首写/MCU异常**立即STOP，禁止自动换卡、继续ABBA或清除现场**。Stock与融合必须在同一物理卡上比较。
 - **旧文件可复用**：`test/perf/u1_{run.sh,arm.py,analyze.py}`、`test/perf/a1_large_m_assess.py`、`test/perf/u1_e2e_budget.py`、`tests/e2e/_310p/bench_memfabric_mm_ar_serve.sh`、`tests/e2e/_310p/v2_prefill_capture.sh`、旧归因离线脚本与per-site CSV。新组合入口若现有脚本不能满足，则**另行编码静态验收**，不能伪称现有U1已经具备端到端ABBA自动化。
 - 本轮文档没有生产代码修改、没有新模型启动、没有性能结果，A1 PR #9 继续Draft、不合主线。**眼下首先需要的是原仓CPU合同+四卡只读G0的现场报告，不是对新设计的自动实机执行许可。**
