@@ -1,0 +1,37 @@
+===== S1.1 artifacts in isolated worktree =====
+-rw-r--r--. 1 root root  917280 Oct 26 13:42 /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/libmf310p_device.so
+-rw-r--r--. 1 root root 2185568 Oct 26 13:43 /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/libmf310p_v2_trial_device.so
+-rwxr-xr-x. 1 root root  263744 Oct 26 13:43 /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+
+===== S1.2 SHA256 of new build =====
+8447a55a54d9d1b615353e2197e2057da52882bd6a991d2bbddcc3c574e755df  /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/libmf310p_device.so
+b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811  /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/libmf310p_v2_trial_device.so
+07c831f007b5eb23241e9be3038e4e4627c2b52317283c2b7f0fc2622f81350d  /home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+
+===== S1.3 no diagnostic-named SOs (must be empty) =====
+CLEAN: no *_g1d.so / *_g1c.so
+
+===== S1.4 DT_NEEDED of new vllm_ascend_C =====
+ 0x0000000000000001 (NEEDED)             Shared library: [libmf310p_device.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libmf_smem.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libmf310p_v2_trial_device.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libtorch.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc10.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libtorch_npu.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libascendcl.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libregister.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libopapi.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libtorch_cpu.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]
+
+===== S1.5 main tree SOs unchanged (compare S0.5b) =====
+8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1  /home/<user>/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811  /home/<user>/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device.so
+d9a6de660677b13dbd83688dd250fbcdd3ea62c3427179b5060a1e64c5fbfa73  /home/<user>/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device_g1d.so
+expected: 8eb65de9... / b8ca96f0... / d9a6de66...
+
+===== S1.6 isolated worktree porcelain (must be 0 tracked changes) =====
+0

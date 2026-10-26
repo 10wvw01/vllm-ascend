@@ -1,0 +1,26 @@
+# 故障窗口设备 slog 节选（脱敏）— TP0/TP1 (device-2/device-3), 尾部
+## TP0 (device-2) 最后 6 行
+[INFO] TDT(23512,hccp_service.bin):2026-10-26-22:06:43.420.712 [tsd_event_client.cpp:221][DoLoopProcessEvent][tid:23512] [TsdEventClient] Start waiting  event, deviceId=0.
+[INFO] HCCP(23512,hccp_service.bin):2026-10-26-22:06:43.420.772 [rs_epoll.c:525]tid:23530,rs_epoll_handle: pthread[epoll_pthread] is alive!
+[INFO] HCCP(23512,hccp_service.bin):2026-10-26-22:06:43.420.817 [rs_ping.c:639]tid:23532,rs_ping_handle: pthread[ping_pthread] is alive!
+[INFO] HCCP(23512,hccp_service.bin):2026-10-26-22:06:43.420.849 [rs_epoll.c:655]tid:23531,rs_connect_handle: pthread[connect_pthread] is alive!
+[INFO] HCCP(23512,hccp_service.bin):2026-10-26-22:06:43.431.224 [rs_socket.c:915]tid:23529,rs_socket_listen_bind_listen: socket bind: family 2, addr 192.168.2.197, port 16666
+[INFO] CCECPU(22632,aicpu_scheduler):2026-10-26-22:08:26.412.901 [ae_so_manager.cc:253][GetApi][tid:22649][AICPU_PROCESSER] Get api RunCpuKernel from so libpt_kernels.so success.
+
+## TP1 (device-3) 最后 6 行
+[INFO] HCCP(23543,hccp_service.bin):2026-10-26-22:06:43.637.218 [rs_ping.c:639]tid:23563,rs_ping_handle: pthread[ping_pthread] is alive!
+[INFO] TDT(23543,hccp_service.bin):2026-10-26-22:06:43.637.264 [tsd_event_client.cpp:257][TsdStartupResponse][tid:23543] [TsdEventClient] TsdStartupResponseProc to dev[1] pid[2798] hostpid[936198] vfId[0] is running.
+[INFO] TDT(23543,hccp_service.bin):2026-10-26-22:06:43.637.600 [tsd_event_client.cpp:276][TsdStartupResponse][tid:23543] [TsdEventClient] Submit event TSD_EVENT_START_RSP to tsd successfully.
+[INFO] TDT(23543,hccp_service.bin):2026-10-26-22:06:43.637.633 [tsd_event_client.cpp:221][DoLoopProcessEvent][tid:23543] [TsdEventClient] Start waiting  event, deviceId=1.
+[INFO] HCCP(23543,hccp_service.bin):2026-10-26-22:06:43.649.372 [rs_socket.c:915]tid:23560,rs_socket_listen_bind_listen: socket bind: family 2, addr 192.168.3.196, port 16666
+[INFO] CCECPU(22893,aicpu_scheduler):2026-10-26-22:08:26.412.903 [ae_so_manager.cc:253][GetApi][tid:22906][AICPU_PROCESSER] Get api RunCpuKernel from so libpt_kernels.so success.
+
+## TP0 plog 中 14:08:2x 时段行
+[INFO] GE(543810,):2026-10-26-14:08:26.047.319 [graph_var_manager.cc:1611]544482 SetAllMemoryMaxValue:The graph_mem_max_size is 27917287424 and the var_mem_max_size is 5368709120
+[INFO] GE(543810,):2026-10-26-14:08:26.049.231 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[AIcoreEngine] is [854] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.570 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[DNN_VM_CUSTOM_OP_STORE] is [1] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.601 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[DNN_VM_GE_LOCAL_OP_STORE] is [27] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.690 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[DNN_VM_HOST_CPU_OP_STORE] is [58] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.728 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[DNN_VM_RTS_FFTS_PLUS_OP_STORE] is [1] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.738 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[DNN_VM_RTS_OP_STORE] is [7] micro seconds. (stage=Refresh)
+[INFO] GE(543810,):2026-10-26-14:08:26.049.765 [ops_kernel_manager.cc:196]544482 InitOpsKernelInfo:[GEPERFTRACE] The time cost of InitOpsKernelInfo::GetAllOpsKernelInfo[VectorEngine] is [12] micro seconds. (stage=Refresh)

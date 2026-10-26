@@ -1,0 +1,39 @@
+# H1 融合冒烟会话 serve.log 关键节选（脱敏）
+# 会话: H1_FUSED_SMOKE_20261026T140451Z / 设备 2,3 (NPU 16384) / 2026-10-26 UTC
+
+## 启动与健康
+222:(Worker_TP1 pid=543837) INFO 10-26 14:06:39 [memfabric_mm_ar.py:190] Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 for language_model.model.layers.0.linear_attn.out_proj (base_m=256, batch_basem_count=1, batch_m=256, batch_bytes=1048576).
+223:(Worker_TP1 pid=543837) INFO 10-26 14:06:39 [memfabric_mm_ar.py:190] Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 for language_model.model.layers.1.linear_attn.out_proj (base_m=256, batch_basem_count=1, batch_m=256, batch_bytes=1048576).
+224:(Worker_TP1 pid=543837) INFO 10-26 14:06:39 [memfabric_mm_ar.py:190] Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 for language_model.model.layers.2.linear_attn.out_proj (base_m=256, batch_basem_count=1, batch_m=256, batch_bytes=1048576).
+225:(Worker_TP1 pid=543837) INFO 10-26 14:06:39 [memfabric_mm_ar.py:190] Enable 310P3 TP=2 MemFabric unquantized mm_ar ABI v7 for language_model.model.layers.3.self_attn.o_proj (base_m=256, batch_basem_count=1, batch_m=256, batch_bytes=1048576).
+378:(APIServer pid=543097) INFO:     Application startup complete.
+(选层行合计: 80)
+
+## 首调 V2 传输层初始化失败（根因段, serve.log L394-L404 + L746）
+2026-10-26 14:08:26.163799 WARN [543837-543837][HYBM dl_hybm_copy_extend.cpp:46 TryLoadLibrary] /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64 get lib path failed
+2026-10-26 14:08:26.164076 WARN [543837-543837][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-26 14:08:26.164142 WARN [543810-543810][HYBM dl_hybm_copy_extend.cpp:46 TryLoadLibrary] /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64 get lib path failed
+2026-10-26 14:08:26.164371 WARN [543810-543810][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-26 14:08:26.168827 ERROR [543810-543810][HYBM hybm_gva.cpp:82 MetaSetDeviceAccess] set meta device access failed, ret: 507899 addr: 0x17ffbe000000 size: 0x2000000 deviceId: 0
+2026-10-26 14:08:26.170707 ERROR [543810-543810][HYBM hybm_gva.cpp:204 hybm_init_hbm_gva] hybm init meta gva failed: -1
+2026-10-26 14:08:26.171026 ERROR [543810-543810][HYBM hybm_entry.cpp:109 hybm_init] hybm_init_hbm_gva failed, deviceId: 0 flags: 0x8000000000000000 ret: ffffffff
+2026-10-26 14:08:26.264911 ERROR [543837-543837][HYBM hybm_gva.cpp:82 MetaSetDeviceAccess] set meta device access failed, ret: 507899 addr: 0x17ffbe000000 size: 0x2000000 deviceId: 1
+2026-10-26 14:08:26.266932 ERROR [543837-543837][HYBM hybm_gva.cpp:204 hybm_init_hbm_gva] hybm init meta gva failed: -1
+2026-10-26 14:08:26.267265 ERROR [543837-543837][HYBM hybm_entry.cpp:109 hybm_init] hybm_init_hbm_gva failed, deviceId: 1 flags: 0x8000000000000000 ret: ffffffff
+2026-10-26 14:08:28.264067 ERROR [543837-543837][SMEM smem_shm.cpp:345 smem_shm_init] init hybm failed, result: -1, flags: 0x0
+2026-10-26 14:08:30.265380 ERROR [543810-543810][SMEM smem_shm.cpp:345 smem_shm_init] init hybm failed, result: -1, flags: 0x0
+
+## Worker 崩溃异常头（Worker_TP1, serve.log L405-L417 节选）
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018] WorkerProc hit an exception.
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018] Traceback (most recent call last):
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/v1/executor/multiproc_executor.py", line 1010, in worker_busy_loop
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]     output = func(*args, **kwargs)
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]              ^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]   File "/vllm-workspace/vllm/vllm/v1/worker/worker_base.py", line 351, in execute_model
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]     return self.worker.execute_model(scheduler_output)
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]   File "/home/<user>/310P/vllm-ascend-g1d-e7ba8a5b/vllm_ascend/worker/worker.py", line 632, in execute_model
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]     output = self.model_runner.execute_model(scheduler_output, intermediate_tensors)
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+(Worker_TP1 pid=543837) ERROR 10-26 14:08:28 [multiproc_executor.py:1018]     return func(*args, **kwargs)
