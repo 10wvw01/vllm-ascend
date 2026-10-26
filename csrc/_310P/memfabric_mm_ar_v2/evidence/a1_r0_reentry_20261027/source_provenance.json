@@ -1,0 +1,79 @@
+{
+  "schema": "A1_R0_MEMFABRIC_SOURCE_PROVENANCE_V1",
+  "run_id": "a1-r0-20261027-001",
+  "captured_at_local": "2026-10-26T18:0x Asia (server clock; env date 2026-10-27)",
+  "verdict": "HOST_SOURCE_PROVENANCE_FOUND",
+  "historical_fix_worktree": {
+    "path": "/tmp/opencode/mf-fix",
+    "git_dir": "/home/w00804146/310P/memfabric_hybrid/.git/worktrees/mf-fix",
+    "branch": "fix/310p-setaccess-physical-devid-20261023",
+    "head": "5802f55026c16e153e783d8ef26a29f813d63dd9",
+    "head_subject": "fix(310p): convert logical device id to physical for aclrtMemSetAccess",
+    "base_commit": "131ee5ffd1a6ae9d4824cbb0cf4d32d99bbfdc5a",
+    "base_note": "base equals mirror 10wvw01/memfabric_hybrid_310p main (verified via ls-remote)",
+    "tracked_dirty_files": 0,
+    "untracked_files": ["tools/aicpu_kernel_deploy/orch_deploy_helper (built helper binary, sha 849f93c0...)"],
+    "fix_stack_commits_on_branch": [
+      {"sha": "2f59dedba86945d08a6d85ef3b9a38dcf53a2439", "subject": "fix(310p): serve全设备同步死因修复——epoch有限纪+host心跳时钟+监督重拉(KVER v11)"},
+      {"sha": "acd626cc252c1edbfbd74306049add681b585631", "subject": "fix(310p): move KFC probe+auto-deploy into a fork+exec helper process"},
+      {"sha": "131ee5ffd1a6ae9d4824cbb0cf4d32d99bbfdc5a", "subject": "fix(310p): prepare deploy-helper argv before fork (async-signal-safety)"},
+      {"sha": "5802f55026c16e153e783d8ef26a29f813d63dd9", "subject": "fix(310p): convert logical device id to physical for aclrtMemSetAccess (ONLY the physical-mapping commit)"}
+    ]
+  },
+  "fix_commit_patch_summary": {
+    "commit": "5802f55026c16e153e783d8ef26a29f813d63dd9",
+    "files_changed": [
+      "src/hybm/csrc/common/hybm_define.h (+33: inline uint32_t HybmPhysicalDeviceIdOf(uint32_t), ASCEND_RT_VISIBLE_DEVICES logical->physical parse, identity fallback on unset/malformed/short)",
+      "src/hybm/csrc/driver/hybm_gva.cpp (meta region site)",
+      "src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp (own segment site + imported peer segment site)"
+    ],
+    "setaccess_sites_converted": 3,
+    "other_vmm_calls_kept_logical": "aclrtMallocPhysical untouched",
+    "on_device_validation_recorded_in_commit": "dev6/7 (card 43520, ASCEND_RT_VISIBLE_DEVICES=6,7): pool creation passes, KFC auto-deploy completes, trial correctness 8 shapes x 2 ranks bit-exact status=0",
+    "patch_saved": "evidence/a1_r0_reentry_20261027/memfabric_fix_5802f550_setaccess_physical.patch"
+  },
+  "source_static_verification_server": {
+    "method": "grep on mf-fix worktree at 5802f550",
+    "hybm_gva.cpp": {"HybmPhysicalDeviceIdOf": 1, "AclrtMemSetAccess_call": 1, "line": 78-80},
+    "hybm_acl_vmm_segment.cpp": {"HybmPhysicalDeviceIdOf": 2, "AclrtMemSetAccess_call": 2, "lines": "139-141, 467-469", "note": "additional grep hits are BM_LOG_ERROR strings, not calls"},
+    "mapper_definition": "src/hybm/csrc/common/hybm_define.h:31 (inline); file hybm_physical_device_id.h does NOT exist in historical tree (that layout belongs to Draft PR#1 candidate)",
+    "pure_cpu_mapping_test": "15/15 PASS (unset/empty/identity/2,3/6,7/4,5/spaces/malformed/short-list/out-of-range)"
+  },
+  "host_so_frozen_sha": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "host_so_verified_copies": [
+    {"path": "/tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so", "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30", "bytes": 3240592, "origin": "historical fix build output (same tree/commit/CMakeCache intact)"},
+    {"path": "/tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so", "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30", "bytes": 3240592, "origin": "Gate E S3-R staged copy used in on-device S3-R/S3-R2 runs (LD_PRELOAD)"}
+  ],
+  "build_tree_state": {
+    "cmake_cache": "/tmp/opencode/mf-fix/build/CMakeCache.txt present (CMAKE_BUILD_TYPE=RELEASE, CMAKE_INSTALL_PREFIX=/usr/local, /usr/bin/cc + /usr/bin/c++)",
+    "build_ninja": "/tmp/opencode/mf-fix/build/build.ninja present",
+    "cann_at_fix_time": "9.1.0 (identical to current server CANN 9.1.0)"
+  },
+  "on_device_validation_trail": [
+    "2026-10-23 commit 5802f550 message: dev6/7 non-zero-origin visible list, 507899 eliminated, bit-exact matrix",
+    "2026-10-26 Gate E S3-R report: 507899 regression PASS with 1dc46d7d via LD_PRELOAD",
+    "2026-10-26 Gate E S3-R2 report: helper-mode KFC deploy, dual-Rank first-call bit-exact, 25/25 requests, 507014/507899 zero occurrences, production slots verified unchanged (88d39285)"
+  ],
+  "push_state": {
+    "github_dev_remote": "git@github.com:10wvw01/memfabric_hybrid_310p.git",
+    "ls_remote_result": "8 refs; NO branch containing 5802f550; fix branch NOT pushed",
+    "gitcode_origin": "https://gitcode.com/GDD_ESCC/memfabric_hybrid.git (upstream)",
+    "conclusion": "fix exists ONLY as local branch + local objects; patch archived in evidence"
+  },
+  "fallback_candidate_pr1": {
+    "repo": "10wvw01/memfabric_hybrid",
+    "branch": "work/310p-setaccess-redeploy-20261027",
+    "head_via_ls_remote": "33a2df0d62ce92e7eec3a9939ac9a13f66950ed8",
+    "status": "NOT_BUILT_NOT_DEPLOYED; per A1 contract can never be assumed byte-equal to 1dc46d7d; use only if historical artifacts become unavailable",
+    "mirror_main": "131ee5ffd1a6ae9d4824cbb0cf4d32d99bbfdc5a (7 mirror branches audited upstream: no physical-mapping fix)"
+  },
+  "current_production_state": {
+    "host_system_path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so",
+    "host_python_path": "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so",
+    "both_sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+    "verdict": "UNFIXED original SO in production; the fixed 1dc46d7d was never permanently installed (S3-R/S3-R2 used LD_PRELOAD); matches A1 doc expectation",
+    "note": "2026-10-23 backup dir /tmp/opencode/d4/c0/backup_hostso_20261023T153335/ contains libmf_hybm_core.so.orig = 88d39285 (pre-fix original), NOT the fix"
+  },
+  "prohibited_actions_taken": "none (no git reset/checkout in historical trees, no stash pop, no SO modification, no push)",
+  "G0_APPROVED": false
+}

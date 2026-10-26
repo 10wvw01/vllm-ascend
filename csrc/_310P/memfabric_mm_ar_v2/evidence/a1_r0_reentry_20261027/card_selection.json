@@ -1,0 +1,19 @@
+{
+  "schema": "A1_R0_CARD_SELECTION_MANUAL_V1",
+  "run_id": "a1-r0-20261027-001",
+  "note": "filled manually from npu-smi read-only observation, per A1 contract the readonly tool never auto-decides topology",
+  "server_clock_at_capture": "Mon Oct 26 18:01 Asia 2026 (container clock)",
+  "cards": [
+    {"npu_id": 5664, "bus": "0000:18:00.0", "dies": {"dev0": {"health": "OK", "mem_mb": "14898/44277", "proc": "external PID 895887 (~13GB, not visible in our PID namespace)"}, "dev1": {"health": "OK", "mem_mb": "43693/43693", "proc": "external PID 3589835 (~42.7GB, VLLM::EngineCore per 2026-10-26 S4 report)"}}, "verdict": "OCCUPIED_BY_OTHER_TASK - excluded, do not disturb"},
+    {"npu_id": 16384, "bus": "0000:41:00.0", "dies": {"dev2": {"health": "OK", "mem_mb": "1941/44277 (~4.4%)", "hugepages": "0/0", "proc": "none"}, "dev3": {"health": "OK", "mem_mb": "1007/43693 (~2.3%)", "hugepages": "0/0", "proc": "none"}}, "verdict": "PRIMARY CANDIDATE - matches known-clean G0 baseline (S4 report: DDR 4%/2%, hugepages 0%) and is the card proven by Gate E S3-R/S3-R2 with the fixed 1dc46d7d SO (devices 2,3)"},
+    {"npu_id": 38144, "bus": "0000:96:00.0", "dies": {"dev4": {"health": "OK", "mem_mb": "13094/44277 (~29.6%)", "hugepages": "5860/5860 (100% used)", "proc": "none visible - ORPHANED/residual memory with no owning process"}, "dev5": {"health": "OK", "mem_mb": "1602/43693", "hugepages": "0/0", "proc": "none"}}, "verdict": "NOT CLEAN - dev4 holds ~13GB orphan memory + all hugepages consumed by an invisible (other-namespace) holder; do NOT select until host-side owner is identified/cleared; per ADR-014 record and switch card, do not evict"},
+    {"npu_id": 43520, "bus": "0000:AB:00.0", "dies": {"dev6": {"health": "OK", "mem_mb": "38423/44277", "proc": "external PID 11744 (~36.8GB)"}, "dev7": {"health": "ALARM (Chip Health Alarm + MCU Alarm)", "mem_mb": "38160/43693", "proc": "external PID 12149"}}, "verdict": "EXCLUDED per ADR-014 and A1 contract (old 43520 dev6/7 / Die7 MCU alarm without cleared-evidence); also occupied by another task"}
+  ],
+  "dmesg_devmm_storm": "last devmm_map error 2026-10-26 17:19Z (crash-restart loop of another container task ended); no new entries at capture time",
+  "toxic_env_vars": "MF_KFC_BYPASS / MF310P_V2_NOWARMUP / MF310P_V2_AR_ONLY_NOWARMUP / MF_SDMA_ORCH_DEPLOY_HELPER / MF_SDMA_ORCH_EPOCH_BUDGET_S: NONE present in session, /etc/profile.d, /root/.bashrc, /etc/environment",
+  "ascend_rt_visible_devices_in_session": "unset (good for inventory; serving runs must pin same-card die pair)",
+  "recommended_pair_for_future_authorized_runs": "ASCEND_RT_VISIBLE_DEVICES=2,3 (card 16384) - non-zero origin requires the 1dc46d7d fixed Host SO, which is exactly the staged deployment target",
+  "exclusivity_check_done": "read-only npu-smi -t proc: no visible processes on 16384; no stopping/killing performed",
+  "CARD_AVAILABLE": "YES (card 16384 only)",
+  "G0_APPROVED": false
+}
