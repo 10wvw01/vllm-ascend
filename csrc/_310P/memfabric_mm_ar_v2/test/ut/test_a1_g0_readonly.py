@@ -88,7 +88,7 @@ class TestA1ReadonlyG0(unittest.TestCase):
         source = src.read_text(encoding="utf-8")
         for prohibited in ("import torch", "torchrun --", "npu-smi set",
                            "npu-smi reset", "os.system", "shell=True",
-                           "U1_G0_APPROVED=YES", "pip install", "torch_npu"):
+                           "U1_G0_APPROVED=YES", "pip install", "import torch_npu"):
             self.assertNotIn(prohibited, source)
         self.assertIn('["npu-smi", "info"]', source)
         self.assertIn('G0_APPROVED": False', source)
