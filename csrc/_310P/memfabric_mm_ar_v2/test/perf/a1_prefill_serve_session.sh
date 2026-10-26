@@ -146,5 +146,28 @@ if [[ "$MODE" == l2_profile ]]; then
   req+=(--profile)
 fi
 "${req[@]}" > "$OUT/client.log" 2>&1 || { echo "Prefill client failed; save logs" >&2; exit 1; }
+# Profiler export is asynchronous; never kill own Serve before both Rank traces appear.
+if [[ "$MODE" == l2_profile ]]; then
+  traced=0
+  for ((attempt=0; attempt<60; attempt++)); do
+    traced="$(find "$OUT" -maxdepth 1 -name '*_ascend_pt' -type d | wc -l)"
+    [[ "$traced" -ge 2 ]] && break
+    sleep 5
+  done
+  [[ "$traced" -ge 2 ]] || { echo "both Rank profiler dirs not exported" >&2; exit 1; }
+else
+  # Event flush never synchronizes devices. If a Rank cannot produce samples,
+  # mark the session NOT_READY rather than inventing an L3 timing.
+  have=0
+  for ((attempt=0; attempt<30; attempt++)); do
+    if compgen -G "$OUT/a1_prefill_rank0_pid*.jsonl" >/dev/null &&
+       compgen -G "$OUT/a1_prefill_rank1_pid*.jsonl" >/dev/null; then
+      have=1
+      break
+    fi
+    sleep 2
+  done
+  [[ "$have" == 1 ]] || { echo "missing full dual-Rank event traces: L3_MEASUREMENT_NOT_READY" >&2; exit 1; }
+fi
 npu-smi info > "$OUT/npu_after.txt" 2>&1
 echo "A1 session $SID/$MODE completed; raw trace/route/actual loaded identity MUST be independently audited"
