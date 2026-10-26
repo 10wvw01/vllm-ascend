@@ -206,3 +206,10 @@
 - **近期两项并行准备**：研发侧先审查L3无Profiler设备Step可靠测量能力（现有U1/旧capture链尚未证明此能力）；用户许可的现场第一阶段仅可进行A1原仓CPU回归和四卡只读G0，审查通过后才分阶段申请后续Smoke与ABBA。当前仍保持Stock产品默认，Gate E与首写/双Rank协议风险不能越级。
 - **归档约束**：以后每次现场进度必须更新总账任务状态、真实结果证据、批次与日期日志；项目级新事实同步此控制台，已审核性能数字同步[性能基线](PERFORMANCE_BASELINES.md)，新决策再追加[ADR](DECISIONS.md)；禁止另建工作分支的“替代总账”。
 
+## 18. 2026-10-27｜服务器切换其它分支：A1重新进入实机前的MemFabric源码/部署取证
+
+- **环境已漂移**：用户明确310P3服务器切换其它分支运行其它任务，旧G0/安装SO/真实Python import/卡占用与权限全部作废；任何编译或部署首先只读枚举四卡、git worktrees及Host双路径/设备SO/KVER/当前CANN，且不能驱赶正在使用设备/共享库的其它用户。当前服务器新G0 **NOT_RUN**。
+- **重大可复现性缺口**：2026-10-23历史已实证`ASCEND_RT_VISIBLE_DEVICES=2,3/6,7`中`MallocPhysical`需逻辑ID、`aclrtMemSetAccess`需物理ID，经过验证Host SO完整SHA `1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30`。2026-10-27复核`10wvw01/memfabric_hybrid_310p`当前7个分支的三个授权点**尚未发现物理ID修复**；历史修复可能只存在服务器`/tmp/opencode/mf-fix`未推Git源码/patch及SO备份，须先寻找，不能从镜像main盲编译覆盖装机。为保底创建[MemFabric Draft PR #1](https://github.com/10wvw01/memfabric_hybrid/pull/1)，**源码候选未完成原仓CPU/CANN/NPU验证、不等于历史实机合格SO**，禁止直接部署或篡改U1冻结SHA。
+- **首批现场可委托范围 BATCH-R0**：按 [A1重进场与编译部署批量准入合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_REENTRY_BUILD_DEPLOY_AND_BATCH_GATE_20261027.md) 在**隔离工作树**一次完成四卡/环境只读快照、原仓A1 CPU和bash/python静审、旧修复源码/完整SO指纹查找、可行的隔离staging编译与备份/回滚计划。**同批不准**设备初始化/建池/KFC预部署、全局`pip install`/双Host SO覆盖、Smoke/Screen/Confirm；结果回传审核后再逐阶段放行。
+- **任务状态入账**：[实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)新增E-01/02/03及B-07记录环境漂移和修复溯源；A1只读工具与CPU测试、实施文档在Draft PR#9。没有任何新服务器原仓CPU/设备PASS或当前D4 L1/L3/L4正收益数据，Stock默认与Gate E STOP纪律不变。
+
