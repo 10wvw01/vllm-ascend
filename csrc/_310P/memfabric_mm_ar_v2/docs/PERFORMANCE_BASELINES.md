@@ -68,3 +68,33 @@
 ## R1-B现场证据归档（R2-00，仅事实，非新性能）
 
 - [R1-B原始报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)和[evidence/r1b_20261025](../evidence/r1b_20261025/) 已由历史独立取证分支选择性导入唯一主线。G0 PASS；Stock+DFlash加载Target后因草稿混合Attention架构校验失败，**V2 Eager与两组full / Graph全部NOT_RUN**；新增输出速率、TTFT、ITL、acceptance、physical M / fusion hit均UNKNOWN。
+
+## ADR-015：大 M 的 Prefill→TTFT 四层传导验收合同（2026-10-27）
+
+**唯一最终性能目标：**真实 Qwen3.6 Prefill 的客户端 **TTFT** 正向改善（同业务配置Stock vs V2，报告p50/p90/p99和逐场差异，不预设未经确认的提高比例）。L0 V2内部性能改善只作工程指标，L1是**原生FP16完整Stock MM+HCCL AllReduce vs 正式V2完整MM+MemFabric AR**，最终以模型TTFT判定，不以输出吞吐或TPOT代替。
+
+| 层 | 必须核对及归档 | 判定边界 |
+|---|---|---|
+| L1 原生算子完整链 | 同卡双Die、同M/K/N、原生FP16 Stock `F.linear+HCCL AR`的实际完成时延 vs D4及后续正式V2；双Rank原始样本、真实HCCL跨流Event/route审计、输入与weight布局、必要同步 | Stock MM-only、只计融合Kernel、旧W1/W4同步税或逐调用HCCL竞争都不能代表真实Prefill完整链 |
+| L2 真实40站点 | `o_proj`10 + `out_proj`30每Rank的真实路由/次数/物理M和stride/padding；目标算子的执行流、`x.contiguous()`、Stage与输出可被下游消费的实际完成时间 | 40站点是既有目标范围，**每次请求实际命中必须实测**，不能假设总是40；不可把两Rank、相互重叠的Kernel时间直接相加 |
+| L3 完整Prefill步 | 同一请求各Prefill调度步的起止时间、双Rank同步、目标站点到下一消费算子的依赖、模型其它算子和设备重叠、Step关键路径变化 | 单请求旧Profiler目标站点约占3.3%仅为历史证据，不是当前D4的实际占比或TTFT收益上限 |
+| L4 客户端首Token TTFT | 正式工作负载Stock/V2同卡同环境交叉、逐请求排队/Prefill执行/首Token返回时间、p50/p90/p99及失败率；必要时另外做隔离Prefill诊断 | TTFT包含排队、Continuous Batching/Chunked Prefill及返回；**输出token吞吐/TPOT不是本大M项目的最终验收主指标** |
+
+**测试负载不得混算：**(A) 单请求辅助归因：input4096/output1/并发1、热态Eager、TP2，仅用于区分Prefill执行路径，不替代业务TTFT；(B) **正式E2E**：input4096/output2048/TP2/并发10/50请求/Eager/ignore-eos，双方同版本同卡、同负载、记录逐请求TTFT以及真实M/融合命中；DFlash/Graph另按同模式对照，不能混进普通Eager账本。两种负载均须记录是否有首次池初始化/冷首写/首次校验，热稳性能不得和冷态混算。
+
+**收益传导报告强制回答：**① L1真正省了多少µs；② 40站点真实命中和额外布局/拷贝后净省多少；③ 双Rank关键路径上完整Prefill步缩短多少；④ 客户端TTFT为何只变化这些（排队、调度、噪声）；⑤ 是否已能用同场证据解释差额。禁用“每层p50 × 40 = TTFT节省”的未经时序验证的推算。若没有同步的真实Profiler/无Profiler证据，则相应阶段记`UNKNOWN`。2026-10-21旧Prefill报告W1 Stock同步税与W4通信连发竞争已实证影响微基准，最新D4的真实完整L1仍`UNKNOWN`，本决策不增加任何实机数值。
+
+
+1. **同一310P3单卡双Die/TP2**，固定K/N=2048（目标attention投影真实形状）、FP16和模型实际Weight格式，确认引用相同逻辑输出及数值标准；若候选要求NZ而Stock原生可直接用非contiguous输入，要把必要转换/暂存作为候选完整成本。
+2. 独立进程隔离HCCL和MemFabric正式对照，控制热态、CANN/kernel SO、Host、KVER、AICPU部署版本、核频及占用；必要时用安全的混合路由实机验证复核，但不擅自宣称HCCL+MemFabric同进程Graph安全。
+3. NPU Event窗口、Host Wall和每Rank分别采，按样本`max(rank0[i],rank1[i])`后计算分位数；验证Event区间真正覆盖HCCL异步通信，Event**不等于无Host空档的纯Kernel时间**。
+4. 一次形状筛选可以少次采样，但正式收益要双轮ABBA以及稳定性尾部。每个失败或慢样本留证，失去正确性或进程挂死即停止、不筛掉后统计。
+5. **当前大M没有在同一次严格对照实验中给出“D4 Tile2048 完整融合 vs 原生Stock完整MM+HCCL”的确定胜负数字；首个新正式实验必须补这个缺口。** 在没有新结果前，L1大M标记**UNKNOWN**。
+
+### 历史结论与现版缺口（只读证据盘点）
+
+- 2026-10-21旧V2：Rank0历史目标站点设备时长Stock约77.85ms/步，旧V2 Kernel约105.91ms/步（未包含另外约3.6ms/步`x.contiguous()`）；同轮设备完整Prefill步周期2364.4→2395.7ms、孤立4096/1单请求时延约+34ms。无Profiler另一场正式4096/2048/50/并发10 TTFT mean11341.9→11578.6ms（旧V2退化），不同负载不可相减估排队。
+- 2026-10-22已经从提交的双Rank逐站点CSV复算并标记含74ms的异常Step；原始Ascend profiler大文件仅历史服务器保存；Host SO报告SHA前缀`6e9dc2d6`与同轮`provenance.json`前缀`88d39285`不一致：`PROVENANCE_CONFLICT`，不能跨版本混合归因。
+- D4 Tile2048独立大M L0 M4096 **2726.9→2556.3µs、内部加速+6.26%**不能称为比Stock快；SEL-01全模型Eager的输出tok/s中位+1.12%方向不稳，**不能证明TTFT改善**。最新D4完整L1、真实40层L2、完整Step L3和正式L4均`UNKNOWN/NOT_RUN`。
+- **当前研发循环**：A1实现留于Draft [PR #9](https://github.com/10wvw01/vllm-ascend/pull/9)，先通过CPU/G0、独立完整Stock L1，随后真实无Profiler L3热态Screen与跨Serve ABBA（L2短Profiler按需归因校准）；只有`L3_GO`且取得独立许可才执行正式4096/2048/TP2/并发10/50请求 L4。当前无Profiler真实设备Step采集工具合同尚未校准，不能拿4096/1客户端时延充当L3；不强设L3≥5%。详见[主线实验方案](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。
+
