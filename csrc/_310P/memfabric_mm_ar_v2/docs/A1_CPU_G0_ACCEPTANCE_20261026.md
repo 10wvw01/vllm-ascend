@@ -51,3 +51,15 @@ python3 "$PERF/a1_g0_readonly.py" --out /独立取证目录/a1_g0_readonly.json
 4. **Confirm**：Screen和真实HCCL时间线经独立审核后，再单独申请ABBA Confirm。每M两个ABBA窗口、p50/p90/p99和双Rank时间配对，不计入任何失败后重跑“幸存样本”。
 
 **本轮交付的是静态/CPU判定补强和G0读证工具，不是新的硬件性能结果。** 以前D4 Tile1024→2048的6.26%只属于V2内部；最新Tile2048完整算子相对Stock M2048/4096仍UNKNOWN，通信等待与IB时间仍待实机安全取证。
+
+## 5. 2026-10-26新增：四卡动态选卡及KFC自动部署硬门禁（ADR-014）
+
+**新的执行入口**：[四卡动态选卡与KFC自动部署规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)，该规范已写入唯一主线的ADR-014、ENGINEERING_GATES和PROJECT_CONTROL。本段属于旧A1工作包的补充，覆盖此前默认使用dev6/7的历史测试记录。
+
+1. 新一轮A1实机开始前必须先对**服务器全部四张310P3卡**进行只读健康/占用巡检。每次只挑两个Die同卡、双Die及MCU状态健康、独占且无租户冲突的一张；原43520 dev6/7曾有Alarm，未提供消警证据则不选。G0卡级异常可换另一空闲卡，但必须重新生成该卡G0、完整物理DeviceID映射与新的run_id。
+2. 在非0/1物理映射（历史如2/3、4/5、6/7）下，不只设置`ASCEND_RT_VISIBLE_DEVICES`，还需确认MemFabric修复后的`aclrtMemSetAccess`物理号版本，双Host SO安装路径及真实加载SHA、设备SO和KVER11。
+3. **本轮只读G0不能部署KFC**。在**之后独立授权的首次M2048短Smoke**初始化时由MemFabric自己探测/自动部署v11编排核，检查每个Die核可加载；禁止遗留`MF_SDMA_ORCH_DEPLOY_HELPER`伪rc3、KFC手工删除/覆盖与非批准常驻模式。
+4. Stock/V2 Screen/Confirm与ABBA必须同一物理卡、同一对Die、相同已审核SO与KVER。任何一次ABBA中途换卡都会使原ABBA样本失效，重新开实验；运行中507014/507899/错算/KFC 0x2a先STOP保全故障而非自动换卡。
+5. OpenCode输出`card_selection.json`或同等四卡清单、物理卡ID/Rank映射及淘汰原因。无可用卡时停止，不因CPU PASS或单卡异常自行签发Smoke GO。
+
+来源：主线 [2026-10-23 已实证的MemFabric部署与换卡档案](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。**本条没有新的选卡实机测量、没有在新卡部署KFC、没有授予Kernel运行许可。**

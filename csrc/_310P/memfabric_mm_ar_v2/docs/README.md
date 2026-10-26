@@ -79,3 +79,5 @@ V2 专用 UT/TP2/G3 驱动已集中于本工程 `test/`。
 - [主线A：大M完整Stock基线重建与瓶颈归因A1](A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md)：复用U1设备验收脚本，新增离线证据复算与带NO-GO判据的诊断优先级工具（当前无新实机数据）。
 
 - [A1 CPU 验收与受控设备G0交接](A1_CPU_G0_ACCEPTANCE_20261026.md)：实际隔离CPU测试与尚未运行的仓库CI分账、只读设备指纹探针、分阶段OpenCode操作及NO-GO边界。
+
+- [四卡动态选卡与MemFabric KFC自动部署标准（ADR-014）](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)：A1/U1下次实机须先按实际健康/占用选同卡双Die，换卡重G0、KFC获准首次初始化自动部署、ABBA不得跨卡混样。

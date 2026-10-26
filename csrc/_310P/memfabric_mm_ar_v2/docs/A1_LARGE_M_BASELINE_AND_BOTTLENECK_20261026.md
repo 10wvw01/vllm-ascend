@@ -137,3 +137,9 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 - **本地隔离CPU判定验证**：从当前GitHub的报告计算逻辑重建一份离线副本，在无NPU的本地容器中运行20项纯stdlib合成测试，`Ran 20 tests ... OK`。**这不是同一Git checkout里的完整U1/A1原始测试执行；仓库自身CPU suite仍NOT_RUN，STATIC-GO未签发。**
 - 新增只读G0探针`test/perf/a1_g0_readonly.py`与`test/ut/test_a1_g0_readonly.py`，只读取Git/SO SHA/npu-smi及绕过标志，永远输出`G0_APPROVED=false`和`SMOKE_APPROVED=false`；在真正实机前必须另行完成同卡/独占/运行时SO/KVER和恢复方案人工审查。
 - `u1_run.sh`仍受三个原有批准标记门禁保护，不能由离线测试或取证脚本自动设置；**本轮实机取证尚未开始、Stock/V2完整M2048/4096数据仍UNKNOWN**。
+
+## 8. 2026-10-26新增实机恢复准入：四卡择优而非绑定故障dev6/7
+
+A1最先按[四卡动态选卡及KFC自动部署准入](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)只读巡检四张物理卡；只有所选单卡双Die/MCU健康、空闲、Rank物理号与MemFabric Host修复版/Device/KVER11完整SHA符合G0后，才能申请M2048短Smoke。KFC编排核在**授权后的首次建池**由MemFabric自动探测/按Die部署，不能在只读G0手工部署。若G0单卡Alarm或租户占用允许切到下一张卡重新G0；执行中507014/507899/KFC/错算则先STOP留证，不自动轮测四张。ABBA Stock/V2必须全程在同一张卡完成，换卡重开run_id、热态与证据。
+
+旧A1计划中的“所选卡G0→Smoke→Screen→独立HCCL路由审计→Confirm”流程及二阶段授权不变，本条只改变**选哪一张健康空闲卡**及卡间切换的安全、证据纪律。
