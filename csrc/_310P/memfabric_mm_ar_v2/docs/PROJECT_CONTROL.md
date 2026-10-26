@@ -6,6 +6,8 @@
 
 ## 0. 项目目标、边界与验收
 
+> **2026-10-27 项目主线正式方向（ADR-015 + ADR-016）：**大M最终以**真实Qwen3.6 Prefill TTFT**为唯一最终性能主指标；L1唯一有效算子级基线为**完整原生FP16 Stock MM+HCCL AR**，聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点在双Rank上的关键路径。性能研发采取 **L1/L2归因优化 → L3真实Prefill设备Step无Profiler可重复正向收益门槛 → L4正式4096/2048/TP2/并发10/50请求TTFT验收**；L3无稳定正收益则继续大M优化，不提前运行长输出L4。4096/1客户端时延不等于L3设备Step；当前无Profiler设备Step计时能力尚未完成静审/校准。**主线管方向，A1工作分支只管实施**；本次只纳入文档，不代表已有新的设备测试结果或提供实机许可。详见 [主线正式实验合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR-015/016](DECISIONS.md)。
+
 **唯一项目：** 在 Ascend **310P3 单卡双 Die、TP=2** 上，用 MemFabric 实现**单 Kernel MM+AllReduce（SDMA+FP16 Add）**，覆盖 Qwen3.6-35B-A3B-w8a8 中已确认未量化的 attention `o_proj` / GDN `out_proj`；模块选择以运行时 shape、dtype、TP、真实模型前缀为准，禁止为了扩大覆盖误改量化 MoE 路由。
 
 **不可动摇：**
@@ -186,3 +188,11 @@
 - 310P3服务器共有**4张物理卡**；单卡双Die TP2实验不绑定原dev6/7。每次只读遍历四卡，动态选择双Die及MCU健康、同卡拓扑明确、无租户且空闲的一张；旧43520 dev6/7告警未清除前排除。G0卡级健康/占用失败可以换卡再G0；**运行中**507014/507899/KFC/IB异常必须先STOP保全证据，不准脚本自动轮测四卡。
 - 选卡之外必须重新核查§ASCEND_RT_VISIBLE_DEVICES§的逻辑/物理DeviceID映射、非0/1设备下§aclrtMemSetAccess§物理号修复的MemFabric**双路径Host SO**和KVER11；目标Die的AICPU SDMA编排核在**授权首次建池/Smoke时自动KFC部署**，只读G0不提前执行KFC，禁用未经授权的伪helper与常驻模式。Stock/V2同一次ABBA必须固定同卡、相同版本，换卡单独run_id重G0不混算。
 - 完整换卡与KFC实证指南：[四卡动态选卡/KFC准入规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)，源自已有[2026-10-23 dev6/7 KFC部署取证](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。**此提交仅文档治理，不代表新卡已验证或KFC已部署。**
+
+## 16. 2026-10-27｜主线权威方向已从A1实验分支选择性归档（ADR-015/016）
+
+- **分工已明确**：本`dev/310p-memfabric-mm-ar`主线承载真实研发目标、L1～L4历史证据归因、L3-first决策与阶段门槛；A1工作分支`work/310p-mm-ar-large-m-a1-20261026`的[PR #9](https://github.com/10wvw01/vllm-ascend/pull/9)保留**Draft实施身份**，代码/纯CPU测试/310P待验脚本不因文档归档而自动准许合入。不创建长期第二主线，禁止从A1整分支合入后反向覆盖本控制台。
+- **唯一生效性能实验合同**：[历史L1～L4数据复用 + L3-first门槛 + L4延后执行](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。历史2026-10-21旧V2的Rank0站点约78→106ms/步（不含独立输入Copy）、Prefill步骤约2364.4→2395.7ms、孤立4096/1单请求约+34ms，**仅可解释旧版负收益**；D4目前只有旧V2内部 +6.26%，其严格完整Stock L1与新L3、L4结果**UNKNOWN/NOT_RUN**。旧报告Host SO SHA前缀与provenance记录不一致，标`PROVENANCE_CONFLICT`；不得跨时间拼接成现版加速。
+- **最新执行状态**：A1原仓CPU合同/310P四卡只读G0仍未得到新证据；Smoke、Screen、Confirm、L2时序、无Profiler L3设备Step采集、正式L4 TTFT均NOT_RUN。仅可按已存在G0安全合同推进，设备阶段各自获许可后才执行，旧43520 Die7告警与Gate E/507014风险不被文档合入解除。Stock默认、KVER11/Host双路径、Runtime身份、任何异常STOP保全要求不变。
+- **主线交接规则**：今后新的经审查性能事实与决定同步更新`PROJECT_CONTROL.md`和`PERFORMANCE_BASELINES.md`，如变更方案追加ADR；A1 PR #9在实际合入前需针对新主线重新审阅和去重其旧项目控制文档，避免把历史分支误当主线。此处只确认**治理与实验合同同步**，不表示A1实机验收通过。
+
