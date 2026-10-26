@@ -16,10 +16,10 @@
 ## 1. 环境状态（E0，全部只读）
 
 - **四卡拓扑与健康**（310P3 ×4，每卡双Die，共 8 设备）：
-  - `5664`(dev0,1)：OK，被其它任务占用（llama-server ~13GB + VLLM::EngineCore ~42.7GB，进程在其它容器命名空间，不可见且**未驱赶**）→ 排除
-  - `16384`(dev2,3)：**双Die OK、零可见进程、内存 ~4.4%/2.3%、hugepages 0/0**，与 S4 报告记载的干净 G0 基线一致；该卡即 S3-R/S3-R2 用修复 SO 验证过的卡 → **首选**
-  - `38144`(dev4,5)：健康但 **dev4 残留 ~13GB 孤儿内存 + hugepages 5860/5860 全占**，无可见属主（疑似 10-26 容器崩溃风暴残留）→ **暂不选用**，留待宿主侧查清
-  - `43520`(dev6,7)：Die7 Chip+MCU **Alarm** 且被占用 → 按 ADR-014 排除（记录，不处置）
+    - `5664`(dev0,1)：OK，被其它任务占用（llama-server ~13GB + VLLM::EngineCore ~42.7GB，进程在其它容器命名空间，不可见且**未驱赶**）→ 排除
+    - `16384`(dev2,3)：**双Die OK、零可见进程、内存 ~4.4%/2.3%、hugepages 0/0**，与 S4 报告记载的干净 G0 基线一致；该卡即 S3-R/S3-R2 用修复 SO 验证过的卡 → **首选**
+    - `38144`(dev4,5)：健康但 **dev4 残留 ~13GB 孤儿内存 + hugepages 5860/5860 全占**，无可见属主（疑似 10-26 容器崩溃风暴残留）→ **暂不选用**，留待宿主侧查清
+    - `43520`(dev6,7)：Die7 Chip+MCU **Alarm** 且被占用 → 按 ADR-014 排除（记录，不处置）
 - **dmesg devmm 风暴**：最后一条 2026-10-26 17:19Z（其它容器 vllm 崩溃循环已停），当前无新增
 - **有毒环境变量**：`MF_KFC_BYPASS` / `MF310P_V2_NOWARMUP` / `MF310P_V2_AR_ONLY_NOWARMUP` / `MF_SDMA_ORCH_DEPLOY_HELPER` / 常驻 `MF_SDMA_ORCH_EPOCH_BUDGET_S` 在会话、`/etc/profile.d`、`/root/.bashrc`、`/etc/environment` 中**均未出现**
 - **设备侧 KFC** `/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/`：空（符合"只读阶段不预部署"）
