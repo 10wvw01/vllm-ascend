@@ -172,3 +172,11 @@
 - **实测口径**：TP2/单卡双Die，input4096/output2048/concurrency10/50请求、K7 DFlash与相同真实Runner对照；L1完整 Stock MM+HCCL vs V2 MM+MemFabric，L2 Stock+DFlash vs 融合+DFlash，双Rank首调正确性、真实调用数/层、physical M/Graph是否命中、性能传导。大M继续极限调优，小M专攻同Kernel固定开销。Stock默认。
 - **实证边界**：R1-B过去在特定Stock+Draft+vLLM0.27.1旧Runner组合上构造失败（已归档），不得据此否定其他Stock成功配置；本次只是GitHub代码/项目治理，**没有新310P3推理、Kernel、Graph性能或现成Stock成功实测**。确切可工作Stock环境由后续只读取证锁定，不推断。
 - **准入**：只保留融合算子自身的数值/首写/SO/KVER/G0/Gate E安全门禁；**46项通用V2 Runner准入矩阵失效，不得用于阻塞本项目核心算子研发或DFlash薄接入。**
+
+
+## 14. 2026-10-26｜Gate E / 507014 移交 MemFabric 团队的独立复现基线（新测试 NOT_RUN）
+
+- **复用已存在的诊断分支，不新建分支**：`diag/310p3-g1d-minimal-forensics-20261021` @ `38f835f196e20e4928422dd5f13f71ddb4a29258`。新增 [复现交付说明、G0 与安全执行合同](https://github.com/10wvw01/vllm-ascend/blob/38f835f196e20e4928422dd5f13f71ddb4a29258/csrc/_310P/memfabric_mm_ar_v2/docs/GATE_E_MEMFABRIC_HANDOFF_20261026.md)、只读离线证据判读工具及其纯CPU单元测试；**没有修改历史复现脚本、正式Kernel、Host/Serving或MemFabric协议**。
+- MemFabric 诊断源码固定参照 `10wvw01/memfabric_hybrid_310p:diag/310p3-g1d-minimal-forensics-20261021@54d6376d619325fb70831ce16c6ab60305b272ec`；历史 G1-D D1R4 曾在设备复现双 Rank 507014、core0 stage50 邮件等待未返回；D2R1–D2R6 六轮没复现，写入丢失与AICore不可见尚不能区分。**这些均为历史证据，不是本轮测试结论**。
+- **交付前门禁**：OpenCode 先只读 G0，核对两仓 SHA、真实 Python import、TP2 同卡双 Die、设备独占、Host双路径/Device/KVER11/实际装载SO SHA、网络隔离及恢复备份；用户授权后仅执行原 fused Eager **input4096/output256、25请求/轮、并发10、620s**，先短smoke后长稳，独立Stock同口径对照。出现 507014/507899/静默数值错误立刻止损保全，避免其它对照覆盖第一故障现场。可选G1D v12 诊断库需另行人工许可。
+- **截至本次归档状态**：交付文档/CPU测试源码已提交；CPU单测**未在原仓 CI 实际执行**，现场 G0 / NPU Smoke / 620s fused / Stock 均 **NOT_RUN**。未授权直接上机。只有新的双Rank日志、真实融合Kernel trace、哈希与恢复证据完整并经审核后才交付 MemFabric 团队，不得将 0 ExitCode 或选层日志写成修复证明。
