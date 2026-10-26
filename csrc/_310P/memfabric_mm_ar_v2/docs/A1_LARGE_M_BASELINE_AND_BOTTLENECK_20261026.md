@@ -108,7 +108,15 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 
 真实量化后再决定改：如果P0主要来自Core0 wait，应优先在不违反SDMA/缓存可见性协议下改善交叠；如果MM主导，则调整Cube tiling与布局；如果主要来自Serving拷贝，则限于LinearMethod薄接入。**任何改动都要单变量、Stock完整链同卡ABBA、双Rank首写/IB/超时风险回归、可回滚。**
 
-## 5. 当前阶段结果、准入与交付
+## 5. 两轮静态审查记录（不冒充CI执行）
+
+**审查R1：原始测量与统计方法。** 与主线 `u1_spec.py/u1_arm.py/u1_analyze.py/u1_run.sh` 对照，确认Stock计时实际执行FP16 `F.linear + HCCL AllReduce`、V2执行正式D4算子；两个数据面在不同Worker会话；U1按样本双Rank`max`配对，Screen和Confirm隔离，Confirm要求ABBA×2/独立路由审计。发现Stock HCCL任务可能使用内部Stream，因此**现有设备Event覆盖仍待现场证明**，代码不会擅自给操作级GO。新增A1 `M1024`只作诊断，不允许计入Serving阈值收益。
+
+**审查R2：源码改动隔离、证据不可混算和错误门禁。** GitHub变更清单仅含A1纯CPU分析/UT与项目文档；不修改`src/`、`vllm_ascend/_310p/ops/`、Stock默认、DFlash Runner或MemFabric KVER协议。A1读真实原始U1目录时先调用既有`evaluate`复验Rank日志与SHA，Screen只能产生`SCREEN_ONLY_NOT_GO`；Confirm独立audit缺失时`L1_complete_op_confirmed=false`；所用SO身份、Git SHA和物理卡必须一致；历史Profiler计数器不填入当前M的耗时字段；阶段诊断`phase_duration_us`恒为`null`，等真实设备Profiler取证。
+
+**未完成的独立动态证明**：截至本次静态审查，GitHub新PR Actions与本机Python `unittest`/语法检查尚未取得成功记录，**不能给A1 CPU-TEST-PASS或STATIC-GO**。正式设备G0/Smoke/Screen/Confirm/Profiler均NOT_RUN。下一轮只需补真实CPU合同PASS和服务器只读G0身份便可提出分阶段设备准入；绝不能直接跳到M4096 ABBA。
+
+## 6. 当前阶段结果、准入与交付
 
 | 检查 | 2026-10-26状态 |
 |---|---|
