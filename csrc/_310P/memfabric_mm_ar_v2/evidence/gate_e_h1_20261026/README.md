@@ -10,7 +10,10 @@
 90 秒融合冒烟在**首调 V2 传输层初始化**即失败：双 Rank `AclrtMemSetAccess` 返回 507899
 （`ACL_ERROR_RT_DRV_INTERNAL_ERROR`）→ `hybm_init`/`smem_shm_init` 失败 → 双 Worker 崩溃，0 请求完成。
 **不是 Gate E 507014 复现**（负载从未建立）；同一安装库 10-20 在设备 0,1 曾静默成功。
-裁定 `INVALID/UNKNOWN (SMOKE_BLOCKED_BY_CARD_INIT_FAULT)`，已按停止契约停止全部后续轮次。
+裁定 `INVALID/UNKNOWN (SMOKE_BLOCKED_BY_TRANSPORT_INIT_FAULT)`，已按停止契约停止全部后续轮次。
+复审增补：507899 优先核查方向为旧 SO `88d39285` 在非零起点可见列表（"2,3"）下的**逻辑/物理
+DeviceID 已知缺陷**（`aclrtMemSetAccess` 需物理号，旧库传逻辑号；修复版 `1dc46d7d…` 已于 10-23
+验证存在），暂不定性卡 16384 硬件故障，详见报告 §6.1。
 
 ## 文件清单
 

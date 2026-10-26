@@ -1,14 +1,16 @@
 # Gate E 移交前第二阶段 S0–S3 实测报告（2026-10-26，310P3）
 
-> 执行方：OpenCode @ 310P3（qwen-test），2026-10-26 13:29–14:16 UTC。
+> 执行方：OpenCode @ 310P3（<host>），2026-10-26 13:29–14:16 UTC。
 > 授权依据：用户审阅 G0 报告后批准 CONDITIONAL GO，授权 S0–S2 + **单次** S3 90 秒融合冒烟；S4/S5 未授权。
 > 入口：普通 Gate E 复现入口 `gate_e_forensic_run.sh fused` → `gate_e_eager.sh`（未使用强制设备 0,1 的 G1-D 诊断入口）。
 > 证据目录（服务器本地）：`/home/<user>/310P/gate_e_s0_s3_evidence_20261026/`（编号文件与本报告对应；
 > 会话原始目录在隔离 worktree `tmp/opencode/gate_e_forensics/` 下，均未覆盖）。
 >
-> **总裁决：S3 冒烟未通过——但失败不是 Gate E 507014 复现，而是卡 16384（设备 2,3）特有的
-> MemFabric 传输层初始化阻断（`AclrtMemSetAccess` 507899 = ACL_ERROR_RT_DRV_INTERNAL_ERROR）。
-> 按停止契约立即停止全部后续轮次，未做任何自动重试。S4/S5 维持未执行。**
+> **总裁决：S3 冒烟未通过——但失败不是 Gate E 507014 复现，而是 MemFabric 传输层初始化阻断
+> （`AclrtMemSetAccess` 507899 = ACL_ERROR_RT_DRV_INTERNAL_ERROR，发生于设备 2,3 / 非零起点可见列表）。
+> 按停止契约立即停止全部后续轮次，未做任何自动重试。S4/S5 维持未执行。
+> 复审增补（同日归档轮）：507899 的**优先核查方向为已安装旧 Host SO `88d39285` 的逻辑/物理
+> DeviceID 已知问题**（详见 §6.1），暂不定性卡 16384 硬件故障。**
 
 ## 1. 执行总览
 
@@ -30,7 +32,7 @@
   13:52:36Z 外来进程释放、回基线后才继续。第二次发射前 14:04:50Z 又见 ~109MB 瞬时探测（1 秒级），
   14:05:42Z 复核已消失；正式会话内存分配期（14:06+）进程表仅本轮 serve（宿主命名空间 PID 936011/936198，
   与设备 slog `tgid[936011]` 互证）。
-- **网络隔离**：容器（docker bridge 172.17.0.3，/.dockerenv 在位）内 `--host 0.0.0.0`；发射前监听 socket 为空；
+- **网络隔离**：容器（docker bridge <container-ip>，/.dockerenv 在位）内 `--host 0.0.0.0`；发射前监听 socket 为空；
   容器内无 iptables/nft 可查；对宿主/外网的暴露取决于宿主端口发布配置（容器内不可见）。历史 Gate E/F1-C
   同一绑定方式运行无事故；残余风险由用户批准接受。
 - **备份恢复能力**：本轮**零部署**（构建产物仅落隔离 worktree gitignored 路径）；生产位基线发射前后哈希断言；
@@ -129,9 +131,31 @@ serve.log 中**首错即第 4 步**（前 3 步无错误日志），固定约定
 | **本轮 H1 冒烟** | 10-26 | **2,3（NPU 16384）** | **88d39285（发射前后哈希断言）** | **`MetaSetDeviceAccess` 507899 双 Rank 失败** |
 
 （derived）**同一 Host 库、同一驱动（26.1.1，Innerversion V100R001C10SPC009B220，与 10-21 D1R1 slog 记录一致）、同一环境配方**，在设备 0,1 成功、
-在设备 2,3 失败于驱动内部错误 → 阻断因素在**卡 16384 的设备侧状态/能力**（SMMU 授权路径），而非本轮构建、
-树选择或 MemFabric 安装内容。可能方向（未验证，留给 MemFabric/平台团队）：该卡 SMMU/P2P 授权配置差异、
-外来探测作业残留状态、卡级微码差异。**本轮按契约未做任何重试/换卡/换库验证。**
+在设备 2,3 失败于驱动内部错误。**现场报告初版曾将阻断因素归为"卡 16384 的设备侧状态/能力"；
+该定性已被 §6.1 复审增补修正——优先方向为已安装旧 SO 的已知逻辑/物理 DeviceID 缺陷，非卡硬件故障。**
+**本轮按契约未做任何重试/换卡/换库验证。**
+
+### 6.1 复审增补：507899 优先核查方向 = 旧 Host SO 的逻辑/物理 DeviceID 已知问题（2026-10-26 归档轮）
+
+用户提供并于 10-23 实机验证过的既有事实（本报告据以修正定性）：
+
+- **已知缺陷**：现网安装的旧 MemFabric Host SO `88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1`
+  在 `MetaSetDeviceAccess`（`hybm_gva.cpp`）中把 **`aclrtGetDevice` 返回的逻辑设备号**（经
+  `ASCEND_RT_VISIBLE_DEVICES` 重映射后的连续编号）直接填入 `aclrtMemSetAccess` 的
+  `acc.location.id`——而该 API 要求**全局物理设备号**。identity 映射（未设置可见列表或 `"0,1"`）下
+  逻辑==物理，缺陷从不暴露；**非零起点可见列表（如本轮 `"2,3"`）下以逻辑号授权即 507899**
+  （驱动内部错误）。
+- **修复版**：memfabric 修复提交 `5802f550`（"convert logical device id to physical for
+  aclrtMemSetAccess"，新增 `HybmPhysicalDeviceIdOf` 按可见列表换算，仅 SetAccess 消费、其余 VMM API
+  保持逻辑号），修复版构建产物 SHA256
+  `1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30`
+  （服务器本地 `/tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so`，已复核哈希一致）。
+- **与 H1 现场证据吻合**：本轮失败日志双 Rank 打印 `deviceId: 0` / `deviceId: 1`——恰为逻辑号，
+  而物理设备实为 2,3；10-20 G1-A F01 在 `"0,1"` 下同一 SO 静默成功（逻辑==物理）；本轮 `Reserve/
+  MallocPhysical/MapMem` 三步（实测要求逻辑号）均无错误、仅 SetAccess 失败——全部指向该已知缺陷，
+  **不支持卡 16384 硬件故障定性**。
+- **纪律**：按指示，本轮**未替换任何 SO**；修复版是否部署、何时部署由用户/MemFabric 方裁决
+  （若部署须按既有断言式备份/恢复纪律，先列变更前后 SHA256 并获批）。
 
 ## 7. 已保全证据（路径）
 
@@ -158,20 +182,25 @@ serve.log 中**首错即第 4 步**（前 3 步无错误日志），固定约定
 
 - **本轮不是 REPRODUCED**：Gate E 目标故障（负载期双 Rank AICore 停滞 + 507014）未发生——负载从未建立。
 - **不是 CONTROL/NOT_REPRODUCED**：冒烟未通过验收（首调 bit-exact 未达成）。
-- **裁定：INVALID/UNKNOWN（SMOKE_BLOCKED_BY_CARD_INIT_FAULT）**——融合冒烟在目标卡 16384 上被
+- **裁定：INVALID/UNKNOWN（SMOKE_BLOCKED_BY_TRANSPORT_INIT_FAULT）**——融合冒烟在设备 2,3 上被
   MemFabric 传输层初始化失败（`AclrtMemSetAccess` 507899）阻断，先于任何 Gate E 有效测量。
-  原始双 Rank 证据已保全，`ondevice_verified=false`，根因归属（卡状态 vs 驱动 vs 库）**未判定**。
+  原始双 Rank 证据已保全，`ondevice_verified=false`。根因归属经 §6.1 复审增补修正：
+  **优先方向为已安装旧 SO `88d39285` 在非零起点可见列表下的逻辑/物理 DeviceID 已知缺陷**
+  （修复版 `1dc46d7d…` 已在 10-23 验证存在），暂不定性卡 16384 硬件故障；最终定性待 MemFabric 方复核。
 - 附注（诚实记录）：判读器机械输出 `FAULT_SIGNATURE_OBSERVED` 系 507899 字样触发；人工判读确认其发生层
   与 Gate E 历史故障（运行期 AICore 超时/停滞）不同类，不应并入历史复现率统计。
 
 ## 10. S4 裁决所需的依赖（供决策，不越权执行）
 
-1. **卡 16384 阻断项**：需 MemFabric/平台方判读 `AclrtMemSetAccess` 507899 在该卡失败的原因
-   （对照 0,1 成功史）；或提供该卡的修复/放行方案。
-2. **历史卡 5664（0,1）**：当前被外部租户占用（13GB/42.7GB）；若占用解除且核验干净，可在其上执行
-   S3 冒烟（与全部历史证据同卡可比性最强）。
-3. 卡 38144（4,5）die4 有 13GB 无主残留内存，未列入候选。
-4. 在上述任一路径就绪前，S4（620 秒复现）与 S5（Stock 对照）维持未执行。
+1. **阻断项（优先）**：507899 归因于旧 SO `88d39285` 的逻辑/物理 DeviceID 已知缺陷（§6.1）。
+   两条可选路径，均需用户/MemFabric 方批准后执行：
+   a. **部署修复版 SO `1dc46d7d…`**（断言式备份/恢复纪律：变更前后双位置 SHA256、备份、回滚剧本），
+      在设备 2,3 重跑 S3 冒烟；
+   b. **不换库**，改在历史卡 5664（设备 0,1，identity 映射下逻辑==物理）执行 S3 冒烟——但该卡
+      当前被外部租户占用（13GB/42.7GB），需等待释放并核验干净。
+   注意路径 b 只绕开缺陷、不消除缺陷；移交 MemFabric 团队时仍应如实记录该已知问题。
+2. 卡 38144（4,5）die4 有 13GB 无主残留内存，未列入候选。
+3. 在上述任一路径就绪前，S4（620 秒复现）与 S5（Stock 对照）维持未执行。
 
 ## 11. 移交增补事实清单（供 MemFabric 团队）
 
@@ -179,6 +208,7 @@ serve.log 中**首错即第 4 步**（前 3 步无错误日志），固定约定
 - 同一安装库（88d39285，双位哈希断言）在 10-20 设备 0,1 静默成功、10-26 设备 2,3 双 Rank 对称失败
   （间隔 96ms），失败前的 Reserve/MallocPhysical/MapMem 三步均无错误。
 - 双 Rank 各自授权**本端**设备（deviceId 0/1 为 `ASCEND_RT_VISIBLE_DEVICES=2,3` 重映射后的 rank 相对号），
-  即非跨卡授权场景。
+  即非跨卡授权场景；**该逻辑号即 §6.1 已知缺陷的直接现场证据**——`aclrtMemSetAccess` 需要物理号 2/3，
+  旧 SO 传入了逻辑号 0/1。
 - 设备 slog 在故障时刻（22:08:26 设备本地时钟）最后活动为 `Get api RunCpuKernel from so libpt_kernels.so success`，
   无 AICPU 侧报错堆积。
