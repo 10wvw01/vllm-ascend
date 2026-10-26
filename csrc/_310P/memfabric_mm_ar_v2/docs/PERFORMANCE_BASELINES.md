@@ -89,3 +89,11 @@
 - 2026-10-21真实Prefill profiler的Stock约1944μs（MM795+HCCL1149）与V2约2573μs、额外contiguous约66μs，是**历史同场景归因**；D4的V2 2726.9→2556.3μs（内部-6.26%）属于另一无Profiler设备微基准，**严禁跨环境相减**。
 - 新工作分支`work/310p-mm-ar-large-m-a1-20261026`以`A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md`和纯CPU`a1_large_m_assess.py`重建M2048/4096完整FP16 Stock+HCCL与最新D4 V2+MemFabric同环境对照合同。**截至当前未取得新真实Stock/V2双RankABBA样本，差距=UNKNOWN、硬件子相位耗时=UNKNOWN、模型收益=UNKNOWN。**
 - 旧U1工具只作设备侧G0后才能被授权执行；M1024只可作诊断形状，不当作正式Serving融合命中；Screen不授予GO，Confirm有独立跨流HCCL/路由证明也只可能得到算子候选结论。
+
+## 2026-10-27｜历史L1～L4复用账与D4补测缺口（无新实机数字）
+
+- [完整复用审计与最小TTFT实验组](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)：旧版2026-10-21 Prefill已留双Rank×200站点/臂CSV、Step周期及单请求时延；2026-10-22已从CSV独立复算，**原始Profiler仅服务器保留**，不要再次将历史CSV当新的独立实验。历史L1仅是真实Serving中MM与HCCL的阶段Trace和V2核时延，**并非同卡同热态无Profiler的严格完整Stock ABBA**。
+- 历史离线复算完整干净Step（独立于原报告约30.9ms含拷贝口径）：Rank0 Stock 77.8525ms、V2 kernel 105.9149ms，未计输入Copy净增加28.0624ms；Rank1对应93.2048→109.9853ms，增加16.7805ms；旧报告Rank0 Prefill步周期约+31.3ms，客户端4096/1稳态约+34ms。上述均**旧版本旧负载**，不是当前D4性能，也不能简单跨Rank绝对时钟相减。
+- 历史版本身份未解决：报告正文Host SHA `6e9dc2d6...`与证据`provenance.json`的`88d39285...`冲突；如需作严格跨轮比较，先核查原始部署/装载证据。历史2026-10-21正式4096/2048/50/10回归TTFT mean旧Stock11341.9ms→旧V2 11578.6ms；可证明旧版方向，不足以精确拆出queue/dispatch增量。
+- **当前D4 L1严格全链、40目标站点真实D4拷贝/路由成本、双RankPrefill步、同场正式TTFT = UNKNOWN/NOT_RUN**。沿ADR-015仅补A1既有Stock确认、2短Profiler归因与4Serve正式Stock/V2 ABBA；新轮次暂未获人工NPU许可，所有数值必须标历史。
+
