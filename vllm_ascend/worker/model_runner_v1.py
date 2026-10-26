@@ -2501,6 +2501,13 @@ class NPUModelRunner(GPUModelRunner):
         num_encoder_reqs = len(scheduler_output.scheduled_encoder_inputs)
         has_encoder_input = self.model_config.is_encoder_decoder and num_encoder_reqs > 0
 
+        # A1诊断采样：仅环境变量显式启用。Device Event记录无任何额外同步。
+        # 这里的时间区间是forward→logits，并不自动等于整个Prefill Step。
+        a1_prefill_sample = None
+        if os.environ.get("A1_310P_PREFILL_EVENTS_DIR"):
+            from vllm_ascend._310p.a1_prefill_event_probe import begin as a1_begin
+            a1_prefill_sample = a1_begin(self, scheduler_output)
+
         # Run forward pass
         clear_kv_metadata = self.speculative_config is None
         with (
@@ -2588,6 +2595,10 @@ class NPUModelRunner(GPUModelRunner):
                 )
                 assert broadcasted is not None
                 logits = broadcasted["logits"]
+
+            if a1_prefill_sample is not None:
+                from vllm_ascend._310p.a1_prefill_event_probe import end as a1_end
+                a1_end(self, a1_prefill_sample)
 
             self._record_target_numerical_probe(
                 input_ids=input_ids,
@@ -2747,6 +2758,11 @@ class NPUModelRunner(GPUModelRunner):
             scheduler_output.total_num_scheduled_tokens,
             spec_decode_metadata,
         )
+        # 读取当前已完成的Event，不同步设备；若事件未完成将保留在pending。
+        if os.environ.get("A1_310P_PREFILL_EVENTS_DIR"):
+            from vllm_ascend._310p.a1_prefill_event_probe import drain as a1_drain
+            a1_drain(self)
+
         with record_function_or_nullcontext("draft_token"):
             if self.speculative_config:
                 if not early_pp_padded_drafter:
