@@ -54,7 +54,7 @@
 |---|---|---|---|---|
 | P0-1 | **建立并维护唯一主线/知识落盘** | ChatGPT研发侧 | 本分支入口、状态、分支规则、决策记录入库；后续任务持续同步 | **初始建制已完成；后续每轮必须持续更新** |
 | P0-2 | **DFlash同步基线与融合薄适配契约** | ChatGPT编码审查，OpenCode现场验证 | 固定外部只读SHA；普通/投机/Graph真实M、选层、路由和Graph capture/replay审计；仅改我方仓库 | **设计中，无新实机证据** |
-| P0-3 | **大M极致优化（持续）** | ChatGPT方案/源码，OpenCode硬件测 | 每轮含最新D4完整V2 vs Stock同场、MM/SDMA/Add关键路径、逐步优化、正确性，解释到Qwen TTFT/TPOT/吞吐 | **持续主目标，尚未建立最新严格完整Stock对照** |
+| P0-3 | **大M极致优化 → Prefill TTFT（ADR-015）** | ChatGPT方案/源码，OpenCode硬件测 | L1完整Stock MM+HCCL vs正式V2，同卡双Die；40站点真实Serving及双Rank Prefill关键路径；最终以正式Qwen3.6 Eager **TTFT p50/p90/p99**为主验收，解释四级传导；TPOT/吞吐只作辅助 | **目标正式锁定；最新D4 L1和新TTFT回归仍UNKNOWN/NOT_RUN** |
 | P1 | **小M单Kernel固定开销专用路线** | ChatGPT方案/源码，OpenCode硬件测 | 先以DFlash真M分布确定形状，设计MM+SDMA+Add单Kernel，原生FP16 Stock/HCCL同口径胜负 | **新方案待设计，不复活旧T1** |
 | P0-4 | **统一模型收益传导** | 双方 | 普通4096/2048/TP2/batch10/Eager不变；投机Stock vs投机融合独立比较、接受率/Forward数/真实融合调用计数；图/数据/失败样本保全 | **与P0-2/3并行，尚待新轮次** |
 | 阻塞 | **Gate E稳定性及Graph生产准入** | ChatGPT归因，OpenCode取证 | 只有正式部署前必须关闭；测试失败/静默破坏当轮fail-stop | **尚未关闭** |
