@@ -85,6 +85,17 @@ unset VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR \
   VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS
 if [[ "$ARM" == v2 ]]; then
   : "${A1_SERVE_STORE_PORT:?explicit verified unused MemFabric store port required}"
+  [[ "$A1_SERVE_STORE_PORT" =~ ^[0-9]+$ && "$A1_SERVE_STORE_PORT" -ge 1024 &&
+     "$A1_SERVE_STORE_PORT" -le 65535 && "$A1_SERVE_STORE_PORT" != "$A1_SERVE_PORT" ]] || {
+    echo "invalid or conflicting MemFabric store port" >&2; exit 2;
+  }
+  python3 - "$A1_SERVE_STORE_PORT" <<'PYSTORE'
+import socket,sys
+with socket.socket() as s:
+    s.settimeout(.5)
+    if s.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0:
+        raise SystemExit("refusing occupied MemFabric store port")
+PYSTORE
   export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1
   export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL="tcp://127.0.0.1:${A1_SERVE_STORE_PORT}"
   export VLLM_ASCEND_310P_MEMFABRIC_LOCAL_BYTES=$((96 * 1024 * 1024))
