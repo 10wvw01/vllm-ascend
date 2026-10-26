@@ -95,7 +95,8 @@ class TestA1LargeMOfflineContract(unittest.TestCase):
         self.assertFalse(out["gates"]["L1_complete_op_confirmed"])
 
     def test_audited_confirm_only_operator_not_model_go(self):
-        out = M.build_report(evidence(), evidence("confirm", audit=True))
+        out = M.build_report(evidence(regression=False),
+                             evidence("confirm", audit=True, regression=False))
         self.assertTrue(out["gates"]["L1_complete_op_confirmed"])
         self.assertFalse(out["gates"]["L2_actual_qwen_or_dflash"])
         self.assertEqual(out["measurements"][-1]["verdict"],
@@ -107,6 +108,44 @@ class TestA1LargeMOfflineContract(unittest.TestCase):
             row["decision"] = "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS"
         with self.assertRaisesRegex(ValueError, "unaudited"):
             M.build_report(evidence(), c)
+
+    def test_all_formal_must_pass_even_with_valid_route_audit(self):
+        # M2048 has valid independent route evidence but is slower than Stock:
+        # the other M must not turn this into an aggregate performance GO.
+        screen = evidence(regression=False)
+        confirm = evidence("confirm", audit=True, regression=False)
+        confirm["performance_map"][1].update({
+            "decision": "NO_GO",
+            "fused_p50_us": 1600.0,
+            "abba_speedup_pct": [-6.3, -6.2],
+        })
+        out = M.build_report(screen, confirm)
+        self.assertTrue(out["gates"]["L1_independent_route_evidence_audited"])
+        self.assertFalse(out["gates"]["L1_complete_op_confirmed"])
+        self.assertEqual(out["measurements"][1]["verdict"], "NO_GO")
+
+    def test_no_promoted_go_with_slow_kernel_or_bad_tail(self):
+        for field in ("fused_p50_us", "fused_p90_us", "abba_speedup_pct"):
+            confirm = evidence("confirm", audit=True, regression=False)
+            row = confirm["performance_map"][1]
+            if field == "fused_p50_us":
+                row[field] = row["stock_p50_us"] + 100
+            elif field == "fused_p90_us":
+                row[field] = row["stock_p90_us"] * 1.25
+            else:
+                row[field] = [1.0, 2.0]
+            with self.subTest(field=field), self.assertRaisesRegex(
+                ValueError, "contradicts"
+            ):
+                M.build_report(evidence(regression=False), confirm)
+
+    def test_route_evidence_does_not_override_regression_in_all_shapes(self):
+        confirm = evidence("confirm", audit=True, regression=True)
+        for row in confirm["performance_map"]:
+            row["decision"] = "NO_GO"
+        result = M.build_report(evidence(), confirm)
+        self.assertFalse(result["gates"]["L1_complete_op_confirmed"])
+        self.assertTrue(result["gates"]["L1_independent_route_evidence_audited"])
 
     def test_identity_change_rejected(self):
         with self.assertRaisesRegex(ValueError, "identity changed"):

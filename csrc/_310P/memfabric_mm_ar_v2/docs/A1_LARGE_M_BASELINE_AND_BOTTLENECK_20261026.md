@@ -130,3 +130,10 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 | Stage P0 既有507014/静默首写/双Die死锁 | **生产阻塞仍在；可受控隔离研究，不得Production-GO** |
 
 **本次允许的下一动作：**完成A1纯CPU测试、两轮静态审查、独立G0清单审核；在明确发出`STATIC-GO for G0/CPU only`之前，用户不用委托OpenCode做性能测试。后续会根据G0身份、安全、恢复证据分段向用户请求实机操作，禁止一次性压测跳过冒烟。
+
+## 7. 2026-10-26｜A1 CPU判定补强与受控G0只读入口
+
+- [A1 CPU/G0交接和实测证据边界](A1_CPU_G0_ACCEPTANCE_20261026.md)：原 `L1_complete_op_confirmed` 仅看 route-audit 是否存在，存在把 M2048/4096 中某一个性能退化误报为算子候选的风险；现明确要求 **两个正式Serving形状分别PASS**，并分离 `L1_independent_route_evidence_audited`，对虚假ABBA、长尾及Stock回退增加拒绝性测试。
+- **本地隔离CPU判定验证**：从当前GitHub的报告计算逻辑重建一份离线副本，在无NPU的本地容器中运行20项纯stdlib合成测试，`Ran 20 tests ... OK`。**这不是同一Git checkout里的完整U1/A1原始测试执行；仓库自身CPU suite仍NOT_RUN，STATIC-GO未签发。**
+- 新增只读G0探针`test/perf/a1_g0_readonly.py`与`test/ut/test_a1_g0_readonly.py`，只读取Git/SO SHA/npu-smi及绕过标志，永远输出`G0_APPROVED=false`和`SMOKE_APPROVED=false`；在真正实机前必须另行完成同卡/独占/运行时SO/KVER和恢复方案人工审查。
+- `u1_run.sh`仍受三个原有批准标记门禁保护，不能由离线测试或取证脚本自动设置；**本轮实机取证尚未开始、Stock/V2完整M2048/4096数据仍UNKNOWN**。

@@ -179,3 +179,5 @@
 - [A1设计、历史证据间的不可直接比较性、两阶段实机合同与瓶颈队列](A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md)。正式`M=2048,4096`完整算子Stock FP16 F.linear+HCCL AR与D4 V2 MM+MemFabric AR必须严格双Rank配对，M1024仅隔离诊断。现有U1`u1_run.sh`/分析器直接复用，不新建危险诊断核、不自动跑设备。
 - 新增`test/perf/a1_large_m_assess.py`对真实U1原始manifest、设备SO身份、两Rank日志和样本调用原`u1_analyze.evaluate()`复算；输出完整Stock差距、Screen/Confirm路由审计与优先诊断队列。`test/ut/test_a1_large_m_assess.py`覆盖合成数学与伪GO拒绝。**没有新310P3结果，本轮设备、G0/Smoke、Confirm、Profiler均NOT_RUN；CPU CI以实际Actions为准。**
 - 下一动作：审核独立Draft PR的静态/CPU合同（两轮审查），确认G0/备份/恢复/编译/设备独占后才提示用户委托OpenCode执行**大M G0和短Smoke**；Screen/Confirm/Profiler不能在G0未经准入时自动连跑。已有507014/首写/双Die挂死仍为Production P0阻塞。
+
+- **2026-10-26 A1第一轮执行回报**：改进`a1_large_m_assess.py`严格区分路由证据与M2048/4096性能候选，拒绝其中任一形状NO_GO但整组误放行；隔离本地CPU副本20项合同测试PASS（**不是GitHub原仓CPU或U1原始取证PASS**）。新增只读`a1_g0_readonly.py`/UT和[A1 CPU/G0交接](A1_CPU_G0_ACCEPTANCE_20261026.md)。PR#9保持Draft；原仓CI无运行记录；310P3 G0/Smoke/Screen/Confirm全部NOT_RUN。下一动作只允许用户委托OpenCode执行**真实原仓CPU+只读G0**并回传门禁，不准直接投放`U1_*_APPROVED`绕过。

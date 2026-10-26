@@ -118,9 +118,6 @@ def build_report(screen: dict, confirm: dict | None = None,
                 "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS",
             ):
                 raise ValueError("unrecognized U1 confirm verdict")
-            if decision == "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS":
-                if not confirm.get("audit_sha256"):
-                    raise ValueError("cannot promote unaudited confirm")
             for key in ("stock_p90_us", "fused_p90_us", "stock_p99_us", "fused_p99_us"):
                 _positive(crow.get(key), key)
             windows = crow.get("abba_speedup_pct")
@@ -128,6 +125,15 @@ def build_report(screen: dict, confirm: dict | None = None,
                     or any(type(v) not in (int, float) or not math.isfinite(v)
                            for v in windows)):
                 raise ValueError("two ABBA windows required")
+            if decision == "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS":
+                if not confirm.get("audit_sha256"):
+                    raise ValueError("cannot promote unaudited confirm")
+                if (not all(v >= 5.0 for v in windows)
+                        or fused >= stock
+                        or crow["fused_p90_us"] > crow["stock_p90_us"] * 1.05
+                        or crow["fused_p99_us"] > crow["stock_p99_us"] * 1.10
+                        or crow.get("stock_session_drift_pct", 0) > 5.0):
+                    raise ValueError("promoted result contradicts ABBA/tail/Stock evidence")
         else:
             decision = "SCREEN_ONLY_NO_GO"
         delta_us = round(fused - stock, 3)
@@ -152,6 +158,12 @@ def build_report(screen: dict, confirm: dict | None = None,
                 if m == 1024 else "Nonaligned 2049..4095/tail staging not represented"
             ),
         })
+    evidence_audited = bool(confirm_rows and confirm.get("audit_sha256"))
+    eligible_rows = [r for r in measurements if r["serving_route_eligible"]]
+    operator_candidate = (evidence_audited and all(
+        r["verdict"] == "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS"
+        for r in eligible_rows
+    ))
     regressions = sorted(
         (x for x in measurements if x["serving_route_eligible"]
          and x["v2_extra_latency_us"] > 0),
@@ -193,7 +205,9 @@ def build_report(screen: dict, confirm: dict | None = None,
              "phase_duration_us": None},
         ],
         "gates": {
-            "L1_complete_op_confirmed": bool(confirm_rows and confirm.get("audit_sha256")),
+            "L1_complete_op_confirmed": bool(operator_candidate),
+            "L1_independent_route_evidence_audited": evidence_audited,
+            "L1_all_formal_M_performance_candidate": bool(operator_candidate),
             "L2_actual_qwen_or_dflash": False,
             "device_phase_timing_available": False,
             "known_stability_p0_closed": False,
