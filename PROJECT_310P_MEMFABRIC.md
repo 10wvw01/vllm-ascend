@@ -17,6 +17,8 @@
 
 ## 不可偏离的当前目标
 
+> **最新权威研发方向（2026-10-27，ADR-015/ADR-016）：主线管方向，工作分支管实施。** 大M以真实Qwen3.6 **Prefill TTFT**为最终指标，L1唯一完整基线是原生FP16 Stock MM+HCCL AllReduce，优化聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点双Rank设备关键路径。阶段顺序为 **L1/L2归因与调优 → L3真实无Profiler Prefill Step可重复稳定正向收益 → L4原始4096/2048/TP2/并发10/50请求客户端TTFT**；L3未达到稳定正收益则继续优化，不启动L4长输出验收。L3设备Step尚缺可审计无Profiler采集与校准，不能以4096/1客户端时延代替。正式方向、[L1～L4历史证据复用及实验合同](csrc/_310P/memfabric_mm_ar_v2/docs/L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)保存在本主线；[A1 PR #9](https://github.com/10wvw01/vllm-ascend/pull/9) Draft只负责尚未验收的实验实现。当前没有因此产生新设备测量/合入Kernel，Stock默认及全部G0/安全停止条件不变。
+
 - **Ascend 310P3 单卡双 Die / TP=2**；同 Kernel 完成 FP16 MM + MemFabric SDMA AllReduce + Add，Stock MM+HCCL 是唯一有效的完整算子最终性能对照。
 - **大 M 必须持续向硬件可证实的极限优化**，不再每轮讨论“值不值得做”；每次输出完整算子 vs Stock，以及 Qwen 集成真实收益及差距原因。
 - **小 M 专攻单 Kernel 带来的固定开销消减**，覆盖普通 Decode 和 DFlash 投机验证的实际 M；旧 T1 M=10 已经严格 NO-GO，不能复活其错误的 +20% 结论。

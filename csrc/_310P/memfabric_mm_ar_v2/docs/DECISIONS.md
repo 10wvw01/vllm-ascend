@@ -107,3 +107,27 @@
 - **MemFabric条件**：换卡不能只改`ASCEND_RT_VISIBLE_DEVICES`；历史实机验证CANN VMM`aclrtMallocPhysical`逻辑号、`aclrtMemSetAccess`物理号分裂，非identity映射要审查Host双路径的物理号修复版本。AICPU KFC v11在**授权首次初始化**按需自动部署、核验每Die，不预先人工部署四卡，不使用伪`MF_SDMA_ORCH_DEPLOY_HELPER`或诊断常驻模式。
 - **异常分级**：G0单卡Alarm或租户占用→排除并换卡；运行中507014/507899/错算/超时/IB或KFC异常→先STOP保全现场，排查系统性问题，后续换卡必须重新取得人工准入，禁止自动轮试四张卡。
 - **依据/合同**：[四卡动态选卡及KFC规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)与[2026-10-23 KFC/DeviceID实机记录](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。本项不变更正式Kernel/Host/Serving/Stock默认，也不构成新设备测量/部署的PASS。
+
+## ADR-015｜2026-10-27｜大M最终目标锁定真实Qwen3.6 Prefill TTFT与40站点关键路径｜**有效**
+
+- **用户裁决**：大M最终性能指标是**真实Qwen3.6 Prefill对应的客户端首Token TTFT下降**；不再以独立Kernel微基准加速或整模型输出tok/s/TPOT作为大M最终成功标准。持续调优至可证实的硬件/协议瓶颈原则（ADR-002）仍有效，单算子优化作为实现路径而非最终交付。
+- **L1唯一基线**：TP2/310P3单卡双Die，原生FP16 `F.linear + HCCL AllReduce`完整链，与正式V2 MM+MemFabric AR（包含必要布局/拷贝/同步）公平同卡热态对照；实际HCCL异步跨Stream尾部、双Rank耗时/bit-exact、SO/KVER身份和异常均需留证。D4内部Tile2048 +6.26%不能冒充Stock优势，最新D4 M2048/4096相对Stock的L1仍UNKNOWN。
+- **唯一重点优化对象**：已选择的Qwen3.6 attention/GDN 40个 `o_proj/out_proj` 目标层（每Rank）在**真实Prefill设备关键路径**上的可回收时间，包括真实M和路由命中、权重/输入布局、`x.contiguous()`、SDMA/IB/DONE、双Rank同步和下游消费时刻；不转为MoE/GDN/Attention模型本体普遍优化。40站点不是对所有请求实际命中的无条件保证。
+- **验收四环**：① L1完整Stock vs V2单算子；② 真实Serving目标站点净耗时；③ Prefill步的双Rank关键路径净变化；④ 客户端TTFT含排队、分块/混合调度、首Token返回的逐请求p50/p90/p99。同场同模式证据说明为什么算子µs不能全传到TTFT；不以各层p50简单累加、TTFT变化大于/小于推算或当前旧Profiler 3.3%占比直接作GO。
+- **正式业务合同不变**：Qwen3.6-35B-A3B-w8a8普通Eager，input4096/output2048/TP2/并发10/50请求/ignore-eos；独立input4096/output1/并发1热态Eager仅用于隔离Prefill归因，不能代替正式TTFT验收。投机DFlash/Graph保持单独同模式账本及既有薄适配边界（ADR-013），不受本次焦点收敛而废止。
+- **取舍、安全及状态**：只更新项目文档、测量和后续验收目标，不更改正式Kernel/Serving、Stock默认与MemFabric协议；发布级Gate E/507014及冷首写/bit-exact仍为硬门禁。A1 PR#9目前仅待原仓CPU合同、四卡只读G0；Smoke/Screen/Confirm/Profiler与新增E2E TTFT **全部NOT_RUN**。后续分阶段人工审批，出现设备异常STOP保全现场；不能由本决策自动授权实机运行。同步更新`PROJECT_CONTROL.md`、`PERFORMANCE_BASELINES.md`、A1工作方案及仓库入口，主线仅经评审合入。
+
+**ADR-015执行策略补充｜2026-10-27｜L3-first前置性能门槛（与原目标一致）**
+
+- 大 M 每一代新候选按真实Qwen3.6**完整Prefill Step双Rank关键路径**的可重复改善决定是否进入客户端正式L4；L1完整Stock仍是算子诊断基础，L2真实40站点拷贝/形状/同步归因为优化对象。
+- L3应在冻结输入4096/output1、并发1、TP2、Eager且无Profiler的真实模型路径上，依靠**具有设备完成语义**、无每次Device Sync引入额外税的Prefill Step计时；少量Profiler用于独立核执行/依赖时序交叉校验，不可将带Profiler时延或单请求客户端TTFT冒充纯L3。现有工具尚未被证实具有无Profiler Prefill设备Step计时能力，未静态/实测验证前一律标`L3_MEASUREMENT_NOT_READY`。
+- L3先轻量Stock/V2 Screen，方向正向且现场准入后再做无Profiler跨Serve的Stock–V2–V2–Stock重复Confirm，按预先冻结的Stock漂移/测量不确定性门槛判断`L3_GO`；未获稳定正向时`L3_NO_GAIN/INCONCLUSIVE`返回L1/L2继续优化，**不启动正式4096/2048/50/10 L4**；不能按不适当的5% L3门槛阻断真实小幅正收益。L3即使通过也不保证混合调度L4正收益，L4独立验证正式TTFT。
+- L3测量研发不构成通用Runner/DFlash状态机改造许可；仅允许测试路径可审计的低侵入采样，Stock产品默认、G0/首写/507014/异常STOP及每阶段人工许可不变。对应[历史复用与L3-first专项方案](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。本修订没有产生新310P3测量。
+
+## ADR-016｜2026-10-27｜主线管方向、工作分支管实施｜**有效**
+
+- **正式裁决**：`dev/310p-memfabric-mm-ar` 是唯一项目权威控制主线。稳定的研发目标、ADR、工作负载与性能验收合同、历史证据归因、当前实验顺序/准入、安全门禁及真实状态**必须优先落盘主线**。新会话与OpenCode一律先读取主线入口，不以未合入工作分支替代项目方向。
+- **实施隔离**：A1现有工作分支`work/310p-mm-ar-large-m-a1-20261026`（Draft PR #9）只保留未审完的诊断/测试代码、实机执行准备、后续具体Kernel候选及CPU/NPU待验内容；不得把该分支整体merge进主线。今后工作分支不承担唯一最新版ADR或长效项目状态。
+- **选择性合入策略**：本次只审查、同步ADR-015和L3-first历史与正式实验合同、项目入口、性能基线与分支治理。现有正式Kernel/Host/Serving、Stock默认、上游DFlash和MemFabric协议**零改动**；不复制未验证的A1测试脚本。主线文档合入后，A1 PR #9需按更新的主线核对差异，后续只合入审查合格的实施资产，禁止回流旧版治理文件覆盖主线。
+- **闭环规定**：任一实机报告经过证据审核后，在同一批主线变更中更新`PROJECT_CONTROL.md`（状态）、`PERFORMANCE_BASELINES.md`（事实和适用工况），产生新决策则追加ADR；CI/静态审查与实机准入分开标识，不以PR建立或文档合并暗示性能/安全PASS。
+- **关联规范**：[主线分工治理](BRANCH_GOVERNANCE.md)、[ADR-015 L1～L4历史归因与L3-first合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。此决议不改变ADR-013与ADR-014，实机G0/Smoke/Screen/Confirm/L3/L4均维持原独立授权和异常STOP要求。
