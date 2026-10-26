@@ -147,3 +147,10 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 A1最先按[四卡动态选卡及KFC自动部署准入](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)只读巡检四张物理卡；只有所选单卡双Die/MCU健康、空闲、Rank物理号与MemFabric Host修复版/Device/KVER11完整SHA符合G0后，才能申请M2048短Smoke。KFC编排核在**授权后的首次建池**由MemFabric自动探测/按Die部署，不能在只读G0手工部署。若G0单卡Alarm或租户占用允许切到下一张卡重新G0；执行中507014/507899/KFC/错算则先STOP留证，不自动轮测四张。ABBA Stock/V2必须全程在同一张卡完成，换卡重开run_id、热态与证据。
 
 旧A1计划中的“所选卡G0→Smoke→Screen→独立HCCL路由审计→Confirm”流程及二阶段授权不变，本条只改变**选哪一张健康空闲卡**及卡间切换的安全、证据纪律。
+
+## 9. 2026-10-27｜L3-first优先级（ADR-015执行修订）
+
+- 原A1 G0/Smoke/Screen/Confirm仍属于完整Stock L1基线与设备安全/诊断阶段，尚未有新实机样本，不允许通过L1局部+6.26%宣布模型收益。
+- 对后续每个候选：L1/L2定位→真实Qwen3.6无Profiler Prefill设备Step轻量Screen→必要时ABBA Confirm；**L3无稳定正收益则返回优化、不运行正式L4；L3-GO后才单独申请并发10正式TTFT ABBA**。输入4096/output1客户端响应时延不直接等于L3；设备Step计时工具必须先审查其同步/完成语义、低侵入性并有Profiler校准，缺则`L3_MEASUREMENT_NOT_READY`。
+- 小M、DFlash/Graph与正式Stock默认不受影响；全套计划与[设备准入、停止和证据合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)相互一致。当前只允许原仓CPU+四卡只读G0，其他所有实机阶段NOT_RUN。
+
