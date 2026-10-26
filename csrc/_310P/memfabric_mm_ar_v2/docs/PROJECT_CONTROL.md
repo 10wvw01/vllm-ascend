@@ -188,3 +188,12 @@
 
 - A1工作分支修复 `test/perf/a1_g0_readonly.py` 的ROOT计算：旧 `parents[4]` 指向仓库内 `csrc/`，现改 `parents[5]` 指向仓库根；增加根目录UT并更新A1 CPU/G0交接记录。
 - 本项仅影响只读取证的Git HEAD/工作树判断；未改变正式Kernel/Serving/Stock，也未获得原仓CPU/CI执行成功及现场G0确认。所有310P3 Smoke/Screen/Confirm/Profiler仍NOT_RUN；PR#9保持Draft。
+
+## 2026-10-27｜ADR-015落地：历史L1～L4证据复用与A1-TTFT唯一补测设计
+
+- [历史证据复用审计及最小补测方案](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md) 已在活动A1分支入库，**没有新设备测量**。2026-10-21旧版Prefill已经有历史L1(Serving MM+AR设备Trace近似)、L2(双Rank40站点)、L3(两Rank各自Prefill步周期)、L4(4096/1单请求时延+另场4096/2048/50/10 TTFT)的方向性链，**不再重复旧CSV归因**。
+- 旧版实测：Rank0目标站点 Stock约77.9ms/步，V2约105.9ms/步（不含另约3.6ms/步输入Copy）；Rank0完整Prefill步周期2364.4→2395.7ms（旧V2退化约31.3ms）；单请求稳态延迟约+34ms。并发10历史TTFT mean11341.9→11578.6ms，p50 11811.2→12091.7ms。**不同负载数据绝不拆成伪精确排队税；这些仅旧V2，并非当前D4**。
+- **历史版本指纹未决**：2026-10-21归因报告Host SO SHA前缀`6e9dc2d6`与同批`provenance.json`记录`88d39285`不一致，标`PROVENANCE_CONFLICT`，不以旧W1/W4与Serving跨环境数值证明今天D4的完整L1。
+- **唯一新增实验组**：复用A1/U1 G0→M2048 Smoke→M2048/4096 Screen→经人工审核Confirm及独立HCCL跨Stream审计；额外仅2次Stock/V2短Profiler会话采L2/L3，4次无Profiler Stock–V2–V2–Stock模型Serve会话每次先4096/1热态诊断、再正式4096/2048/TP2/并发10/50请求，以逐请求TTFT为最终主指标；Profiler数据不算正式TTFT。
+- **准入不变**：用户尚未反馈原仓CPU及四卡只读G0结果；CPU/G0/Smoke/Screen/Confirm/Profiler/E2E的新轮次全是NOT_RUN。Stock默认、43520 Die7排除、同卡双Die、异常STOP留证、分阶段独立审批及ADR-013禁重建Runner全部继续有效。工作分支PR#9保持Draft。
+
