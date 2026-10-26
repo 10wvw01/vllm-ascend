@@ -1,0 +1,23 @@
+INFO 10-26 19:44:14 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-26 19:44:14 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-26 19:44:14 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-26 19:44:14 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-26 19:44:14 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+{
+  "pkg": "/tmp/opencode/a1-batch/site/vllm_ascend/__init__.py",
+  "plugin": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+  "plugin_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+  "a1_probe": "/tmp/opencode/a1-batch/site/vllm_ascend/_310p/a1_prefill_event_probe.py",
+  "maps": [
+    "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so",
+    "/tmp/opencode/a1-batch/priv-libs/libmf310p_v2_trial_device.so",
+    "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_smem.so",
+    "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_device.so"
+  ],
+  "sha256": {
+    "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+    "/tmp/opencode/a1-batch/priv-libs/libmf310p_v2_trial_device.so": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+    "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_smem.so": "daec23320da88f29388ec445cefb193122da1aded984eabd2b6d4389e2989d6d",
+    "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_device.so": "8447a55a54d9d1b615353e2197e2057da52882bd6a991d2bbddcc3c574e755df"
+  }
+}

@@ -6,14 +6,21 @@ Only talks to already started, isolated local vLLM HTTP port.
 Does not launch/terminate other tenants' servers or auto-enable V2.
 Outputs complete individual records; failure preserves previous samples.
 """
+
 from __future__ import annotations
+
 import argparse
 import json
-from pathlib import Path
 import time
+from pathlib import Path
 from urllib.request import Request, urlopen
 
 PROMPT = [64] * 4096
+# Non-4096 token prompt: one trailing request whose forward triggers the
+# model-runner probe drain of the last measured prefill's pending NPU events.
+# Its event carries num_scheduled_tokens != 4096 and is excluded by the
+# assessor's 4096-token filter; it never replaces a measured sample.
+FLUSH_PROMPT = [64] * 64
 
 
 def api_post(port: int, endpoint: str, payload: dict | None = None) -> dict:
@@ -33,26 +40,42 @@ def api_post(port: int, endpoint: str, payload: dict | None = None) -> dict:
         raise
 
 
-def send(port: int, model: str, session: str, index: int, phase: str) -> dict:
+def send(port: int, model: str, session: str, index: int, phase: str, prompt: list | None = None) -> dict:
     begin = time.perf_counter_ns()
-    result = api_post(port, "v1/completions", {
-        "model": model, "prompt": PROMPT, "max_tokens": 1,
-        "ignore_eos": True, "temperature": 0, "stream": False,
-    })
+    result = api_post(
+        port,
+        "v1/completions",
+        {
+            "model": model,
+            "prompt": PROMPT if prompt is None else prompt,
+            "max_tokens": 1,
+            "ignore_eos": True,
+            "temperature": 0,
+            "stream": False,
+        },
+    )
     end = time.perf_counter_ns()
     usage = result.get("usage") or {}
-    if usage.get("prompt_tokens") != 4096 or usage.get("completion_tokens") != 1:
+    expected = len(PROMPT if prompt is None else prompt)
+    if usage.get("prompt_tokens") != expected or usage.get("completion_tokens") != 1:
         raise RuntimeError(f"wrong model actual token counts: {usage}")
     if result.get("error") or not isinstance(result.get("choices"), list) or len(result["choices"]) != 1:
         raise RuntimeError("missing completion or server returned error")
-    return {"session": session, "phase": phase, "index": index, "id": result.get("id"),
-            "prompt_tokens": 4096, "completion_tokens": 1,
-            "begin_ns": begin, "end_ns": end, "client_latency_ms": round((end - begin) / 1e6, 5),
-            "warning": "Client latency is NOT L3 device Prefill step time"}
+    return {
+        "session": session,
+        "phase": phase,
+        "index": index,
+        "id": result.get("id"),
+        "prompt_tokens": expected,
+        "completion_tokens": 1,
+        "begin_ns": begin,
+        "end_ns": end,
+        "client_latency_ms": round((end - begin) / 1e6, 5),
+        "warning": "Client latency is NOT L3 device Prefill step time",
+    }
 
 
-def run(port: int, model: str, session: str, out: Path, warmup: int,
-        measured: int, profile: bool) -> None:
+def run(port: int, model: str, session: str, out: Path, warmup: int, measured: int, profile: bool) -> None:
     if out.exists() or not out.is_absolute() or not out.parent.is_dir():
         raise ValueError("output must be a fresh absolute path in existing directory")
     if profile and (warmup < 6 or measured < 5):
@@ -75,6 +98,14 @@ def run(port: int, model: str, session: str, out: Path, warmup: int,
     finally:
         if enabled:
             api_post(port, "stop_profile")
+    if not profile:
+        # Event-drain flush: the last measured prefill's NPU events stay pending
+        # inside the model runner until a later forward calls drain(). This
+        # short non-4096 request supplies that forward without adding any
+        # 4096-token sample.
+        record = send(port, model, session, 0, "flush", FLUSH_PROMPT)
+        with out.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
 
 
 def main() -> None:

@@ -1,0 +1,38 @@
+{
+  "scope": "A1_R1_M2048_SMOKE_RUNTIME_ATTESTED",
+  "run_id": "a1-r1-smoke-20261027-001",
+  "physical_devices": "2,3",
+  "card": 16384,
+  "fresh_same_card_dual_die_exclusive": true,
+  "rank0_runtime_host_fixed": true,
+  "rank1_runtime_host_fixed": true,
+  "rank0_runtime_d4_kernel": true,
+  "rank1_runtime_d4_kernel": true,
+  "two_die_kver11_kfc_autodeploy_verified": true,
+  "first_write_protocol_and_numeric_clean": true,
+  "no_system_tenant_files_changed": true,
+  "no_unresolved_device_error": true,
+  "evidence_files": [
+    "smoke2_run.log",
+    "smoke_worker_maps/maps_623566.txt",
+    "smoke_worker_maps/maps_623567.txt",
+    "smoke_worker_maps/maps_620000.txt",
+    "smoke_worker_maps/maps_620001.txt",
+    "smoke_worker_maps/meta_623566.txt",
+    "smoke_worker_maps/meta_623567.txt",
+    "s0_shared_files_before.sha256",
+    "s1_shared_files_after.sha256",
+    "s0_npu_smi_before.txt",
+    "s1_npu_smi_after.txt",
+    "s0_environment.json",
+    "smoke_run.log"
+  ],
+  "notes": {
+    "loading_scheme": "private PYTHONPATH site + LD_LIBRARY_PATH priv-libs; zero shared file modification; verified shared SHAs unchanged before/after",
+    "rank_binding": "poller captured RANK=0 pid623566 (stock:620000) and RANK=1 pid623567 (stock:620001) with SO maps from priv-libs(D4 2a19390c, host 1dc46d7d) and private site plugin 8eb65de9",
+    "kfc_proof": "V2 pool create success + IB/fan probe both-die per-core slot verify + first-write bit-exact + protocol status=0 on both ranks (functional AICPU orchestrator proof); no deploy-helper env set",
+    "first_write": "M2048 first pool create on dev2/3, first trial_run bit-exact vs CPU-gloo FP32 ref, late anchor 8/8 re-verified",
+    "device_errors": "none: no 507014/507899/507018 in logs; only tolerated HYBM WARN (310P sdid query fallback 207000, optional libhcom/extend absent)",
+    "bit_exact": "stock rank0/rank1 True; d4 rank0/rank1 True; smoke2 both stages 6 samples + 8 anchors each"
+  }
+}

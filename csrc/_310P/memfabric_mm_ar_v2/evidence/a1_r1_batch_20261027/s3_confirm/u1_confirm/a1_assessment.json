@@ -1,0 +1,137 @@
+{
+  "contract": "A1_LARGE_M_FULL_OPERATOR_V1",
+  "data_origin": "U1 real-evidence revalidation required; source historical timing never mixed into performance rows",
+  "state": "CONFIRM_REVIEWABLE_NOT_MODEL_GO",
+  "measurements": [
+    {
+      "M": 1024,
+      "serving_route_eligible": false,
+      "measured_scope": "isolated U1 TP2 complete operator, not Serving",
+      "measurement_phase": "confirm",
+      "stock_complete_p50_us": 855.456,
+      "v2_complete_p50_us": 962.201,
+      "v2_extra_latency_us": 106.745,
+      "v2_extra_latency_pct_of_stock": 12.478,
+      "v2_vs_stock_rate_pct": -11.094,
+      "verdict": "NO_GO",
+      "priority_for_bottleneck": "P1_EXPERIMENTAL_M",
+      "scope_caveat": "M1024 not enabled by current Serving threshold"
+    },
+    {
+      "M": 2048,
+      "serving_route_eligible": true,
+      "measured_scope": "isolated U1 TP2 complete operator, not Serving",
+      "measurement_phase": "confirm",
+      "stock_complete_p50_us": 1649.03,
+      "v2_complete_p50_us": 1345.755,
+      "v2_extra_latency_us": -303.275,
+      "v2_extra_latency_pct_of_stock": -18.391,
+      "v2_vs_stock_rate_pct": 22.536,
+      "verdict": "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS",
+      "priority_for_bottleneck": "VERIFY_SERVING_TRANSFER",
+      "scope_caveat": "Nonaligned 2049..4095/tail staging not represented"
+    },
+    {
+      "M": 4096,
+      "serving_route_eligible": true,
+      "measured_scope": "isolated U1 TP2 complete operator, not Serving",
+      "measurement_phase": "confirm",
+      "stock_complete_p50_us": 3043.782,
+      "v2_complete_p50_us": 2513.717,
+      "v2_extra_latency_us": -530.065,
+      "v2_extra_latency_pct_of_stock": -17.415,
+      "v2_vs_stock_rate_pct": 21.087,
+      "verdict": "OPERATOR_CANDIDATE_ONLY_MODEL_GATE_REMAINS",
+      "priority_for_bottleneck": "VERIFY_SERVING_TRANSFER",
+      "scope_caveat": "Nonaligned 2049..4095/tail staging not represented"
+    }
+  ],
+  "largest_current_gap_M": null,
+  "historical_separate_reference": {
+    "d4_internal": {
+      "baseline_v2_add1024_event_p50_us": 2726.9,
+      "optimized_v2_add2048_event_p50_us": 2556.3,
+      "scope": "V2-to-V2 only, M4096, D4 standalone TP2 event/ABBA",
+      "report": "V2_D4_ROUND1_ADD_TILE2048_ONDEVICE_REPORT_20261023.md"
+    },
+    "old_prefill_attribution": {
+      "stock_mm_p50_us": 795,
+      "stock_hccl_ar_p50_us": 1149,
+      "v2_kernel_p50_us": 2573,
+      "input_contiguous_per_site_us_approx": 66,
+      "hardware_counters_rank0_p50_us": {
+        "cube_v2": 458.9,
+        "cube_stock_mm": 456.6,
+        "mte2_v2": 1711.4,
+        "mte2_stock_mm": 335.9,
+        "scalar_v2": 872.8,
+        "scalar_stock_mm": 186.5,
+        "mte3_v2": 191.1,
+        "mte3_stock_mm": 91.5
+      },
+      "counter_caveat": "Hardware counters overlap; NEVER sum as phase duration or extrapolate to D4.",
+      "scope": "2026-10-21 Serving Profiler, NOT simultaneous with D4",
+      "report": "V2_PREFILL_ATTRIBUTION_REPORT_20261021.md"
+    }
+  },
+  "investigation_queue": [
+    {
+      "order": 0,
+      "target": "Stock HCCL cross-stream event and route audit (measurement prerequisite)",
+      "why": "W1/W4 Stock timings were distorted by sync tax or back-to-back AR",
+      "discriminator": "prove asynchronous HCCL completion is inside paired event window",
+      "phase_duration_us": null
+    },
+    {
+      "order": 1,
+      "target": "SDMA arrival wait / MTE2 versus MM overlap",
+      "why": "old Serving Profiler MTE2 1711us V2 vs 336us Stock MM; overlapping counter, NOT new D4",
+      "discriminator": "approved formal-overlap vs loop4 + short TP2 device timeline",
+      "phase_duration_us": null
+    },
+    {
+      "order": 2,
+      "target": "Core0 mail/signal and intercore IB protocol scalar path",
+      "why": "old scalar 873us V2 vs 187us Stock; may include waits, not pure scalar cycles",
+      "discriminator": "timestamped wait/ready/DONE critical path if safe instrumentation validated",
+      "phase_duration_us": null
+    },
+    {
+      "order": 3,
+      "target": "real Serving input.contiguous and tail staging",
+      "why": "historical Prefill profiler saw ~66us device input copy per site",
+      "discriminator": "same Stock+DFlash model per-layer route and copy timeline",
+      "phase_duration_us": null
+    },
+    {
+      "order": 4,
+      "target": "MM tiling and NZ8-core utilization",
+      "why": "old Cube math 459us V2 vs 457us Stock, lower priority until current data changes",
+      "discriminator": "same M independent Cube/format diagnostics, never subtract disparate medians",
+      "phase_duration_us": null
+    },
+    {
+      "order": 5,
+      "target": "MTE3, Add and final protocol cleanup",
+      "why": "old MTE3 191us V2 vs 92us Stock and Add Tile2048 already improved internal latency",
+      "discriminator": "audited timeline only; do not equate full counter to nonoverlapped tail",
+      "phase_duration_us": null
+    }
+  ],
+  "gates": {
+    "L1_complete_op_confirmed": true,
+    "L1_independent_route_evidence_audited": true,
+    "L1_all_formal_M_performance_candidate": true,
+    "L2_actual_qwen_or_dflash": false,
+    "device_phase_timing_available": false,
+    "known_stability_p0_closed": false,
+    "requires_stock_dflash_runner_rebuild": false
+  },
+  "warnings": [
+    "U1 M1024 is diagnostic-only, never assume Serving routes M1024 to V2.",
+    "D4 V2-to-V2 and 2026-10-21 Serving Profiler are different experiments.",
+    "No subtracting non-equivalent kernel medians to allocate MM/SDMA/IB/Add time.",
+    "Event durations require independent HCCL cross-stream inclusion audit.",
+    "No claim of positive Stock speedup or actual DFlash model gain from screen."
+  ]
+}
