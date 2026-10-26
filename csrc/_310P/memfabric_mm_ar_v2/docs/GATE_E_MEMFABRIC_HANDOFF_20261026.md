@@ -71,6 +71,20 @@ GATE_E_DURATION_S=620 bash "$SCRIPTS/gate_e_forensic_run.sh" stock "H3_STOCK_620
 
 **关键缺陷提醒：** 原始 `gate_e_forensic_run.sh` 并非完整的 fail-stop 监护程序；它只是已有、历史验证过的启动/取证入口。出现硬件超时或服务异常时现场须立即终止新请求、先抓双 Rank slog/plog、进程 maps 与 npu-smi，再按已审批的环境恢复 SOP 有序清退；不能仅依赖 shell 的 `exit 0`。原始日志不要覆盖或删除。
 
+### 每轮离线判读（不会操作 NPU）
+
+```bash
+# 在这轮的唯一证据目录中执行；不要覆盖已有评估结果
+EVIDENCE_DIR="<该轮 gate_e_forensic_run.sh 打印的证据目录>"
+python3 "$SCRIPTS/gate_e_handoff_assess.py" "$EVIDENCE_DIR" \
+  --arm fused --out "$EVIDENCE_DIR/gate_e_handoff_assessment.json"
+
+# Stock 轮次使用 --arm stock，必须是其自身独立证据目录
+# 评估程序 exit=0 仅说明读取/分析完成，不代表设备无故障。
+```
+
+所有测试应运行 `python3 -m unittest discover -s "$SCRIPTS" -p 'test_gate_e_handoff_assess.py' -v` 并保留实际退出码；此前未运行不可写 PASS。失败本身要同时保全最初的 `serve.log` / `runner.log` / 两 Rank slog/plog，不能只交一张评估 JSON。
+
 ## 6. 可选第三阶段：G1-D 深取证（只有初级复验需要时）
 
 如果标准 KVER11 仍见 507014，MemFabric 团队可选择历史 G1-D v12 设备取证配方，并使用同名 MemFabric 诊断分支。必须单独完成源码/ABI/设备协议、Host 双位置 SO 备份和 SHA 校验、v12 JSON SHA、设备侧 v12 部署、构建正确性与回滚演练，并由用户再次批准；不能在标准失败现场未经恢复直接替换 `libmf_hybm_core.so`。诊断版复现与标准版结果分别标注，绝不混成同一二进制的复现率。
