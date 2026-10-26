@@ -6,6 +6,9 @@
 
 ## 0. 项目目标、边界与验收
 
+> **2026-10-27大M实验总账已设立：**[LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md) 是本项目**大M Prefill→TTFT实验任务、执行状态、结果证据、阻塞和更新日志的唯一维护入口**；本 PROJECT_CONTROL 继续负责全项目事实与方向。本轮仅新增总账/链接，没有A1原仓CPU、四卡G0、L1～L4新设备结果，禁止将计划当性能PASS或上机许可。
+
+
 > **2026-10-27 项目主线正式方向（ADR-015 + ADR-016）：**大M最终以**真实Qwen3.6 Prefill TTFT**为唯一最终性能主指标；L1唯一有效算子级基线为**完整原生FP16 Stock MM+HCCL AR**，聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点在双Rank上的关键路径。性能研发采取 **L1/L2归因优化 → L3真实Prefill设备Step无Profiler可重复正向收益门槛 → L4正式4096/2048/TP2/并发10/50请求TTFT验收**；L3无稳定正收益则继续大M优化，不提前运行长输出L4。4096/1客户端时延不等于L3设备Step；当前无Profiler设备Step计时能力尚未完成静审/校准。**主线管方向，A1工作分支只管实施**；本次只纳入文档，不代表已有新的设备测试结果或提供实机许可。详见 [主线正式实验合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR-015/016](DECISIONS.md)。
 
 **唯一项目：** 在 Ascend **310P3 单卡双 Die、TP=2** 上，用 MemFabric 实现**单 Kernel MM+AllReduce（SDMA+FP16 Add）**，覆盖 Qwen3.6-35B-A3B-w8a8 中已确认未量化的 attention `o_proj` / GDN `out_proj`；模块选择以运行时 shape、dtype、TP、真实模型前缀为准，禁止为了扩大覆盖误改量化 MoE 路由。
@@ -195,4 +198,11 @@
 - **唯一生效性能实验合同**：[历史L1～L4数据复用 + L3-first门槛 + L4延后执行](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。历史2026-10-21旧V2的Rank0站点约78→106ms/步（不含独立输入Copy）、Prefill步骤约2364.4→2395.7ms、孤立4096/1单请求约+34ms，**仅可解释旧版负收益**；D4目前只有旧V2内部 +6.26%，其严格完整Stock L1与新L3、L4结果**UNKNOWN/NOT_RUN**。旧报告Host SO SHA前缀与provenance记录不一致，标`PROVENANCE_CONFLICT`；不得跨时间拼接成现版加速。
 - **最新执行状态**：A1原仓CPU合同/310P四卡只读G0仍未得到新证据；Smoke、Screen、Confirm、L2时序、无Profiler L3设备Step采集、正式L4 TTFT均NOT_RUN。仅可按已存在G0安全合同推进，设备阶段各自获许可后才执行，旧43520 Die7告警与Gate E/507014风险不被文档合入解除。Stock默认、KVER11/Host双路径、Runtime身份、任何异常STOP保全要求不变。
 - **主线交接规则**：今后新的经审查性能事实与决定同步更新`PROJECT_CONTROL.md`和`PERFORMANCE_BASELINES.md`，如变更方案追加ADR；A1 PR #9在实际合入前需针对新主线重新审阅和去重其旧项目控制文档，避免把历史分支误当主线。此处只确认**治理与实验合同同步**，不表示A1实机验收通过。
+
+## 17. 2026-10-27｜建立大M Prefill TTFT唯一任务与进度总账
+
+- 新增 [大M实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)：固定ADR-015的最终TTFT目标、L1完整Stock、L2真实40目标站点、**L3无Profiler真实Prefill设备Step先决门槛**、L3_GO后独立L4，并以唯一任务ID清单管理做什么/解决什么/责任/验收/当前状态/实绩/下一动作；附历史证据、风险、实机run_id记录表和增量进度日志。
+- **首次状态**：M-01/M-02已正式归档；A1离线验收和只读G0工具只在 [PR#9 Draft](https://github.com/10wvw01/vllm-ascend/pull/9)，隔离副本CPU20项通过不等于仓库CPU回归通过；**当前原仓CPU/现场四卡只读G0、L1 Smoke/Screen/Confirm、L2短Profiler、L3无ProfilerStep Screen/Confirm与L4正式TTFT都没有新实机或正式原仓PASS记录**。
+- **近期两项并行准备**：研发侧先审查L3无Profiler设备Step可靠测量能力（现有U1/旧capture链尚未证明此能力）；用户许可的现场第一阶段仅可进行A1原仓CPU回归和四卡只读G0，审查通过后才分阶段申请后续Smoke与ABBA。当前仍保持Stock产品默认，Gate E与首写/双Rank协议风险不能越级。
+- **归档约束**：以后每次现场进度必须更新总账任务状态、真实结果证据、批次与日期日志；项目级新事实同步此控制台，已审核性能数字同步[性能基线](PERFORMANCE_BASELINES.md)，新决策再追加[ADR](DECISIONS.md)；禁止另建工作分支的“替代总账”。
 
