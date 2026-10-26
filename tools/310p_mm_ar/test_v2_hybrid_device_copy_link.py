@@ -244,6 +244,59 @@ class TestGDNDeviceNativeConsumer310(unittest.TestCase):
             link.preprocess_state(
                 b, (other,), None, self.computed([(1, 10)]))
 
+    def test_cross_request_swap_uses_global_source_snapshots(self):
+        link, meta, copier, groups = self.make(groups=1, rows=2)
+        bt = groups[0].block_table
+        bt[1] = torch.tensor([0, 2, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+                             dtype=torch.int32)
+        conv = groups[0].layers[0].conv
+        temporal = groups[0].layers[0].temporal
+        old_conv, old_temporal = conv.clone(), temporal.clone()
+        d = self.meta_mod.GDNDeviceDecision310(
+            torch.tensor([0, 0], dtype=torch.int32),
+            torch.tensor([1, 1], dtype=torch.int32),
+            torch.tensor([0, 0], dtype=torch.int32),
+            torch.tensor([True, True]),
+            torch.tensor([True, True]),
+            "T30",
+        )
+        self.assertEqual(copier.execute(d), 2)
+        # Requests swap physical pages 0 and 2. A sequential source read
+        # AFTER the first write would silently corrupt the second request.
+        torch.testing.assert_close(conv[0], old_conv[2], atol=0, rtol=0)
+        torch.testing.assert_close(conv[2], old_conv[0], atol=0, rtol=0)
+        torch.testing.assert_close(temporal[0], old_temporal[2], atol=0, rtol=0)
+        torch.testing.assert_close(temporal[2], old_temporal[0], atol=0, rtol=0)
+
+    def test_invalid_device_column_and_validity_fail_before_copy(self):
+        link, meta, copier, groups = self.make(groups=2)
+        original = groups[0].layers[0].conv.clone()
+        d = self.meta_mod.GDNDeviceDecision310(
+            torch.tensor([0], dtype=torch.int32),
+            torch.tensor([99], dtype=torch.int32),
+            torch.tensor([1], dtype=torch.int32),
+            torch.tensor([True]),
+            torch.tensor([True]),
+            "T30",
+        )
+        with self.assertRaisesRegex(ValueError, "overflow"):
+            copier.execute(d)
+        self.assertTrue(copier.poisoned)
+        torch.testing.assert_close(groups[0].layers[0].conv, original)
+        link2, _, copier2, groups2 = self.make(groups=1)
+        d2 = self.meta_mod.GDNDeviceDecision310(
+            torch.tensor([0], dtype=torch.int32),
+            torch.tensor([1], dtype=torch.int32),
+            torch.tensor([0], dtype=torch.int32),
+            torch.tensor([True]),
+            torch.tensor([False]),
+            "T31",
+        )
+        before = groups2[0].layers[0].conv.clone()
+        with self.assertRaisesRegex(ValueError, "invalid GDN device decision"):
+            copier2.execute(d2)
+        torch.testing.assert_close(groups2[0].layers[0].conv, before)
+
     def test_npu_remains_unregistered_and_device_consumer_fails_closed(self):
         src = (MODULE_DIR / "hybrid_state_device_copy.py").read_text()
         adapter = (MODULE_DIR / "hybrid_state_modelstate_link.py").read_text()

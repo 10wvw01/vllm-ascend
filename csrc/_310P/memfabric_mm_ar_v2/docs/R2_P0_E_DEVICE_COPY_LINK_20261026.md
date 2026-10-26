@@ -89,3 +89,9 @@ CPU Torch模式已经能用**设备形态的Tensor决策+设备形态的int32 Bl
 **R2-P0-E/NPU-VALIDITY-COPY**：在同一目标下，将device tensor有效性、按组block id、目的冲突检测和带mask整块copy封装成能在310P3上fail-closed的设备端操作；必要时以独立AscendC算子实现，然后审查Stream/Event/ReqSlot生命周期。形成独立STATIC-GO后再讨论调度器/真实ModelState接线，绝不先删除双保护。
 
 **本轮结论：关键连接的CPU Tensor真实拷贝与未注册ModelState顺序合同已实现；正式310P3 NPU Copy和真实ModelState注册仍NO-GO / NOT_RUN，R2-A 0/46。**
+
+## 五、第二轮审查追加回归与机器门禁
+
+- 新增`tools/310p_mm_ar/test_r2_p0_e_device_copy_static.py`的**零Torch静态保护**：冻结当前NPU execute拒绝位于任何Copy操作之前；Runner/Worker不得意外导入未注册Consumer/Facade；旧Hybrid align早拒绝仍在；完全排除逐请求Host转标量。
+- 追加CPU Torch实测合同：同一物理KV组两个batch分别从物理块0/2交换写入，必须对**全部源块先快照**后提交，避免跨请求读取已覆盖的旧数据；device目标列越界和validity=false必须在全组首次写入前拒绝并中毒。
+- 这些机器门禁只提高**CPU金标与静态审计**强度，**不改变310P3 NPU拒绝执行策略、真实ModelState未注册及R2-A 0/46**。

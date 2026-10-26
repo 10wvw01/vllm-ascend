@@ -348,3 +348,5 @@
 - [实现、两轮审查及风险边界](R2_P0_E_DEVICE_COPY_LINK_20261026.md)：新增`vllm_ascend/_310p/v2/hybrid_state_device_copy.py`用**device-owned决策Tensor+device-owned Mamba group int32 BlockTable**计算物理状态地址，执行Conv SD/DS与Temporal整物理块复制，不经过CPU `GDNMove`。所有group/layer的源快照及物理目的重复检测先于任何写回。
 - 新增独立`hybrid_state_modelstate_link.py`，按公开Runner/ModelState方法签名串起T30→GDN状态precopy→prepare_attn GDN元信息→synthetic forward完成→T31 postcopy，并新增`tools/310p_mm_ar/test_v2_hybrid_device_copy_link.py`CPU Tensor金标/双请求/两KV Group/故障注入。
 - **本轮CPU闭环，不是310P3 NPU闭环**：动态无效索引/目的冲突/Stream Event和变长mask的NPU fail-closed仍缺实机证据。Consumer在`device.type=='npu'`**主动拒绝执行**，ModelState facade也CPU-only；旧Runner和Worker保护未动，Draft保密资料未读。R2-A仍0/46 STATIC-NO-GO、PR#7 DRAFT、设备NOT_RUN，Stock默认。
+
+- **2026-10-26第二轮保护补充**：新增无Torch的`test_r2_p0_e_device_copy_static.py`，检查未注册模型序列/Consumer无法被Runner误调用、NPU真实物理Copy在已批准device validity和Stream/Event前必然拒绝；CPU Tensor金标覆盖双请求交叉源目的物理块交换、动态非法block/validity写前拦截。运行端口仍NO-GO。
