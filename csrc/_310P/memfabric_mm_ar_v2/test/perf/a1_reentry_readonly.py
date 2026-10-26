@@ -128,8 +128,8 @@ def source_facts(mfroot: Path) -> dict:
             evidence[rel] = {
                 "sha256": sha256_file(p),
                 "physical_mapper": "HybmPhysicalDeviceIdOf" in text,
-                "setaccess_call_count": len(re.findall(r"AclrtMemSetAccess\\s*\\(", text)),
-                "logical_malloc_call_count": len(re.findall(r"AclrtMallocPhysical\\s*\\(", text)),
+                "setaccess_call_count": len(re.findall(r"AclrtMemSetAccess\s*\(", text)),
+                "logical_malloc_call_count": len(re.findall(r"AclrtMallocPhysical\s*\(", text)),
                 "uses_epoch_v11": "libmf_sdma_orch_v11" in text,
             }
         else:
