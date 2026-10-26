@@ -6,6 +6,8 @@
 
 ## 0. 项目目标、边界与验收
 
+> **2026-10-27 最新正式裁决：ADR-015。** 大 M 最终性能指标从笼统的“融合算子/端到端吞吐更快”收敛为 **真实 Qwen3.6 Prefill 阶段的客户端 TTFT 下降**；L1只以 **完整Stock FP16 MM+HCCL AR** 作同卡双Die公平基线；优化重点是40个实际融合 `o_proj/out_proj` 站点的**双Rank设备关键路径**。报告必须闭环「完整算子净时差→含布局/拷贝的Serving站点→完整Prefill步→TTFT（含排队）」，明确TTFT未改善的关键因素；输出tok/s/TPOT只作附加观测。正常业务验收input4096/output2048/50请求/并发10/TP2/Eager/ignore-eos不变；input4096/output1/并发1只作独立Prefill诊断，不可替代正式业务或与其混算。此决策不等于任何新实测GO，A1仍只准CPU+四卡只读G0，后续Smoke/Screen/Confirm与E2E均分别审批。
+
 **唯一项目：** 在 Ascend **310P3 单卡双 Die、TP=2** 上，用 MemFabric 实现**单 Kernel MM+AllReduce（SDMA+FP16 Add）**，覆盖 Qwen3.6-35B-A3B-w8a8 中已确认未量化的 attention `o_proj` / GDN `out_proj`；模块选择以运行时 shape、dtype、TP、真实模型前缀为准，禁止为了扩大覆盖误改量化 MoE 路由。
 
 **不可动摇：**
