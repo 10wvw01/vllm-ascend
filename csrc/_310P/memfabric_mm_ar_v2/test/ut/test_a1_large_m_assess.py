@@ -154,6 +154,17 @@ class TestA1LargeMOfflineContract(unittest.TestCase):
                             for q in s["investigation_queue"]))
         self.assertFalse(s["gates"]["device_phase_timing_available"])
 
+    def test_profiler_counters_are_old_and_never_claimed_as_phase_seconds(self):
+        old = M.HISTORICAL["old_prefill_attribution"]
+        self.assertEqual(old["hardware_counters_rank0_p50_us"]["cube_v2"], 458.9)
+        self.assertEqual(old["hardware_counters_rank0_p50_us"]["mte2_v2"], 1711.4)
+        self.assertEqual(old["hardware_counters_rank0_p50_us"]["scalar_v2"], 872.8)
+        self.assertIn("NEVER sum", old["counter_caveat"])
+        q = M.build_report(evidence())["investigation_queue"]
+        self.assertEqual(q[0]["order"], 0)
+        self.assertEqual(q[1]["target"], "SDMA arrival wait / MTE2 versus MM overlap")
+        self.assertTrue(all(item["phase_duration_us"] is None for item in q))
+
     def test_wrong_experiment_or_phase_rejected(self):
         for change in ("experiment", "scope", "phase"):
             s = evidence()

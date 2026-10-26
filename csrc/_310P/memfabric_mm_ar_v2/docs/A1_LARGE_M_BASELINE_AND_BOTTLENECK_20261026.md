@@ -18,6 +18,20 @@
 
 使用U1既有工具，拒绝另写或绕过首写/KFC/可见性屏障的“快测”Kernel。
 
+### 历史硬件计数器：优先级不是凭空猜测
+
+2026-10-21 的**同一真实Prefill Profiler（Rank0 p50）**提供了进一步、但仅属于旧版本的归因证据：
+
+| 硬件计数器 | V2TrialKernel | Stock MatMulV3 | 对新一轮A1的启示 |
+|---|---:|---:|---|
+| Cube mac_time | **458.9 μs** | **456.6 μs** | 纯数学时间基本持平，**MM并非首要怀疑对象** |
+| MTE2 time | **1711.4 μs** | **335.9 μs** | 优先追查SDMA数据到达等待、缓存失效后搬入和MM重叠不足 |
+| Scalar time | **872.8 μs** | **186.5 μs** | 优先追查Core0 Mail/Signal轮询、IB会合、跨Chunk控制开销 |
+| MTE3 time | **191.1 μs** | **91.5 μs** | 待核查输出规约写回与必要的缓存操作 |
+| Vector time | **127.4 μs** | **194.9 μs** | 单纯增加Add算力很难解决更大的通信等待问题 |
+
+**硬约束：**这些是可能重叠的设备计数器，不能相加/相减形成一份精确的Kernel关键路径分解；也不能把旧Profiler的MTE2 1711 μs直接写成最新Tile2048的“SDMA传输时间”。它们用于给后续诊断排序，**现版完整算子Stock ABBA结果仍为UNKNOWN**。旧报告同时显示每站点约66 μs input.contiguous开销，属于模型薄接入层的次级优化机会，不是Kernel内部的设备MTE2阶段。
+
 ## 2. A1的实际新增代码
 
 - `test/perf/a1_large_m_assess.py`：**纯stdlib离线验收与决策工具**。只重新读取原始U1屏幕/Confirm目录，由现有 `u1_analyze.evaluate()` 逐文件校验 manifest、Rank0/1原始样本、时序、二进制SHA、双Rank配对与路由。拒绝仅凭手抄汇总表宣布GO。检查屏幕和确认的Git HEAD、物理卡号及四类SHA身份一致。
@@ -86,11 +100,11 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 
 | 顺序 | 优化疑点 | 静态依据 | 如何实证和止损 |
 |---|---|---|---|
-| P0 | Stock HCCL设备计时/跨流Event覆盖 | 早期W1/W4单算子基线与真实Serving的Stock表现差别大；旧U1也将其列为硬门槛 | 用独立HCCL Stream Timeline核实Event真实完整包围 MM→AR→完成；未闭环前不给“V2快于Stock”结论 |
-| P0 | 4Chunk MM 与SDMA/接收等待交叠不足 | 正式核每Chunk MM之后需要Core0 signal、前一Chunk wait、IB Released/Done，可能有不可重叠段；低占空的SDMA不能等于无需等待 | 经独立正确性验证的formal/loop4对照与Profiler；特别看Core0 recv wait期间其他Core是否已空转 |
-| P1 | MM计算效率与权重NZ格式 | 正式V2用8核、Chunk1024，较原生F.linear的tiling行为不同 | 计算与通信分开取证，同输入布局/热态对照MM-only诊断，仅作方向判断，不对不等价时间差分 |
+| 测量前置GATE | Stock HCCL设备计时/跨流Event覆盖 | 早期W1/W4单算子基线与真实Serving的Stock表现差别大；旧U1也将其列为硬门槛 | 用独立HCCL Stream Timeline核实Event真实完整包围 MM→AR→完成；未闭环前不给“V2快于Stock”结论 |
+| **优化P0** | 4Chunk MM 与SDMA/接收等待交叠不足 | 正式核每Chunk MM之后需要Core0 signal、前一Chunk wait、IB Released/Done，可能有不可重叠段；低占空的SDMA不能等于无需等待 | 经独立正确性验证的formal/loop4对照与Profiler；特别看Core0 recv wait期间其他Core是否已空转 |
+| P2 | MM计算效率与权重NZ格式 | 正式V2用8核、Chunk1024，较原生F.linear的tiling行为不同 | 计算与通信分开取证，同输入布局/热态对照MM-only诊断，仅作方向判断，不对不等价时间差分 |
 | P1 | `input.contiguous()`与输出Tail阶段 | 旧Prefill报告每站点约66μs附加copy，实际Serving目标层可能不是连续输入 | 真实Serving per-layer事件/拷贝与融合次数，考虑通过薄接入避免可证明冗余的布局转换；绝不直接改DFlash模型本体 |
-| P2 | Add、DCCI、IB、Final DONE | Add Tile2048内部优化已实现；仍有串行写回/控制成本 | 按需添加**隔离、已审**精确埋点，不引入未认证多核/小粒度写；不再盲扫256/512 Chunk |
+| **优化P0/P1** | 协议Scalar/IB控制与Final DONE；Add/DCCI待确认 | Add Tile2048内部优化已实现；仍有串行写回/控制成本 | 按需添加**隔离、已审**精确埋点，不引入未认证多核/小粒度写；不再盲扫256/512 Chunk |
 
 真实量化后再决定改：如果P0主要来自Core0 wait，应优先在不违反SDMA/缓存可见性协议下改善交叠；如果MM主导，则调整Cube tiling与布局；如果主要来自Serving拷贝，则限于LinearMethod薄接入。**任何改动都要单变量、Stock完整链同卡ABBA、双Rank首写/IB/超时风险回归、可回滚。**
 
