@@ -95,5 +95,5 @@
 - [完整复用审计与最小TTFT实验组](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)：旧版2026-10-21 Prefill已留双Rank×200站点/臂CSV、Step周期及单请求时延；2026-10-22已从CSV独立复算，**原始Profiler仅服务器保留**，不要再次将历史CSV当新的独立实验。历史L1仅是真实Serving中MM与HCCL的阶段Trace和V2核时延，**并非同卡同热态无Profiler的严格完整Stock ABBA**。
 - 历史离线复算完整干净Step（独立于原报告约30.9ms含拷贝口径）：Rank0 Stock 77.8525ms、V2 kernel 105.9149ms，未计输入Copy净增加28.0624ms；Rank1对应93.2048→109.9853ms，增加16.7805ms；旧报告Rank0 Prefill步周期约+31.3ms，客户端4096/1稳态约+34ms。上述均**旧版本旧负载**，不是当前D4性能，也不能简单跨Rank绝对时钟相减。
 - 历史版本身份未解决：报告正文Host SHA `6e9dc2d6...`与证据`provenance.json`的`88d39285...`冲突；如需作严格跨轮比较，先核查原始部署/装载证据。历史2026-10-21正式4096/2048/50/10回归TTFT mean旧Stock11341.9ms→旧V2 11578.6ms；可证明旧版方向，不足以精确拆出queue/dispatch增量。
-- **当前D4 L1严格全链、40目标站点真实D4拷贝/路由成本、双RankPrefill步、同场正式TTFT = UNKNOWN/NOT_RUN**。沿ADR-015仅补A1既有Stock确认、2短Profiler归因与4Serve正式Stock/V2 ABBA；新轮次暂未获人工NPU许可，所有数值必须标历史。
+- **当前D4 L1严格全链、40目标站点真实D4拷贝/路由成本、双RankPrefill步、同场正式TTFT = UNKNOWN/NOT_RUN**。ADR-015后续执行合同改为**L3先决性能门槛**：复用A1 Stock确认，按需2次短Profiler仅作L2/时序校准；优先建立真实Prefill Step（非客户端4096/1 TTFT）的**无Profiler非侵入计时**，轻量Screen后可单独申请4096/1单请求Stock–V2–V2–Stock L3 ABBA。**只有双RankStep时长正向且可复现、越过Stock漂移（`L3_GO`），才申请正式4096/2048/TP2/并发10/50请求L4四场ABBA。** 未改善、测不到或噪声不清楚时不做L4，继续优化/补仪器；不以L3≥5%作为硬门槛。新轮次暂未获任何NPU许可。
 
