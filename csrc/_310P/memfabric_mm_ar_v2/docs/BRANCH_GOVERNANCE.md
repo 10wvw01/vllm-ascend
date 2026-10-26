@@ -104,3 +104,12 @@ git switch -c work/310p-mm-ar-<topic>
 - `work/310p-v2-r2-implementation-20261025` 及关联 PR #7 **不采纳/停止合并/只读历史**。其`vllm_ascend/_310p/v2/**`、Runner/Triton/Hybrid ModelState/GDN/采样/多KV重建代码、46项准入文件和测试**一律不得cherry-pick或merge入唯一主线**。
 - 主线从未合入上述R2新增模块；本次从主线撤销误入的 V2 Triton 检验豁免/测试，保留未实现V2 Worker的早拒绝及正式V2融合薄接入。GitHub不能删分支时先以关闭PR+禁用引用作为治理，**不得强制重置工作分支替代安全删除**。
 - 禁止新建通用Runner研发分支。下一项开发只从本主线以`work/310p-mm-ar-<单项融合优化>`开工，限正式Kernel、定点LinearMethod与Stock回退/数值/性能/安全证据。
+
+## H. 2026-10-27｜主线管方向，工作分支管实施（ADR-016）
+
+- **主线的职责**：`dev/310p-memfabric-mm-ar` 是**唯一项目事实来源**，必须承载最新有效ADR、正式指标、阶段性门槛、历史数据核对与实验设计、当前经审查的结果及G0/实机安全准入。新会话/任何OpenCode现场执行从[仓库入口](../../../../PROJECT_310P_MEMFABRIC.md)与[控制台](PROJECT_CONTROL.md)恢复方向，不以工作分支的旧`PROJECT_CONTROL.md`代替主线。
+- **短期分支的职责**：A1的`work/310p-mm-ar-large-m-a1-20261026`（[PR #9](https://github.com/10wvw01/vllm-ascend/pull/9)，Draft）用于尚待原仓CPU和NPU审核的测试/诊断实现、性能候选和原始证据；不得承载只有它才知道的长期正式决策，也不得因测试工具尚未验收阻止主线正式文档更新。
+- **两种不同的合入门槛**：①主线方向/ADR/正式实验合同等 **docs-only** 变更，经至少两轮静态文件审查、正确引用和CI项目控制检查可合主线，明确新设备性能为`NOT_RUN`；②Kernel/Host/Serving/测量工具按安全分级CPU测试、首写/协议、G0和实机验收，再由PR选择性合入，不可将整条A1历史分支merge覆盖主线治理资料。
+- **当前强制优先级**：大M [ADR-015](DECISIONS.md)以真实Qwen3.6 Prefill TTFT为最终指标，L1完整Stock作为诊断基线；先建立L3真实设备Step无Profiler可复现正向收益，**L3-GO后才批准正式4096/2048/50/10 L4 TTFT**。具体唯一合同：[历史证据复用与L3-first实验设计](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。A1 PR #9下次合入前须与新主线对比并剔除重复/旧状态文档，保留所有未合入实施证据。
+- **边界不变**：严禁复活ADR-013废止的Runner重建；不修改正式Stock默认、不改外部HaonanWu1仓库；不把docs-only合并或CI PASS冒充310P3 G0/Smoke/L3/TTFT实测成功。实机失败先STOP保全。
+
