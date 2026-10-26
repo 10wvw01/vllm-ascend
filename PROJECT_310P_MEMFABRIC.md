@@ -17,6 +17,8 @@
 
 ## 不可偏离的当前目标
 
+> **大 M 当前最终验收目标（ADR-015，2026-10-27）：真实 Qwen3.6 Prefill 的首 Token 时延 TTFT 下降。** 单算子唯一正式基线是原生 FP16 **Stock MM+HCCL AllReduce 完整链**；优化对象聚焦模型实际命中的 **40 个目标 `o_proj/out_proj` 层在双 Rank 设备上的关键路径**。必须给出「L1完整算子 → 真实目标站点 → Prefill步骤 → 客户端TTFT」四段证据；D4相对旧V2的加速、输出tok/s/TPOT都不能代替TTFT验收。**业务对照保持input4096/output2048/TP2/并发10/50请求/Eager/ignore-eos；可补output1/并发1单请求Prefill诊断，但不得替代正式负载。** 本裁决只聚焦大M，不废止单独的小M/DFlash工作线。详见[ADR-015](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)和[性能传导合同](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)。
+
 - **Ascend 310P3 单卡双 Die / TP=2**；同 Kernel 完成 FP16 MM + MemFabric SDMA AllReduce + Add，Stock MM+HCCL 是唯一有效的完整算子最终性能对照。
 - **大 M 必须持续向硬件可证实的极限优化**，不再每轮讨论“值不值得做”；每次输出完整算子 vs Stock，以及 Qwen 集成真实收益及差距原因。
 - **小 M 专攻单 Kernel 带来的固定开销消减**，覆盖普通 Decode 和 DFlash 投机验证的实际 M；旧 T1 M=10 已经严格 NO-GO，不能复活其错误的 +20% 结论。
