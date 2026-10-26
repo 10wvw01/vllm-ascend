@@ -100,3 +100,10 @@
 - 取舍与未采纳的方案：
 - 代码和当前默认路由影响：
 - 验证门槛、回退方案和需要更新的控制台章节：
+
+## ADR-014｜2026-10-26｜四卡动态选卡、故障换卡及KFC自动部署｜**有效**
+
+- **决策**：服务器有4张310P3物理卡，项目单卡双Die TP2实验必须每次动态选择健康空闲同卡双Die；G0健康/占用失败时允许换另一卡重新G0，而非卡号绑定停工；四卡全不合格则NO-GO。同一Stock/V2 ABBA不得跨卡混算。
+- **MemFabric条件**：换卡不能只改`ASCEND_RT_VISIBLE_DEVICES`；历史实机验证CANN VMM`aclrtMallocPhysical`逻辑号、`aclrtMemSetAccess`物理号分裂，非identity映射要审查Host双路径的物理号修复版本。AICPU KFC v11在**授权首次初始化**按需自动部署、核验每Die，不预先人工部署四卡，不使用伪`MF_SDMA_ORCH_DEPLOY_HELPER`或诊断常驻模式。
+- **异常分级**：G0单卡Alarm或租户占用→排除并换卡；运行中507014/507899/错算/超时/IB或KFC异常→先STOP保全现场，排查系统性问题，后续换卡必须重新取得人工准入，禁止自动轮试四张卡。
+- **依据/合同**：[四卡动态选卡及KFC规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)与[2026-10-23 KFC/DeviceID实机记录](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。本项不变更正式Kernel/Host/Serving/Stock默认，也不构成新设备测量/部署的PASS。

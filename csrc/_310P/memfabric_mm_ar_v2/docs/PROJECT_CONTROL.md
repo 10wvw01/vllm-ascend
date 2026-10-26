@@ -180,3 +180,9 @@
 - MemFabric 诊断源码固定参照 `10wvw01/memfabric_hybrid_310p:diag/310p3-g1d-minimal-forensics-20261021@54d6376d619325fb70831ce16c6ab60305b272ec`；历史 G1-D D1R4 曾在设备复现双 Rank 507014、core0 stage50 邮件等待未返回；D2R1–D2R6 六轮没复现，写入丢失与AICore不可见尚不能区分。**这些均为历史证据，不是本轮测试结论**。
 - **交付前门禁**：OpenCode 先只读 G0，核对两仓 SHA、真实 Python import、TP2 同卡双 Die、设备独占、Host双路径/Device/KVER11/实际装载SO SHA、网络隔离及恢复备份；用户授权后仅执行原 fused Eager **input4096/output256、25请求/轮、并发10、620s**，先短smoke后长稳，独立Stock同口径对照。出现 507014/507899/静默数值错误立刻止损保全，避免其它对照覆盖第一故障现场。可选G1D v12 诊断库需另行人工许可。
 - **截至本次归档状态**：交付文档/CPU测试源码已提交；CPU单测**未在原仓 CI 实际执行**，现场 G0 / NPU Smoke / 620s fused / Stock 均 **NOT_RUN**。未授权直接上机。只有新的双Rank日志、真实融合Kernel trace、哈希与恢复证据完整并经审核后才交付 MemFabric 团队，不得将 0 ExitCode 或选层日志写成修复证明。
+
+## 15. 2026-10-26｜四卡动态选卡和KFC自动部署标准（ADR-014，即日起所有实机生效）
+
+- 310P3服务器共有**4张物理卡**；单卡双Die TP2实验不绑定原dev6/7。每次只读遍历四卡，动态选择双Die及MCU健康、同卡拓扑明确、无租户且空闲的一张；旧43520 dev6/7告警未清除前排除。G0卡级健康/占用失败可以换卡再G0；**运行中**507014/507899/KFC/IB异常必须先STOP保全证据，不准脚本自动轮测四卡。
+- 选卡之外必须重新核查§ASCEND_RT_VISIBLE_DEVICES§的逻辑/物理DeviceID映射、非0/1设备下§aclrtMemSetAccess§物理号修复的MemFabric**双路径Host SO**和KVER11；目标Die的AICPU SDMA编排核在**授权首次建池/Smoke时自动KFC部署**，只读G0不提前执行KFC，禁用未经授权的伪helper与常驻模式。Stock/V2同一次ABBA必须固定同卡、相同版本，换卡单独run_id重G0不混算。
+- 完整换卡与KFC实证指南：[四卡动态选卡/KFC准入规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)，源自已有[2026-10-23 dev6/7 KFC部署取证](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。**此提交仅文档治理，不代表新卡已验证或KFC已部署。**

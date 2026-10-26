@@ -47,3 +47,7 @@
 - 不把文档的“预计收益”“静态通过”“本地测试通过”写成实机 PASS；环境 SO、KVER11 和运行时真正命中的 Kernel 都须有证据。
 
 > **2026-10-26 纠偏硬规则：** `work/310p-v2-r2-implementation-20261025`、PR #7、R2-00～21、T01～T31/46项通用Runner兼容矩阵全部废止，不得从中合入 Runner、DFlash、Hybrid ModelState、GDN/采样/多KV重建代码。唯一目标：保持可运行的Stock+DFlash框架不变，仅替换合格RowParallelLinear的 MM+HCCL 为 V2 MM+MemFabric，真实设备测试按G0/安全门禁执行。历史R1-B失败只属于当时的冻结配置，不得断言其它已可运行Stock环境也失败。
+
+### 2026-10-26｜新增四卡动态择优实机原则（ADR-014）
+
+310P3服务器共有4张卡，实机应优先选**健康且独占的一张双Die卡**；卡级Alarm/占用则记录并换卡重新G0，运行中507014/507899/IB/KFC/错算则STOP保全现场，不自动轮测四卡。换卡需核查`ASCEND_RT_VISIBLE_DEVICES`逻辑/物理映射、双Host SO的SetAccess物理DeviceID修复和KVER11；**KFC由MemFabric在获准首次建池时自动按需部署，G0只读阶段不预部署**。同一Stock/V2 ABBA不得跨卡混合。详见[310P3四卡动态选卡与KFC标准](csrc/_310P/memfabric_mm_ar_v2/docs/310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。未进行新实机测试。

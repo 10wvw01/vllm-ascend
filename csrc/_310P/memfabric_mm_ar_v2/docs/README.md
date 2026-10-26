@@ -75,3 +75,5 @@ ASCEND_RT_VISIBLE_DEVICES=0,1 torchrun --standalone --nproc-per-node=2 \
 bench_memfabric_mm_ar_serve.sh}` 拥有，因 V1/Stock 也依赖，不能挪走而破坏 V1。
 V2 专用 UT/TP2/G3 驱动已集中于本工程 `test/`。
 后续修改 V2 的真实模型功能时仍复用上述公共脚手架，不复制两套实现。
+
+- [310P3四卡动态选卡、异常换卡及MemFabric KFC自动部署准入规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)：每次实机选健康空闲完整双Die卡、非0/1物理DeviceID映射与KFC v11自动部署边界、ABBA同卡取证。

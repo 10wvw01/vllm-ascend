@@ -54,3 +54,10 @@ MemFabric 的既有 GitCode origin、自有 GitHub 仓库、服务器部署位�
 ## 6. 保护措施及边界
 
 当前分支 GitHub 默认分支仍是 `main`，本项目不改变它。GitHub 主线保护（禁止强推/删除、要求 PR 和上述 CI 状态检查、限制直接写入）需要仓库所有者在 GitHub Rulesets 或 Branch protection 中单独启用并验证；**文件中声明规则不等于服务器已执行规则**。CI的纯CPU检查也不能替代人工评审、设备证据及发布审批。
+
+## 7. 2026-10-26新增项目级原则：四卡动态择优、故障换卡与KFC自动部署
+
+- 每次G0先对**全部4张310P3卡**只读巡检，确认同卡双Die、双Die+MCU健康、空闲、租户进程及Rank物理映射，再选择一张；不把历史dev0/1、dev6/7当作固定试验对象。
+- 某卡G0健康/占用失败，记录原因后可切换另一张健康空闲卡并**重新G0**；执行期间出现507014/507899、错算、IB/KFC 0x2a或设备超时则先STOP保留现场，**不自动轮换**。两臂ABBA只可同卡同Die同版本，换卡重新建立run_id及热态。
+- 换卡需核对`ASCEND_RT_VISIBLE_DEVICES`逻辑/物理DeviceID、MemFabric双Host SO已审核的`aclrtMemSetAccess`物理号修复、设备SO、KVER11和回滚备份。KFC v11在**得到授权的首次MemFabric初始化**按需自动部署并核验各Die，G0只读阶段不运行手工KFC/建池/替换SO，禁止假helper已部署或绕过。
+- 详细流程和历史取证：[四卡动态选卡/KFC准入规范](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)、[2026-10-23换卡实证](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。本章为G-DOC，不代表新的NPU GO。
