@@ -1,0 +1,14 @@
+===== AUDIT EVIDENCE 04: S3-R serve.log kfc/deploy sequence (all lines, both ranks) =====
+412:2026-10-26 15:08:32.202251 ERROR [564112-564112][HYBM hybm_sdma_orchestrator.cpp:601 KfcExec] kfc launch failed, ret: 507018 cmd: test -f /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so
+413:2026-10-26 15:08:32.202401 ERROR [564112-564112][HYBM hybm_sdma_orchestrator.cpp:601 KfcExec] kfc launch failed, ret: 507018 cmd: rm -f /home/CustAiCpuUser/lib/libmf_sdma_orch.so.*
+414:2026-10-26 15:08:32.202409 ERROR [564112-564112][HYBM hybm_sdma_orchestrator.cpp:498 MigrateViaCustChannel] deploy clean residue failed, devId: 0
+415:2026-10-26 15:08:32.203276 ERROR [564112-564112][HYBM hybm_entity_default.cpp:1300 InitTransManager] sdma orchestrator acquire failed, ret: -1 devId: 0 entityId: 0
+420:2026-10-26 15:08:32.203395 ERROR [564112-564112][SMEM smem_shm.cpp:77 smem_shm_create] entry init failed, result: -1
+421:2026-10-26 15:08:32.204747 ERROR [564157-564157][HYBM hybm_sdma_orchestrator.cpp:601 KfcExec] kfc launch failed, ret: 507018 cmd: test -f /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so
+422:2026-10-26 15:08:32.204855 ERROR [564157-564157][HYBM hybm_sdma_orchestrator.cpp:601 KfcExec] kfc launch failed, ret: 507018 cmd: rm -f /home/CustAiCpuUser/lib/libmf_sdma_orch.so.*
+423:2026-10-26 15:08:32.204860 ERROR [564157-564157][HYBM hybm_sdma_orchestrator.cpp:498 MigrateViaCustChannel] deploy clean residue failed, devId: 1
+424:2026-10-26 15:08:32.205693 ERROR [564157-564157][HYBM hybm_entity_default.cpp:1300 InitTransManager] sdma orchestrator acquire failed, ret: -1 devId: 1 entityId: 0
+429:2026-10-26 15:08:32.205798 ERROR [564157-564157][SMEM smem_shm.cpp:77 smem_shm_create] entry init failed, result: -1
+
+===== 05: sampler processes.log helper count =====
+0
