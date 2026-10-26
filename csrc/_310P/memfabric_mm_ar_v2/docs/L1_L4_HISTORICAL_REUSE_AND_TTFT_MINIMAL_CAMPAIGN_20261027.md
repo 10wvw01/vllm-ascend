@@ -31,7 +31,7 @@
 
 ## 2. 唯一新增实验组：A1-TTFT（G0→L1/L2→L3性能门槛→达标后L4）
 
-**主线管方向、工作分支管实施**：本文为主线有效方案；实施只复用现存A1工作分支`work/310p-mm-ar-large-m-a1-20261026`（PR#9），测试资产待静审与实机核准，不修改正式Kernel/Host/MemFabric协议/Serving默认/投机Runner。不抢跑设备，**每阶段都由用户单独放行**。选择健康闲置的单张310P3物理卡双Die；旧43520 Die7/MCU告警未清除前禁止选用；ABBA全程固定同卡、版本、频率/温度记录与SO指纹。安全标准依[ADR-014四卡/KFC规则](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。
+**主线管方向、工作分支管实施**：本文为主线有效方案；实施只复用现存A1工作分支`work/310p-mm-ar-large-m-a1-20261026`（PR#9），测试资产待静审与实机核准，不修改正式Kernel/Host/MemFabric协议/Serving默认/投机Runner。用户现已明确批准**本次单批执行从隔离环境/G0→Smoke成功→L1→L2→L3的条件续跑，满足L3_GO与业务条件可继续L4**；不再每段回来申请，但真实加载/双Die独占/KFC首写/数值/HCCL或Trace异常均STOP，不允许写共享环境或闯安全硬门。选择健康闲置的单张310P3物理卡双Die；旧43520 Die7/MCU告警未清除前禁止选用；ABBA全程固定同卡、版本、频率/温度记录与SO指纹。安全标准依[ADR-014四卡/KFC规则](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。
 
 ### G0（当前唯一可先行的设备相关阶段；CPU与四卡只读）
 
@@ -42,12 +42,12 @@
 
 ### A. L1完整版Stock基线：复用U1，不再重写Kernel微基准
 
-按独立批准依次运行现有`test/perf/u1_run.sh <NEW_ABSOLUTE_DIR> large smoke` → `large screen` → 完整审核后才考虑`large confirm`。每个阶段只跑已经批准的部分，不允许一次脚本串起三段：
+用户2026-10-27已授权同一OpenCode委托在**真实身份/数值/安全闸通过**时执行`test/perf/u1_run.sh <NEW_ABSOLUTE_DIR> large smoke`→`large screen`→HCCL路由审计→`large confirm`并连续采L2/L3。禁止硬连无检查的三段串行，门禁应用机器可读验收及原始日志审计：
 
 - **Smoke**：M2048 Stock、D4各1场独立双Rank，位精确/status/首写/KFC正常，故障立即STOP；不做性能GO。
 - **Screen**：复用既有两场大M Stock、D4完整测量（M1024仅探针，正式路由只有2048/4096），各M p50/p90/p99、双Rank按样本先max配对；同时测Stock原生MM-only供方向性诊断，不能与完整MM+AR时延简单相减。
 - **硬门**：单独审查HCCL跨Stream提交/完成的Event覆盖、实际加载Stock MatMul与HCCL内核、V2 D4 kernel/Chunk1024/Overlap1、输入权重stride/NZ与物理M；不许只根据`torch.equal`和脚本Success宣称完整链公平。
-- **Confirm**：仅在Screen与真实HCCL/路由独立审核合格、用户再次批准后，复用已有双轮`Stock–V2–V2–Stock`×2，共8场，每M 5 warmup+40 samples。按原U1完整性/漂移/尾部合同判定`L1_CONFIRMED`或`L1_INCONCLUSIVE/NO_GO`，不可擅自修改既定5%筛选规则来伪造正向GO。**不论L1正负，持续大M优化方向不终止**；是否进入后续短Trace由用户基于本轮设备安全决定。
+- **Confirm**：仅在Screen与真实HCCL/路由独立审核合格、用户本次条件授权仍满足后，复用已有双轮`Stock–V2–V2–Stock`×2，共8场，每M 5 warmup+40 samples。按原U1完整性/漂移/尾部合同判定`L1_CONFIRMED`或`L1_INCONCLUSIVE/NO_GO`，不可擅自修改既定5%筛选规则来伪造正向GO。**不论L1正负，持续大M优化方向不终止**；是否进入后续短Trace由用户基于本轮设备安全决定。
 - 为解决历史W1/W4误导：短Trace校验真实Serving目标站点完成时间与独立L1实际差异，**禁止**拿逐调用Device Sync税或HCCL连续拥塞时延宣传真实模型收益。若需要新的受控“站点间隔约60ms”微基准，应先提单独源码方案/CPU审查，**不是本轮必做项**。
 
 ### B. L2与L3时序校准：必要时只补一对短Profiler（不是L3性能GO）
@@ -101,10 +101,16 @@
 
 **GO与继续研发分开**：L1即便优于Stock，也只给算子候选；**L3是大M日常性能筛选门槛：L3_NO_GAIN/INCONCLUSIVE/NOT_MEASURABLE时回到L1/L2持续调优、L4不开跑**；只有L3-GO才申请L4。L4必须在正式业务负载中展示稳定、可信的**TTFT下降**，才可以声称大M对Prefill终端指标带来收益。性能正向不解除Gate E/507014和冷首写安全发布阻塞。L1为负也继续极致优化，不因本轮收益小停大M线。
 
+### 2.1 2026-10-27｜单批贯通的执行顺序（用户最新明确授权）
+
+- 把之前的R1A/R1B逐段审批改为**同一OpenCode委托内的实际证据门禁**：安全隔离装载→M2048双RankSmoke及CPU证据判定→L1完整Stock Screen与8场Confirm→L2双臂五次短Profiler真实40站点→L3无Profiler四ServeABBA（各6warmup+30请求）。**不得因为L1性能负值跳过L2诊断或终止大M优化**；L3若计时覆盖不能校准，标`L3_MEASUREMENT_NOT_READY`，本次保留全部历史新证据但禁止把客户端4096/1响应时延代替设备Step。
+- 新增A1工具包括`test/perf/a1_r1_smoke_gate.py`、`test/perf/a1_l2_site_audit.py`、`test/perf/a1_prefill_{http_requests.py,serve_session.sh}`、`vllm_ascend/_310p/a1_prefill_event_probe.py`及模型Runner的**仅实验开关启用**Event钩子、`test/perf/a1_l3_prefill_assess.py`；各工具仍需现场原仓CPU测试与真实Event/Trace校准，未运行不能声称PASS。旧`v2_prefill_capture.sh`含0/1卡、默认8000端口和全局set_env逻辑，**严禁在这次被其它任务占用的服务器上原样运行**。
+- 该批授权不允许擅自写共享Host双路径或其他任务editable Device SO，不允许设备异常自动换卡/清KFC/复跑；只在真实`L3_GO`并验证完整正式负载身份后考虑L4。每阶段单独保留原始证据，任一硬门失败STOP后续、保留已经完成阶段的证据。
+
 ## 3. 实施分工、执行许可、归档
 
 - **ChatGPT（本仓研发）**：该历史复用与实验合同、严格分析器/采集工具的静态实现和两轮审查、读回GitHub实机证据后给L1～L4结论；今后正式代码优化只限Kernel/LinearMethod薄接入，不引入DFlash Runner重建。
-- **用户/OpenCode（310P3现场）**：仅按逐阶段明确许可执行CPU+四卡只读G0 → 经单独批准L1 Smoke/Screen/Confirm → 经单独批准L2短Profiler/轻量L3 Screen与Confirm → **仅L3-GO后经单独批准**L4正式模型ABBA；每阶段上传脱敏manifest、rank0/1日志、原始样本、实际安装+装载二进制指纹、异常和恢复记录。
+- **用户/OpenCode（310P3现场）**：2026-10-27用户明确授权**一次委托、严格条件续跑**CPU/四卡G0→安全私有装载→M2048 Smoke（双Rank真实身份/数值/KFC检查）→L1 Screen/HCCL独立审计/Confirm→L2短Profiler→L3无Profiler四ServeABBA。**只有L3_GO且正式业务脚本/安全条件都已审计**才允许同批L4正式4096/2048；异常STOP、不影响其它租户、不得共享库覆盖。所有阶段保存脱敏manifest、Rank0/1原始日志、SO及真正装载身份、Trace和异常/恢复记录；详见[A1同批实施合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ONE_BATCH_THROUGH_L3_20261027.md)。
 - **停止/换卡原则**：G0阶段可排除不健康/被占用的整卡并在其它卡重新G0；实验中507014/507899/IB/KFC/静默首写/MCU异常**立即STOP，禁止自动换卡、继续ABBA或清除现场**。Stock与融合必须在同一物理卡上比较。
 - **旧文件可复用**：`test/perf/u1_{run.sh,arm.py,analyze.py}`、`test/perf/a1_large_m_assess.py`、`test/perf/u1_e2e_budget.py`、`tests/e2e/_310p/bench_memfabric_mm_ar_serve.sh`、`tests/e2e/_310p/v2_prefill_capture.sh`、旧归因离线脚本与per-site CSV。新组合入口若现有脚本不能满足，则**另行编码静态验收**，不能伪称现有U1已经具备端到端ABBA自动化。
 - 本次主线仅纳入目标、归因与实验设计文档，没有生产代码修改、没有新模型启动、没有性能结果；A1 实施 PR #9 继续 Draft、未合入。**眼下首先需要的是原仓CPU合同+四卡只读G0的现场报告，不是对新设计的自动实机执行许可。**
