@@ -18,7 +18,7 @@ import subprocess
 
 from u1_spec import D4_DEVICE_SHA, PLUGIN_SHA, MEMFABRIC_HOST_SHA, KVER_SHA
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[5]
 ENV_ARTIFACTS = {
     "device_so_sha256": ("U1_DEVICE_SO_PATH", D4_DEVICE_SHA),
     "plugin_sha256": ("V2_HOST_LIB", PLUGIN_SHA),
