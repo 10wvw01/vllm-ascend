@@ -5,6 +5,8 @@
 > **截至撰写：**本轮尚未在310P3执行新测量。历史数仅用于提出诊断假设，**新一轮 M2048/4096 严格完整 Stock vs 最新 V2 的性能差距仍 UNKNOWN**。
 
 ## 1. 为什么先重建完整 Stock 基线，而不是继续改 Add/Chunk
+> **目标更新（ADR-015 / 2026-10-27）：大 M 的最终性能裁决以真实 Qwen3.6 Prefill TTFT 为准。** 本A1仍只完成第一环节L1：D4正式Kernel vs完整FP16 Stock MM+HCCL的可信算子基线与瓶颈定位。后续在独立人工G0/实机许可下闭环四环：L1完整算子、L2含布局/拷贝的40个真实站点、L3双Rank Prefill步骤、L4客户端TTFT。**不能**以U1/A1 Screen、D4内部+6.26%或单算子Confirm GO直接宣布TTFT GO；后续正式E2E仍须input4096/output2048/TP2/并发10/50请求/Eager/ignore-eos，同态Stock/V2比较；允许独立input4096/output1/并发1诊断Prefill，但两者不能混算。现场G0→Smoke→Screen→Confirm分别授权规则完全不变。本期没有新增310P3/TTFT实测。
+
 
 现有数据来自三种不同条件，**不得直接拼成当前差距**：
 
