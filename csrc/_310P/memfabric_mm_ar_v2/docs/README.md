@@ -48,6 +48,8 @@ tiling 系统与独立 run 包会改变已验证的调用 ABI 和 SDMA 生命周
 
 ## 文档索引
 
+- [阶段性总结（进度汇报归档）](阶段性总结/README.md)：Add Tile2048 优化前后效果、实现方案、原始证据与稳定性边界。
+
 - [阶段归档](ARCHIVE_20261019_G3.md)
 - [目录重构实机回归报告](V2_REFACTOR_REGRESSION_20261019.md)
 - [G3 原始实机报告](V2_G3_QWEN_E2E_REPORT.md)
