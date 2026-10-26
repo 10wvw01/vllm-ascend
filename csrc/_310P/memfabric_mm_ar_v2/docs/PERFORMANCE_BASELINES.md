@@ -58,12 +58,12 @@
 ## 2026-10-25 R1-B与V2 Triton绕过：性能仍UNKNOWN
 
 - [R1-B现场报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-r1b-stock-eager-smoke-nogo-20261025/csrc/_310P/memfabric_mm_ar_v2/docs/R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)：G0通过，Stock+DFlash Eager加载Target后Draft初始化FAIL；V2 Eager、完整业务和Graph均NOT_RUN，L0/L1/L2无新数字。
-- 新增的V2 Triton豁免仅改变 **310P3 V2配置校验** 且Worker提前拒绝未移植V2，不构成任何业务结果，也不修改已有D4/SEL-01/F1-C性能。
+- 历史曾引入310P3 V2 Triton条件豁免，但它只影响配置验证且从未产生真实V2 Runner性能；**2026-10-26依据ADR-013已经撤销**。D4/SEL-01/F1-C数据仍保持原口径。
 
-## 2026-10-25 R2任务锁定（计划，无新测量）
+## 2026-10-26｜废止Runner重建，不影响历史L0/L1/L2基线
 
-- R2-00～R2-21是未来代码/实机工作项；尚未发生V2 Model Runner+DFlash、V2融合或Graph的新实测，不得新增LLM吞吐、acceptance、L1或L2性能数字。
-- 比较口径预先锁定为：S1=V2 Runner+Stock MM+HCCL AR；S2=同V2 Runner+正式MM+MemFabric AR；历史V1 Runner独立标S0，不能用S0→S2声称融合收益。见[R2总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)。
+- R2-00～R2-21的V2 Runner迁移任务和“同V2 Runner先跑Stock再融合”的前置框架工程**全部取消**；源计划已从主线删除，参见[ADR-013](DECISIONS.md)。
+- **唯一合法L2**：同一已可运行的Stock+DFlash推理路径，功能开关分别关闭/启用**已有**V2融合LinearMethod；输入4096、输出2048、并发10、50请求、TP2/K7；记录真实M与每层命中。原有L0/L1仍保持不变，不新增未经实测的性能数据。
 
 ## R1-B现场证据归档（R2-00，仅事实，非新性能）
 

@@ -98,3 +98,9 @@ git switch -c work/310p-mm-ar-<topic>
 3. 核心源码变更还需人工核对新/已有测试覆盖、2轮静态深审、G0设备/SO/KVER合同、冷首写、双Rank正确性、Stock基线、Graph真实命中与回退。具体参阅 [ENGINEERING_GATES.md](ENGINEERING_GATES.md)。
 4. 当前GitHub默认 `main` 仍保留；**GitHub仓库级保护尚须所有者配置**：建议为此分支启用禁止强制推送与删除、PR审查、要求名为 `project-control` 的CI检查通过，并限定管理员绕过；保护的实际生效状态应另行在 GitHub Rulesets / Branch protection 核实。未配置时CI可以报告 FAIL，但不能阻止管理员直接push。
 5. 任何GitHub CI成功均只记为“仓库元数据静态 PASS”，不表示310P服务器环境、CANN编译、模型正确性或真实性能已验证；实机测试必须由用户委托OpenCode，并在G0确认安全后执行。
+
+## G. 2026-10-26｜偏航R2分支退出项目（ADR-013，最新裁决）
+
+- `work/310p-v2-r2-implementation-20261025` 及关联 PR #7 **不采纳/停止合并/只读历史**。其`vllm_ascend/_310p/v2/**`、Runner/Triton/Hybrid ModelState/GDN/采样/多KV重建代码、46项准入文件和测试**一律不得cherry-pick或merge入唯一主线**。
+- 主线从未合入上述R2新增模块；本次从主线撤销误入的 V2 Triton 检验豁免/测试，保留未实现V2 Worker的早拒绝及正式V2融合薄接入。GitHub不能删分支时先以关闭PR+禁用引用作为治理，**不得强制重置工作分支替代安全删除**。
+- 禁止新建通用Runner研发分支。下一项开发只从本主线以`work/310p-mm-ar-<单项融合优化>`开工，限正式Kernel、定点LinearMethod与Stock回退/数值/性能/安全证据。

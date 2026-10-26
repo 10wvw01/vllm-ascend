@@ -1,5 +1,7 @@
 # R1｜Qwen3.6 DFlash K=7：Stock / V2 四象限现场准入与验证合同
 
+> **历史实验合同（2026-10-26经ADR-013废止为执行入口）**：本文保留R1-B原始环境/失败取证和测试口径，不能再据此前进重建V2 Runner、修改DFlash ModelState或执行新的R2兼容任务。以后只在已证实可运行的Stock+DFlash相同路径上做**V2融合算子薄接入**，具体生效流程以主线[PROJECT_CONTROL.md](PROJECT_CONTROL.md)为准。旧Stock+DFlash启动失败仅对应其冻结环境。
+
 > 2026-10-25；唯一主线 dev/310p-memfabric-mm-ar。**只完成GitHub静态准备；310P3环境、Eager和Graph均NOT_RUN。** 本文是唯一R1执行规范；总门禁见 [ENGINEERING_GATES.md](ENGINEERING_GATES.md)。
 
 ## 1. 冻结合同与四个独立运行组

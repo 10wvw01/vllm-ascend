@@ -161,26 +161,14 @@
 - 审查除G0诊断本身以外的启动边界：旧报告可能来自另一安装、另一Python或同名editable代码。Trial新增 `validate_runtime_identity` 校验预检报告Python执行器、真实vllm CLI脚本shebang、vllm/vllm_ascend真实根目录、四个关键分发版本与当前状态完全一致；CI用合成目录/假包元数据测试不一致时FAIL。不得据此声称实际服务已加载。
 - 审查确认：对V2的build artifact校验仅检查当前隔离worktree里文件是否存在，**不验证设备已经正确装载、Host/Device ABI及SO哈希**；这些仍是OpenCode现场G0人工门禁，不允许用“存在文件”替代签名/运行期映射证据。
 
-## 13. 310P3 V2 Model Runner 的 Triton 验证豁免（2026-10-25，研发阶段）
+## 13. 2026-10-26｜重大纠偏：停止并剔除重建 V2 Runner / DFlash 兼容体系（当前最高优先级）
 
-- 来源：[R1-B现场分支](https://github.com/10wvw01/vllm-ascend/tree/work/310p-r1b-stock-eager-smoke-nogo-20261025)：真实G0 PASS，Stock+DFlash加载Target后被混合sliding/full Draft的V1多KV组门禁阻断；显式启V2又被上游 `Model Runner V2 requires Triton` 阻断。此证据尚未通过本次代码分支替代/抹除，Stock+DFlash smoke仍FAIL；未有V2模型/Kernel性能数据。
-- 用户决策：**优先310P3 V2 Runner（不再改造V1多KV组）**。官方不支持Triton设备的事实只支持采用非Triton后端的架构方向，不代表上游V2 GPU Runner可直接运行。
-- 本次落地**仅一项条件豁免**：平台patch在`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`、`VLLM_USE_V2_MODEL_RUNNER=1`、真实310P3、vLLM 0.27.1、TP2、Eager(cudagraph_mode=NONE)、无投机或DFlash时，跳过上游 `_validate_v2_model_runner` 中的Triton存在性检查，保留其它上游unsupported_features/reasoning检查。没有设置开关时，完整调用原上游验证。绝不写`HAS_TRITON=True`，不替换依赖、不启用Graph。
-- **安全关键**：`NPUWorker310.init_device`对V2标志增加显式`NOT_IMPLEMENTED`拦截，保证验证豁免后不会被旧310P Worker静默路由到V1，也不会误将通用GPU V2 Triton Kernel上机运行。故本次是**CONFIG-GATE-ONLY**，**不是**Stock+DFlash服务GO或310P3实机GO。
-- 下一阶段另起短期工作分支：实现并审阅310P V2专用Worker/ModelRunner，完成真实vLLM 0.27.1的DFlash Speculator set_attn ABI、input_batch/状态更新Triton替代、多KV Group/Attention、W8A8+GDN+TP2契约，以及两轮静态审查与CPU测试后，才可申请受控NPU Eager。
+> **新决策覆盖旧 ADR-011/012 和所有 R2-00～R2-21 / R3 Runner迁移工作。** 旧文本与实验日志仅作为历史，不再是研发执行要求。正式裁决见 [ADR-013](DECISIONS.md)。
 
-### V2豁免二轮复审补充
-- 单独设置`VLLM_ASCEND_310P_EXPERIMENTAL_V2_NO_TRITON=1`而未强制`VLLM_USE_V2_MODEL_RUNNER=1`，此前会由env-only属性继续选V1，存在“绕过成功但实为V1”的污染可能；已调整属性为明确抛错（仅310P并仅豁免开关打开时），并对flag-off的旧V1默认/显式False做回归。
-
-## 14. R2 V2 Runner全量任务与验收门槛锁定（2026-10-25）
-
-- 所有者要求提高效率，**先一次性锁定下轮全部必经工作**，不再“修一个启动报错→跑一次设备→再问下一步”；权威任务表为 [R2 V2 Triton-free Model Runner总执行计划](V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)，立项基线为已合入的 `4b23e89`。
-- R2 顺序：A 逐接口ABI/全调用链Triton盘点→310P专属V2 Worker+Runtime、纯NPU非Triton输入/状态、DFlash多KV、Qwen W8A8/GDN和采样、CPU合同/两轮静审→B 非投机V2 Target Stock Eager→C V2 Stock+DFlash K7→D 同V2 Runner接MemFabric融合 L1/L2；Graph/507014长稳列为R3独立验收。
-- 关键已知缺口：`NPUWorker310`现仍V1派生并对V2显式拒绝；现有Ascend V2 DFlash `set_attn` API与vLLM 0.27.1不一致、输入和状态更新包含Triton；多KV GID/不同BlockSize/Sliding+Full、rejection与GDN/Mamba未获310P Eager证据。**任务列表不是实现完成声明。**
-- 工作规则：R2-A由ChatGPT负责GitHub源码/UT/两轮静态审查/PR及CI，在达到静态GO且现场G0得到许可后，才交由用户委托OpenCode按分级Stop/GO上机。Stock默认保留，不改V1、不改上游、不默认启V2，失真Graph不计PASS。R1-B现场分支报告与ADR-010须先选择性归档，主线性能基线标记本轮 NO-NEW-PERF。
-
-## 15. R2-00 R1-B原始实机证据选择性归档（2026-10-25）
-
-- 已从历史 `work/310p-r1b-stock-eager-smoke-nogo-20261025@f51aa689` **只导入报告和 evidence/r1b_20261025 下原始证据 blob（含原始压缩完整日志）**，没有合并旧任务代码/项目状态；保留其元数据及原始 SHA，便于回溯。
-- R1-B新事实：G0 **PASS**；Target双Rank完成1324条权重加载；Stock+DFlash K7 **FAIL**：原草稿5滑窗+1全注意力在V1 Runner校验失败；未做V2实际运行。后续full bench与Graph **NOT_RUN**，新吞吐/融合收益UNKNOWN，不能用该失败判断 310P V2 能否推理。R2目标是修复V2 Runtime与无Triton调用路径，不改V1或草稿配置。
-- 证据：[R1-B现场报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md) 与 [原始目录](../evidence/r1b_20261025/)；原始现场只读身份、SO、G0、Rank回溯与恢复状态详见报告。注意R2的当前分支/代码和历史R1-B对应不同提交及不同执行时间，不得把历史G0直接用于下一次上机。
+- **明确取消**：定制310P V2 Worker/ModelRunner、通用 Triton 替换31项、46项Runner准入矩阵、Hybrid/Mamba/GDN ModelState重写、K7 rejection/sampling、multi-KV/draft 状态缓存重建、Device Copy Consumer、ModelState facade、API对齐/单独runner CI。禁止再以“Runner不能运行”为由扩展这些模块。
+- **隔离并废止**：`work/310p-v2-r2-implementation-20261025`的所有Runner重建资产不得合入主线，关联 PR #7 关闭为**不采纳**；旧 `V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md`从主线删除，旧测试/文档不再作为当前CI或项目入口。R2分支仍存在时只可作为只读历史；分支删除需工具支持，不通过危险的强制移动引用代替。
+- **回滚误入主线的试验门禁**：310P3 V2 Triton验证豁免恢复为历史 Stock/V1 原有env-only选择逻辑；保留`NPUWorker310.init_device`对未实现V2的提前拒绝，防止静默把V1冒充V2。无设备编译/执行，Stock默认与已验证的V2融合Host/Kernel/LinearMethod完全不变。
+- **仅保留融合相关代码**：`vllm_ascend/_310p/ops/memfabric_mm_ar.py`、`memfabric_mm_ar_v2_serve.py`、`memfabric_mm_ar_runner_hooks.py`、`_310p/quantization/modelslim_config.py`与正式`csrc/_310P/memfabric_mm_ar_v2/src`。在用户指定能够真正运行Stock+DFlash的同一Runner/模型/业务负载上做开启/关闭融合A/B；只允许必要的算子ABI、LinearMethod、生命周期和Graph共存薄修复，禁止动DFlash模型本体。
+- **实测口径**：TP2/单卡双Die，input4096/output2048/concurrency10/50请求、K7 DFlash与相同真实Runner对照；L1完整 Stock MM+HCCL vs V2 MM+MemFabric，L2 Stock+DFlash vs 融合+DFlash，双Rank首调正确性、真实调用数/层、physical M/Graph是否命中、性能传导。大M继续极限调优，小M专攻同Kernel固定开销。Stock默认。
+- **实证边界**：R1-B过去在特定Stock+Draft+vLLM0.27.1旧Runner组合上构造失败（已归档），不得据此否定其他Stock成功配置；本次只是GitHub代码/项目治理，**没有新310P3推理、Kernel、Graph性能或现成Stock成功实测**。确切可工作Stock环境由后续只读取证锁定，不推断。
+- **准入**：只保留融合算子自身的数值/首写/SO/KVER/G0/Gate E安全门禁；**46项通用V2 Runner准入矩阵失效，不得用于阻塞本项目核心算子研发或DFlash薄接入。**

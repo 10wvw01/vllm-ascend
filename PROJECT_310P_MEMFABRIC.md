@@ -1,6 +1,6 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
-> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-25（Asia/Taipei）。
+> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-26（Asia/Singapore）。
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
@@ -9,8 +9,8 @@
 1. [项目控制台：当前结论、技术合同、最新决策、下一步、环境状态](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——**当前状态只在这里维护**。
 2. [工作分支与合入治理](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)——唯一主线、实验分支归档、代码来源与禁止事项。
 3. [统一性能基线与证据索引](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)——严格区分单算子 V2 内部收益、完整 V2 vs Stock、模型实际传导。
-4. [R2 V2 Runner无Triton全量任务锁定](csrc/_310P/memfabric_mm_ar_v2/docs/V2_RUNNER_TRITON_FREE_MASTER_PLAN_20261025.md)——R2-00～R2-21、测试/产物/验收/止损，不再逐报错临时扩展。
-5. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——已经确定的原则及被废弃的方向。
+4. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——**ADR-013 正式废止重建 V2 Runner / DFlash 兼容体系，禁止继续从旧 R2 开发。**
+5. [正式 V2 融合工程及薄接入](csrc/_310P/memfabric_mm_ar_v2/docs/README.md)——只改 MM+MemFabric 算子、选层与必要的 Stock 回退。
 6. [DFlash K7 Stock/V2四象限实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——先Stock Eager，再V2 Eager；Graph受控研究。
 7. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
 8. [310P 融合算子工程入口](csrc/_310P/memfabric_mm_ar_v2/docs/README.md) 与 [目录内自动执行约束](csrc/_310P/memfabric_mm_ar_v2/AGENTS.md)。
@@ -32,7 +32,7 @@
 | 小 M（M=10） | F1-C：T1 425.2µs vs 原生 Stock 308.2µs，T1 等效速率约 −27.5%；NO-GO |
 | F2 Chunk 缩小 | 256、512 均不优于1024；保留 D4 Chunk1024 / Overlap1 |
 | MemFabric 长稳与 Graph | 507014 Gate E 尚未根治；Graph 不能仅依据输出正确就宣称真正命中融合 |
-| R1 DFlash K7 | R1-B证据已选择性归档；现场G0 PASS、Stock Eager Draft混合注意力门禁FAIL，V2/Graph NOT_RUN；310P专属V2 Triton验证已研发性豁免，但V2 Worker未移植，仍非实机GO |
+| DFlash/Stock 集成 | 保留 Stock/DFlash 基线与 R1-B 历史证据（当时指定组合失败）；**重建 V2 Runner/DFlash 兼容体系正式废止**。融合只做现有模型路径的 LinearMethod 薄接入与 Stock 回退，实际可运行环境和融合命中须分别验证 |
 | U1 统一诊断工具 | 已纳入 GitHub 纯CPU源码/合成数据合同回归；**U1真实设备运行仍NOT_RUN**，不是研发主目标 |
 | 统一主线 | **本分支**；已有[专用CI](https://github.com/10wvw01/vllm-ascend/actions/runs/40126962427)：治理6/6 + V2源码合同54/54 PASS；正式Kernel未因治理改变 |
 
@@ -45,3 +45,5 @@
 - 每个有实质意义的工作：在本主线或由其派生的短命任务分支完成，审查后回到本主线；不要把新的实验分支当长期主线。
 - 每次完成实机、性能决策、接口变更或外部 DFlash 基线变化，**必须同一批提交更新** `PROJECT_CONTROL.md`，必要时补 ADR/性能报告/分支表。未更新项目控制台的任务视为**未完成归档**。
 - 不把文档的“预计收益”“静态通过”“本地测试通过”写成实机 PASS；环境 SO、KVER11 和运行时真正命中的 Kernel 都须有证据。
+
+> **2026-10-26 纠偏硬规则：** `work/310p-v2-r2-implementation-20261025`、PR #7、R2-00～21、T01～T31/46项通用Runner兼容矩阵全部废止，不得从中合入 Runner、DFlash、Hybrid ModelState、GDN/采样/多KV重建代码。唯一目标：保持可运行的Stock+DFlash框架不变，仅替换合格RowParallelLinear的 MM+HCCL 为 V2 MM+MemFabric，真实设备测试按G0/安全门禁执行。历史R1-B失败只属于当时的冻结配置，不得断言其它已可运行Stock环境也失败。
