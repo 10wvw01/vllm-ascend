@@ -88,7 +88,7 @@ CPU Torch模式已经能用**设备形态的Tensor决策+设备形态的int32 Bl
 ### 后续唯一高优先级
 **R2-P0-E/NPU-VALIDITY-COPY**：在同一目标下，将device tensor有效性、按组block id、目的冲突检测和带mask整块copy封装成能在310P3上fail-closed的设备端操作；必要时以独立AscendC算子实现，然后审查Stream/Event/ReqSlot生命周期。形成独立STATIC-GO后再讨论调度器/真实ModelState接线，绝不先删除双保护。
 
-**本轮结论：关键连接的CPU Tensor真实拷贝与未注册ModelState顺序合同已实现；正式310P3 NPU Copy和真实ModelState注册仍NO-GO / NOT_RUN，R2-A 0/46。**
+**本轮结论：关键连接的CPU Tensor真实拷贝与未注册ModelState顺序合同已实现；正式310P3 NPU Copy和真实ModelState注册仍NO-GO / NOT_RUN，R2-A STATIC-NO-GO 0/46。**
 
 ## 五、第二轮审查追加回归与机器门禁
 
