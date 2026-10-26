@@ -94,7 +94,7 @@ U1一次`large screen`分别以原生FP16 Stock（独立HCCL进程）与正式D4
 - **D1诊断**：M4096正式4Chunk overlap与4Chunk loop4串行对照；所有诊断独立进程、每Case先位精确，再看延迟方向，**不允许用两条不同内核的p50直接相减去声称重叠节省了Xμs**。
 - **D2正式**：独立路径 `u1_run.sh <新目录> large confirm`，8会话Stock/D4 ABBA ×2，每会话每M5预热+40双Rank样本；除5%每轮收益、p90/p99和热态漂移门槛外，还需单独证明Stock HCCL跨流Event真的覆盖所有通信与MemFabric路由真实性。**不自动启动、单独向用户申请实机许可**。
 - **D3 Profiler**：只有D1定位具有价值时开启**独立短窗口**，取设备端TimeLine区分MM、跨Die SDMA发起/等待、IB同步、Add、final DONE；不能用Profiler污染主ABBA。若采样不支持精确阶段拆解，写`PHASE_TIMING_NOT_OBSERVABLE`，严禁凭假设臆造分段μs。
-- **D4 Serving模型回传**：现成Stock+DFlash路径仅以融合LinearMethod薄接入，锁定输入4096/输出2048/TP2/batch10/50请求/K7/Eager。需要真实模型侧每目标层M分布、融合命中、input contiguous copy调用次数及计时证据，才能用既有`u1_e2e_budget.py`估算乐观上界。上界不是实测吞吐，绝不复活ModelState/Runner重建任务。
+- **D4 Serving→Prefill TTFT模型回传（另行授权，非本轮A1自动执行）**：先在可运行的**普通Qwen3.6 Eager**路径上锁定input4096/output2048/TP2/并发10/50请求/ignore-eos，Stock与V2同模式分臂测试**TTFT**，记录各请求排队/Prefill步骤/首Token交付、40站点实际M与融合命中、输入`contiguous`拷贝/下游就绪以及双Rank关键路径；可另设input4096/output1/并发1热态诊断，不得替代正式业务。用`u1_e2e_budget.py`估算的只是基于真实调用数的乐观算子预算，不等于Prefill节省或TTFT实测；必须另测两者才能解释传导。**DFlash K7及Graph**保持相同模式Stock对照的独立实验，不能混入普通Eager TTFT账本，更不能复活废止的Runner/ModelState重建。
 
 ## 4. 高价值瓶颈诊断队列
 
