@@ -172,3 +172,10 @@
 - **实测口径**：TP2/单卡双Die，input4096/output2048/concurrency10/50请求、K7 DFlash与相同真实Runner对照；L1完整 Stock MM+HCCL vs V2 MM+MemFabric，L2 Stock+DFlash vs 融合+DFlash，双Rank首调正确性、真实调用数/层、physical M/Graph是否命中、性能传导。大M继续极限调优，小M专攻同Kernel固定开销。Stock默认。
 - **实证边界**：R1-B过去在特定Stock+Draft+vLLM0.27.1旧Runner组合上构造失败（已归档），不得据此否定其他Stock成功配置；本次只是GitHub代码/项目治理，**没有新310P3推理、Kernel、Graph性能或现成Stock成功实测**。确切可工作Stock环境由后续只读取证锁定，不推断。
 - **准入**：只保留融合算子自身的数值/首写/SO/KVER/G0/Gate E安全门禁；**46项通用V2 Runner准入矩阵失效，不得用于阻塞本项目核心算子研发或DFlash薄接入。**
+
+## 14. 2026-10-26｜主线A启动：大M完整Stock基线重建与瓶颈判定（A1工作分支）
+
+- 工作分支`work/310p-mm-ar-large-m-a1-20261026`从干净主线`7dc8ad465ce1`派生，**只新增纯CPU归因工具/测试及工程合同文档**；不改V2正式Kernel/Host/Serving/Stock默认，也不涉及ADR-013废止的V2 Runner、Hybrid ModelState、DFlash重建。
+- [A1设计、历史证据间的不可直接比较性、两阶段实机合同与瓶颈队列](A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md)。正式`M=2048,4096`完整算子Stock FP16 F.linear+HCCL AR与D4 V2 MM+MemFabric AR必须严格双Rank配对，M1024仅隔离诊断。现有U1`u1_run.sh`/分析器直接复用，不新建危险诊断核、不自动跑设备。
+- 新增`test/perf/a1_large_m_assess.py`对真实U1原始manifest、设备SO身份、两Rank日志和样本调用原`u1_analyze.evaluate()`复算；输出完整Stock差距、Screen/Confirm路由审计与优先诊断队列。`test/ut/test_a1_large_m_assess.py`覆盖合成数学与伪GO拒绝。**没有新310P3结果，本轮设备、G0/Smoke、Confirm、Profiler均NOT_RUN；CPU CI以实际Actions为准。**
+- 下一动作：审核独立Draft PR的静态/CPU合同（两轮审查），确认G0/备份/恢复/编译/设备独占后才提示用户委托OpenCode执行**大M G0和短Smoke**；Screen/Confirm/Profiler不能在G0未经准入时自动连跑。已有507014/首写/双Die挂死仍为Production P0阻塞。

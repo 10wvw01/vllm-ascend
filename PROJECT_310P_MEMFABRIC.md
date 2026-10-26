@@ -47,3 +47,7 @@
 - 不把文档的“预计收益”“静态通过”“本地测试通过”写成实机 PASS；环境 SO、KVER11 和运行时真正命中的 Kernel 都须有证据。
 
 > **2026-10-26 纠偏硬规则：** `work/310p-v2-r2-implementation-20261025`、PR #7、R2-00～21、T01～T31/46项通用Runner兼容矩阵全部废止，不得从中合入 Runner、DFlash、Hybrid ModelState、GDN/采样/多KV重建代码。唯一目标：保持可运行的Stock+DFlash框架不变，仅替换合格RowParallelLinear的 MM+HCCL 为 V2 MM+MemFabric，真实设备测试按G0/安全门禁执行。历史R1-B失败只属于当时的冻结配置，不得断言其它已可运行Stock环境也失败。
+
+### 2026-10-26｜主线A大M完整算子重新取证已启动
+
+[方案与最新门禁](csrc/_310P/memfabric_mm_ar_v2/docs/A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md)落在从本主线派生的`work/310p-mm-ar-large-m-a1-20261026`。只增加CPU证据重验工具、测试和诊断决策，不改Kernel或DFlash框架。最新Tile2048相对真实Stock M2048/4096的收益**仍UNKNOWN**；完成G0/双Rank证据后再进入真实瓶颈优化。

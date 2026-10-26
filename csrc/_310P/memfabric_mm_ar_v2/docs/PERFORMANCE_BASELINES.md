@@ -68,3 +68,9 @@
 ## R1-B现场证据归档（R2-00，仅事实，非新性能）
 
 - [R1-B原始报告](R1B_STOCK_EAGER_SMOKE_NOGO_REPORT_20261025.md)和[evidence/r1b_20261025](../evidence/r1b_20261025/) 已由历史独立取证分支选择性导入唯一主线。G0 PASS；Stock+DFlash加载Target后因草稿混合Attention架构校验失败，**V2 Eager与两组full / Graph全部NOT_RUN**；新增输出速率、TTFT、ITL、acceptance、physical M / fusion hit均UNKNOWN。
+
+## 2026-10-26｜A1大M完整算子重测启动：新结果暂为空
+
+- 2026-10-21真实Prefill profiler的Stock约1944μs（MM795+HCCL1149）与V2约2573μs、额外contiguous约66μs，是**历史同场景归因**；D4的V2 2726.9→2556.3μs（内部-6.26%）属于另一无Profiler设备微基准，**严禁跨环境相减**。
+- 新工作分支`work/310p-mm-ar-large-m-a1-20261026`以`A1_LARGE_M_BASELINE_AND_BOTTLENECK_20261026.md`和纯CPU`a1_large_m_assess.py`重建M2048/4096完整FP16 Stock+HCCL与最新D4 V2+MemFabric同环境对照合同。**截至当前未取得新真实Stock/V2双RankABBA样本，差距=UNKNOWN、硬件子相位耗时=UNKNOWN、模型收益=UNKNOWN。**
+- 旧U1工具只作设备侧G0后才能被授权执行；M1024只可作诊断形状，不当作正式Serving融合命中；Screen不授予GO，Confirm有独立跨流HCCL/路由证明也只可能得到算子候选结论。
