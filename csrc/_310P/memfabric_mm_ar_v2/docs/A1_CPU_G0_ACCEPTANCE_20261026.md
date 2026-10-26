@@ -63,3 +63,8 @@ python3 "$PERF/a1_g0_readonly.py" --out /独立取证目录/a1_g0_readonly.json
 5. OpenCode输出`card_selection.json`或同等四卡清单、物理卡ID/Rank映射及淘汰原因。无可用卡时停止，不因CPU PASS或单卡异常自行签发Smoke GO。
 
 来源：主线 [2026-10-23 已实证的MemFabric部署与换卡档案](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)。**本条没有新的选卡实机测量、没有在新卡部署KFC、没有授予Kernel运行许可。**
+
+## 6. 2026-10-26 G0 根目录静审修正（待CPU/现场复验）
+
+- 审查发现 `a1_g0_readonly.py` 默认 `ROOT` 原取 `Path(__file__).resolve().parents[4]`，实际是仓库 `csrc/`，不能正确检查仓库根 HEAD/clean tree。修正为 `parents[5]`，新增默认根目录结构UT；调用时仍需核对隔离工作树、可显式指定 `--repo-root`。
+- 这是G0元数据路径修复，不改变设备/Kernel/Serving，不允许以提交成功代替原仓CPU测试PASS或现场G0。310P Smoke/Screen/Confirm仍NOT_RUN。
