@@ -109,3 +109,11 @@
 - **验收四环**：① L1完整Stock vs V2单算子；② 真实Serving目标站点净耗时；③ Prefill步的双Rank关键路径净变化；④ 客户端TTFT含排队、分块/混合调度、首Token返回的逐请求p50/p90/p99。同场同模式证据说明为什么算子µs不能全传到TTFT；不以各层p50简单累加、TTFT变化大于/小于推算或当前旧Profiler 3.3%占比直接作GO。
 - **正式业务合同不变**：Qwen3.6-35B-A3B-w8a8普通Eager，input4096/output2048/TP2/并发10/50请求/ignore-eos；独立input4096/output1/并发1热态Eager仅用于隔离Prefill归因，不能代替正式TTFT验收。投机DFlash/Graph保持单独同模式账本及既有薄适配边界（ADR-013），不受本次焦点收敛而废止。
 - **取舍、安全及状态**：只更新项目文档、测量和后续验收目标，不更改正式Kernel/Serving、Stock默认与MemFabric协议；发布级Gate E/507014及冷首写/bit-exact仍为硬门禁。A1 PR#9目前仅待原仓CPU合同、四卡只读G0；Smoke/Screen/Confirm/Profiler与新增E2E TTFT **全部NOT_RUN**。后续分阶段人工审批，出现设备异常STOP保全现场；不能由本决策自动授权实机运行。同步更新`PROJECT_CONTROL.md`、`PERFORMANCE_BASELINES.md`、A1工作方案及仓库入口，主线仅经评审合入。
+
+**ADR-015执行策略补充｜2026-10-27｜L3-first前置性能门槛（与原目标一致）**
+
+- 大 M 每一代新候选按真实Qwen3.6**完整Prefill Step双Rank关键路径**的可重复改善决定是否进入客户端正式L4；L1完整Stock仍是算子诊断基础，L2真实40站点拷贝/形状/同步归因为优化对象。
+- L3应在冻结输入4096/output1、并发1、TP2、Eager且无Profiler的真实模型路径上，依靠**具有设备完成语义**、无每次Device Sync引入额外税的Prefill Step计时；少量Profiler用于独立核执行/依赖时序交叉校验，不可将带Profiler时延或单请求客户端TTFT冒充纯L3。现有工具尚未被证实具有无Profiler Prefill设备Step计时能力，未静态/实测验证前一律标`L3_MEASUREMENT_NOT_READY`。
+- L3先轻量Stock/V2 Screen，方向正向且现场准入后再做无Profiler跨Serve的Stock–V2–V2–Stock重复Confirm，按预先冻结的Stock漂移/测量不确定性门槛判断`L3_GO`；未获稳定正向时`L3_NO_GAIN/INCONCLUSIVE`返回L1/L2继续优化，**不启动正式4096/2048/50/10 L4**；不能按不适当的5% L3门槛阻断真实小幅正收益。L3即使通过也不保证混合调度L4正收益，L4独立验证正式TTFT。
+- L3测量研发不构成通用Runner/DFlash状态机改造许可；仅允许测试路径可审计的低侵入采样，Stock产品默认、G0/首写/507014/异常STOP及每阶段人工许可不变。对应[历史复用与L3-first专项方案](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。本修订没有产生新310P3测量。
+
