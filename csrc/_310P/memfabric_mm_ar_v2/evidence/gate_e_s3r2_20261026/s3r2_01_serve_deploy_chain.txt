@@ -1,0 +1,30 @@
+=== deploy chain + acceptance lines (serve.log L405-424, full) ===
+2026-10-26 16:53:40.986600 WARN [579026-579026][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-26 16:53:40.987590 WARN [579026-579026][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-26 16:53:40.987595 WARN [579001-579001][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-26 16:53:40.987717 WARN [579026-579026][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-26 16:53:40.987723 WARN [579001-579001][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-26 16:53:40.987794 WARN [579026-579026][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-26 16:53:40.987806 WARN [579001-579001][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+[helper] kernel already present: /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so
+[helper] kfc sync=507018 cmd='test -f /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so'
+[helper] kernel missing, deploying: /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so
+[helper] deployed and verified: /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so size=13960
+(EngineCore pid=578690) INFO 10-26 16:54:40 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(Worker_TP1 pid=579026) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:117] [mf310p-v2] M=4096 within [2048,4096]: V2 MM+MemFabric (chunk=1024)
+(Worker_TP0 pid=579001) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:117] [mf310p-v2] M=4096 within [2048,4096]: V2 MM+MemFabric (chunk=1024)
+(Worker_TP1 pid=579026) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)
+(Worker_TP0 pid=579001) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)
+(Worker_TP0 pid=579001) WARNING 10-26 16:54:50 [sampler.py:54] [sample/sampler] Triton not available, falling back to vLLM default penalty implementation. Penalty performance may be degraded on NPU. 
+(APIServer pid=578331) INFO 10-26 16:54:55 [loggers.py:310] Engine 000: Avg prompt throughput: 409.6 tokens/s, Avg generation throughput: 0.2 tokens/s, Running: 3 reqs, Waiting: 7 reqs, GPU KV cache usage: 2.4%, Prefix cache hit rate: 0.0%
+(APIServer pid=578331) INFO 10-26 16:55:05 [loggers.py:310] Engine 000: Avg prompt throughput: 1638.4 tokens/s, Avg generation throughput: 1.4 tokens/s, Running: 7 reqs, Waiting: 3 reqs, GPU KV cache usage: 5.6%, Prefix cache hit rate: 0.0%
+(APIServer pid=578331) INFO 10-26 16:55:15 [loggers.py:310] Engine 000: Avg prompt throughput: 1228.7 tokens/s, Avg generation throughput: 2.1 tokens/s, Running: 10 reqs, Waiting: 0 reqs, GPU KV cache usage: 7.9%, Prefix cache hit rate: 0.0%
+
+=== zero-fault assertions ===
+507014 count: 0
+507899 count: 0
+kfc launch failed (worker, lib format 'kfc launch failed, ret:') count: 0
+falling back to in-process count: 1
+deploy helper failed count: 0
+worker death patterns count: 0
+helper mode lines: 4
