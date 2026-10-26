@@ -36,7 +36,7 @@
 ## 3. 决策和移交
 
 - **R0阶段验收：`R0_EVIDENCE_ACCEPTED / CPU_PASS / PROVENANCE_FOUND / ARTIFACT_REUSABLE`**，不需要重新跑CPU或盲目重编Host SO。
-- **本轮G0：`G0_READONLY_OBSERVED / APPROVAL_PENDING`**。16384为唯一候选，数据取证采样时健康；不能签发`G0_GO`或`DEPLOYMENT_READY`，仍需E2恢复方案确定、实际装载二次身份和使用授权。
+- **本轮G0：`G0_READONLY_OBSERVED / G0_APPROVAL_PENDING / DEPLOY_NO_GO`**。16384为唯一候选，数据取证采样时健康；不能签发`G0_GO`或`DEPLOYMENT_READY`，仍需E2恢复方案确定、实际装载二次身份和使用授权。
 - **下一步：**研发侧落实修复源码长期GitHub归档与隔离部署可行性静审，再安排用户/OpenCode单批次`E2 preflight→（许可后）受控加载/恢复→（独立许可后）M2048短Smoke`。不执行L1 Screen/Confirm和L3模型长测。
 - **安全/项目状态**：Gate E首写潜在静默损坏未被关闭，非0/1映射仍需真实CPU/NPU链确认，`L3_MEASUREMENT_NOT_READY`未解决，PR#9依旧Draft。仓库A1版本仅用于解释R0，不自动合主线代码。
 
