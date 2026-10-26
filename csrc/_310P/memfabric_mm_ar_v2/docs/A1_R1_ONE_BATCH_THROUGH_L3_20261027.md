@@ -30,7 +30,8 @@
 - `test/perf/a1_r1_smoke_gate.py`：纯CPU核原始Stock/V2双Rank M2048 Smoke、KFC/实际加载/独占等**外部取证**；只在`ALLOW_SCREEN`时进入S2。外部`attestation`必须有`scope=A1_R1_M2048_SMOKE_RUNTIME_ATTESTED`、物理卡映射、9个全真条件及至少6份真实非空日志/trace，禁止无根据填写True。
 - `vllm_ascend/_310p/a1_prefill_event_probe.py` + `vllm_ascend/worker/model_runner_v1.py` **环境开关测试插桩**：只在`A1_310P_PREFILL_EVENTS_DIR`指向现存私有绝对目录时启用，在Forward进入与Logits输出处各记录一个NPU Event，并仅在原本自然设备完成后检查`Event.query()/elapsed_time()`，不插入同步；将完成事件写出`a1_prefill_rank{rank}_pid{pid}.jsonl`。默认开关未设时不执行事件测量，**不是替换Runner、不会将事件自动解释为完整Step**。
 - `test/perf/a1_prefill_serve_session.sh`：单次私有、独立`vllm serve`，强制明确模型/卡/端口/SO身份与全新输出，Stock/V2同参数；`l2_profile`才允许profiler，`l3_event`只开上面的无Profiler事件；客户端统一`a1_prefill_http_requests.py`（固定4096输入、1输出、请求串行、逐请求日志）。
-- `test/perf/a1_l3_prefill_assess.py`：只接受四Serve S1/F1/F2/S2、每Rank恰好对应36条有效4096Token预填事件、同版identity、L2 Trace/设备依赖与Rank请求对齐签核；输出与Stock漂移对照后才可能`L3_GO`。**此时L3测试代码仍需原仓CPU和现场Event API自检；不允许在采集失败后把HTTP客户端延迟填进设备Step字段**。
+- `test/perf/a1_l2_site_audit.py`：必须从Stock/V2两次双Rank真实Profiler构造逐层映射，每个Rank/Step真实10个o_proj+30个out_proj，具实际执行/物理M、HCCL/MemFabric AR完成、Copy和原始设备Trace；未证实则`L2_INCOMPLETE`，不能仅凭40次Kernel计数自称通过。
+- `test/perf/a1_l3_prefill_assess.py`：只接受四Serve S1/F1/F2/S2、每Rank恰好36条有效4096Token预填事件、同版identity、**独立`L2_VERIFIED`报告**、L2 Trace/设备依赖与Rank请求对齐签核；否则不得`L3_GO`。测试代码仍需原仓CPU和现场Event API自检；禁止以HTTP延迟代替Prefill设备Step。
 - `test/ut/test_a1_{r1_loader_readonly,r1_smoke_gate,prefill_event_probe,l3_prefill_assess}.py`：全部为纯CPU合同测试。**现场先执行完整原仓pytest/py_compile/bash -n**；没有本轮新实机执行记录前，一律NOT_RUN。
 
 示例（真实路径由OpenCode经过S0审计后填写，不能从示例覆盖当前现场）：
@@ -62,6 +63,15 @@ bash "$P/test/perf/u1_run.sh" /THIS_BATCH/ABS/confirm large confirm
 # A1_SERVE_STORE_PORT/A1_RUNTIME_IDENTITY_JSON，保证端口空闲与每臂独占。
 bash "$P/test/perf/a1_prefill_serve_session.sh" stock l2_profile L2S /THIS_BATCH/ABS/l2_stock
 bash "$P/test/perf/a1_prefill_serve_session.sh" v2    l2_profile L2F /THIS_BATCH/ABS/l2_v2
+# L2两场完成后，现场依据真实双RankTrace填逐层kernel/stream/AR/Copy映射，
+# 并先调用a1_l2_site_audit.py生成L2_VERIFIED；否则L3仍可以采数据，
+# 但不能获得L3_GO。将该真实输出保存在l3/l2_verified_report.json，
+# 并在l3/l2_route_calibration.json写入相对路径字段：
+# "l2_verified_report": "l2_verified_report.json"。
+python3 "$P/test/perf/a1_l2_site_audit.py" \
+  --root /THIS_BATCH/ABS/l2 \
+  --audit-json /THIS_BATCH/ABS/l2/site_observations.json \
+  --out /THIS_BATCH/ABS/l3/l2_verified_report.json
 bash "$P/test/perf/a1_prefill_serve_session.sh" stock l3_event S1 /THIS_BATCH/ABS/l3/sessions/S1
 bash "$P/test/perf/a1_prefill_serve_session.sh" v2    l3_event F1 /THIS_BATCH/ABS/l3/sessions/F1
 bash "$P/test/perf/a1_prefill_serve_session.sh" v2    l3_event F2 /THIS_BATCH/ABS/l3/sessions/F2
