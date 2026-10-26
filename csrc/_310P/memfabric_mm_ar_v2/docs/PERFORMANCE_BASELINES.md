@@ -22,6 +22,21 @@
 | [C3 2026-10-24](https://github.com/10wvw01/vllm-ascend/blob/perf/310p-v2-c3-cleanlines-unroll4-20261024/csrc/_310P/memfabric_mm_ar_v2/docs/V2_C3_CLEANLINES_UNROLL4_ONDEVICE_REPORT_20261024.md) | L0，CleanLines unroll4 | 名义约**+1.70%**、配对有负有正 | 未跑真实Qwen，NO-GO，不合入 |
 
 ### L1正式测试协议
+### ADR-015：大 M 的 Prefill→TTFT 四层传导验收合同（2026-10-27）
+
+**唯一最终性能目标：**真实 Qwen3.6 Prefill 的客户端 **TTFT** 正向改善（同业务配置Stock vs V2，报告p50/p90/p99和逐场差异，不预设未经确认的提高比例）。L0 V2内部性能改善只作工程指标，L1是**原生FP16完整Stock MM+HCCL AllReduce vs 正式V2完整MM+MemFabric AR**，最终以模型TTFT判定，不以输出吞吐或TPOT代替。
+
+| 层 | 必须核对及归档 | 判定边界 |
+|---|---|---|
+| L1 原生算子完整链 | 同卡双Die、同M/K/N、原生FP16 Stock `F.linear+HCCL AR`的实际完成时延 vs D4及后续正式V2；双Rank原始样本、真实HCCL跨流Event/route审计、输入与weight布局、必要同步 | Stock MM-only、只计融合Kernel、旧W1/W4同步税或逐调用HCCL竞争都不能代表真实Prefill完整链 |
+| L2 真实40站点 | `o_proj`10 + `out_proj`30每Rank的真实路由/次数/物理M和stride/padding；目标算子的执行流、`x.contiguous()`、Stage与输出可被下游消费的实际完成时间 | 40站点是既有目标范围，**每次请求实际命中必须实测**，不能假设总是40；不可把两Rank、相互重叠的Kernel时间直接相加 |
+| L3 完整Prefill步 | 同一请求各Prefill调度步的起止时间、双Rank同步、目标站点到下一消费算子的依赖、模型其它算子和设备重叠、Step关键路径变化 | 单请求旧Profiler目标站点约占3.3%仅为历史证据，不是当前D4的实际占比或TTFT收益上限 |
+| L4 客户端首Token TTFT | 正式工作负载Stock/V2同卡同环境交叉、逐请求排队/Prefill执行/首Token返回时间、p50/p90/p99及失败率；必要时另外做隔离Prefill诊断 | TTFT包含排队、Continuous Batching/Chunked Prefill及返回；**输出token吞吐/TPOT不是本大M项目的最终验收主指标** |
+
+**测试负载不得混算：**(A) 单请求辅助归因：input4096/output1/并发1、热态Eager、TP2，仅用于区分Prefill执行路径，不替代业务TTFT；(B) **正式E2E**：input4096/output2048/TP2/并发10/50请求/Eager/ignore-eos，双方同版本同卡、同负载、记录逐请求TTFT以及真实M/融合命中；DFlash/Graph另按同模式对照，不能混进普通Eager账本。两种负载均须记录是否有首次池初始化/冷首写/首次校验，热稳性能不得和冷态混算。
+
+**收益传导报告强制回答：**① L1真正省了多少µs；② 40站点真实命中和额外布局/拷贝后净省多少；③ 双Rank关键路径上完整Prefill步缩短多少；④ 客户端TTFT为何只变化这些（排队、调度、噪声）；⑤ 是否已能用同场证据解释差额。禁用“每层p50 × 40 = TTFT节省”的未经时序验证的推算。若没有同步的真实Profiler/无Profiler证据，则相应阶段记`UNKNOWN`。2026-10-21旧Prefill报告W1 Stock同步税与W4通信连发竞争已实证影响微基准，最新D4的真实完整L1仍`UNKNOWN`，本决策不增加任何实机数值。
+
 
 1. **同一310P3单卡双Die/TP2**，固定K/N=2048（目标attention投影真实形状）、FP16和模型实际Weight格式，确认引用相同逻辑输出及数值标准；若候选要求NZ而Stock原生可直接用非contiguous输入，要把必要转换/暂存作为候选完整成本。
 2. 独立进程隔离HCCL和MemFabric正式对照，控制热态、CANN/kernel SO、Host、KVER、AICPU部署版本、核频及占用；必要时用安全的混合路由实机验证复核，但不擅自宣称HCCL+MemFabric同进程Graph安全。
