@@ -231,3 +231,10 @@
 - **当前允许的下一次委托**：单批**BATCH-R1A**（新隔离工作树→四卡/租户重扫→7个候选/在装文件SHA与ELF静态依赖→私有Host/D4 staging copy→Python插件/Device注册路径追溯→真实原仓CPU回归→可行性、维护窗口/回滚计划）。全部只读/CPU，不安装SO、不建池/KFC、不执行Kernel；回传证据后才可能独立许可**R1B**（真实装载证明、16384独占复查和最小M2048 Smoke）。R1B Smoke仅正确性准入，不会自动进入L1 Screen/Confirm/L3/L4。
 - **唯一进度台账**：[大M Prefill TTFT实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)新增E-04与E-05，E-02源归档完成、B-07运行时装载阻塞未解。主线继续Stock默认；Gate E首写/507014、Die7 Alarm/共享租户和全部阶段STOP约束不放宽。
 
+## 21. 2026-10-27｜用户最新授权一次进场：环境→M2048 Smoke→L1→L2→L3，按真实门禁连续推进
+
+- **最新授权覆盖旧组织流程**：无需再反复回来申请Smoke/Screen/Confirm/L2/L3各个正常步骤；只要R1真实隔离环境/同卡双Die/源码SO装载/回滚和CPU均通过，现场同一OpenCode委托可以运行M2048 Stock/V2两Rank Smoke；**Smoke双Rank位精确、协议、首次KFC/首写均正确，并通过`a1_r1_smoke_gate.py`现场证据核验后**，继续完整Stock L1 Screen→HCCL跨流完成审计→Confirm（ABBA×2）→真实Qwen3.6双Rank 40层L2短Profiler→无Profiler L3 Prefill Event四Serve ABBA。若L3_GO、设备安全与正式业务脚本都符合冻结合同，后续正式L4仍不得跳过L3直接开跑。新用户许可**不包含**共享SO/别人的editable代码写入、设备异常后换卡重试或跳过硬门。
+- **已准备的A1工具**：Smoke纯CPU严格验收、L2逐层实际Kernel/HCCL/Copy和每Rank40站点证据校验、测试环境开关的`forward→logits` Device Event（无任何额外sync）、L3双Rank四场Stock–V2–V2–Stock原始事件对照、短Profiler/无Profiler模型请求器和隔离Serve封装、对应CPU测试。详见[一次批量实验实施合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_ONE_BATCH_THROUGH_L3_20261027.md)。**目前只是代码提交及静态检查准备，原仓CPU/实机事件API与完整Prefill依赖计时覆盖仍需现场验证**，不能提前记为L2/L3 PASS。
+- **为什么要真实L2校准L3**：Event只取真实模型Forward入口→Logits产生，若没有与设备Trace/跨Stream依赖校验，它**尚不能冒充整个Step关键路径**。实际目标Kernel必须按10个o_proj+30个out_proj核实，不能凭Profiler Kernel名称或40次Kernel时长相加签L3；若无可审计完成边界，输出`L3_MEASUREMENT_NOT_READY`，保留本批可用L1/L2结果，不执行正式L4。性能负增益本身不取消L2诊断或大M继续优化。
+- **主线与实施分工**：主线[实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)增加E-06任务/本次最新授权；A1 Draft PR#9只承载新测试代码与运行报告。未取得新310P实测数据、Stock默认、Gate E/507014和首写安全发布阻塞不变。
+
