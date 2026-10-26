@@ -317,3 +317,8 @@
 
 - [R2-P0-E Device-Owned/ModelState审计](R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)：新未注册`hybrid_state_device_meta.py`实现GPU/NPU候选设备Tensor数学和128B metadata全行写，包含动态有效性mask、explicit NPU Stream与防复用pending，既不读设备标量回Host也不接私有Draft。
 - **分界清楚**：设备决策返回的src_col/dst_col/bias尚不能给旧`GDNMove310`Host复制器；NPU侧的validity gate/device-native BT寻址/真实GDN copy+completion event和ModelState绑定仍未完成，CPU模拟ack只用于gold，NPU不允许ack越过保护。`0/46 STATIC-NO-GO`、Worker/Hybrid早拒绝都保持。
+
+### 2026-10-26｜R2-P0-E 未注册关键连接
+
+- 新`_310p/v2/hybrid_state_device_copy.py`与`hybrid_state_modelstate_link.py`：device tensor T30/T31 src/dst/bias/mask → device int32 group block table →真实Torch CPU GDN Conv/Temporal复制，旁路旧Host GDNMove。两轮静态审查见[R2-P0-E-COPY](R2_P0_E_DEVICE_COPY_LINK_20261026.md)，新增CPU Tensor多组/多请求/完整调用顺序/失败poison回归。
+- **仅CPU Torch路径可执行**；device-copy NPU分支显式NotImplemented，真实ModelState/Backend注册未实施，device validity + collision fail-closed和NPU stream/event依旧阻断。Worker与load_model保护未解除，设备NOT_RUN，R2-A STATIC-NO-GO 0/46。

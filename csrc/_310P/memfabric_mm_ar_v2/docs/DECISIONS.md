@@ -105,3 +105,9 @@
 - 决定：唯一Target/TP2/K7 的T30-A/T31-A设备计算使用device-owned int32张量与**整128B元信息行写**；`num_sampled`与真实`num_computed_tokens`保留设备归属，禁止用乐观Host镜像或逐req`.item()/tolist()/cpu()`隐式D2H。
 - 原因：冻结vLLM真实批次的T30在Attention metadata构造前，T31在post_update之后执行；接受数和块边界可能被异步调度更新。现有`GDNWholeBlockCopy310Candidate.execute`的Host`GDNMove`不满足这一ABI。
 - 后果：先交付CPU Tensor合同与未注册设备元数据候选；NPU完整物理状态复制、device validity fail-closed、Stream ownership及ModelState适配仍为P0硬门禁。保留Worker`NOT_IMPLEMENTED`、Hybrid align早拒绝、Draft NDA、Stock默认和R2-A STATIC-NO-GO 0/46；不授予实机许可。
+
+### ADR-R2-P0-E-COPY-20261026｜不得将CPU闭环作为NPU静态放行依据
+
+- 决定：设备端T30/T31决策接GDN物理搬运必须直连**同设备**独立Mamba KV Group BlockTable，不允许`.item()/tolist()/cpu()`逐请求Host中转。
+- 本期先交付可完整复制CPU Torch Tensor状态的未注册Consumer与签名对齐ModelState顺序facade；Consumer需确保所有group源快照和物理目的冲突检测先于首次写，错误poison。
+- NPU动态有效性门禁、GPU/Torch动态mask压缩和复制/完成Event没有310P3证据，**NPU路径禁止执行**。不能通过改变allow flag绕过；必须先实现并静审device-native fail-closed机制。Worker总门禁与Hybrid提前拒绝保持不变，R2-A 0/46、Draft、Stock默认。

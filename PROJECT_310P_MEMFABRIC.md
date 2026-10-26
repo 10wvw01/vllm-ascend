@@ -78,3 +78,7 @@
 ### 2026-10-26｜R2-P0-E设备元数据计算 + ModelState接线审计（工作分支未合入）
 
 [审计报告](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_DEVICE_STATE_AND_MODELSTATE_WIRING_20261026.md)与未注册`_310p/v2/hybrid_state_device_meta.py`新增device-owned T30-A/T31-A Torch Tensor计算和128B整行状态更新，CPU合同覆盖prefill/spec/K7、slot映射、非Spec哨兵和请求复用。发现现有GDN物理复制器依赖Host`GDNMove`，不得隐式D2H桥接；设备原生物理BT copy/validity/Event及真实ModelState接线仍需完成。Worker与Hybrid加载守卫未解除，R2-A仍NO-GO。
+
+### 2026-10-26｜R2关键连接在工作分支CPU合同闭环
+
+[Device-Native GDN Copy Consumer / ModelState顺序审计](csrc/_310P/memfabric_mm_ar_v2/docs/R2_P0_E_DEVICE_COPY_LINK_20261026.md)已实现从设备形态决策Tensor到独立Mamba Group BlockTable物理状态复制的**Torch CPU可执行完整测试链**，并明确保持NPU复制入口fail-closed。没有真实设备验证、没有NPU Worker/ModelState注册，也未改正式MM融合算子；R2-A静态0/46、PR#7 Draft。

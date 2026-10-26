@@ -342,3 +342,9 @@
 - 冻结上游先`prepare_attn`块表、后T30 preprocess、再ModelState.prepare_attn/forward；T31在post_update之后，顺序不可偷换。模型真实工厂/ModelState对象仍NOT_OBSERVED；Worker与Hybrid align加载的保护未改，PR#7仍Draft、R2-A STATIC-NO-GO 0/46，无设备测试、无性能新基线、自研Draft未读。
 
 - **2026-10-26补充**：R2-P0-E T30-A/T31-A device-owned metadata CPU合同已在工作分支CI验证通过；增加`tools/310p_mm_ar/test_r2_p0_e_modelstate_wiring_static.py`锁住Worker和Hybrid早拒绝、model_state后处理顺序、Host`GDNMove`不被当作设备复制器的明确分界。**现有CPU证据不改变静态准入0/46。**
+
+### 2026-10-26｜R2-P0-E 关键连接：Device Tensor→物理BT→GDN Tensor复制（未注册）
+
+- [实现、两轮审查及风险边界](R2_P0_E_DEVICE_COPY_LINK_20261026.md)：新增`vllm_ascend/_310p/v2/hybrid_state_device_copy.py`用**device-owned决策Tensor+device-owned Mamba group int32 BlockTable**计算物理状态地址，执行Conv SD/DS与Temporal整物理块复制，不经过CPU `GDNMove`。所有group/layer的源快照及物理目的重复检测先于任何写回。
+- 新增独立`hybrid_state_modelstate_link.py`，按公开Runner/ModelState方法签名串起T30→GDN状态precopy→prepare_attn GDN元信息→synthetic forward完成→T31 postcopy，并新增`tools/310p_mm_ar/test_v2_hybrid_device_copy_link.py`CPU Tensor金标/双请求/两KV Group/故障注入。
+- **本轮CPU闭环，不是310P3 NPU闭环**：动态无效索引/目的冲突/Stream Event和变长mask的NPU fail-closed仍缺实机证据。Consumer在`device.type=='npu'`**主动拒绝执行**，ModelState facade也CPU-only；旧Runner和Worker保护未动，Draft保密资料未读。R2-A仍0/46 STATIC-NO-GO、PR#7 DRAFT、设备NOT_RUN，Stock默认。
