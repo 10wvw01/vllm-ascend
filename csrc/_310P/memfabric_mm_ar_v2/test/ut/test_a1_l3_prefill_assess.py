@@ -51,9 +51,13 @@ class L3EventAssessUT(unittest.TestCase):
                     "\n".join(json.dumps(x) for x in ev) + "\n")
         for i in range(4):
             (root / f"device_trace_{i}.txt").write_text("real sample in synthetic test")
+        (root / "l2_verified_report.json").write_text(json.dumps({
+            "status": "L2_VERIFIED", "sites_per_rank_per_step": 40,
+        }))
         audit = {
             "schema": "A1_L2_L3_CALIBRATION_ATTESTED_V1",
             "event_resolution_ms": .01,
+            "l2_verified_report": "l2_verified_report.json",
             "evidence_files": [f"device_trace_{i}.txt" for i in range(4)],
             **{key: True for key in tool.AUDIT_TRUE},
         }
