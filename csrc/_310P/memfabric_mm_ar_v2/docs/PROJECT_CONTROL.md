@@ -181,3 +181,8 @@
 - 下一动作：审核独立Draft PR的静态/CPU合同（两轮审查），确认G0/备份/恢复/编译/设备独占后才提示用户委托OpenCode执行**大M G0和短Smoke**；Screen/Confirm/Profiler不能在G0未经准入时自动连跑。已有507014/首写/双Die挂死仍为Production P0阻塞。
 
 - **2026-10-26 A1第一轮执行回报**：改进`a1_large_m_assess.py`严格区分路由证据与M2048/4096性能候选，拒绝其中任一形状NO_GO但整组误放行；隔离本地CPU副本20项合同测试PASS（**不是GitHub原仓CPU或U1原始取证PASS**）。新增只读`a1_g0_readonly.py`/UT和[A1 CPU/G0交接](A1_CPU_G0_ACCEPTANCE_20261026.md)。PR#9保持Draft；原仓CI无运行记录；310P3 G0/Smoke/Screen/Confirm全部NOT_RUN。下一动作只允许用户委托OpenCode执行**真实原仓CPU+只读G0**并回传门禁，不准直接投放`U1_*_APPROVED`绕过。
+
+### 2026-10-26｜A1 只读 G0 默认仓库根目录修复（未实机）
+
+- A1工作分支修复 `test/perf/a1_g0_readonly.py` 的ROOT计算：旧 `parents[4]` 指向仓库内 `csrc/`，现改 `parents[5]` 指向仓库根；增加根目录UT并更新A1 CPU/G0交接记录。
+- 本项仅影响只读取证的Git HEAD/工作树判断；未改变正式Kernel/Serving/Stock，也未获得原仓CPU/CI执行成功及现场G0确认。所有310P3 Smoke/Screen/Confirm/Profiler仍NOT_RUN；PR#9保持Draft。
