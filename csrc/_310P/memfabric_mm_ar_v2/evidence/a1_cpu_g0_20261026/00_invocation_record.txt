@@ -1,0 +1,19 @@
+# A1 CPU+G0 readonly acceptance run invocation record (2026-10-26, OpenCode)
+date: 2026-10-26T06:48:12+00:00
+host: qwen-test 310P3 server
+repo: git@github.com:10wvw01/vllm-ascend.git
+target_branch: work/310p-mm-ar-large-m-a1-20261026
+target_commit: d89204b0a14af5b1469b2f9f397e32d5c77b6088
+isolated_worktree: /home/w00804146/310P/vllm-ascend-a1 (evidence branch work/310p-a1-cpu-g0-acceptance-20261026, based on target commit)
+worktree_HEAD: d89204b0a14af5b1469b2f9f397e32d5c77b6088
+tracked_tree_clean: yes (git status --porcelain --untracked-files=no empty)
+
+## G0 readonly invocation env (live deployment paths)
+ASCEND_RT_VISIBLE_DEVICES=6,7
+V2_HOST_LIB=/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+U1_DEVICE_SO_PATH=/home/w00804146/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device.so
+U1_CORE_SO_LIB64=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so
+U1_CORE_SO_PY=/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so
+MF_SDMA_ORCH_JSON=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json
+dangerous_flags_unset: MF_KFC_BYPASS MF310P_V2_NOWARMUP MF310P_V2_AR_ONLY_NOWARMUP (none present)
+command: python3 csrc/_310P/memfabric_mm_ar_v2/test/perf/a1_g0_readonly.py --out /home/w00804146/310P/a1_cpu_g0_evidence_20261026/a1_g0_readonly.json
