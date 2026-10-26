@@ -93,6 +93,10 @@ class TestA1ReadonlyG0(unittest.TestCase):
         self.assertIn('["npu-smi", "info"]', source)
         self.assertIn('G0_APPROVED": False', source)
 
+    def test_default_root_is_git_repository_root(self):
+        self.assertEqual(g0.ROOT, PERF.parents[4])
+        self.assertTrue((g0.ROOT / "csrc" / "_310P" / "memfabric_mm_ar_v2").is_dir())
+
     def test_collect_without_server_never_approves(self):
         with tempfile.TemporaryDirectory() as directory:
             v = g0.collect(Path(directory), {})
