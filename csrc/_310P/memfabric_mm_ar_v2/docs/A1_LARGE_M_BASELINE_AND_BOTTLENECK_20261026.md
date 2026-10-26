@@ -34,6 +34,8 @@
 
 **硬约束：**这些是可能重叠的设备计数器，**不能直接相加、相减**形成一份精确的Kernel关键路径分解；也不能把旧Profiler的MTE2 1711 μs直接写成最新Tile2048的“SDMA传输时间”。它们用于给后续诊断排序，**现版完整算子Stock ABBA结果仍为UNKNOWN**。旧报告同时显示每站点约66 μs input.contiguous开销，属于模型薄接入层的次级优化机会，不是Kernel内部的设备MTE2阶段。
 
+> **历史L1～L4盘点补充：**详见[2026-10-27历史数据复用与唯一最小TTFT实验组](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。原2026-10-21旧版Prefill的40站点和步周期已经独立CSV复算，不重新采旧实验；当前D4的Stock公平L1仍UNKNOWN。未来新模型实验只需2次短Profiler以及4次无Profiler Stock–V2–V2–Stock独立Serve会话（在每次Serve内先单请求4096/1，再正式4096/2048/50/10），须单独人工许可；**本A1现在仍只到原仓CPU+只读G0，现有实机顺序和全部STOP门禁不变。**
+
 ## 2. A1的实际新增代码
 
 - `test/perf/a1_large_m_assess.py`：**纯stdlib离线验收与决策工具**。只重新读取原始U1屏幕/Confirm目录，由现有 `u1_analyze.evaluate()` 逐文件校验 manifest、Rank0/1原始样本、时序、二进制SHA、双Rank配对与路由。拒绝仅凭手抄汇总表宣布GO。检查屏幕和确认的Git HEAD、物理卡号及四类SHA身份一致。
