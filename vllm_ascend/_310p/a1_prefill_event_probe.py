@@ -36,11 +36,16 @@ def begin(runner: Any, scheduler_output: Any) -> dict | None:
     start.record(torch.npu.current_stream())
     step_id = getattr(runner, "_a1_prefill_counter", 0)
     runner._a1_prefill_counter = step_id + 1
+    dist = getattr(torch, "distributed", None)
+    if dist is not None and dist.is_initialized():
+        rank = str(dist.get_rank())
+    else:
+        rank = os.environ.get("RANK", os.environ.get("LOCAL_RANK", "UNKNOWN"))
     return {
         "start": start, "step_id": step_id,
         "num_scheduled_tokens": int(scheduler_output.total_num_scheduled_tokens),
         "root": root,
-        "rank": os.environ.get("RANK", "UNKNOWN"),
+        "rank": rank,
     }
 
 
