@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import statistics
 from pathlib import Path
 
@@ -61,6 +62,23 @@ def session(root: Path, name: str, budget: int) -> dict:
                 f"{name}: invalid host monotonic clock")
         require(last is None or begin >= last, f"{name}: requests overlap or time rewinds")
         last = end
+    # MemFabric监督器本身在ConfigureOrch日志中给出epochBudgetS。
+    # 若BM_LOG_INFO被过滤，环境变量正确也不能冒充实际预算已生效。
+    serve_log = sub / "serve.log"
+    runtime_budget_verified = False
+    budget_die_ids = []
+    if serve_log.is_file():
+        configured = [
+            (int(dev), int(value)) for dev,value in re.findall(
+                r"sdma orch configured, devId:\s*(\d+)\s+epochBudgetS:\s*(\d+)",
+                serve_log.read_text(encoding="utf-8",errors="replace"))
+        ]
+        budget_die_ids = sorted(set(dev for dev,val in configured if val == budget))
+        runtime_budget_verified = len(budget_die_ids) == 2 and all(
+            val == budget for _,val in configured)
+        if re.search(r"epoch relaunch failed|epoch exited with error|507014|507899",
+                     serve_log.read_text(encoding="utf-8",errors="replace"), re.I):
+            raise ValueError(f"{name}: unresolved device/Epoch runtime error in serve.log")
     paired = [max(a,b) for a,b in zip(*events)]
     med = statistics.median(paired)
     mad = statistics.median(abs(x-med) for x in paired)
@@ -77,7 +95,9 @@ def session(root: Path, name: str, budget: int) -> dict:
             "rank_skew_at_spikes_ms": [
                 round(abs(events[0][i]-events[1][i]),3) for i in spikes],
             "threshold_ms": round(threshold,4),
-            "observed_epoch_boundary_in_device_or_host_log": False}
+            "observed_epoch_boundary_in_device_or_host_log": False,
+            "runtime_epoch_budget_verified": runtime_budget_verified,
+            "runtime_configured_die_ids": budget_die_ids}
 
 
 def evaluate(root: Path) -> dict:
@@ -94,17 +114,20 @@ def evaluate(root: Path) -> dict:
         return statistics.median(vals) if len(vals) >= 4 else None
     gap15 = median_gap([results[0],results[3]])
     gap5 = median_gap([results[1],results[2]])
+    all_config_verified = all(s["runtime_epoch_budget_verified"] for s in results)
     replicated = (all(len(r["spike_indices"]) >= 3 for r in results)
                   and gap15 is not None and gap5 is not None)
     shift = (replicated and 9 <= gap15 <= 21 and 2.5 <= gap5 <= 8
              and gap15 / gap5 > 1.8)
     return {"schema": "A1_R2_EPOCH_ABBA_V1",
-            "status": ("FREQUENCY_SHIFT_SUPPORTS_EPOCH_HYPOTHESIS_ONLY"
+            "status": ("EPOCH_RUNTIME_BUDGET_UNVERIFIED" if not all_config_verified
+                       else "FREQUENCY_SHIFT_SUPPORTS_EPOCH_HYPOTHESIS_ONLY"
                        if shift else "EPOCH_FREQUENCY_SHIFT_NOT_PROVEN"),
             "session_order": [n for n,_ in ORDER],
             "observations": results,
             "median_spike_gap_budget15_s": round(gap15,4) if gap15 else None,
             "median_spike_gap_budget5_s": round(gap5,4) if gap5 else None,
+            "runtime_epoch_budget_verified_all_four": all_config_verified,
             "actual_epoch_boundary_causality_proven": False,
             "next_evidence": (
                 "Original KFC/AICPU epoch boundary transitions with time reference "
