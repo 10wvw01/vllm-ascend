@@ -35,6 +35,20 @@ git -C "$ROOT" rev-parse HEAD > "$OUT/commit.txt"
 git -C "$ROOT" status --porcelain > "$OUT/git_status.txt"
 sha256sum "$U1_DEVICE_SO_PATH" "$V2_HOST_LIB" "$BUILD/"*.so > "$OUT/binaries_before.sha256"
 npu-smi info > "$OUT/npu_before.txt" 2>&1 || { echo "npu-smi failed" >&2; exit 1; }
+# 不占计算资源的只读30s设备巡检；异常退出同样保留日志并停止采样。
+(
+  while true; do
+    date -Is
+    npu-smi info
+    sleep 30
+  done
+) > "$OUT/card_watch_30s.log" 2>&1 &
+WATCH_PID=$!
+cleanup_watch() {
+  kill "$WATCH_PID" 2>/dev/null || true
+  wait "$WATCH_PID" 2>/dev/null || true
+}
+trap cleanup_watch EXIT
 python3 - "$BUILD/manifest.json" <<'PY'
 import json,sys,pathlib,hashlib
 p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text())
