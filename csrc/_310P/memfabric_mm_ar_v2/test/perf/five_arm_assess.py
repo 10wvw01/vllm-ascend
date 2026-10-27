@@ -55,7 +55,31 @@ def checked(path,stage,arm,rank):
     return obj
 
 
-def analyze(folder):
+def verify_native_routes(route_dir):
+    evidence=[]
+    if route_dir is None:
+        return evidence
+    for m in MS:
+        for rank in (0,1):
+            jp=route_dir/f"rank{rank}_m{m}_route.json"
+            cp=route_dir/f"rank{rank}_m{m}_kernel_details.csv"
+            if not jp.is_file() or not cp.is_file():
+                raise ValueError("native NZ route files missing")
+            obj=json.loads(jp.read_text(encoding="utf-8"))
+            if (obj.get("schema")!="FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1" or
+                obj.get("rank")!=rank or obj.get("M")!=m or
+                obj.get("native_nz") is not True or
+                obj.get("nz_mm_kernel_hits",0)<3 or
+                obj.get("hcom_allreduce_kernel_hits",0)<3 or
+                obj.get("transdata_hits")!=0 or
+                obj.get("csv_sha256")!=hashlib.sha256(cp.read_bytes()).hexdigest()):
+                raise ValueError("NZ kernel/HCCL real route proof invalid")
+            evidence.append(obj)
+    return evidence
+
+
+def analyze(folder, route_dir=None):
+    routes=verify_native_routes(route_dir)
     data={m:{arm:[] for arm in set(SCHEDULE)} for m in MS}
     raw=[]
     heads=[]
@@ -116,7 +140,8 @@ def analyze(folder):
     return {
         "schema":"A1_FIVE_ARM_ASSESS_V1",
         "status":status,
-        "stock_native_NZ_route_verified":"MUST_AUDIT_NATIVE_CANN_CSV_SEPARATELY",
+        "stock_native_NZ_route_verified":len(routes)==4,
+        "native_route_evidence":routes,
         "E1_device_correctness_on_new_binary":"BIT_EXACT_IN_ALL_10_SESSIONS" if status!="INCONCLUSIVE_DRIFT" else "BIT_EXACT_BUT_DRIFT",
         "candidate_work_head":heads[0],
         "comparisons":comps,"raw_sessions":raw,
@@ -133,11 +158,14 @@ def analyze(folder):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--sessions",type=Path,required=True)
+    p.add_argument("--route-dir",type=Path,required=True)
     p.add_argument("--out",type=Path,required=True)
     a=p.parse_args()
     if not a.sessions.is_absolute() or not a.sessions.is_dir() or not a.out.is_absolute() or a.out.exists():
         p.error("existing absolute session directory and fresh absolute output path required")
-    result=analyze(a.sessions)
+    if not a.route_dir.is_absolute() or not a.route_dir.is_dir():
+        p.error("verified independent absolute route directory required")
+    result=analyze(a.sessions,a.route_dir)
     with a.out.open("x",encoding="utf-8") as f:
         json.dump(result,f,ensure_ascii=False,indent=2)
         f.write("\n")
