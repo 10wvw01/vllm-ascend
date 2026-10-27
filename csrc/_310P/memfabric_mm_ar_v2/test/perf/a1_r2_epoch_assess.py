@@ -81,9 +81,13 @@ def session(root: Path, name: str, budget: int) -> dict:
             raise ValueError(f"{name}: unresolved device/Epoch runtime error in serve.log")
     paired = [max(a,b) for a,b in zip(*events)]
     med = statistics.median(paired)
-    mad = statistics.median(abs(x-med) for x in paired)
-    threshold = max(20., 6 * 1.4826 * mad)
-    spikes = [i for i,x in enumerate(paired) if x-med > threshold]
+    # 5s预算可让约每2个请求出现一次慢请求（~50%占空比）；此时MAD离群阈值
+    # 数学上必然漏检（中位数骑跨双峰、MAD≈尖峰幅度）。改用P10基线加
+    # 半幅差阈值：密集周期抬升与稀疏尖峰均可检出，纯噪声（<20ms）不误报。
+    q = statistics.quantiles(paired, n=10, method="inclusive")
+    base, hi = q[0], q[-1]
+    threshold = max(20., 0.5 * (hi - base))
+    spikes = [i for i,x in enumerate(paired) if x - base > threshold]
     gaps = [(measured[j]["begin_ns"]-measured[i]["begin_ns"])/1e9
             for i,j in zip(spikes, spikes[1:])]
     return {"session": name, "epoch_budget_s": budget,
@@ -91,7 +95,7 @@ def session(root: Path, name: str, budget: int) -> dict:
             "paired_device_p50_ms": round(med,4),
             "spike_count": len(spikes), "spike_indices": spikes,
             "time_between_spikes_s": [round(g,3) for g in gaps],
-            "spike_excess_ms": [round(paired[i]-med,3) for i in spikes],
+            "spike_excess_ms": [round(paired[i]-base,3) for i in spikes],
             "rank_skew_at_spikes_ms": [
                 round(abs(events[0][i]-events[1][i]),3) for i in spikes],
             "threshold_ms": round(threshold,4),

@@ -107,7 +107,10 @@ def test_nz_source_default_is_nonbreaking():
     assert 'os.environ.get("U1_STOCK_LAYOUT", "nz" if a.scope == "large" else "row_major")' in src
     assert 'stock_weight = w_nz if a.stock_weight_layout == "nz" else w' in src
     assert "F.linear(x, stock_weight)" in src
-    assert "export U1_STOCK_LAYOUT=" in runner
+    assert 'if [[ -z "${U1_STOCK_LAYOUT:-}" ]]; then' in runner
+    assert 'if [[ "$SCOPE" == large ]]; then U1_STOCK_LAYOUT=nz' in runner
+    assert 'else U1_STOCK_LAYOUT=row_major; fi' in runner
+    assert "\nexport U1_STOCK_LAYOUT\n" in runner
     assert "nz_stock_route_report" in ana
     probe = (PERF / "a1_nz_stock_profile_probe.py").read_text()
     ast.parse(probe)
