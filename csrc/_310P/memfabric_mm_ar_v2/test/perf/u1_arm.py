@@ -40,7 +40,7 @@ def parse():
     p.add_argument("--store-url", default=os.environ.get(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
     a = p.parse_args()
-    a.stock_weight_layout = os.environ.get("U1_STOCK_LAYOUT", "row_major")
+    a.stock_weight_layout = os.environ.get("U1_STOCK_LAYOUT", "nz" if a.scope == "large" else "row_major")
     if a.stock_weight_layout not in ("row_major", "nz"):
         p.error("U1_STOCK_LAYOUT must be row_major or nz")
     if a.phase in ("smoke", "screen") and a.stage not in (1, 2):
