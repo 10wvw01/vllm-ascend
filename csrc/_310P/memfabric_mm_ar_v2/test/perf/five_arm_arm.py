@@ -245,7 +245,7 @@ def main():
                     vals.append(round(elapsed,4))
                     wall_samples.append(round(wall,4))
             results[str(m)]={
-                "M":m,"rank":rank,"arm":a.arm,"bit_exact":True,"protocol_status":0,
+                "M":m,"rank":rank,"arm":a.arm,"bit_exact":True,"protocol_status":0 if a.arm!="stock" else None,
                 "warmup":warm,"iters":n,"npu_event_us":vals,"host_wall_us":wall_samples,
                 "event_p50_us":round(statistics.median(vals),3),
                 "event_p90_us":round(pct(vals,.9),3),
