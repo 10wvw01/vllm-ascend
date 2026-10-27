@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 
 import torch
@@ -63,7 +64,7 @@ def main():
     cpu = dist.new_group(backend="gloo")
     result = []
     try:
-        from torch_npu.profiler import ProfilerActivity, profile
+        from torch_npu.profiler import ProfilerActivity, profile, tensorboard_trace_handler
         torch.manual_seed(4242)
         weight = torch.randn(N, K, device=device, dtype=torch.float16)
         weight_nz = torch_npu.npu_format_cast(weight, 29)
@@ -84,23 +85,44 @@ def main():
             for _ in range(5):
                 dist.barrier(group=cpu)
                 invoke()
-            trace = args.out / f"rank{rank}_m{m}_chrome.json"
-            if trace.exists():
-                raise FileExistsError(trace)
+            # 同一个Rank/M单独采集，原生tensorboard_handler才产生解析后的
+            # ASCEND_PROFILER_OUTPUT/kernel_details.csv。不得伪造或从Chrome猜表。
+            trace_dir = args.out / f"rank{rank}_m{m}_profiler"
+            trace_dir.mkdir(mode=0o700, exist_ok=False)
             with profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.NPU],
-                record_shapes=True, with_stack=False
+                record_shapes=True, with_stack=False,
+                on_trace_ready=tensorboard_trace_handler(
+                    str(trace_dir), worker_name=f"rank{rank}_m{m}")
             ) as prof:
                 for _ in range(args.iters):
                     dist.barrier(group=cpu)
                     invoke()
-            prof.export_chrome_trace(str(trace))
-            if not trace.is_file() or trace.stat().st_size == 0:
-                raise RuntimeError("profiler failed to export device activity")
-            result.append({"M": m, "rank": rank, "profile_chrome": trace.name,
-                           "profile_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
+            # 必须来自当前会话的真实设备活动解析CSV，不接受复制历史CSV。
+            candidates = [
+                f for f in trace_dir.rglob("kernel_details.csv")
+                if f.is_file() and f.stat().st_size > 100
+                and "ASCEND_PROFILER_OUTPUT" in f.parts
+            ]
+            if len(candidates) != 1:
+                raise RuntimeError(
+                    f"rank{rank} M{m} expected 1 real CANN kernel_details.csv, "
+                    f"found {len(candidates)}; preserve {trace_dir} and STOP "
+                    "(CANN9.1 profile parser may require offline analyse)")
+            real_csv = candidates[0]
+            trace = args.out / f"rank{rank}_m{m}_kernel_details.csv"
+            with real_csv.open("rb") as inp, trace.open("xb") as dst:
+                shutil.copyfileobj(inp, dst)
+            if hashlib.sha256(trace.read_bytes()).digest() != hashlib.sha256(
+                    real_csv.read_bytes()).digest():
+                raise RuntimeError("CANN CSV copy hash mismatch")
+            result.append({"M": m, "rank": rank,
+                           "raw_profiler_directory": trace_dir.name,
+                           "CANN_kernel_details_source": str(real_csv.relative_to(args.out)),
+                           "CANN_kernel_details_csv": trace.name,
+                           "trace_sha256": hashlib.sha256(trace.read_bytes()).hexdigest(),
                            "bit_exact": True, "iters": args.iters,
-                           "route": "NOT_VERIFIED_UNTIL_CANN_KERNEL_DETAILS_CSV"})
+                           "route": "UNVERIFIED_UNTIL_FOUR_RANK_M_ROUTE_GATE"})
         dest = args.out / f"nz_probe_rank{rank}.json"
         with dest.open("x") as f:
             json.dump({"schema": "A1_NZ_STOCK_SHORT_PROFILE_V1", "rank": rank,
