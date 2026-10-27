@@ -134,3 +134,19 @@
 **D4机制实测**：[双Rank机器报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/diag_assessment.json) Formal 2635.925/2617.149µs、Loop4 3234.206/3213.112µs、Diag0 6378.946/412.448µs、Diag4 27033.241/26994.908µs、Diag5 1021.224/1055.573µs；[短Profiler派生摘要](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/sp_trace_summary.json)正式`V2TrialKernel<tiling1024,1024>` Rank0/1约2343/2355µs。**机制模式非等价，不可以差值当设备内MM/SDMA/IB/Add真实阶段耗时，INNER_PHASE_UNKNOWN**；短Profiler原始Chrome仍SERVER_ONLY。
 
 **Epoch & Serving**：本轮首个E15A模型启动可用显存27.33GiB小于90%利用率所需38.92GiB，受到外部进程占用导致VLLM初始化失败；后续5/5/15与L3、L4均无新有效数据。原R1周期尖峰仍是待验证假设，不得写“Epoch原因已确定”。[R2最终报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/A1_R2_FINAL_REPORT_20261027.md)。
+
+
+## 2026-10-28｜A1-MM-SHADOW旧结果复用与五层新候选状态（不含新设备性能）
+
+**可复用历史实机证据**（2026-10-27，工作分支`work/310p-mm-ar-large-m-a1-20261026`，16384卡双Die dev2/3，113分钟连续独占）：[A1-MM-SHADOW实机报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_mm_shadow_batch_20261027/A1_MM_SHADOW_ONDEVICE_REPORT_20261027.md)、[正式run2评估源JSON](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_mm_shadow_batch_20261027/campaign-run2/mm_shadow_assessment.json)。
+
+| 项 | M2048 | M4096 | 准确含义 |
+|---|---:|---:|---|
+| 原生NZ-MM-only Event（µs） | 478.132 | 848.197 | 独立调用、无通信 |
+| D4同构影子ND-MM-only Event（µs） | 484.720 | 867.630 | 独立影子核、无通信及正式IB/SDMA/Add |
+| 影子对称GM vs普通ND受控增量（µs） | +3.660 | +7.084 | 地址空间变化，并非正式D4内部分段 |
+| 影子对称GM + 每Chunk CleanLines增量（µs） | +69.289 | +139.635 | **受控扰动，不是可直接扣除的关键路径时长** |
+
+正式D4全链比NZ Stock慢约20%的多窗口方向仍清晰，但该批U1八场Confirm中第7场D4-M1024 anchor漂移**6.99% >5%**，严格`INCONCLUSIVE_DRIFT`，**不签L1**。正式D4内部MM、DCCI、IB、SDMA/Wait/Add的精确分段仍`UNKNOWN`，影子实验不允许冒充它。
+
+**新五层路线**：[本分支A1五层正式合同](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)，五臂分别StockNZ+HCCL、StockNZ+MemFabric AR、B2完整自定义MM结束后MF AR、冻结D4 Chunk重叠、E1整核DCache刷新+ReadyTree两级会合。新实现已提交隔离短期分支，**新五层算子实测、E1相对Stock/D4收益、L3/L4均NOT_RUN；不得继承旧T2的row-major MM+AR数据作为本轮NZ基线**。
