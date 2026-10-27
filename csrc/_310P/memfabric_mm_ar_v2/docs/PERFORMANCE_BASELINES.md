@@ -98,3 +98,21 @@
 - D4 Tile2048独立大M L0 M4096 **2726.9→2556.3µs、内部加速+6.26%**不能称为比Stock快；SEL-01全模型Eager的输出tok/s中位+1.12%方向不稳，**不能证明TTFT改善**。最新D4完整L1、真实40层L2、完整Step L3和正式L4均`UNKNOWN/NOT_RUN`。
 - **当前研发循环**：A1实现留于Draft [PR #9](https://github.com/10wvw01/vllm-ascend/pull/9)，先通过CPU/G0、独立完整Stock L1，随后真实无Profiler L3热态Screen与跨Serve ABBA（L2短Profiler按需归因校准）；只有`L3_GO`且取得独立许可才执行正式4096/2048/TP2/并发10/50请求 L4。当前无Profiler真实设备Step采集工具合同尚未校准，不能拿4096/1客户端时延充当L3；不强设L3≥5%。详见[主线实验方案](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。
 
+## 2026-10-27｜A1-R1现版D4：L1 row-major虚高，真实NZ-Stock及L3均未获益
+
+**来源/冻结身份**：[A1-R1独立复盘](A1_R1_实机复盘与优化优先级_20261027.md)、[原始报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/A1_R1_BATCH_REPORT_20261027.md)，卡16384/dev2,3，CANN9.1.0，Host`1dc46d7d…`、D4`2a19390c…`、Plugin`8eb65de9…`、KVER11`25e16b0a…`；A1仅Draft，不改Stock默认。性能数值都为**同一R1实验批次**，但L1/U1与L2/L3的测量形态不同，不能混成直接同负载对照。
+
+| 指标 | Stock | V2 D4 | 结论 |
+|---|---:|---:|---|
+| L1 TP2 U1 M2048，row-major Stock对照 | 1649.0µs | 1345.8µs | V2 +22.5%；**非真实Serving MM基线** |
+| L1 TP2 U1 M4096，row-major Stock对照 | 3043.8µs | 2513.7µs | V2 +21.1%；**非真实Serving MM基线** |
+| L2真实Qwen M4096，Rank0：NZ MM + HCCL /融合kernel | 751.9+1390.9≈2142.8µs | 2510.8µs | V2慢~368µs/站点（近似、独立p50相加） |
+| L2真实Qwen M4096，Rank1：NZ MM + HCCL /融合kernel | 752.1+1165.5≈1917.6µs | 2429.7µs | V2慢~512µs/站点 |
+| L3无Profiler Prefill input4096/output1，S1→F1 | 2346.08ms | 2372.20ms | V2慢26.12ms |
+| L3无Profiler Prefill input4096/output1，S2→F2 | 2343.25ms | 2370.96ms | V2慢27.70ms |
+| L4 input4096/output2048/TP2/10并发/50请求 | — | — | **NOT_RUN_BY_DESIGN**，本轮不可声明任何正式TTFT增益 |
+
+- **方法论P0**：U1普通row-major `F.linear`的MM-only M4096约1869µs，而真实模型的`aclnnMatmulWeightNz`约752µs。修订前面“当前D4完整L1 UNKNOWN”：现已完成**row-major版L1**，但**模型同源NZ L1对照仍欠缺**。下一轮先将`Stock_NZ`设为主参照，保留row-major仅诊断。
+- **L3 P0**：经过L2 40真实站点和同步依赖证据校准，四Serve ABBA各6预热+30成功请求，Stock场间漂移仅2.83ms；V2双窗口稳定负26～28ms、p90 2451～2517ms出现重尾，当前D4为`L3_INCONCLUSIVE_OR_NO_GAIN`，不可称TTFT已经恶化或改善1.1%；**正式L4未跑**。
+- **归因P0**：MM/NZ基线与通信等待可能共同贡献，不可把V2多出耗时全部直接认作MM或把40×站点p50加成“额外Host12ms”。先用隔离低侵入短Trace把MM/SDMA/IB/Pool/Add、长尾原因测清，再做Kernel单变量优化。服务器原始Profiler CSV仍为SERVER_ONLY，GitHub归档有20份按站点切片与SHA清单。
+
