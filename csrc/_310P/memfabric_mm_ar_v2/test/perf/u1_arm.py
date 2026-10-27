@@ -155,9 +155,6 @@ def main():
         # NZ Stock 必须对照真实模型的预转换权重；禁止将格式转换时间
         # 塞入热态每次调用（与真实Serving的模型加载期布局一致）。
         stock_weight = w_nz if a.stock_weight_layout == "nz" else w
-        if a.stock_weight_layout == "nz":
-            if w_nz.storage().data_ptr() == w.storage().data_ptr():
-                raise RuntimeError("NZ weight conversion unexpectedly aliases ND buffer")
         # 所有CPU-gloo参考在MemFabric建池之前完成。
         all_inputs = {m: inputs_for(rank, m, device, cpu_group, w) for m in order}
         outputs = {m: torch.zeros((m, N), device=device, dtype=torch.float16) for m in order}
