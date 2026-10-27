@@ -75,6 +75,27 @@ def evaluate(root: Path) -> dict:
     if build.get("schema") != "A1_MM_SHADOW_BUILD_V1" or not build.get("so_sha256"):
         raise ValueError("not actual source pinned MM shadow")
     sha=build["so_sha256"]
+    # 主对照必须有完全独立于无Profiler计时的4份原生/影子Kernel明细。
+    route_proofs=[]
+    for arm in ("native","nd"):
+        for rank in (0,1):
+            for m in MS:
+                folder=root/"routes"/arm
+                meta_path=folder/f"rank{rank}_m{m}_route.json"
+                csv_path=folder/f"rank{rank}_m{m}_kernel_details.csv"
+                if not meta_path.is_file() or not csv_path.is_file():
+                    raise ValueError("missing independent raw kernel route proof")
+                proof=json.loads(meta_path.read_text(encoding="utf-8"))
+                expected={"schema":"A1_MM_SHADOW_ROUTE_V1","arm":arm,
+                          "rank":rank,"M":m,"shadow_sha256":sha,
+                          "bit_exact":True}
+                if any(proof.get(k)!=v for k,v in expected.items()):
+                    raise ValueError("native/shadow profiler route identity mismatch")
+                import hashlib
+                if (proof.get("kernel_hits",0)<3 or
+                    proof.get("csv_sha256")!=hashlib.sha256(csv_path.read_bytes()).hexdigest()):
+                    raise ValueError("not enough real NZ/shadow kernel hits or CSV hash mismatch")
+                route_proofs.append(proof)
     all_sessions=BASE+MEMORY
     stages=sorted(x.name for x in (root/"sessions").iterdir())
     expected=[f"{i+1:02d}_{arm}" for i,arm in enumerate(all_sessions)]
@@ -111,7 +132,8 @@ def evaluate(root: Path) -> dict:
     return {"schema":"A1_MM_SHADOW_ASSESS_V1",
         "status":"MM_ONLY_COMPARISON_VALID" if valid else "INCONCLUSIVE_DRIFT",
         "comparisons":output,
-        "native_stock_route_verified":"REQUIRES_SEPARATE_CANN_KERNEL_DETAILS_CSV",
+        "native_stock_route_verified":True,
+        "native_and_shadow_route_proofs":route_proofs,
         "real_full_d4_internal_mm_time":"UNKNOWN",
         "formal_D4_phase_causality_proven":False,
         "limits":[
