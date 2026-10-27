@@ -70,4 +70,4 @@ E2目前**仅源码已创建、尚无新CANN编译和设备测试**。OpenCode�
 
 执行入口是`bash test/perf/e2_build.sh 全新绝对目录`，然后在确认私人环境变量及持续独占许可后调用`bash test/perf/e2_campaign.sh 全新绝对会话目录 私有build目录`。对旧E1 SO、现有V2 Host、KVER11文件和所有共享系统SO只读记录SHA，绝不覆盖。缓存协议新模式有错误则保留E1工作路径，不继续压力测验。所有原始Rank、CSV、卡状态、首写/编译/符号/Hash报告应提交工作分支。
 
-当前完成状态：E2-R/P源码、Host桥、构建/Runner/评估/CPU合同**已提交；静态及设备准入仍待判定**。编译/Smoke/性能/Serving：`NOT_RUN`。
+当前完成状态：E2-R/P源码、Host桥、构建/Runner/评估/CPU合同**已提交；两轮独立静态结构/协议合同检查PASS**（含事件生产消费拓扑、READY先于数据SDMA、Private ABI、512/1024形状及证据矩阵）。GitHub Actions与原仓CPU pytest尚未取得通过记录；CANN BiSheng编译/双Rank Smoke/性能/Serving仍`NOT_RUN`。因此本轮仅可进入现场G0+CPU+编译，不可跳过直接跑性能。
