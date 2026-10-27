@@ -40,7 +40,7 @@ def checked(path,stage,arm,rank):
         r=results[str(m)]
         if (r.get("M")!=m or r.get("rank")!=rank or
             r.get("arm")!=arm or r.get("bit_exact") is not True or
-            r.get("protocol_status")!=0 or r.get("warmup",0)<20 or
+            r.get("protocol_status")!=(None if arm=="stock" else 0) or r.get("warmup",0)<20 or
             r.get("iters",0)<100):
             raise ValueError(f"incorrect/corrupt Rank: {path} M{m}")
         vals=r.get("npu_event_us")
