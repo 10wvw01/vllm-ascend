@@ -6,6 +6,11 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/../../../../.." && pwd)"
 PERF="$ROOT/csrc/_310P/memfabric_mm_ar_v2/test/perf"
 OUT="$1"; SCOPE="$2"; PHASE="$3"
+export U1_STOCK_LAYOUT="${U1_STOCK_LAYOUT:-row_major}"
+[[ "$U1_STOCK_LAYOUT" == row_major || "$U1_STOCK_LAYOUT" == nz ]] || {
+  echo "U1_STOCK_LAYOUT must be row_major|nz" >&2; exit 2; }
+[[ "$U1_STOCK_LAYOUT" != nz || "$SCOPE" == large ]] || {
+  echo "NZ baseline is currently a large-M experiment only" >&2; exit 2; }
 case "$SCOPE" in small|large) ;; *) echo "invalid scope" >&2; exit 2;; esac
 case "$PHASE" in smoke|screen|confirm) ;; *) echo "invalid phase" >&2; exit 2;; esac
 [[ "$OUT" == /* && ! -e "$OUT" ]] || { echo "output must be UNUSED absolute path" >&2; exit 2; }
@@ -70,6 +75,7 @@ data = {
     "host_so_sha256": os.environ["U1_HOST_SHA256"],
     "kver11_sha256": os.environ["U1_KVER_SHA256"],
     "physical_devices": os.environ["ASCEND_RT_VISIBLE_DEVICES"],
+    "stock_weight_layout": os.environ["U1_STOCK_LAYOUT"],
     "session_ids": [x["session"] for x in plan(scope, phase)],
     "caveat": "Actual KVER11 AICPU registration/real loaded device SO and same-card die must be proven in G0",
 }
