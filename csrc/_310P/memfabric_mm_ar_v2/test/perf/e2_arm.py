@@ -99,7 +99,7 @@ def parse():
             ("source_sha256",root/"src/op_kernel/mf310p_v2_dcci_entire_candidate.asc"),
             ("b2_source_sha256",root/"src/op_kernel/mf310p_v2_b2_full_mm_ar.asc"),
             ("e2_source_sha256",root/"src/op_kernel/mf310p_v2_e2_pipeline.asc"),
-            ("private_host_source_sha256",root/"test/perf/five_arm_private_host.cpp"),
+            ("private_host_source_sha256",root/"test/perf/e2_private_host.cpp"),
             ("frozen_baseline_source_sha256",root/"src/op_kernel/mf310p_v2_kernel.asc"),
             ("common_sha256",root/"src/op_kernel/mf310p_v2_kernel_common.h"),
         )
@@ -225,15 +225,6 @@ def main():
                 if a.arm=="stock":
                     got=F.linear(x,w_nz)
                     dist.all_reduce(got,op=dist.ReduceOp.SUM,group=hccl)
-                elif a.arm=="b1":
-                    partial=F.linear(x,w_nz)
-                    # T2正确性合同：生产者输出->stage需同流同步；
-                    # 此强制同步必须包含在Event/Wall窗口内，绝不隐藏。
-                    stream.synchronize()
-                    need(trial.mf310p_v2_trial_run_ar_only(
-                        handle,partial.data_ptr(),output.data_ptr(),m,8,raw),
-                        "B1 native+MF AR-only")
-                    got=output
                 else:
                     kind={"e1":2,"e2r":3,"e2p":4,"e2p512":5}[a.arm]
                     need(f(handle,x.data_ptr(),w_nz.data_ptr(),
@@ -280,8 +271,9 @@ def main():
                 "candidate":a.meta if a.arm in ("e1","e2r","e2p","e2p512") else None,
                 "profile":False,"results":results,
                 "metric":"local same-rank Event for complete MM+AR; TP2 analysis pairs rank maxima",
-                "limits":"B1 includes required stage, 2 sacrificial launches and producer stream sync; "
-                         "E2-R changes Add Release to 1-4-7 tree; E2-P pre-invalidates peer DCache and exchanges READY before any data SDMA",
+                "limits":"E1 whole-DCache baseline; E2-R adds hierarchical Add release; "
+                         "E2-P pre-invalidates peer DCache and exchanges READY before any data SDMA. "
+                         "E2-P/512 doubles SDMA packet count. Different arms never share a process.",
             },fh,ensure_ascii=False,indent=2)
             fh.write("\n")
         dist.barrier(group=group)
