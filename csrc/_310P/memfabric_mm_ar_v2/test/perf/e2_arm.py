@@ -144,6 +144,80 @@ def pct(data,q):
     return s[lo]+(s[hi]-s[lo])*(pos-lo)
 
 
+def postmortem_dump(rank,arm,stage,phase,m_done,i_done,candidate,trial,handle,out):
+    """507014/挂死后现场取证：只读保留区游标/邮件/IB与status，异常路径专用。
+    2026-10-28新增：campaign期间若E2新协议再触发设备级异常，自动保全根因数据。
+    任何探针失败不掩盖原始异常。"""
+    cells={"rank":rank,"arm":arm,"stage":stage,"phase":phase,
+           "last_M":m_done,"last_iter":i_done}
+    try:
+        status=ctypes.c_uint64()
+        rc=trial.mf310p_v2_trial_check_status(handle,ctypes.byref(status))
+        cells["status_rc"]=rc
+        cells["protocol_status"]=status.value
+    except BaseException as ex:
+        cells["status_error"]=repr(ex)[:120]
+    try:
+        info=(ctypes.c_uint64*6)()
+        pool_info=getattr(candidate,"mf310p_e2_diag_pool_info",None)
+        read_pool=getattr(candidate,"mf310p_e2_diag_read_pool",None)
+        read_abs=getattr(candidate,"mf310p_e2_diag_read_abs",None)
+        if pool_info is None or read_pool is None:
+            cells["forensics"]="private host lacks passive readers"
+        elif pool_info(handle,info)==0:
+            read_pool.argtypes=[ctypes.c_void_p,ctypes.c_uint64,
+                                ctypes.c_uint32,ctypes.c_void_p]
+            read_pool.restype=ctypes.c_int
+            reserved=int(info[4]); cells["reserved_offset"]=reserved
+            def rd(off,length):
+                buf=(ctypes.c_ubyte*length)()
+                if read_pool(handle,reserved+off,length,buf)!=0:
+                    return None
+                return bytes(buf)
+            def u64(b,o):
+                return int.from_bytes(b[o:o+8],"little")
+            cur=rd(0x0800,16)
+            if cur is not None:
+                cells["reqTail"]=u64(cur,0); cells["reqHead"]=u64(cur,8)
+            ah=rd(0xAA20,8)
+            if ah is not None:
+                cells["arrHead"]=u64(ah,0)
+            head=cells.get("arrHead",0)
+            st=rd(0x0A20+(head%1024)*8,8)
+            if st is not None:
+                cells["nextStamp"]=u64(st,0)
+            ml=rd(0x2A20+(head%1024)*32,32)
+            if ml is not None:
+                cells["nextMail"]=[u64(ml,0),u64(ml,8),u64(ml,16),u64(ml,24)]
+            for extra in (1,2,3):
+                s2=rd(0x0A20+((head+extra)%1024)*8,8)
+                if s2 is not None:
+                    cells[f"stamp+{extra}"]=u64(s2,0)
+            if read_abs is not None:
+                read_abs.argtypes=[ctypes.c_void_p,ctypes.c_uint64,
+                                   ctypes.c_uint32,ctypes.c_void_p]
+                read_abs.restype=ctypes.c_int
+                ib=(ctypes.c_ubyte*2560)()
+                if read_abs(handle,int(info[5]),2560,ib)==0:
+                    raw=bytes(ib)
+                    cells["ib_nonzero"]=[[i//32,(i%32)//4,
+                        int.from_bytes(raw[i:i+4],"little")]
+                        for i in range(0,2560,4)
+                        if raw[i:i+4]!=b"\x00\x00\x00\x00"][:40]
+    except BaseException as ex:
+        cells["forensics_error"]=repr(ex)[:200]
+    try:
+        pm=out/f"postmortem_{phase}_{stage:02d}_{arm}_rank{rank}.json"
+        with pm.open("x",encoding="utf-8") as fh:
+            json.dump(cells,fh,ensure_ascii=False,indent=2)
+            fh.write("\n")
+        print(f"POSTMORTEM_SAVED rank={rank} {pm}",flush=True)
+    except BaseException as ex:
+        print(f"POSTMORTEM_SAVE_FAIL rank={rank} {ex!r}",flush=True)
+    print(f"POSTMORTEM rank={rank} {cells}",flush=True)
+    return cells
+
+
 def main():
     a=parse()
     rank=int(os.environ["RANK"])
@@ -206,6 +280,8 @@ def main():
                     if str(Path(loc).resolve()) not in proc_maps:
                         raise RuntimeError("private candidate binary not mapped: "+loc)
         results={}
+        m_last=None
+        i_last=None
         for m in MS:
             xs,refs=inputs[m]
             warm=a.warmup
@@ -215,6 +291,8 @@ def main():
             ev1=torch.npu.Event(enable_timing=True)
             # Stable output slot per input; AR-only B1 allocates native Partial.
             for i in range(warm+n):
+                m_last=m
+                i_last=i
                 variant=i%2
                 x=xs[variant];ref=refs[variant]
                 output=outputs[m][variant]
@@ -279,6 +357,12 @@ def main():
         dist.barrier(group=group)
     except BaseException as ex:
         failure=ex
+        if a.arm in ("e1","e2r","e2p","e2p512") and handle.value and trial is not None:
+            try:
+                postmortem_dump(rank,a.arm,a.stage,a.phase,m_last,i_last,
+                                candidate,trial,handle,a.out)
+            except BaseException:
+                pass
         raise
     finally:
         if handle.value:

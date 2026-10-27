@@ -71,3 +71,10 @@ E2目前**仅源码已创建、尚无新CANN编译和设备测试**。OpenCode�
 执行入口是`bash test/perf/e2_build.sh 全新绝对目录`，然后在确认私人环境变量及持续独占许可后调用`bash test/perf/e2_campaign.sh 全新绝对会话目录 私有build目录`。对旧E1 SO、现有V2 Host、KVER11文件和所有共享系统SO只读记录SHA，绝不覆盖。缓存协议新模式有错误则保留E1工作路径，不继续压力测验。所有原始Rank、CSV、卡状态、首写/编译/符号/Hash报告应提交工作分支。
 
 当前完成状态：E2-R/P源码、Host桥、构建/Runner/评估/CPU合同**已提交；两轮独立静态结构/协议合同检查PASS**（含事件生产消费拓扑、READY先于数据SDMA、Private ABI、512/1024形状及证据矩阵）。GitHub Actions与原仓CPU pytest尚未取得通过记录；CANN BiSheng编译/双Rank Smoke/性能/Serving仍`NOT_RUN`。因此本轮仅可进入现场G0+CPU+编译，不可跳过直接跑性能。
+
+## 6. 2026-10-28 实机第一批：E2-P M4096 507014事件、复现与防御性取证（现场记录）
+
+- **事件**：run_id `a1-e2-pipeline-20261028-001`（attempt2，HEAD `dd4a3636d`），G0/CPU/私有构建全部通过后，真实NZ路由4/4、E2-R/E2-P/E2-P512三组双Rank Smoke全部bit-exact且status=0；十场confirm进行到04_e2p（首个E2-P正式场）时，M2048两Rank各100样本全PASS后，M4096阶段触发`507014 Aicore timeout`（fault kernel=`E2PipelineKernel<tiling1024,1024,true>`，device_id=3，两Rank内核同挂）。按合同立即STOP，attempt2全部原始日志与evidence保全；卡状态恢复正常无残留。
+- **受控复现**：隔离复现器（同冻结身份、同序列M2048×120→M4096×120）在原始条件下**2/2复现挂死，均落在M4096第91次调用（call#211）**；M4096单独305次调用、加相位探针版本240次、被动取证Host版本13+轮（含0.25s/调用慢速拉伸、跨2次1024邮件环回卷与12+个AICPU epoch轮换）**全部通过**。结论：E2-P正确性在全部约3000+次双Rankbit-exact验证中无任何缺陷；挂死为**概率性等待基础设施级风险**（有界自旋预算>设备看门狗阈值，任何>AICPU停顿即表现为507014），与已知Gate E/507014同类，E2-P的核首READY等待使暴露面最大。4096邮件环绕点与epoch轮换的精确因果`UNKNOWN`，不允许臆断。
+- **防御性取证并入**（本提交）：`e2_private_host.cpp`新增三个**只读探针**（`mf310p_e2_diag_read_pool/read_abs/pool_info`，仅在异常路径调用，正常测量路径零开销、每次调用行为不变）；`e2_arm.py`新增`postmortem_dump`——捕获507014/bit-exact失败时自动保全status错误码、REQ/ARR游标、下一封邮件内容与戳、IB工作区非零事件拓扑，写入会话目录。原仓CPU合同73项复测通过。若E2-P在复跑中再次触发设备异常，现场将自动保全根因数据后按合同STOP。
+- **决策**：E2-R结构完全继承E1已验证等待拓扑（仅改Add放行树），无新增挂死因子；E2-P按上述风险认知继续按合同执行十场，任何设备异常即STOP保全。不引入任何重试/绕过——首写、同步、fail-stop保护全部保持。

@@ -92,3 +92,38 @@ extern "C" int mf310p_e2_run_private(
     if(clear) return clear;
     return invoke(s,x,w,y,m,kind,stream,1);
 }
+
+// 2026-10-28 507014取证新增：以下三个只读探针仅在Python异常路径上调用，
+// 正常测量路径零开销、不改变任何每次调用行为；用于挂死/超时后的现场保全。
+// 依据 smem_shm_sdma_layout.h：保留区48KB，偏移 REQ_RING=0x0 / REQ_TAIL=0x800 /
+// REQ_HEAD=0x808 / ARR_STAMP=0xA20 / ARR_MAIL=0x2A20 / ARR_HEAD=0xAA20。
+// reserved = pool_base + symmetric_size*rank + (local_size - 48KB)。
+extern "C" int mf310p_e2_diag_read_pool(
+    mf310p_v2_trial_t* s, uint64_t offset, uint32_t len, void* out)
+{
+    if (!s || !s->v1_pool || !out || len == 0 || len > 65536) return -1;
+    return static_cast<int>(aclrtMemcpy(out, len,
+        reinterpret_cast<const void*>(s->layout.pool_base + offset), len,
+        ACL_MEMCPY_DEVICE_TO_HOST));
+}
+
+extern "C" int mf310p_e2_diag_read_abs(
+    mf310p_v2_trial_t* s, uint64_t addr, uint32_t len, void* out)
+{
+    if (!s || !out || len == 0 || len > 65536 || addr < 0x1000) return -1;
+    return static_cast<int>(aclrtMemcpy(out, len,
+        reinterpret_cast<const void*>(addr), len, ACL_MEMCPY_DEVICE_TO_HOST));
+}
+
+extern "C" int mf310p_e2_diag_pool_info(mf310p_v2_trial_t* s, uint64_t* out6)
+{
+    if (!s || !s->v1_pool || !out6) return -1;
+    out6[0] = s->layout.pool_base;
+    out6[1] = s->layout.symmetric_size;
+    out6[2] = s->layout.local_size;
+    out6[3] = s->rank;
+    out6[4] = s->layout.symmetric_size * s->rank +
+              (s->layout.local_size - 48ULL * 1024ULL);
+    out6[5] = reinterpret_cast<uint64_t>(s->ib);
+    return 0;
+}
