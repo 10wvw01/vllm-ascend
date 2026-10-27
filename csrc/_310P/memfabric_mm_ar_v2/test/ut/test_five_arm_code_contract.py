@@ -36,6 +36,10 @@ class FiveArmContract(unittest.TestCase):
         signal=code.index("smem_shm_sdma_signal_at(")
         self.assertTrue(mm < ready < signal)
         self.assertEqual(code.count("WaitReady(ibGm, ibUb, core);"),1)
+        self.assertEqual(code.count("WaitAddDone(ibGm, ibUb, core);"),1)
+        self.assertTrue(code.index("WaitAddDone(ibGm, ibUb, core);") <
+                        code.index("smem_shm_sdma_quiet_at("))
+        self.assertIn("每个完整分包的Add必须全部完成",code)
         self.assertIn("kProductionAddTile",code)
         self.assertIn("smem_shm_sdma_quiet_at(",code)
         self.assertIn("kTagDone",code)
