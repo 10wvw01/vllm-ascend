@@ -1,0 +1,40 @@
+W1027 04:01:36.451000 1308169 site-packages/torch/distributed/run.py:852] 
+W1027 04:01:36.451000 1308169 site-packages/torch/distributed/run.py:852] *****************************************
+W1027 04:01:36.451000 1308169 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1027 04:01:36.451000 1308169 site-packages/torch/distributed/run.py:852] *****************************************
+INFO 10-27 04:01:40 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 04:01:40 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 04:01:40 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 04:01:40 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 04:01:40 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-27 04:01:40 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+INFO 10-27 04:01:40 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 04:01:40 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 04:01:40 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 04:01:40 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 04:01:40 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-27 04:01:41 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+[Gloo] Rank [Gloo] Rank 1 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[rank0]:[W1027 04:01:49.923160110 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+[2026-10-27 04:01:51] [WARNING] [1308239] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-27 04:01:52] [INFO] [1308993] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank0_v1_linear_profiler/rank0_v1_linear_1308239_20261027040151675_ascend_pt
+[2026-10-27 04:01:52] [INFO] [1308994] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank1_v1_linear_profiler/rank1_v1_linear_1308240_20261027040151674_ascend_pt
+||//--[2026-10-27 04:01:54] [INFO] [1309045] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023026
+[2026-10-27 04:01:54] [INFO] [1309047] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023442
+\\[2026-10-27 04:01:55] [INFO] [1308994] profiler.py: All profiling data parsed in a total time of 0:00:03.190243
+[2026-10-27 04:01:55] [INFO] [1308993] profiler.py: All profiling data parsed in a total time of 0:00:03.264205
+[2026-10-27 04:01:56] [WARNING] [1308239] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-27 04:01:57] [INFO] [1310242] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank0_v2_unquantized_gemm_profiler/rank0_v2_unquantized_gemm_1308239_20261027040156411_ascend_pt
+[2026-10-27 04:01:57] [INFO] [1310241] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank1_v2_unquantized_gemm_profiler/rank1_v2_unquantized_gemm_1308240_20261027040156411_ascend_pt
+||//--[2026-10-27 04:01:59] [INFO] [1310293] profiler.py: CANN profiling data parsed in a total time of 0:00:02.024157
+[2026-10-27 04:01:59] [INFO] [1310294] profiler.py: CANN profiling data parsed in a total time of 0:00:02.025708
+\\[2026-10-27 04:02:00] [INFO] [1310241] profiler.py: All profiling data parsed in a total time of 0:00:03.187382
+[2026-10-27 04:02:00] [INFO] [1310242] profiler.py: All profiling data parsed in a total time of 0:00:03.215265
+[2026-10-27 04:02:01] [WARNING] [1308239] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-27 04:02:01] [INFO] [1311489] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank1_v3_matmul_t_profiler/rank1_v3_matmul_t_1308240_20261027040201146_ascend_pt
+[2026-10-27 04:02:01] [INFO] [1311490] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/a1-r2-nzroute-diag/run3/rank0_v3_matmul_t_profiler/rank0_v3_matmul_t_1308239_20261027040201146_ascend_pt
+||//--[2026-10-27 04:02:03] [INFO] [1311542] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023840
+[2026-10-27 04:02:03] [INFO] [1311541] profiler.py: CANN profiling data parsed in a total time of 0:00:02.026040
+\\[2026-10-27 04:02:04] [INFO] [1311489] profiler.py: All profiling data parsed in a total time of 0:00:03.177140
+[2026-10-27 04:02:05] [INFO] [1311490] profiler.py: All profiling data parsed in a total time of 0:00:03.359359

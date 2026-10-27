@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/tmp/opencode/a1-r0-worktree/csrc/_310P/memfabric_mm_ar_v2/test/perf/a1_nz_route_gate.py", line 94, in <module>
+    main()
+  File "/tmp/opencode/a1-r0-worktree/csrc/_310P/memfabric_mm_ar_v2/test/perf/a1_nz_route_gate.py", line 86, in main
+    r = verify(a.trace_root)
+        ^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/opencode/a1-r0-worktree/csrc/_310P/memfabric_mm_ar_v2/test/perf/a1_nz_route_gate.py", line 31, in verify
+    raise ValueError(f"not native CANN kernel details CSV: {path.name}")
+ValueError: not native CANN kernel details CSV: rank0_m2048_kernel_details.csv
