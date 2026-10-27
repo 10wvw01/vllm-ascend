@@ -43,6 +43,19 @@ for path,expected in ((d['candidate_so'],d['candidate_sha256']),
     assert hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==expected
 assert d['isolated_not_installed'] and d['device_arch']=='dav-2002'
 PY
+# 不允许让真正NZ Stock悄悄退化为通用MatMul+TransData；先独立采CANN证据。
+mkdir -m 700 "$OUT/routes"
+if ! torchrun --standalone --nproc-per-node=2 "$PERF/five_arm_nz_route.py" \
+     --out "$OUT/routes" > "$OUT/routes/torchrun.log" 2>&1; then
+  echo "REAL_NZ_ROUTE_STOP; preserve CANN CSV evidence" | tee -a "$OUT/progress.txt"
+  exit 1
+fi
+for rank in 0 1; do
+  for m in 2048 4096; do
+    [[ -s "$OUT/routes/rank${rank}_m${m}_route.json" ]] || exit 1
+  done
+done
+echo "REAL_NZ_ROUTE_PROVEN" | tee -a "$OUT/progress.txt"
 # E1可能触发全DCache flush副作用，先用独立极短双Rank数值Smoke。
 # B2确保首个完整MM/AR两阶段代码真实可运行；任错不启动正式十场。
 for spec in "3:b2" "5:e1"; do
@@ -93,7 +106,7 @@ PY
   echo "COMPLETE $label" | tee -a "$OUT/progress.txt"
 done
 python3 "$PERF/five_arm_assess.py" --sessions "$OUT/sessions" \
-  --out "$OUT/five_arm_assessment.json"
+  --route-dir "$OUT/routes" --out "$OUT/five_arm_assessment.json"
 sha256sum "$U1_DEVICE_SO_PATH" "$V2_HOST_LIB" "$BUILD/"*.so > "$OUT/binaries_after.sha256"
 diff -u "$OUT/binaries_before.sha256" "$OUT/binaries_after.sha256" || {
   echo "binary identity modified during performance runs; STOP" >&2; exit 1; }
