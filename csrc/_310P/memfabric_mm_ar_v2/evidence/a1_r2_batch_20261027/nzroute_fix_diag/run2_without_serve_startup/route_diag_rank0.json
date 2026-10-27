@@ -1,0 +1,60 @@
+{
+  "schema": "A1_R2_NZ_ROUTE_FIX_DIAG_V1",
+  "bit_exact": true,
+  "findings": [
+    {
+      "variant": "v1_linear",
+      "rank": 0,
+      "rows": 16,
+      "mm_names": [
+        "MatMul9"
+      ],
+      "mm_input_formats": [
+        "ND;FRACTAL_NZ"
+      ],
+      "mm_durations_us": [
+        1860.1,
+        1837.3,
+        1817.3,
+        1862.8
+      ],
+      "allreduce_rows": 4
+    },
+    {
+      "variant": "v2_unquantized_gemm",
+      "rank": 0,
+      "rows": 16,
+      "mm_names": [
+        "MatMul9"
+      ],
+      "mm_input_formats": [
+        "ND;FRACTAL_NZ"
+      ],
+      "mm_durations_us": [
+        1832.5,
+        1834.3,
+        1862.9,
+        1809.0
+      ],
+      "allreduce_rows": 4
+    },
+    {
+      "variant": "v3_matmul_t",
+      "rank": 0,
+      "rows": 16,
+      "mm_names": [
+        "MatMul9"
+      ],
+      "mm_input_formats": [
+        "ND;FRACTAL_NZ"
+      ],
+      "mm_durations_us": [
+        1836.4,
+        1845.3,
+        1891.5,
+        1845.9
+      ],
+      "allreduce_rows": 4
+    }
+  ]
+}
