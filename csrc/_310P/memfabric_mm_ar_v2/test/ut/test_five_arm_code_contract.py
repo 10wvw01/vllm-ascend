@@ -79,7 +79,7 @@ class FiveArmContract(unittest.TestCase):
                     vals=[val]*100
                     results[str(m)]={
                         "M":m,"rank":rank,"arm":arm,
-                        "bit_exact":True,"protocol_status":0,
+                        "bit_exact":True,"protocol_status":None if arm=="stock" else 0,
                         "warmup":20,"iters":100,"npu_event_us":vals,
                         "host_wall_us":[val+10]*100
                     }
