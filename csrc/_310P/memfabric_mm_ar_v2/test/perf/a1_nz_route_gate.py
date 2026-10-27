@@ -48,19 +48,24 @@ def verify(root: Path) -> dict:
                     hccl.append((beg, dur, row))
             if not mm or not hccl:
                 raise ValueError(f"{path.name}: no verified real NZ-mm + HCCL")
-            # U1独立进程只有该Stock链；检查AR紧邻MM结束，排除旁观的HCCL。
+            # 一份实际HCCL完成只能消费一次，避免某个孤立HCCL被多次复用
+            # 伪造大量NZ MM+AR配对。Profiler诊断本应每M采6次。
             pair = []
-            for beg, dur, row in mm:
-                following = [h for h in hccl if -50 <= h[0] - (beg+dur) <= 10000]
-                if following:
-                    h = min(following, key=lambda x: abs(x[0]-(beg+dur)))
-                    pair.append({"nz_kernel": row["Name"], "mm_us": dur,
-                                 "hccl_kernel": h[2]["Name"], "hccl_us": h[1],
-                                 "gap_us": round(h[0]-(beg+dur), 3),
-                                 "mm_stream": row["Stream ID"],
-                                 "hccl_stream": h[2]["Stream ID"]})
-            if not pair:
-                raise ValueError(f"{path.name}: NZ MM not paired with adjacent HCCL")
+            unused = sorted(hccl, key=lambda x: x[0])
+            for beg, dur, row in sorted(mm, key=lambda x: x[0]):
+                candidates = [h for h in unused if -50 <= h[0] - (beg + dur) <= 10000]
+                if not candidates:
+                    continue
+                h = min(candidates, key=lambda x: abs(x[0] - (beg + dur)))
+                unused.remove(h)
+                pair.append({"nz_kernel": row["Name"], "mm_us": dur,
+                             "hccl_kernel": h[2]["Name"], "hccl_us": h[1],
+                             "gap_us": round(h[0] - (beg + dur), 3),
+                             "mm_stream": row["Stream ID"],
+                             "hccl_stream": h[2]["Stream ID"]})
+            if len(pair) < 3:
+                raise ValueError(
+                    f"{path.name}: less than 3 unique actual NZ MM+HCCL completions")
             proofs.append({
                 "rank": rank, "M": m, "trace": path.name,
                 "trace_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
