@@ -6,6 +6,8 @@ import argparse
 import csv
 import hashlib
 import json
+import math
+import statistics
 import os
 from pathlib import Path
 import shutil
@@ -93,18 +95,33 @@ def main():
                 raw_rows=list(csv.DictReader(f))
             names=[row.get("Name","") for row in raw_rows]
             if args.arm=="native":
-                found=sum(name.startswith("aclnnMatmulWeightNz_") for name in names)
+                selected=[row for row in raw_rows
+                          if row.get("Name","").startswith("aclnnMatmulWeightNz_")]
                 bad=[name for name in names if "TransData" in name]
             else:
-                found=sum("V2MmShadowKernel" in name for name in names)
+                selected=[row for row in raw_rows
+                          if "V2MmShadowKernel" in row.get("Name","")]
                 bad=[]
+            found=len(selected)
+            durations=[]
+            for row in selected:
+                try:
+                    d=float(row["Duration(us)"])
+                except (KeyError,ValueError,TypeError) as e:
+                    raise RuntimeError("cannot extract real CANN device Kernel Duration(us)") from e
+                if not math.isfinite(d) or d<=0:
+                    raise RuntimeError("invalid CANN kernel duration")
+                durations.append(d)
             if found<3 or bad:
                 raise RuntimeError(
                     f"route invalid {args.arm} rank{rank} M{m}: actual kernels={found}, unexpected TransData={bad[:3]}")
             destmeta=args.out/f"rank{rank}_m{m}_route.json"
             destmeta.write_text(json.dumps({
                 "schema":"A1_MM_SHADOW_ROUTE_V1","arm":args.arm,"rank":rank,"M":m,
-                "kernel_hits":found,"csv_sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
+                "kernel_hits":found,
+                "device_kernel_durations_us":[round(x,4) for x in durations],
+                "device_kernel_p50_us":round(statistics.median(durations),4),
+                "csv_sha256":hashlib.sha256(dest.read_bytes()).hexdigest(),
                 "shadow_sha256":manifest["so_sha256"],"bit_exact":True,
                 "CANN_original":str(traces[0].relative_to(args.out))
             },ensure_ascii=False,indent=2)+"\n")
