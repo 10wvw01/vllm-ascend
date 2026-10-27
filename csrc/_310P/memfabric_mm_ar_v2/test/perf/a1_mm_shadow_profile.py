@@ -31,8 +31,13 @@ def main():
     if (int(os.getenv("WORLD_SIZE","0"))!=2 or not args.out.is_absolute()
             or not args.out.is_dir()):
         p.error("two ranks and precreated absolute output required")
-    if list(args.out.glob("rank*_m*_kernel_details.csv")):
-        p.error("never reuse or overwrite existing original profiler CSV")
+    # 只检查本Rank旧结果：另一Rank可能已经开始写入同批次CSV，
+    # 不能误把合法并发双Rank输出当作“复用历史证据”。
+    this_rank = os.getenv("RANK", "")
+    if this_rank not in ("0", "1"):
+        p.error("missing real distributed Rank")
+    if list(args.out.glob(f"rank{this_rank}_m*_kernel_details.csv")):
+        p.error("never reuse or overwrite this Rank's original profiler CSV")
     manifest=json.loads(args.build_manifest.read_text(encoding="utf-8"))
     if manifest.get("so_sha256")!=digest(args.shadow_so):
         p.error("binary identity mismatch")
