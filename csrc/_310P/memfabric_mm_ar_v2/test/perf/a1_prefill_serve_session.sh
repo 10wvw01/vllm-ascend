@@ -28,6 +28,14 @@ ARM="$1"; MODE="$2"; SID="$3"; OUT="$4"
    -z "${MF310P_V2_AR_ONLY_NOWARMUP+x}" &&
    -z "${MF_SDMA_ORCH_DEPLOY_HELPER+x}" ]] || { echo "unsafe MemFabric env override" >&2; exit 2; }
 [[ "${MF_SDMA_ORCH_EPOCH_BUDGET_S:-}" != 4294967295 ]] || { echo "persistent epoch forbidden" >&2; exit 2; }
+# 仅R2诊断V2会话允许显式5s/15s；非R2保持原脚本语义。
+if [[ -n "${A1_R2_EPOCH_ARM:-}" ]]; then
+  [[ "$ARM" == v2 && "$MODE" == l3_event &&
+     "${MF_SDMA_ORCH_EPOCH_BUDGET_S:-}" == "$A1_R2_EPOCH_ARM" &&
+     ( "$A1_R2_EPOCH_ARM" == 5 || "$A1_R2_EPOCH_ARM" == 15 ) ]] || {
+    echo "R2 epoch requires matched 5/15 second V2-only no-profiler session" >&2; exit 2;
+  }
+fi
 for cmd in python3 vllm setsid curl timeout sha256sum npu-smi; do
   command -v "$cmd" >/dev/null || { echo "missing $cmd" >&2; exit 2; }
 done
@@ -63,6 +71,10 @@ if identity["kver_sha256"] != "25e16b0af2f16989231ff0443698261257bd8142834783a0c
     raise SystemExit("runtime KVER identity not verified")
 assert arm in ("stock","v2") and mode in ("l2_profile","l3_event")
 m={"session_id":sid,"arm":arm,"input_tokens":4096,"output_tokens":1,
+   "epoch_budget_s": (int(os.environ["MF_SDMA_ORCH_EPOCH_BUDGET_S"])
+                      if os.environ.get("A1_R2_EPOCH_ARM") else None),
+   "epoch_budget_source": ("explicit_R2_controlled_env"
+                           if os.environ.get("A1_R2_EPOCH_ARM") else "not_recorded"),
    "concurrency":1,"tp":2,"eager":True,"profiler":mode=="l2_profile",
    "warmup_requests":6,"measured_requests":5 if mode=="l2_profile" else 30,
    "identity":identity,"identity_kind":"site-audited runtime; must retain raw evidence"}
@@ -123,7 +135,17 @@ cleanup() {
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
     # Only terminate the process group whose session leader was created here.
     sid="$(ps -o sid= -p "$pid" 2>/dev/null | tr -d ' ')"
-    if [[ "$sid" == "$pid" ]]; then kill -TERM -- "-$pid" 2>/dev/null || true; fi
+    if [[ "$sid" == "$pid" ]]; then
+      kill -TERM -- "-$pid" 2>/dev/null || true
+      # 只检查/清理我们创建的会话组，最多30秒，避免遗留新实验Serve。
+      for ((i=0; i<30; i++)); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 1
+      done
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL -- "-$pid" 2>/dev/null || true
+      fi
+    fi
     wait "$pid" 2>/dev/null || true
   fi
 }
