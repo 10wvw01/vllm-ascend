@@ -1,0 +1,1242 @@
+{
+  "schema": "A1_MM_SHADOW_RANK_V1",
+  "arm": "sym_clean",
+  "rank": 1,
+  "world_size": 2,
+  "shadow_sha256": "22b841f473f707f6d95ee31912797b03cd419a23f44a9d56d192a836800fd541",
+  "adapter_so_sha256": "4f04cdd4bffc7fffbb6ddec350a4b54dc2eebd6d2ffe7fa62a4bcdcb219ddf1f",
+  "d4_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "mm_geometry": "M2048/4096,Chunk1024,N2048,K2048,8core",
+  "weight_layout": "NZ29",
+  "profile": false,
+  "memory": "MemFabric symmetric arena",
+  "device_span_is_complete_kernel": true,
+  "sym_pool_created": true,
+  "patched_stack_maps_verified": true,
+  "results": [
+    {
+      "M": 2048,
+      "rank": 1,
+      "arm": "sym_clean",
+      "warmup": 20,
+      "iters": 100,
+      "bit_exact": true,
+      "samples": [
+        {
+          "i": 0,
+          "variant": 0,
+          "event_us": 581.198,
+          "wall_us": 667.67
+        },
+        {
+          "i": 1,
+          "variant": 1,
+          "event_us": 585.13,
+          "wall_us": 668.85
+        },
+        {
+          "i": 2,
+          "variant": 0,
+          "event_us": 555.469,
+          "wall_us": 621.78
+        },
+        {
+          "i": 3,
+          "variant": 1,
+          "event_us": 560.0,
+          "wall_us": 639.92
+        },
+        {
+          "i": 4,
+          "variant": 0,
+          "event_us": 552.552,
+          "wall_us": 644.71
+        },
+        {
+          "i": 5,
+          "variant": 1,
+          "event_us": 570.13,
+          "wall_us": 646.62
+        },
+        {
+          "i": 6,
+          "variant": 0,
+          "event_us": 562.839,
+          "wall_us": 646.41
+        },
+        {
+          "i": 7,
+          "variant": 1,
+          "event_us": 543.229,
+          "wall_us": 627.2
+        },
+        {
+          "i": 8,
+          "variant": 0,
+          "event_us": 550.026,
+          "wall_us": 629.32
+        },
+        {
+          "i": 9,
+          "variant": 1,
+          "event_us": 556.849,
+          "wall_us": 626.33
+        },
+        {
+          "i": 10,
+          "variant": 0,
+          "event_us": 534.089,
+          "wall_us": 613.44
+        },
+        {
+          "i": 11,
+          "variant": 1,
+          "event_us": 569.583,
+          "wall_us": 649.81
+        },
+        {
+          "i": 12,
+          "variant": 0,
+          "event_us": 540.052,
+          "wall_us": 617.51
+        },
+        {
+          "i": 13,
+          "variant": 1,
+          "event_us": 543.828,
+          "wall_us": 613.9
+        },
+        {
+          "i": 14,
+          "variant": 0,
+          "event_us": 540.078,
+          "wall_us": 616.34
+        },
+        {
+          "i": 15,
+          "variant": 1,
+          "event_us": 554.453,
+          "wall_us": 628.08
+        },
+        {
+          "i": 16,
+          "variant": 0,
+          "event_us": 532.109,
+          "wall_us": 604.85
+        },
+        {
+          "i": 17,
+          "variant": 1,
+          "event_us": 538.464,
+          "wall_us": 609.25
+        },
+        {
+          "i": 18,
+          "variant": 0,
+          "event_us": 533.906,
+          "wall_us": 607.66
+        },
+        {
+          "i": 19,
+          "variant": 1,
+          "event_us": 561.015,
+          "wall_us": 624.39
+        },
+        {
+          "i": 20,
+          "variant": 0,
+          "event_us": 532.318,
+          "wall_us": 609.84
+        },
+        {
+          "i": 21,
+          "variant": 1,
+          "event_us": 575.756,
+          "wall_us": 658.39
+        },
+        {
+          "i": 22,
+          "variant": 0,
+          "event_us": 557.605,
+          "wall_us": 638.78
+        },
+        {
+          "i": 23,
+          "variant": 1,
+          "event_us": 533.125,
+          "wall_us": 610.02
+        },
+        {
+          "i": 24,
+          "variant": 0,
+          "event_us": 550.468,
+          "wall_us": 624.82
+        },
+        {
+          "i": 25,
+          "variant": 1,
+          "event_us": 557.057,
+          "wall_us": 622.61
+        },
+        {
+          "i": 26,
+          "variant": 0,
+          "event_us": 537.213,
+          "wall_us": 615.71
+        },
+        {
+          "i": 27,
+          "variant": 1,
+          "event_us": 563.046,
+          "wall_us": 630.27
+        },
+        {
+          "i": 28,
+          "variant": 0,
+          "event_us": 534.427,
+          "wall_us": 611.24
+        },
+        {
+          "i": 29,
+          "variant": 1,
+          "event_us": 560.234,
+          "wall_us": 623.58
+        },
+        {
+          "i": 30,
+          "variant": 0,
+          "event_us": 532.708,
+          "wall_us": 610.05
+        },
+        {
+          "i": 31,
+          "variant": 1,
+          "event_us": 574.349,
+          "wall_us": 651.35
+        },
+        {
+          "i": 32,
+          "variant": 0,
+          "event_us": 541.068,
+          "wall_us": 618.19
+        },
+        {
+          "i": 33,
+          "variant": 1,
+          "event_us": 546.433,
+          "wall_us": 618.87
+        },
+        {
+          "i": 34,
+          "variant": 0,
+          "event_us": 540.86,
+          "wall_us": 616.0
+        },
+        {
+          "i": 35,
+          "variant": 1,
+          "event_us": 559.557,
+          "wall_us": 620.89
+        },
+        {
+          "i": 36,
+          "variant": 0,
+          "event_us": 546.641,
+          "wall_us": 624.4
+        },
+        {
+          "i": 37,
+          "variant": 1,
+          "event_us": 539.245,
+          "wall_us": 609.03
+        },
+        {
+          "i": 38,
+          "variant": 0,
+          "event_us": 537.396,
+          "wall_us": 615.08
+        },
+        {
+          "i": 39,
+          "variant": 1,
+          "event_us": 531.875,
+          "wall_us": 605.27
+        },
+        {
+          "i": 40,
+          "variant": 0,
+          "event_us": 533.959,
+          "wall_us": 609.28
+        },
+        {
+          "i": 41,
+          "variant": 1,
+          "event_us": 567.579,
+          "wall_us": 652.65
+        },
+        {
+          "i": 42,
+          "variant": 0,
+          "event_us": 540.859,
+          "wall_us": 615.68
+        },
+        {
+          "i": 43,
+          "variant": 1,
+          "event_us": 567.188,
+          "wall_us": 628.94
+        },
+        {
+          "i": 44,
+          "variant": 0,
+          "event_us": 534.922,
+          "wall_us": 608.53
+        },
+        {
+          "i": 45,
+          "variant": 1,
+          "event_us": 541.875,
+          "wall_us": 609.98
+        },
+        {
+          "i": 46,
+          "variant": 0,
+          "event_us": 532.76,
+          "wall_us": 609.15
+        },
+        {
+          "i": 47,
+          "variant": 1,
+          "event_us": 545.078,
+          "wall_us": 614.74
+        },
+        {
+          "i": 48,
+          "variant": 0,
+          "event_us": 539.115,
+          "wall_us": 613.8
+        },
+        {
+          "i": 49,
+          "variant": 1,
+          "event_us": 533.542,
+          "wall_us": 603.64
+        },
+        {
+          "i": 50,
+          "variant": 0,
+          "event_us": 544.896,
+          "wall_us": 622.1
+        },
+        {
+          "i": 51,
+          "variant": 1,
+          "event_us": 573.386,
+          "wall_us": 675.88
+        },
+        {
+          "i": 52,
+          "variant": 0,
+          "event_us": 559.427,
+          "wall_us": 631.79
+        },
+        {
+          "i": 53,
+          "variant": 1,
+          "event_us": 544.792,
+          "wall_us": 617.42
+        },
+        {
+          "i": 54,
+          "variant": 0,
+          "event_us": 534.687,
+          "wall_us": 607.53
+        },
+        {
+          "i": 55,
+          "variant": 1,
+          "event_us": 534.765,
+          "wall_us": 605.88
+        },
+        {
+          "i": 56,
+          "variant": 0,
+          "event_us": 528.125,
+          "wall_us": 600.08
+        },
+        {
+          "i": 57,
+          "variant": 1,
+          "event_us": 551.745,
+          "wall_us": 624.84
+        },
+        {
+          "i": 58,
+          "variant": 0,
+          "event_us": 531.719,
+          "wall_us": 604.89
+        },
+        {
+          "i": 59,
+          "variant": 1,
+          "event_us": 541.198,
+          "wall_us": 612.77
+        },
+        {
+          "i": 60,
+          "variant": 0,
+          "event_us": 527.474,
+          "wall_us": 603.9
+        },
+        {
+          "i": 61,
+          "variant": 1,
+          "event_us": 573.646,
+          "wall_us": 672.11
+        },
+        {
+          "i": 62,
+          "variant": 0,
+          "event_us": 554.219,
+          "wall_us": 627.13
+        },
+        {
+          "i": 63,
+          "variant": 1,
+          "event_us": 545.182,
+          "wall_us": 617.74
+        },
+        {
+          "i": 64,
+          "variant": 0,
+          "event_us": 564.791,
+          "wall_us": 632.08
+        },
+        {
+          "i": 65,
+          "variant": 1,
+          "event_us": 541.953,
+          "wall_us": 614.91
+        },
+        {
+          "i": 66,
+          "variant": 0,
+          "event_us": 531.432,
+          "wall_us": 604.55
+        },
+        {
+          "i": 67,
+          "variant": 1,
+          "event_us": 524.532,
+          "wall_us": 611.63
+        },
+        {
+          "i": 68,
+          "variant": 0,
+          "event_us": 535.13,
+          "wall_us": 606.11
+        },
+        {
+          "i": 69,
+          "variant": 1,
+          "event_us": 552.24,
+          "wall_us": 620.0
+        },
+        {
+          "i": 70,
+          "variant": 0,
+          "event_us": 545.677,
+          "wall_us": 612.87
+        },
+        {
+          "i": 71,
+          "variant": 1,
+          "event_us": 579.766,
+          "wall_us": 684.93
+        },
+        {
+          "i": 72,
+          "variant": 0,
+          "event_us": 531.927,
+          "wall_us": 612.17
+        },
+        {
+          "i": 73,
+          "variant": 1,
+          "event_us": 535.182,
+          "wall_us": 621.38
+        },
+        {
+          "i": 74,
+          "variant": 0,
+          "event_us": 532.787,
+          "wall_us": 605.7
+        },
+        {
+          "i": 75,
+          "variant": 1,
+          "event_us": 532.708,
+          "wall_us": 614.06
+        },
+        {
+          "i": 76,
+          "variant": 0,
+          "event_us": 528.724,
+          "wall_us": 602.76
+        },
+        {
+          "i": 77,
+          "variant": 1,
+          "event_us": 536.51,
+          "wall_us": 616.65
+        },
+        {
+          "i": 78,
+          "variant": 0,
+          "event_us": 533.411,
+          "wall_us": 608.62
+        },
+        {
+          "i": 79,
+          "variant": 1,
+          "event_us": 532.448,
+          "wall_us": 606.9
+        },
+        {
+          "i": 80,
+          "variant": 0,
+          "event_us": 547.656,
+          "wall_us": 613.86
+        },
+        {
+          "i": 81,
+          "variant": 1,
+          "event_us": 573.386,
+          "wall_us": 670.55
+        },
+        {
+          "i": 82,
+          "variant": 0,
+          "event_us": 565.964,
+          "wall_us": 631.56
+        },
+        {
+          "i": 83,
+          "variant": 1,
+          "event_us": 532.656,
+          "wall_us": 612.64
+        },
+        {
+          "i": 84,
+          "variant": 0,
+          "event_us": 559.583,
+          "wall_us": 623.16
+        },
+        {
+          "i": 85,
+          "variant": 1,
+          "event_us": 547.369,
+          "wall_us": 620.35
+        },
+        {
+          "i": 86,
+          "variant": 0,
+          "event_us": 533.229,
+          "wall_us": 608.65
+        },
+        {
+          "i": 87,
+          "variant": 1,
+          "event_us": 530.312,
+          "wall_us": 602.13
+        },
+        {
+          "i": 88,
+          "variant": 0,
+          "event_us": 536.614,
+          "wall_us": 621.04
+        },
+        {
+          "i": 89,
+          "variant": 1,
+          "event_us": 555.234,
+          "wall_us": 622.47
+        },
+        {
+          "i": 90,
+          "variant": 0,
+          "event_us": 533.385,
+          "wall_us": 612.09
+        },
+        {
+          "i": 91,
+          "variant": 1,
+          "event_us": 572.942,
+          "wall_us": 680.79
+        },
+        {
+          "i": 92,
+          "variant": 0,
+          "event_us": 570.391,
+          "wall_us": 653.79
+        },
+        {
+          "i": 93,
+          "variant": 1,
+          "event_us": 559.505,
+          "wall_us": 624.04
+        },
+        {
+          "i": 94,
+          "variant": 0,
+          "event_us": 561.484,
+          "wall_us": 622.66
+        },
+        {
+          "i": 95,
+          "variant": 1,
+          "event_us": 557.604,
+          "wall_us": 621.6
+        },
+        {
+          "i": 96,
+          "variant": 0,
+          "event_us": 559.115,
+          "wall_us": 623.8
+        },
+        {
+          "i": 97,
+          "variant": 1,
+          "event_us": 566.433,
+          "wall_us": 633.83
+        },
+        {
+          "i": 98,
+          "variant": 0,
+          "event_us": 542.76,
+          "wall_us": 617.14
+        },
+        {
+          "i": 99,
+          "variant": 1,
+          "event_us": 546.302,
+          "wall_us": 615.04
+        }
+      ],
+      "event_p50_us": 544.844,
+      "note": "NPU stream Event; not an in-fusion MM phase timer"
+    },
+    {
+      "M": 4096,
+      "rank": 1,
+      "arm": "sym_clean",
+      "warmup": 20,
+      "iters": 100,
+      "bit_exact": true,
+      "samples": [
+        {
+          "i": 0,
+          "variant": 0,
+          "event_us": 1032.864,
+          "wall_us": 1128.13
+        },
+        {
+          "i": 1,
+          "variant": 1,
+          "event_us": 1035.182,
+          "wall_us": 1126.43
+        },
+        {
+          "i": 2,
+          "variant": 0,
+          "event_us": 1031.354,
+          "wall_us": 1101.74
+        },
+        {
+          "i": 3,
+          "variant": 1,
+          "event_us": 1005.416,
+          "wall_us": 1092.98
+        },
+        {
+          "i": 4,
+          "variant": 0,
+          "event_us": 1002.969,
+          "wall_us": 1077.85
+        },
+        {
+          "i": 5,
+          "variant": 1,
+          "event_us": 997.11,
+          "wall_us": 1080.21
+        },
+        {
+          "i": 6,
+          "variant": 0,
+          "event_us": 1018.88,
+          "wall_us": 1091.9
+        },
+        {
+          "i": 7,
+          "variant": 1,
+          "event_us": 984.583,
+          "wall_us": 1062.85
+        },
+        {
+          "i": 8,
+          "variant": 0,
+          "event_us": 992.292,
+          "wall_us": 1066.34
+        },
+        {
+          "i": 9,
+          "variant": 1,
+          "event_us": 993.255,
+          "wall_us": 1070.63
+        },
+        {
+          "i": 10,
+          "variant": 0,
+          "event_us": 1012.864,
+          "wall_us": 1081.79
+        },
+        {
+          "i": 11,
+          "variant": 1,
+          "event_us": 1019.609,
+          "wall_us": 1112.88
+        },
+        {
+          "i": 12,
+          "variant": 0,
+          "event_us": 1007.396,
+          "wall_us": 1083.93
+        },
+        {
+          "i": 13,
+          "variant": 1,
+          "event_us": 1005.7811,
+          "wall_us": 1080.46
+        },
+        {
+          "i": 14,
+          "variant": 0,
+          "event_us": 1005.547,
+          "wall_us": 1091.66
+        },
+        {
+          "i": 15,
+          "variant": 1,
+          "event_us": 1002.187,
+          "wall_us": 1077.5
+        },
+        {
+          "i": 16,
+          "variant": 0,
+          "event_us": 1006.4059,
+          "wall_us": 1078.68
+        },
+        {
+          "i": 17,
+          "variant": 1,
+          "event_us": 1005.3639,
+          "wall_us": 1073.88
+        },
+        {
+          "i": 18,
+          "variant": 0,
+          "event_us": 1016.119,
+          "wall_us": 1094.79
+        },
+        {
+          "i": 19,
+          "variant": 1,
+          "event_us": 990.052,
+          "wall_us": 1073.52
+        },
+        {
+          "i": 20,
+          "variant": 0,
+          "event_us": 1010.3641,
+          "wall_us": 1080.44
+        },
+        {
+          "i": 21,
+          "variant": 1,
+          "event_us": 1032.396,
+          "wall_us": 1152.01
+        },
+        {
+          "i": 22,
+          "variant": 0,
+          "event_us": 1025.625,
+          "wall_us": 1108.56
+        },
+        {
+          "i": 23,
+          "variant": 1,
+          "event_us": 1017.422,
+          "wall_us": 1104.51
+        },
+        {
+          "i": 24,
+          "variant": 0,
+          "event_us": 1020.39,
+          "wall_us": 1090.87
+        },
+        {
+          "i": 25,
+          "variant": 1,
+          "event_us": 1010.547,
+          "wall_us": 1086.79
+        },
+        {
+          "i": 26,
+          "variant": 0,
+          "event_us": 1021.98,
+          "wall_us": 1088.05
+        },
+        {
+          "i": 27,
+          "variant": 1,
+          "event_us": 996.77,
+          "wall_us": 1070.6
+        },
+        {
+          "i": 28,
+          "variant": 0,
+          "event_us": 1013.62,
+          "wall_us": 1080.4
+        },
+        {
+          "i": 29,
+          "variant": 1,
+          "event_us": 1030.104,
+          "wall_us": 1105.8
+        },
+        {
+          "i": 30,
+          "variant": 0,
+          "event_us": 986.302,
+          "wall_us": 1060.47
+        },
+        {
+          "i": 31,
+          "variant": 1,
+          "event_us": 1039.297,
+          "wall_us": 1143.25
+        },
+        {
+          "i": 32,
+          "variant": 0,
+          "event_us": 1028.0989,
+          "wall_us": 1093.72
+        },
+        {
+          "i": 33,
+          "variant": 1,
+          "event_us": 1010.0,
+          "wall_us": 1093.07
+        },
+        {
+          "i": 34,
+          "variant": 0,
+          "event_us": 1027.005,
+          "wall_us": 1088.16
+        },
+        {
+          "i": 35,
+          "variant": 1,
+          "event_us": 998.411,
+          "wall_us": 1076.75
+        },
+        {
+          "i": 36,
+          "variant": 0,
+          "event_us": 1020.469,
+          "wall_us": 1086.47
+        },
+        {
+          "i": 37,
+          "variant": 1,
+          "event_us": 998.463,
+          "wall_us": 1070.24
+        },
+        {
+          "i": 38,
+          "variant": 0,
+          "event_us": 983.672,
+          "wall_us": 1057.6
+        },
+        {
+          "i": 39,
+          "variant": 1,
+          "event_us": 992.657,
+          "wall_us": 1066.28
+        },
+        {
+          "i": 40,
+          "variant": 0,
+          "event_us": 1022.579,
+          "wall_us": 1090.36
+        },
+        {
+          "i": 41,
+          "variant": 1,
+          "event_us": 1034.0101,
+          "wall_us": 1131.52
+        },
+        {
+          "i": 42,
+          "variant": 0,
+          "event_us": 1017.318,
+          "wall_us": 1087.44
+        },
+        {
+          "i": 43,
+          "variant": 1,
+          "event_us": 1015.729,
+          "wall_us": 1087.15
+        },
+        {
+          "i": 44,
+          "variant": 0,
+          "event_us": 1009.531,
+          "wall_us": 1087.58
+        },
+        {
+          "i": 45,
+          "variant": 1,
+          "event_us": 985.469,
+          "wall_us": 1068.6
+        },
+        {
+          "i": 46,
+          "variant": 0,
+          "event_us": 1017.031,
+          "wall_us": 1086.65
+        },
+        {
+          "i": 47,
+          "variant": 1,
+          "event_us": 1014.297,
+          "wall_us": 1086.11
+        },
+        {
+          "i": 48,
+          "variant": 0,
+          "event_us": 1012.187,
+          "wall_us": 1096.48
+        },
+        {
+          "i": 49,
+          "variant": 1,
+          "event_us": 983.255,
+          "wall_us": 1065.05
+        },
+        {
+          "i": 50,
+          "variant": 0,
+          "event_us": 987.812,
+          "wall_us": 1062.67
+        },
+        {
+          "i": 51,
+          "variant": 1,
+          "event_us": 1036.146,
+          "wall_us": 1131.36
+        },
+        {
+          "i": 52,
+          "variant": 0,
+          "event_us": 1021.589,
+          "wall_us": 1090.44
+        },
+        {
+          "i": 53,
+          "variant": 1,
+          "event_us": 1021.5631,
+          "wall_us": 1091.45
+        },
+        {
+          "i": 54,
+          "variant": 0,
+          "event_us": 1025.651,
+          "wall_us": 1092.1
+        },
+        {
+          "i": 55,
+          "variant": 1,
+          "event_us": 1017.292,
+          "wall_us": 1088.19
+        },
+        {
+          "i": 56,
+          "variant": 0,
+          "event_us": 986.145,
+          "wall_us": 1060.36
+        },
+        {
+          "i": 57,
+          "variant": 1,
+          "event_us": 984.792,
+          "wall_us": 1066.68
+        },
+        {
+          "i": 58,
+          "variant": 0,
+          "event_us": 1026.328,
+          "wall_us": 1092.44
+        },
+        {
+          "i": 59,
+          "variant": 1,
+          "event_us": 978.307,
+          "wall_us": 1066.62
+        },
+        {
+          "i": 60,
+          "variant": 0,
+          "event_us": 1000.365,
+          "wall_us": 1074.97
+        },
+        {
+          "i": 61,
+          "variant": 1,
+          "event_us": 1034.219,
+          "wall_us": 1137.86
+        },
+        {
+          "i": 62,
+          "variant": 0,
+          "event_us": 1026.536,
+          "wall_us": 1091.58
+        },
+        {
+          "i": 63,
+          "variant": 1,
+          "event_us": 1010.417,
+          "wall_us": 1094.65
+        },
+        {
+          "i": 64,
+          "variant": 0,
+          "event_us": 1018.907,
+          "wall_us": 1084.87
+        },
+        {
+          "i": 65,
+          "variant": 1,
+          "event_us": 1014.271,
+          "wall_us": 1081.62
+        },
+        {
+          "i": 66,
+          "variant": 0,
+          "event_us": 991.094,
+          "wall_us": 1067.51
+        },
+        {
+          "i": 67,
+          "variant": 1,
+          "event_us": 1006.119,
+          "wall_us": 1085.35
+        },
+        {
+          "i": 68,
+          "variant": 0,
+          "event_us": 991.38,
+          "wall_us": 1068.49
+        },
+        {
+          "i": 69,
+          "variant": 1,
+          "event_us": 994.531,
+          "wall_us": 1075.05
+        },
+        {
+          "i": 70,
+          "variant": 0,
+          "event_us": 1012.787,
+          "wall_us": 1079.57
+        },
+        {
+          "i": 71,
+          "variant": 1,
+          "event_us": 1038.229,
+          "wall_us": 1133.51
+        },
+        {
+          "i": 72,
+          "variant": 0,
+          "event_us": 999.531,
+          "wall_us": 1076.98
+        },
+        {
+          "i": 73,
+          "variant": 1,
+          "event_us": 1010.3379,
+          "wall_us": 1087.87
+        },
+        {
+          "i": 74,
+          "variant": 0,
+          "event_us": 1018.672,
+          "wall_us": 1082.35
+        },
+        {
+          "i": 75,
+          "variant": 1,
+          "event_us": 992.787,
+          "wall_us": 1066.49
+        },
+        {
+          "i": 76,
+          "variant": 0,
+          "event_us": 1000.911,
+          "wall_us": 1078.71
+        },
+        {
+          "i": 77,
+          "variant": 1,
+          "event_us": 1005.26,
+          "wall_us": 1072.33
+        },
+        {
+          "i": 78,
+          "variant": 0,
+          "event_us": 1011.771,
+          "wall_us": 1093.12
+        },
+        {
+          "i": 79,
+          "variant": 1,
+          "event_us": 1018.985,
+          "wall_us": 1089.41
+        },
+        {
+          "i": 80,
+          "variant": 0,
+          "event_us": 1021.119,
+          "wall_us": 1086.93
+        },
+        {
+          "i": 81,
+          "variant": 1,
+          "event_us": 1025.7289,
+          "wall_us": 1130.56
+        },
+        {
+          "i": 82,
+          "variant": 0,
+          "event_us": 1031.979,
+          "wall_us": 1114.58
+        },
+        {
+          "i": 83,
+          "variant": 1,
+          "event_us": 1021.771,
+          "wall_us": 1087.47
+        },
+        {
+          "i": 84,
+          "variant": 0,
+          "event_us": 1020.756,
+          "wall_us": 1087.88
+        },
+        {
+          "i": 85,
+          "variant": 1,
+          "event_us": 1020.807,
+          "wall_us": 1086.88
+        },
+        {
+          "i": 86,
+          "variant": 0,
+          "event_us": 1030.208,
+          "wall_us": 1091.25
+        },
+        {
+          "i": 87,
+          "variant": 1,
+          "event_us": 975.599,
+          "wall_us": 1051.32
+        },
+        {
+          "i": 88,
+          "variant": 0,
+          "event_us": 1020.391,
+          "wall_us": 1082.27
+        },
+        {
+          "i": 89,
+          "variant": 1,
+          "event_us": 1003.672,
+          "wall_us": 1074.81
+        },
+        {
+          "i": 90,
+          "variant": 0,
+          "event_us": 1009.27,
+          "wall_us": 1076.1
+        },
+        {
+          "i": 91,
+          "variant": 1,
+          "event_us": 1034.583,
+          "wall_us": 1139.55
+        },
+        {
+          "i": 92,
+          "variant": 0,
+          "event_us": 1020.416,
+          "wall_us": 1090.09
+        },
+        {
+          "i": 93,
+          "variant": 1,
+          "event_us": 1009.818,
+          "wall_us": 1088.32
+        },
+        {
+          "i": 94,
+          "variant": 0,
+          "event_us": 1032.2911,
+          "wall_us": 1102.23
+        },
+        {
+          "i": 95,
+          "variant": 1,
+          "event_us": 1007.604,
+          "wall_us": 1076.61
+        },
+        {
+          "i": 96,
+          "variant": 0,
+          "event_us": 1023.412,
+          "wall_us": 1091.02
+        },
+        {
+          "i": 97,
+          "variant": 1,
+          "event_us": 981.25,
+          "wall_us": 1076.73
+        },
+        {
+          "i": 98,
+          "variant": 0,
+          "event_us": 1017.2139,
+          "wall_us": 1083.11
+        },
+        {
+          "i": 99,
+          "variant": 1,
+          "event_us": 984.974,
+          "wall_us": 1064.72
+        }
+      ],
+      "event_p50_us": 1012.826,
+      "note": "NPU stream Event; not an in-fusion MM phase timer"
+    }
+  ]
+}

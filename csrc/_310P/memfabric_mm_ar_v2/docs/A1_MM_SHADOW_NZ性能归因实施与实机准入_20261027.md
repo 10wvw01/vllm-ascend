@@ -1,6 +1,6 @@
 # A1-MM-SHADOW｜V2 D4内置MM与原生NZ-MM同构对照：实现、实机门禁与裁决
 
-> **状态（2026-10-27）：**代码已在`work/310p-mm-ar-large-m-a1-20261026`添加影子Kernel、独立编译、双Rank测试、原始NZ/影子CANN profiler、12场交叉比较和CPU负向UT。**本变更未在310P3上编译/运行，CPU原仓CI待执行，不能称PASS或提前填写MM差值。**保留D4正式Kernel和MemFabric协议原样，Stock仍为Serving默认；A1 PR#9保持Draft。
+> **状态（2026-10-27，实机完成后更新）：**本批已在310P3卡16384（dev2/3，113分钟连续独占）完成预检、双bug修复、12场×2批影子campaign、八场U1 Confirm与HCCL审计。**主结果：`MM_ONLY_COMPARISON_VALID`**——无Profiler Event差 **+6.6µs/+1.38%（M2048）、+19.4µs/+2.29%（M4096）**；短Profiler纯Kernel差 **+11.2µs/+2.77%、+36.5µs/+4.69%**；对称GM扰动+3.7/+7.1µs可忽略；**CleanLines受控增量+69.3/+139.6µs为最大项**。U1八场Confirm=INCONCLUSIVE_DRIFT（07场D4-M1024 anchor 6.99%，R2已知周期长尾），ABBA与R2一致（D4全链约−20%），HCCL审计已附，L1候选未签。**正式D4内部MM精确时长维持UNKNOWN**。完整报告与原始证据：[evidence/a1_mm_shadow_batch_20261027/A1_MM_SHADOW_ONDEVICE_REPORT_20261027.md](../evidence/a1_mm_shadow_batch_20261027/A1_MM_SHADOW_ONDEVICE_REPORT_20261027.md)。Stock仍为Serving默认；A1 PR#9保持Draft。
 
 ## 0. 实机准入预检发现与修复（2026-10-27，卡16384 dev2/3）
 

@@ -1,0 +1,72 @@
+{
+  "schema": "A1_NZ_U1_NATIVE_ROUTE_V1",
+  "status": "NZ_STOCK_ROUTE_VERIFIED",
+  "proofs": [
+    {
+      "rank": 0,
+      "M": 2048,
+      "trace": "rank0_m2048_kernel_details.csv",
+      "trace_sha256": "5e96c9fb4c320bb190df226ebf574e59c713d4893c4f11ad80822d6d1f49c962",
+      "pairs": 6,
+      "first_pair": {
+        "nz_kernel": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+        "mm_us": 409.434,
+        "hccl_kernel": "hcom_allReduce__612_0_1",
+        "hccl_us": 575.302,
+        "gap_us": 61.0,
+        "mm_stream": "73",
+        "hccl_stream": "N/A"
+      }
+    },
+    {
+      "rank": 0,
+      "M": 4096,
+      "trace": "rank0_m4096_kernel_details.csv",
+      "trace_sha256": "a975433401f60d1445e9bfa8aedab55722fd5b193404962b60eb9ff6e4e9b9ef",
+      "pairs": 6,
+      "first_pair": {
+        "nz_kernel": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+        "mm_us": 791.903,
+        "hccl_kernel": "hcom_allReduce__612_0_1",
+        "hccl_us": 1154.35,
+        "gap_us": 48.25,
+        "mm_stream": "73",
+        "hccl_stream": "N/A"
+      }
+    },
+    {
+      "rank": 1,
+      "M": 2048,
+      "trace": "rank1_m2048_kernel_details.csv",
+      "trace_sha256": "b5772df25f3e6da895d8f81c81a2d08fb1b229e1f9a41be3da35d3648fc5ac76",
+      "pairs": 6,
+      "first_pair": {
+        "nz_kernel": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+        "mm_us": 391.225,
+        "hccl_kernel": "hcom_allReduce__612_0_1",
+        "hccl_us": 613.774,
+        "gap_us": 66.5,
+        "mm_stream": "11",
+        "hccl_stream": "N/A"
+      }
+    },
+    {
+      "rank": 1,
+      "M": 4096,
+      "trace": "rank1_m4096_kernel_details.csv",
+      "trace_sha256": "5c3b4cac05ef78669294bf9bdd05b85b554d17e6b0a0166c78947ed04ca14642",
+      "pairs": 6,
+      "first_pair": {
+        "nz_kernel": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+        "mm_us": 783.83,
+        "hccl_kernel": "hcom_allReduce__612_0_1",
+        "hccl_us": 1165.212,
+        "gap_us": 48.25,
+        "mm_stream": "11",
+        "hccl_stream": "N/A"
+      }
+    }
+  ],
+  "scope": "short profiler route-only, NOT ABBA timings",
+  "warning": "Actual real-model NM/stride equivalence still needs visual tensor/profile audit"
+}

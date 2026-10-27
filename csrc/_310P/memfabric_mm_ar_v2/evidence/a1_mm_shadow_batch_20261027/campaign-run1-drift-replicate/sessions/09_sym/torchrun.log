@@ -1,0 +1,27 @@
+W1027 16:04:55.058000 1476856 site-packages/torch/distributed/run.py:852] 
+W1027 16:04:55.058000 1476856 site-packages/torch/distributed/run.py:852] *****************************************
+W1027 16:04:55.058000 1476856 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1027 16:04:55.058000 1476856 site-packages/torch/distributed/run.py:852] *****************************************
+[Gloo] Rank [Gloo] Rank 1 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+2026-10-27 16:05:03.169223 WARN [1476951-1476951][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-27 16:05:03.169997 WARN [1476951-1476951][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-27 16:05:04.166809 WARN [1476952-1476952][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-27 16:05:04.167168 WARN [1476952-1476952][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-27 16:05:04.169767 WARN [1476952-1476952][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-27 16:05:04.169814 WARN [1476951-1476951][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-27 16:05:04.185804 WARN [1476952-1476952][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 16:05:04.186031 WARN [1476952-1476952][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 16:05:04.186212 WARN [1476952-1476952][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 16:05:04.192808 WARN [1476951-1476951][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-27 16:05:04.192948 WARN [1476951-1476951][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-27 16:05:04.193041 WARN [1476951-1476951][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+[rank0]:[W1027 16:05:19.733467280 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+MM SHADOW sym rank0 M2048 correctness+samples PASS
+MM SHADOW sym rank1 M2048 correctness+samples PASS
+MM SHADOW sym rank1 M4096 correctness+samples PASS
+MM SHADOW sym rank0 M4096 correctness+samples PASS
+2026-10-27 16:05:34.324085 WARN [1476952-1476952][HYBM hybm_va_manager.cpp:484 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-27 16:05:34.343612 WARN [1476951-1476951][HYBM hybm_va_manager.cpp:484 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-27 16:05:35.696482 WARN [1476951-1477141][AccLink acc_tcp_listener.cpp:151 RunInThread] Acc listener accept thread get stop signal, will exit...
+2026-10-27 16:05:36.173133 WARN [1476952-1477137][SMEM smem_tcp_config_store.cpp:757 LinkBrokenHandler] link broken, linkId: 0

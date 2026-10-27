@@ -1,0 +1,41 @@
+{
+  "schema": "U1_CONFIRM_ROUTE_AUDIT_V1",
+  "scope": "large_confirm_abba_20261027_mmshadow_batch",
+  "stock_hccl_fp16_verified": true,
+  "memfabric_route_verified": true,
+  "hccl_stream_end_to_end_verified": true,
+  "no_backend_coexistence": true,
+  "evidence_files": [
+    "sessions/01_large_stock_fp16/01_large_stock_fp16_rank0.json",
+    "sessions/04_large_stock_fp16/04_large_stock_fp16_rank0.json",
+    "sessions/02_large_memfabric_d4/02_large_memfabric_d4_rank0.json",
+    "sessions/03_large_memfabric_d4/03_large_memfabric_d4_rank0.json"
+  ],
+  "nz_stock_route_report": "nz_route_report.json",
+  "hccl_payload_linearity": {
+    "M1024": {
+      "payload_mb": 4.0,
+      "stock_chain_p50_us": 626.7,
+      "nz_mm_only_p50_us": null,
+      "note": "MM-only route CSV not collected at this M in this batch"
+    },
+    "M2048": {
+      "payload_mb": 8.0,
+      "stock_chain_p50_us": 1071.5,
+      "nz_mm_only_p50_us": 403.7,
+      "ar_plus_gap_us": 667.8
+    },
+    "M4096": {
+      "payload_mb": 16.0,
+      "stock_chain_p50_us": 2013.4,
+      "nz_mm_only_p50_us": 776.5,
+      "ar_plus_gap_us": 1236.9
+    }
+  },
+  "verification_notes": {
+    "stock_hccl_fp16_verified": "stock confirm sessions rank JSONs record stock_collective=FP16_HCCL_no_FP32_conversion, bit-exact vs CPU-gloo FP32-sum reference (u1_arm.py enforced).",
+    "memfabric_route_verified": "fused confirm sessions arm=memfabric_d4 with device_so_sha256=2a19390c..., protocol status=0; u1_run.sh identity gates bound D4 2a19390c+host 1dc46d7d+plugin 8eb65de9.",
+    "hccl_stream_end_to_end_verified": "bracketing methodology: event pair on compute stream after all_reduce enqueue; stock chain minus NZ MM-only (campaign native route CSV medians) grows with payload 8/16MB per hccl_payload_linearity; wall>=event; dual-rank paired.",
+    "no_backend_coexistence": "per-arm process isolation by u1_arm.py: stock arms HCCL-only world group, fused arms gloo-only + private MF pool; session logs show no cross-backend init."
+  }
+}
