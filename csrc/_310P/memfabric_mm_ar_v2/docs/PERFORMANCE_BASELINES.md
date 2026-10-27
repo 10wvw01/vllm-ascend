@@ -116,3 +116,21 @@
 - **L3 P0**：经过L2 40真实站点和同步依赖证据校准，四Serve ABBA各6预热+30成功请求，Stock场间漂移仅2.83ms；V2双窗口稳定负26～28ms、p90 2451～2517ms出现重尾，当前D4为`L3_INCONCLUSIVE_OR_NO_GAIN`，不可称TTFT已经恶化或改善1.1%；**正式L4未跑**。
 - **归因P0**：MM/NZ基线与通信等待可能共同贡献，不可把V2多出耗时全部直接认作MM或把40×站点p50加成“额外Host12ms”。先用隔离低侵入短Trace把MM/SDMA/IB/Pool/Add、长尾原因测清，再做Kernel单变量优化。服务器原始Profiler CSV仍为SERVER_ONLY，GitHub归档有20份按站点切片与SHA清单。
 
+## 2026-10-27｜A1-R2真实NZ U1 Screen、受污染Confirm与D4机制诊断
+
+> **地位：**R2 attempt3实机归档，A1工作分支运行身份`2718f41dc`（报告后追加归档至`e1c3b3d5`），固定Host `1dc46d7d…`、D4 Device `2a19390c…`、插件 `8eb65de9…`、KVER11 `25e16b0a…`，目标物理卡16384/dev2,3。权重NZ调用现与Serving统一启用`allow_internal_format=True`和`jit_compile=False`。Route真实CANN Kernel四组（Rank0/1×M2048/4096）各6次`aclnnMatmulWeightNz`+相邻`hcom_allReduce`；[路由机器证据](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/nz_route/nz_route_verified.json)。切勿把旧R1行主序正收益与R2真实NZ混在一个基线结论中。
+
+| 阶段/形状 | 真实NZ-Stock MM+HCCL 完整链p50 | D4完整链p50 | V2相对Stock加速率 | 正式有效性 |
+|---|---:|---:|---:|---|
+| **R2 Screen M1024（诊断）** | 625.677µs | 936.759µs | −33.208% | SCREEN_ONLY；非主业务形状，未单独核2048/4096同规格NZ路由证明 |
+| **R2 Screen M2048** | 1057.474µs | 1367.878µs | −22.692% | SCREEN_ONLY；不能当八场Confirm |
+| **R2 Screen M4096** | 2006.133µs | 2539.831µs | −21.013% | SCREEN_ONLY；与R1 L2真实NZ比Stock更快的方向一致 |
+| **R2 8场Confirm M1024** | 1275.072µs | 1158.639µs | +10.049% | **INVALID / INCONCLUSIVE_DRIFT**，Stock跨场漂移2080.483% |
+| **R2 8场Confirm M2048** | 1741.615µs | 1439.896µs | +20.954% | **INVALID / INCONCLUSIVE_DRIFT**，Stock跨场漂移79.675% |
+| **R2 8场Confirm M4096** | 2506.341µs | 2600.430µs | −3.618% | **INVALID / INCONCLUSIVE_DRIFT**，Stock跨场漂移663.527% |
+
+**采用顺序**：同批`nz_screen/u1_analysis.json`为有效的**初步方向判断**；八场`nz_confirm/u1_analysis.json`虽有完整Rank原始JSON，但多场污染、无独立确认审计SHA（`audit_sha256=null`），**不能签发任何正式NZ L1速比**。不能挑选看起来更好的Session重算正式Confirm。R2报告正文将Screen粗写为672/1067/2023µs，**与机器源JSON的625.677/1057.474/2006.133µs不完全一致**；本基线优先引用机器原件（[Screen](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/nz_screen/u1_analysis.json)、[Confirm](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/nz_confirm/u1_analysis.json)）。
+
+**D4机制实测**：[双Rank机器报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/diag_assessment.json) Formal 2635.925/2617.149µs、Loop4 3234.206/3213.112µs、Diag0 6378.946/412.448µs、Diag4 27033.241/26994.908µs、Diag5 1021.224/1055.573µs；[短Profiler派生摘要](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/sp_trace_summary.json)正式`V2TrialKernel<tiling1024,1024>` Rank0/1约2343/2355µs。**机制模式非等价，不可以差值当设备内MM/SDMA/IB/Add真实阶段耗时，INNER_PHASE_UNKNOWN**；短Profiler原始Chrome仍SERVER_ONLY。
+
+**Epoch & Serving**：本轮首个E15A模型启动可用显存27.33GiB小于90%利用率所需38.92GiB，受到外部进程占用导致VLLM初始化失败；后续5/5/15与L3、L4均无新有效数据。原R1周期尖峰仍是待验证假设，不得写“Epoch原因已确定”。[R2最终报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/A1_R2_FINAL_REPORT_20261027.md)。
