@@ -43,6 +43,25 @@ for path,expected in ((d['candidate_so'],d['candidate_sha256']),
     assert hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==expected
 assert d['isolated_not_installed'] and d['device_arch']=='dav-2002'
 PY
+# E1可能触发全DCache flush副作用，先用独立极短双Rank数值Smoke。
+# B2确保首个完整MM/AR两阶段代码真实可运行；任错不启动正式十场。
+for spec in "3:b2" "5:e1"; do
+  stage="${spec%%:*}"; arm="${spec#*:}"
+  echo "SMOKE_START $arm" | tee -a "$OUT/progress.txt"
+  if ! torchrun --standalone --nproc-per-node=2 "$PERF/five_arm_arm.py" \
+       --phase smoke --warmup 3 --iters 6 \
+       --stage "$stage" --out "$OUT/sessions" \
+       --build-manifest "$BUILD/manifest.json" \
+       --store-url "tcp://127.0.0.1:$FIVE_ARM_STORE_PORT" \
+       > "$OUT/sessions/smoke_$arm.log" 2>&1; then
+    echo "SMOKE_STOP $arm; preserve evidence" | tee -a "$OUT/progress.txt"
+    exit 1
+  fi
+  for rank in 0 1; do
+    [[ -s "$OUT/sessions/$(printf 'smoke_%02d_%s_rank%d.json' "$stage" "$arm" "$rank")" ]] || exit 1
+  done
+  echo "SMOKE_PASS $arm" | tee -a "$OUT/progress.txt"
+done
 # 保留各场B1设备首写防护、结构化R0/R1 JSON、日志；任错立刻停止。
 SCHEDULE=(stock b1 b2 d4 e1 e1 d4 b2 b1 stock)
 for i in "${!SCHEDULE[@]}"; do
