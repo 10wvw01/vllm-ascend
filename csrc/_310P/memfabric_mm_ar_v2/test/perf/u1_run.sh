@@ -6,7 +6,12 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "$0")/../../../../.." && pwd)"
 PERF="$ROOT/csrc/_310P/memfabric_mm_ar_v2/test/perf"
 OUT="$1"; SCOPE="$2"; PHASE="$3"
-export U1_STOCK_LAYOUT="${U1_STOCK_LAYOUT:-row_major}"
+# 大M从此默认对照真实Serving NZ布局；历史行主序仅U1_STOCK_LAYOUT=row_major诊断。
+if [[ -z "${U1_STOCK_LAYOUT:-}" ]]; then
+  if [[ "$SCOPE" == large ]]; then U1_STOCK_LAYOUT=nz
+  else U1_STOCK_LAYOUT=row_major; fi
+fi
+export U1_STOCK_LAYOUT
 [[ "$U1_STOCK_LAYOUT" == row_major || "$U1_STOCK_LAYOUT" == nz ]] || {
   echo "U1_STOCK_LAYOUT must be row_major|nz" >&2; exit 2; }
 [[ "$U1_STOCK_LAYOUT" != nz || "$SCOPE" == large ]] || {
