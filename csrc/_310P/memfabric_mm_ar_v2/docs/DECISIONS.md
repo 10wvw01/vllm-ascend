@@ -136,7 +136,7 @@
 ## ADR-017｜2026-10-28｜五层完整MM+AR对照与E1性能优先重构｜**实验实施中，未取得新实机结论**
 
 - **用户明确需求**：反对把`Chunk MM(k)→SDMA(k)→Add(k)→下个Chunk`冒充“完整串行”；必须加入原生NZ MM→MemFabric AR（B1）和**所有自定义MM结束才允许开始AR**（B2），与Stock A、现有D4 C及实际优化候选E1组成五层。所有层核对完整MM+FP16 SUM结果，不拿分段相加冒充闭环。
-- **技术决策**：E1首先用每核整DCache Clean+Invalid替换D4三个生产/消费DCCI代码位置，减少逐64B循环引起的标量负担及其后续IB Ready/SDMA Wait关键路径延迟；**不擅自宣称整缓存刷新快**，正式设备计算、IB、信件顺序、QUIET/DONE保留，任何差异都必须双Rank位精确、真实NZ路由与完整Stock数据验证。
+- **技术决策**：E1首先用每核整DCache Clean+Invalid替换D4三个生产/消费DCCI代码位置，并将每Chunk Ready从Core0等7核改成Core0等4个代表核、3个工作核作局部汇聚；共同压低逐64B循环、跨核会合及SDMA Wait暴露的关键路径；**不擅自宣称整缓存刷新快**，正式设备计算、IB、信件顺序、QUIET/DONE保留，任何差异都必须双Rank位精确、真实NZ路由与完整Stock数据验证。
 - **最大性能导向**：不为大M设置ROI停止阈值；E1失败则继续下一代协议优化，不把“过度保守”当成停止调优理由。但禁止通过无依据跳过必要数据可见性/等待或绕开KFC/Gate E报告虚假收益。
 - **实施边界**：仅在由主线派生的`work/310p-mm-ar-five-arm-dcci-20261028`新增独立B2/E1设备核、私有Host及五层基准/评估器，主线D4正式Kernel、Host、Serving、Stock默认、外部DFlash仓库零改动。旧A1 Draft PR #9只读取证，不整支合入/复制过时控制文件。
 - **合入/现场门禁**：源码两轮深审、原仓CPU合同与CANN BiSheng编译、同卡双Die真实独占G0、NZ路由、E1/B2双Rank短Smoke后开展十场原始Event Confirm；现场事实留原始文件。任何新候选正收益先L1，再L2真实40目标站点和L3无Profiler Prefill Step稳定验证，L3_GO后才L4 input4096/output2048/TP2/并发10/50请求TTFT。
