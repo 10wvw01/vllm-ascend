@@ -14,6 +14,7 @@ import math
 import os
 from pathlib import Path
 import statistics
+import subprocess
 import time
 
 import torch
@@ -93,6 +94,22 @@ def parse():
             lib=Path(meta.get(which,"/nonexistent"))
             if not lib.is_file() or sha(lib)!=meta.get(key):
                 p.error(f"{which} identity mismatch")
+        root=Path(__file__).resolve().parents[2]
+        required_sources=(
+            ("source_sha256",root/"src/op_kernel/mf310p_v2_dcci_entire_candidate.asc"),
+            ("b2_source_sha256",root/"src/op_kernel/mf310p_v2_b2_full_mm_ar.asc"),
+            ("private_host_source_sha256",root/"test/perf/five_arm_private_host.cpp"),
+            ("frozen_baseline_source_sha256",root/"src/op_kernel/mf310p_v2_kernel.asc"),
+            ("common_sha256",root/"src/op_kernel/mf310p_v2_kernel_common.h"),
+        )
+        for field,path in required_sources:
+            if not path.is_file() or sha(path)!=meta.get(field):
+                p.error(f"current checked-out source mismatch: {field}")
+        gitroot=root.parents[2]
+        head=subprocess.check_output(
+            ["git","-C",str(gitroot),"rev-parse","HEAD"],text=True).strip()
+        if meta.get("work_head")!=head:
+            p.error("B2/E1 compiled against different task-branch HEAD")
         a.meta=meta
     else:
         a.meta=None
