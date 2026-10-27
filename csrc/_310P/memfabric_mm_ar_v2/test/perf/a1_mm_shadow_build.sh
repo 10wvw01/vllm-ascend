@@ -23,7 +23,7 @@ BISHENG="$ASCEND_HOME_PATH/bin/bisheng"
 command -v sha256sum >/dev/null
 command -v nm >/dev/null
 command -v git >/dev/null
-ROOT="$(cd "$P/../../../.." && pwd)"
+ROOT="$(cd "$P/../../.." && pwd)"
 [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || {
   echo "dirty tracked tree: do not compile uncontrolled variant" >&2; exit 2; }
 mkdir -m 700 "$OUT"
