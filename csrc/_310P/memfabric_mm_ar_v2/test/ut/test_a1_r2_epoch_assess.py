@@ -25,6 +25,9 @@ def fixture(root: Path, short_gaps: bool = True):
            "warmup_requests":6,"measured_requests":30,"identity":ident,
            "epoch_budget_s":budget,"epoch_budget_source":"explicit_R2_controlled_env"}
         (d / "manifest.json").write_text(json.dumps(m))
+        (d / "serve.log").write_text(
+            f"sdma orch configured, devId: 2 epochBudgetS: {budget} reqBase: 0xabc\n"
+            f"sdma orch configured, devId: 3 epochBudgetS: {budget} reqBase: 0xdef\n")
         spike_gap = (6 if budget == 15 or not short_gaps else 2)
         peaks = set(range(0,30,spike_gap))
         for rank in (0,1):
@@ -56,6 +59,23 @@ def test_budget_shift_is_timing_correlation_only(tmp_path):
     assert result["status"] == "FREQUENCY_SHIFT_SUPPORTS_EPOCH_HYPOTHESIS_ONLY"
     assert result["actual_epoch_boundary_causality_proven"] is False
     assert all(x["spike_count"]>=4 for x in result["observations"])
+
+
+def test_env_alone_must_not_prove_runtime_epoch_setting(tmp_path):
+    root=fixture(tmp_path)
+    (root/"sessions/E5A/serve.log").write_text("BM_LOG_INFO filtered by runtime")
+    result=evaluate(root)
+    assert result["status"]=="EPOCH_RUNTIME_BUDGET_UNVERIFIED"
+    assert result["actual_epoch_boundary_causality_proven"] is False
+
+
+def test_wrong_real_epoch_budget_log_rejected(tmp_path):
+    root=fixture(tmp_path)
+    log=root/"sessions/E5A/serve.log"
+    log.write_text("sdma orch configured, devId: 2 epochBudgetS: 15\n"
+                   "sdma orch configured, devId: 3 epochBudgetS: 15\n")
+    result=evaluate(root)
+    assert result["status"]=="EPOCH_RUNTIME_BUDGET_UNVERIFIED"
 
 
 def test_no_frequency_shift_does_not_pass(tmp_path):
