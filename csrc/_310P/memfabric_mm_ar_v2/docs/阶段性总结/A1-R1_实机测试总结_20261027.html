@@ -73,7 +73,7 @@ table{border-collapse:collapse;width:100%;min-width:650px;font-variant-numeric:t
 <tr><td>F2</td><td>V2</td><td>2370.96ms</td><td class="negative">2450.99ms</td><td>周期重尾</td></tr>
 <tr><td>S2</td><td>Stock</td><td>2343.25ms</td><td>2345.42ms</td><td>稳</td></tr>
 </tbody></table></div>
-<p><b>F1−S1=+26.12ms，F2−S2=+27.70ms</b>，Stock跨会话漂移2.83ms；当前候选方向为明确无正收益。V2每约6～7个请求存在共现长尾，是下一轮专门的诊断焦点，未确认根因。</p>
+<p><b>F1−S1=+26.12ms，F2−S2=+27.70ms</b>，Stock跨会话漂移2.83ms；当前候选方向为明确无正收益。V2两场长尾精确出现在测量序号 <b>0、6、12、19、25</b>（从0计），双Rank同步，Stock没有相应尖峰。<b>后续离线假设（非本次实测根因）：</b>每6～7次约14～17秒，接近MemFabric默认15秒Epoch换纪；需以5秒预算和真实换纪日志交叉验证，不能现在断言SDMA或Epoch已定责。</p>
 <div class="flow"><div><strong>L1</strong>行主序Stock下V2 +21%</div><div class="loss"><strong>L2</strong>真实NZ站点V2更慢</div><div class="loss"><strong>L3</strong>设备Prefill V2慢约1.1%</div><div><strong>L4</strong>正式TTFT尚未执行</div></div>
 </section>
 <section><h2>5. 异常和研发风险</h2><div class="timeline">
@@ -95,7 +95,7 @@ table{border-collapse:collapse;width:100%;min-width:650px;font-variant-numeric:t
 <a href="../../evidence/a1_r1_batch_20261027/s3_confirm/u1_confirm/a1_assessment.json">L1八场ABBA</a>　 ·
 <a href="../../evidence/a1_r1_batch_20261027/s5_l3/l2_verified_report.json">L2逐层门</a>　 ·
 <a href="../../evidence/a1_r1_batch_20261027/s5_l3/l3_result.json">L3原始结果</a>　 ·
-<a href="../../evidence/a1_r1_batch_20261027/s4_l2/SERVER_ONLY_raw_traces.json">服务器原始Profiler SHA清单</a>
+<a href="../../evidence/a1_r1_batch_20261027/s4_l2/SERVER_ONLY_raw_traces.json">服务器原始Profiler SHA清单</a>　 · <a href="../../evidence/a1_r1_batch_20261027/analysis/a1_r1_p0_offline_reaudit_20261027.json">P0离线复算：70ms异常及周期长尾</a>
 </p><p>源码核验：<code>src/op_kernel/mf310p_v2_kernel.asc</code>的正式生产常量为 <code>kProductionAddTile=2048</code>。Profiler的<code>V2TrialKernel&lt;tiling1024,1024&gt;</code>指MM Tiling/Chunk，不能据此判断Add Tile为1024。</p>
 <p class="muted">口径：此报告只复述和交叉核验已归档的A1-R1现场证据，不声称已在本次总结期间重复运行310P，也不将独立站点耗时累加视作精准的L3时延归因。HTML提供屏幕阅读与打印布局；GitHub代码视图可能显示HTML源文件，可下载本页在浏览器打开。</p></section>
 <footer>© 310P3 / V2 MM+MemFabric AllReduce · A1-R1 阶段性复盘 · 2026-10-27</footer>
