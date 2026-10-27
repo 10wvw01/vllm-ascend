@@ -12,14 +12,14 @@
 | B1/native+MF | **相同原生完整NZ MM** → 生产者流同步 → 实际stage到对称池 → MemFabric SDMA/FP16 Add | 更换通信方案的完整真实代价 | 沿用T2已验证数据一致性修复：两次牺牲stage+一次有效stage、CacheClean与DONE均计时，不能冒充“纯MemFabric带宽” |
 | B2/fullMM+MF | 自定义8核`Matmul<ND,NZ,ND>`完成所有M（内部1024 tile）→ 每核发送区CleanLines → **全体生产核只会合一次** → MemFabric完整逻辑AR（硬件每包≤4MiB，内部可分包） | 摆脱每Chunk“MM、IB、SDMA、Add交替”后，自研MM+MF串行效率 | **没有任何SDMA在全部MM完成前发出**；B2与C不是仅重排overlap标志，故差额是结构总影响 |
 | C/D4 | 正式冻结Tile2048：每Chunk MM→CleanLines→IB→发送SDMA，同时等待上一Chunk并Add | 今天的正式融合比较对象 | `chunk1024, overlap=1`，不改Device SO |
-| E1/optimized | 与C相同数学计算、1024 Chunk、8核/Tile2048/消息时序、IB、Credit/Wait/DONE；发送端及收件端逐64B DCCI改为**每核整DCache一次性Clean+Invalid** | **实打实的设备内关键路径优化**：每Chunk每核省去多千次标量缓存行扫描，有机会提早IB Ready/缩短等待与Add之前的阻塞 | 是独立候选Kernel，未证明Cache粒度变化的真实性能/稳定性；**若更慢或错算，保留D4且继续迭代E，不取消五层方案** |
+| E1/optimized | 与C相同数学计算、1024 Chunk、8核/Tile2048/消息时序、IB事件总依赖、Credit/Wait/DONE；发送端及收件端逐64B DCCI改为**每核整DCache一次性Clean+Invalid**，并把Core0每Chunk的7次直接IB Ready等待改为4次树形汇聚 | **实打实的设备内关键路径优化**：每Chunk每核省去多千次标量缓存行扫描，有机会提早IB Ready/缩短等待与Add之前的阻塞 | 是独立候选Kernel，未证明Cache粒度变化的真实性能/稳定性；**若更慢或错算，保留D4且继续迭代E，不取消五层方案** |
 
 注意B2中“完整MM”是**先完成整个M的计算阶段**，不要求禁用硬件必要的内部tiling；在310P3上全量M4096输出16MiB，而每条已验证的MemFabric包只到4MiB，不能把“一次逻辑AR”误写成“单条16MiB SDMA”。
 
 ## 2. 已经实现的源代码
 
 - `src/op_kernel/mf310p_v2_b2_full_mm_ar.asc`：独立B2设备核。与D4保持MM几何、8核、NZ权重、DCCI、Add2048和最终quiet/DONE。原D4每Chunk一次`WaitReady`，B2改成完整MM完成后**仅一次生产端WaitReady**；其后才进入发送/接收/归约循环。
-- `src/op_kernel/mf310p_v2_dcci_entire_candidate.asc`：E1独立设备核。D4正文复制后精确替换3个DCCI调用点（发送端1处、接收端2处），替换为每核`ENTIRE_DATA_CACHE`。所有`WaitReady`/`ReleaseAdd`/`WaitAddDone`、SDMA signal/wait、QUIET、DONE均保留；不能把“减少缓存维护时长”吹成“删除IB或Wait”。实际IB/Wait的时间缩短为待测假设。
+- `src/op_kernel/mf310p_v2_dcci_entire_candidate.asc`：E1独立设备核。D4正文复制后精确替换3个DCCI调用点（发送端1处、接收端2处），替换为每核`ENTIRE_DATA_CACHE`。将`WaitReady`的7→1扇入改为Core0等待1/2/4/6四核、Core2/4/6各等待其后一核的**两级IB Ready树**；`ReleaseAdd`/`WaitAddDone`、SDMA signal/wait、QUIET、DONE顺序保留；不能把“减少缓存维护时长”吹成“删除IB或Wait”。实际IB/Wait的时间缩短为待测假设。
 - `test/perf/five_arm_private_host.cpp`：私有Host ABI读取**来自相同主线源码**的现有`mf310p_v2_trial`布局，以独立B2/E1设备符号发射；每个候选首写和输出地址变化保留设备同步防护。**绝不装入Serving默认路径**。
 - `test/perf/five_arm_build_e.sh`：BiSheng CANN9.1/dav-2002将两个设备核链接进**隔离私有SO**，单独G++编译私有Host SO，记录主线/候选源及SO SHA。**不覆盖正式D4/插件/V1/Host/KVER**。
 - `test/perf/five_arm_nz_route.py`：单独短Profiler CANN原始CSV，双Rank×M2048/4096验证`aclnnMatmulWeightNz`和`hcom_allReduce`各≥3次、无TransData；核实后才开始其它采样。
@@ -32,7 +32,7 @@
 
 A1-MM-SHADOW 2026-10-27有效run2：M4096影子MM仅比原生NZ-MM慢约19.4µs，而每Chunk对称发送区DCCI受控增量约139.6µs（不同于正式D4真实可回收时长）。这些说明DCCI粒度很可能值得重做；当前D4逐64B循环，对1024行、每行4096B、8核而言，每Chunk每核**8192次**DCCI调用；每核整DCache操作理论上可减少Scalar指令数。但CANN9.1官方文档明确`ENTIRE_DATA_CACHE`本身可能较慢，单次对整体DCache的清理不能当免费；E1必须实测。
 
-**关键路径假设**：生产端DCCI缩短→8核更早全部Ready→Core0更早signal→收件端Wait更早返回；收件端DCCI缩短→Add更早开始→下个Chunk的MM更早发起。多点收敛会共同改变真实critical path；**不是**“139.6µs×2×4直接相加”，也**不是**去掉可见性守护创造无效加速。E1仅第一版；若收益不足，下一E代聚焦真正缩减同步消息/按可见性证明进一步消除冗余清理。
+**关键路径假设**：生产端DCCI缩短→8核更早全部Ready→Core0更早signal→收件端Wait更早返回；收件端DCCI缩短→Add更早开始→下个Chunk的MM更早发起。多点收敛会共同改变真实critical path；**不是**“139.6µs×2×4直接相加”，也**不是**去掉可见性守护创造无效加速。ReadyTree增加3条核间等待的分布式依赖，是否较原7次串行等待更快必须用实机确认。E1是缓存+IB联合优化首版；若收益不足，下一E代聚焦真正缩减同步消息/按可见性证明进一步消除冗余清理。
 
 ## 4. 五臂测试与Go/No-Go纪律
 
