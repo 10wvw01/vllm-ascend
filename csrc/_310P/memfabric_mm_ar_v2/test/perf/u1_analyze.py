@@ -50,7 +50,8 @@ def paired(ranks: list[dict], spec: dict) -> dict:
             "stock_weight_layout": spec.get("stock_weight_layout", "row_major"),
         }
         for k, v in expected.items():
-            if record.get(k) != v:
+            actual = record.get(k, "row_major") if k == "stock_weight_layout" else record.get(k)
+            if actual != v:
                 raise ValueError(f"{spec['session']} rank{rank} invalid {k}")
         if tuple(record.get("M_order", [])) != tuple(spec["M_order"]):
             raise ValueError("M order rotated or skipped incorrectly")
