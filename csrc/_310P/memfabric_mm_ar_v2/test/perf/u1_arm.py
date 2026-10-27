@@ -40,6 +40,9 @@ def parse():
     p.add_argument("--store-url", default=os.environ.get(
         "VLLM_ASCEND_310P_MEMFABRIC_STORE_URL", "tcp://127.0.0.1:8581"))
     a = p.parse_args()
+    a.stock_weight_layout = os.environ.get("U1_STOCK_LAYOUT", "row_major")
+    if a.stock_weight_layout not in ("row_major", "nz"):
+        p.error("U1_STOCK_LAYOUT must be row_major or nz")
     if a.phase in ("smoke", "screen") and a.stage not in (1, 2):
         p.error("screen stage must be 1/2")
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
@@ -149,6 +152,12 @@ def main():
         torch.manual_seed(4242)
         w = torch.randn(N, K, device=device, dtype=torch.float16)
         w_nz = torch_npu.npu_format_cast(w, 29)
+        # NZ Stock 必须对照真实模型的预转换权重；禁止将格式转换时间
+        # 塞入热态每次调用（与真实Serving的模型加载期布局一致）。
+        stock_weight = w_nz if a.stock_weight_layout == "nz" else w
+        if a.stock_weight_layout == "nz":
+            if w_nz.storage().data_ptr() == w.storage().data_ptr():
+                raise RuntimeError("NZ weight conversion unexpectedly aliases ND buffer")
         # 所有CPU-gloo参考在MemFabric建池之前完成。
         all_inputs = {m: inputs_for(rank, m, device, cpu_group, w) for m in order}
         outputs = {m: torch.zeros((m, N), device=device, dtype=torch.float16) for m in order}
@@ -178,7 +187,7 @@ def main():
                 x, ref = xs[variant], refs[variant]
                 if arm == "stock_fp16":
                     def op():
-                        y = F.linear(x, w)
+                        y = F.linear(x, stock_weight)
                         if y.dtype != torch.float16:
                             raise RuntimeError("Stock F.linear not FP16")
                         dist.all_reduce(y, op=dist.ReduceOp.SUM, group=hccl)
@@ -223,14 +232,14 @@ def main():
             if arm == "stock_fp16" and a.phase == "screen":
                 # 顺带测原生MM-only：不创建额外进程，不把两项的中位数差
                 # 解释为纯HCCL时延（包含发射/输出分配、缓存与调度差异）。
-                local_refs = [F.linear(x, w) for x in xs]
+                local_refs = [F.linear(x, stock_weight) for x in xs]
                 stream.synchronize()
                 local_samples = []
                 for i in range(ITERS[a.phase]):
                     variant = (i + WARMUP[a.phase]) % 2
                     dist.barrier(group=cpu_group)
                     y, wall, event = measure_one(
-                        lambda x=xs[variant]: F.linear(x, w), stream, e0, e1)
+                        lambda x=xs[variant]: F.linear(x, stock_weight), stream, e0, e1)
                     if not torch.equal(y, local_refs[variant]):
                         raise AssertionError(f"U1 local MM-only wrong rank{rank} M{m}")
                     local_samples.append({"i": i, "variant": variant,
@@ -267,7 +276,7 @@ def main():
             x, ref = anchor_xs[i % 2], anchor_refs[i % 2]
             if arm == "stock_fp16":
                 def anchor_op():
-                    y = F.linear(x, w)
+                    y = F.linear(x, stock_weight)
                     dist.all_reduce(y, op=dist.ReduceOp.SUM, group=hccl)
                     return y
             elif arm == "memfabric_t1":
@@ -296,6 +305,7 @@ def main():
             "session": session_id(a.scope, a.stage), "stage": a.stage,
             "arm": arm, "rank": rank, "M_order": order, "TP": 2, "K": K, "N": N,
             "dtype": "fp16", "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+            "stock_weight_layout": a.stock_weight_layout,
             "stock_collective": "FP16_HCCL_no_FP32_conversion",
             "comm_isolation": "separate process; never HCCL with MemFabric pool",
             "device_so_sha256": os.environ["U1_DEVICE_SHA256"],
