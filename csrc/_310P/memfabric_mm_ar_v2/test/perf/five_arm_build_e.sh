@@ -35,7 +35,7 @@ command -v sha256sum >/dev/null
 command -v nm >/dev/null
 mkdir -m 700 "$OUT"
 LIB="$OUT/libmf310p_v2_dcci_entire_candidate.so"
-"$BISHENG" --npu-arch=dav-2002 -O2 -std=c++17 -w   -shared -fPIC -x asc "$SRC" -x none -o "$LIB"   -I"$ASCEND_HOME_PATH/aarch64-linux/include"   -I"$ASCEND_HOME_PATH/aarch64-linux/ascendc/include"   -I"$MF_INC"   -L"$ASCEND_HOME_PATH/aarch64-linux/lib64"   -lascendcl -lruntime -ldl -pthread -lm   "-Wl,-rpath,$ASCEND_HOME_PATH/aarch64-linux/lib64"   > "$OUT/build.log" 2>&1 || {
+"$BISHENG" --npu-arch=dav-2002 -O2 -std=c++17 -w   -shared -fPIC -x asc "$SRC" -x asc "$SRC_B2" -x none -o "$LIB"   -I"$ASCEND_HOME_PATH/aarch64-linux/include"   -I"$ASCEND_HOME_PATH/aarch64-linux/ascendc/include"   -I"$MF_INC"   -L"$ASCEND_HOME_PATH/aarch64-linux/lib64"   -lascendcl -lruntime -ldl -pthread -lm   "-Wl,-rpath,$ASCEND_HOME_PATH/aarch64-linux/lib64"   > "$OUT/build.log" 2>&1 || {
     echo "E Device build failed; preserve build.log; D4 stays unchanged" >&2; exit 1; }
 nm -D "$LIB" > "$OUT/symbols.txt"
 for ABI in mf310p_v2_dcci_entire_launch_async mf310p_v2_b2_full_mm_ar_launch_async; do
