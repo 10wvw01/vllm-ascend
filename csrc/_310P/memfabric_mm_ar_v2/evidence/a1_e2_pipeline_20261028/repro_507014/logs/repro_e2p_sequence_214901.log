@@ -1,0 +1,942 @@
+W1027 21:49:05.328000 1578078 site-packages/torch/distributed/run.py:852] 
+W1027 21:49:05.328000 1578078 site-packages/torch/distributed/run.py:852] *****************************************
+W1027 21:49:05.328000 1578078 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1027 21:49:05.328000 1578078 site-packages/torch/distributed/run.py:852] *****************************************
+INFO 10-27 21:49:09 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 21:49:09 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 21:49:09 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 21:49:09 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 21:49:09 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-27 21:49:09 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 21:49:09 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 21:49:09 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 21:49:09 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 21:49:09 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+[Gloo] Rank [Gloo] Rank 0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 11
+ is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[rank0]:[W1027 21:49:13.601551260 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+2026-10-27 21:49:15.133108 WARN [1578208-1578208][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-27 21:49:15.133409 WARN [1578208-1578208][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-27 21:49:16.132351 WARN [1578209-1578209][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-27 21:49:16.132648 WARN [1578209-1578209][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-27 21:49:16.134231 WARN [1578209-1578209][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-27 21:49:16.134260 WARN [1578208-1578208][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-27 21:49:16.135085 WARN [1578209-1578209][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 21:49:16.135199 WARN [1578209-1578209][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 21:49:16.135289 WARN [1578209-1578209][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-27 21:49:16.135633 WARN [1578208-1578208][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-27 21:49:16.135773 WARN [1578208-1578208][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-27 21:49:16.135864 WARN [1578208-1578208][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+REPRO rank=1 pool_ready kind=4 M=4096 create_s=3.6
+REPRO rank=0 pool_ready kind=4 M=4096 create_s=3.6
+HB rank=1 M=2048 i=0 phase=preHB rank=0 M=2048 i=0 phase=pre
+
+HB rank=1 M=2048 i=0 phase=post ms=11514.162
+HB rank=0 M=2048 i=0 phase=post ms=11514.169
+HB rank=1 M=2048 i=1 phase=pre
+HB rank=0 M=2048 i=1 phase=pre
+HB rank=1 M=2048 i=1 phase=post ms=15118.767
+HB rank=0 M=2048 i=1 phase=post ms=15118.764
+HB rank=0 M=2048 i=2 phase=preHB rank=1 M=2048 i=2 phase=pre
+
+HB rank=1 M=2048 i=2 phase=post ms=1.509
+HB rank=0 M=2048 i=2 phase=post ms=1.576
+HB rank=1 M=2048 i=3 phase=pre
+HB rank=0 M=2048 i=3 phase=pre
+HB rank=1 M=2048 i=3 phase=post ms=1.354
+HB rank=0 M=2048 i=3 phase=post ms=1.396
+HB rank=1 M=2048 i=4 phase=pre
+HB rank=0 M=2048 i=4 phase=pre
+HB rank=1 M=2048 i=4 phase=post ms=1.309
+HB rank=0 M=2048 i=4 phase=post ms=1.377
+HB rank=1 M=2048 i=5 phase=pre
+HB rank=0 M=2048 i=5 phase=pre
+HB rank=1 M=2048 i=5 phase=post ms=1.341
+HB rank=0 M=2048 i=5 phase=post ms=1.371
+HB rank=1 M=2048 i=6 phase=pre
+HB rank=0 M=2048 i=6 phase=pre
+HB rank=1 M=2048 i=6 phase=post ms=1.347
+HB rank=0 M=2048 i=6 phase=post ms=1.368
+HB rank=1 M=2048 i=7 phase=pre
+HB rank=0 M=2048 i=7 phase=pre
+HB rank=0 M=2048 i=7 phase=post ms=1.243
+HB rank=1 M=2048 i=7 phase=post ms=1.379
+HB rank=1 M=2048 i=8 phase=pre
+HB rank=0 M=2048 i=8 phase=pre
+HB rank=1 M=2048 i=8 phase=post ms=1.320
+HB rank=0 M=2048 i=8 phase=post ms=1.367
+HB rank=1 M=2048 i=9 phase=pre
+HB rank=0 M=2048 i=9 phase=pre
+HB rank=0 M=2048 i=9 phase=post ms=1.249
+HB rank=1 M=2048 i=9 phase=post ms=1.340
+HB rank=1 M=2048 i=10 phase=pre
+HB rank=0 M=2048 i=10 phase=pre
+HB rank=1 M=2048 i=10 phase=post ms=1.343
+HB rank=0 M=2048 i=10 phase=post ms=1.410
+HB rank=1 M=2048 i=11 phase=pre
+HB rank=0 M=2048 i=11 phase=pre
+HB rank=0 M=2048 i=11 phase=post ms=1.284
+HB rank=1 M=2048 i=11 phase=post ms=1.370
+HB rank=0 M=2048 i=12 phase=pre
+HB rank=1 M=2048 i=12 phase=pre
+HB rank=0 M=2048 i=12 phase=post ms=1.251
+HB rank=1 M=2048 i=12 phase=post ms=1.316
+HB rank=1 M=2048 i=13 phase=pre
+HB rank=0 M=2048 i=13 phase=pre
+HB rank=1 M=2048 i=13 phase=post ms=1.335
+HB rank=0 M=2048 i=13 phase=post ms=1.366
+HB rank=1 M=2048 i=14 phase=preHB rank=0 M=2048 i=14 phase=pre
+
+HB rank=0 M=2048 i=14 phase=post ms=1.304
+HB rank=1 M=2048 i=14 phase=post ms=1.360
+HB rank=1 M=2048 i=15 phase=pre
+HB rank=0 M=2048 i=15 phase=pre
+HB rank=1 M=2048 i=15 phase=post ms=1.297
+HB rank=0 M=2048 i=15 phase=post ms=1.390
+HB rank=1 M=2048 i=16 phase=preHB rank=0 M=2048 i=16 phase=pre
+
+HB rank=0 M=2048 i=16 phase=post ms=1.264HB rank=1 M=2048 i=16 phase=post ms=1.293
+
+HB rank=1 M=2048 i=17 phase=pre
+HB rank=0 M=2048 i=17 phase=pre
+HB rank=1 M=2048 i=17 phase=post ms=1.295HB rank=0 M=2048 i=17 phase=post ms=1.256
+
+HB rank=1 M=2048 i=18 phase=pre
+HB rank=0 M=2048 i=18 phase=pre
+HB rank=1 M=2048 i=18 phase=post ms=1.276HB rank=0 M=2048 i=18 phase=post ms=1.256
+
+HB rank=1 M=2048 i=19 phase=pre
+HB rank=0 M=2048 i=19 phase=pre
+HB rank=1 M=2048 i=19 phase=post ms=1.283
+HB rank=0 M=2048 i=19 phase=post ms=1.390
+HB rank=1 M=2048 i=20 phase=pre
+HB rank=0 M=2048 i=20 phase=pre
+HB rank=1 M=2048 i=20 phase=post ms=1.285
+HB rank=0 M=2048 i=20 phase=post ms=1.369
+HB rank=1 M=2048 i=21 phase=pre
+HB rank=0 M=2048 i=21 phase=pre
+HB rank=1 M=2048 i=21 phase=post ms=1.352
+HB rank=0 M=2048 i=21 phase=post ms=1.412
+HB rank=1 M=2048 i=22 phase=preHB rank=0 M=2048 i=22 phase=pre
+
+HB rank=1 M=2048 i=22 phase=post ms=1.331
+HB rank=0 M=2048 i=22 phase=post ms=1.381
+HB rank=1 M=2048 i=23 phase=pre
+HB rank=0 M=2048 i=23 phase=pre
+HB rank=0 M=2048 i=23 phase=post ms=1.271
+HB rank=1 M=2048 i=23 phase=post ms=1.353
+HB rank=1 M=2048 i=24 phase=preHB rank=0 M=2048 i=24 phase=pre
+
+HB rank=1 M=2048 i=24 phase=post ms=1.320
+HB rank=0 M=2048 i=24 phase=post ms=1.400
+HB rank=1 M=2048 i=25 phase=pre
+HB rank=0 M=2048 i=25 phase=pre
+HB rank=1 M=2048 i=25 phase=post ms=1.355
+HB rank=0 M=2048 i=25 phase=post ms=1.431
+HB rank=1 M=2048 i=26 phase=preHB rank=0 M=2048 i=26 phase=pre
+
+HB rank=1 M=2048 i=26 phase=post ms=1.310
+HB rank=0 M=2048 i=26 phase=post ms=1.382
+HB rank=1 M=2048 i=27 phase=pre
+HB rank=0 M=2048 i=27 phase=pre
+HB rank=1 M=2048 i=27 phase=post ms=1.325
+HB rank=0 M=2048 i=27 phase=post ms=1.383
+HB rank=1 M=2048 i=28 phase=pre
+HB rank=0 M=2048 i=28 phase=pre
+HB rank=0 M=2048 i=28 phase=post ms=1.255
+HB rank=1 M=2048 i=28 phase=post ms=1.335
+HB rank=1 M=2048 i=29 phase=pre
+HB rank=0 M=2048 i=29 phase=pre
+HB rank=0 M=2048 i=29 phase=post ms=1.382
+HB rank=1 M=2048 i=29 phase=post ms=1.477
+HB rank=1 M=2048 i=30 phase=preHB rank=0 M=2048 i=30 phase=pre
+
+HB rank=1 M=2048 i=30 phase=post ms=1.344
+HB rank=0 M=2048 i=30 phase=post ms=1.385
+HB rank=1 M=2048 i=31 phase=pre
+HB rank=0 M=2048 i=31 phase=pre
+HB rank=1 M=2048 i=31 phase=post ms=1.382
+HB rank=0 M=2048 i=31 phase=post ms=1.416
+HB rank=1 M=2048 i=32 phase=pre
+HB rank=0 M=2048 i=32 phase=pre
+HB rank=0 M=2048 i=32 phase=post ms=1.260
+HB rank=1 M=2048 i=32 phase=post ms=1.342
+HB rank=1 M=2048 i=33 phase=pre
+HB rank=0 M=2048 i=33 phase=pre
+HB rank=1 M=2048 i=33 phase=post ms=1.324
+HB rank=0 M=2048 i=33 phase=post ms=1.392
+HB rank=1 M=2048 i=34 phase=pre
+HB rank=0 M=2048 i=34 phase=pre
+HB rank=1 M=2048 i=34 phase=post ms=1.377
+HB rank=0 M=2048 i=34 phase=post ms=1.378
+HB rank=1 M=2048 i=35 phase=pre
+HB rank=0 M=2048 i=35 phase=pre
+HB rank=1 M=2048 i=35 phase=post ms=1.413
+HB rank=0 M=2048 i=35 phase=post ms=1.385
+HB rank=1 M=2048 i=36 phase=pre
+HB rank=0 M=2048 i=36 phase=pre
+HB rank=0 M=2048 i=36 phase=post ms=1.214
+HB rank=1 M=2048 i=36 phase=post ms=1.261
+HB rank=1 M=2048 i=37 phase=pre
+HB rank=0 M=2048 i=37 phase=pre
+HB rank=0 M=2048 i=37 phase=post ms=1.245
+HB rank=1 M=2048 i=37 phase=post ms=1.315
+HB rank=1 M=2048 i=38 phase=pre
+HB rank=0 M=2048 i=38 phase=pre
+HB rank=1 M=2048 i=38 phase=post ms=1.314
+HB rank=0 M=2048 i=38 phase=post ms=1.367
+HB rank=1 M=2048 i=39 phase=pre
+HB rank=0 M=2048 i=39 phase=pre
+HB rank=0 M=2048 i=39 phase=post ms=1.253
+HB rank=1 M=2048 i=39 phase=post ms=1.339
+HB rank=0 M=2048 i=40 phase=preHB rank=1 M=2048 i=40 phase=pre
+
+HB rank=0 M=2048 i=40 phase=post ms=1.239
+HB rank=1 M=2048 i=40 phase=post ms=1.313
+HB rank=1 M=2048 i=41 phase=pre
+HB rank=0 M=2048 i=41 phase=pre
+HB rank=0 M=2048 i=41 phase=post ms=1.362
+HB rank=1 M=2048 i=41 phase=post ms=1.481
+HB rank=1 M=2048 i=42 phase=pre
+HB rank=0 M=2048 i=42 phase=pre
+HB rank=1 M=2048 i=42 phase=post ms=1.328
+HB rank=0 M=2048 i=42 phase=post ms=1.377
+HB rank=1 M=2048 i=43 phase=pre
+HB rank=0 M=2048 i=43 phase=pre
+HB rank=1 M=2048 i=43 phase=post ms=1.336
+HB rank=0 M=2048 i=43 phase=post ms=1.396
+HB rank=1 M=2048 i=44 phase=pre
+HB rank=0 M=2048 i=44 phase=pre
+HB rank=1 M=2048 i=44 phase=post ms=1.327
+HB rank=0 M=2048 i=44 phase=post ms=1.407
+HB rank=1 M=2048 i=45 phase=pre
+HB rank=0 M=2048 i=45 phase=pre
+HB rank=1 M=2048 i=45 phase=post ms=1.317
+HB rank=0 M=2048 i=45 phase=post ms=1.396
+HB rank=1 M=2048 i=46 phase=pre
+HB rank=0 M=2048 i=46 phase=pre
+HB rank=0 M=2048 i=46 phase=post ms=1.238
+HB rank=1 M=2048 i=46 phase=post ms=1.316
+HB rank=1 M=2048 i=47 phase=pre
+HB rank=0 M=2048 i=47 phase=pre
+HB rank=1 M=2048 i=47 phase=post ms=1.328
+HB rank=0 M=2048 i=47 phase=post ms=1.379
+HB rank=1 M=2048 i=48 phase=pre
+HB rank=0 M=2048 i=48 phase=pre
+HB rank=1 M=2048 i=48 phase=post ms=1.206
+HB rank=0 M=2048 i=48 phase=post ms=1.246
+HB rank=1 M=2048 i=49 phase=pre
+HB rank=0 M=2048 i=49 phase=pre
+HB rank=0 M=2048 i=49 phase=post ms=1.246
+HB rank=1 M=2048 i=49 phase=post ms=1.371
+HB rank=0 M=2048 i=50 phase=preHB rank=1 M=2048 i=50 phase=pre
+
+HB rank=1 M=2048 i=50 phase=post ms=1.303
+HB rank=0 M=2048 i=50 phase=post ms=1.350
+HB rank=1 M=2048 i=51 phase=pre
+HB rank=0 M=2048 i=51 phase=pre
+HB rank=0 M=2048 i=51 phase=post ms=1.265
+HB rank=1 M=2048 i=51 phase=post ms=1.359
+HB rank=0 M=2048 i=52 phase=preHB rank=1 M=2048 i=52 phase=pre
+
+HB rank=1 M=2048 i=52 phase=post ms=1.291
+HB rank=0 M=2048 i=52 phase=post ms=1.388
+HB rank=1 M=2048 i=53 phase=pre
+HB rank=0 M=2048 i=53 phase=pre
+HB rank=1 M=2048 i=53 phase=post ms=1.354
+HB rank=0 M=2048 i=53 phase=post ms=1.417
+HB rank=1 M=2048 i=54 phase=preHB rank=0 M=2048 i=54 phase=pre
+
+HB rank=1 M=2048 i=54 phase=post ms=1.325
+HB rank=0 M=2048 i=54 phase=post ms=1.356
+HB rank=1 M=2048 i=55 phase=pre
+HB rank=0 M=2048 i=55 phase=pre
+HB rank=0 M=2048 i=55 phase=post ms=1.298
+HB rank=1 M=2048 i=55 phase=post ms=1.413
+HB rank=0 M=2048 i=56 phase=pre
+HB rank=1 M=2048 i=56 phase=pre
+HB rank=1 M=2048 i=56 phase=post ms=1.288
+HB rank=0 M=2048 i=56 phase=post ms=1.366
+HB rank=1 M=2048 i=57 phase=pre
+HB rank=0 M=2048 i=57 phase=pre
+HB rank=0 M=2048 i=57 phase=post ms=1.288HB rank=1 M=2048 i=57 phase=post ms=1.375
+
+HB rank=1 M=2048 i=58 phase=pre
+HB rank=0 M=2048 i=58 phase=pre
+HB rank=0 M=2048 i=58 phase=post ms=1.182HB rank=1 M=2048 i=58 phase=post ms=1.230
+
+HB rank=1 M=2048 i=59 phase=pre
+HB rank=0 M=2048 i=59 phase=pre
+HB rank=1 M=2048 i=59 phase=post ms=1.303HB rank=0 M=2048 i=59 phase=post ms=1.245
+
+HB rank=1 M=2048 i=60 phase=pre
+HB rank=0 M=2048 i=60 phase=pre
+HB rank=1 M=2048 i=60 phase=post ms=1.258
+HB rank=0 M=2048 i=60 phase=post ms=1.315
+HB rank=1 M=2048 i=61 phase=pre
+HB rank=0 M=2048 i=61 phase=pre
+HB rank=0 M=2048 i=61 phase=post ms=1.241
+HB rank=1 M=2048 i=61 phase=post ms=1.342
+HB rank=1 M=2048 i=62 phase=pre
+HB rank=0 M=2048 i=62 phase=pre
+HB rank=1 M=2048 i=62 phase=post ms=1.302
+HB rank=0 M=2048 i=62 phase=post ms=1.350
+HB rank=1 M=2048 i=63 phase=pre
+HB rank=0 M=2048 i=63 phase=pre
+HB rank=0 M=2048 i=63 phase=post ms=1.272
+HB rank=1 M=2048 i=63 phase=post ms=1.381
+HB rank=1 M=2048 i=64 phase=pre
+HB rank=0 M=2048 i=64 phase=pre
+HB rank=0 M=2048 i=64 phase=post ms=1.355
+HB rank=1 M=2048 i=64 phase=post ms=1.456
+HB rank=1 M=2048 i=65 phase=pre
+HB rank=0 M=2048 i=65 phase=pre
+HB rank=0 M=2048 i=65 phase=post ms=1.267
+HB rank=1 M=2048 i=65 phase=post ms=1.324
+HB rank=1 M=2048 i=66 phase=pre
+HB rank=0 M=2048 i=66 phase=pre
+HB rank=1 M=2048 i=66 phase=post ms=1.305
+HB rank=0 M=2048 i=66 phase=post ms=1.383
+HB rank=1 M=2048 i=67 phase=pre
+HB rank=0 M=2048 i=67 phase=pre
+HB rank=0 M=2048 i=67 phase=post ms=1.319HB rank=1 M=2048 i=67 phase=post ms=1.347
+
+HB rank=1 M=2048 i=68 phase=pre
+HB rank=0 M=2048 i=68 phase=pre
+HB rank=1 M=2048 i=68 phase=post ms=1.262
+HB rank=0 M=2048 i=68 phase=post ms=1.347
+HB rank=1 M=2048 i=69 phase=pre
+HB rank=0 M=2048 i=69 phase=pre
+HB rank=0 M=2048 i=69 phase=post ms=1.277
+HB rank=1 M=2048 i=69 phase=post ms=1.338
+HB rank=1 M=2048 i=70 phase=pre
+HB rank=0 M=2048 i=70 phase=pre
+HB rank=1 M=2048 i=70 phase=post ms=1.282
+HB rank=0 M=2048 i=70 phase=post ms=1.353
+HB rank=1 M=2048 i=71 phase=pre
+HB rank=0 M=2048 i=71 phase=pre
+HB rank=0 M=2048 i=71 phase=post ms=1.256
+HB rank=1 M=2048 i=71 phase=post ms=1.341
+HB rank=1 M=2048 i=72 phase=preHB rank=0 M=2048 i=72 phase=pre
+
+HB rank=0 M=2048 i=72 phase=post ms=1.216
+HB rank=1 M=2048 i=72 phase=post ms=1.292
+HB rank=1 M=2048 i=73 phase=pre
+HB rank=0 M=2048 i=73 phase=pre
+HB rank=0 M=2048 i=73 phase=post ms=1.240
+HB rank=1 M=2048 i=73 phase=post ms=1.320
+HB rank=1 M=2048 i=74 phase=pre
+HB rank=0 M=2048 i=74 phase=pre
+HB rank=1 M=2048 i=74 phase=post ms=1.293
+HB rank=0 M=2048 i=74 phase=post ms=1.356
+HB rank=1 M=2048 i=75 phase=pre
+HB rank=0 M=2048 i=75 phase=pre
+HB rank=0 M=2048 i=75 phase=post ms=1.263
+HB rank=1 M=2048 i=75 phase=post ms=1.343
+HB rank=0 M=2048 i=76 phase=pre
+HB rank=1 M=2048 i=76 phase=pre
+HB rank=1 M=2048 i=76 phase=post ms=1.297
+HB rank=0 M=2048 i=76 phase=post ms=1.375
+HB rank=1 M=2048 i=77 phase=pre
+HB rank=0 M=2048 i=77 phase=pre
+HB rank=1 M=2048 i=77 phase=post ms=1.288HB rank=0 M=2048 i=77 phase=post ms=1.213
+
+HB rank=1 M=2048 i=78 phase=pre
+HB rank=0 M=2048 i=78 phase=pre
+HB rank=1 M=2048 i=78 phase=post ms=1.280
+HB rank=0 M=2048 i=78 phase=post ms=1.351
+HB rank=1 M=2048 i=79 phase=pre
+HB rank=0 M=2048 i=79 phase=pre
+HB rank=0 M=2048 i=79 phase=post ms=1.216
+HB rank=1 M=2048 i=79 phase=post ms=1.333
+HB rank=0 M=2048 i=80 phase=pre
+HB rank=1 M=2048 i=80 phase=pre
+HB rank=1 M=2048 i=80 phase=post ms=1.277
+HB rank=0 M=2048 i=80 phase=post ms=1.338
+HB rank=1 M=2048 i=81 phase=pre
+HB rank=0 M=2048 i=81 phase=pre
+HB rank=0 M=2048 i=81 phase=post ms=1.393
+HB rank=1 M=2048 i=81 phase=post ms=2.865
+HB rank=1 M=2048 i=82 phase=pre
+HB rank=0 M=2048 i=82 phase=pre
+HB rank=0 M=2048 i=82 phase=post ms=1.295
+HB rank=1 M=2048 i=82 phase=post ms=1.383
+HB rank=1 M=2048 i=83 phase=pre
+HB rank=0 M=2048 i=83 phase=pre
+HB rank=1 M=2048 i=83 phase=post ms=1.306
+HB rank=0 M=2048 i=83 phase=post ms=1.362
+HB rank=1 M=2048 i=84 phase=pre
+HB rank=0 M=2048 i=84 phase=pre
+HB rank=1 M=2048 i=84 phase=post ms=1.345
+HB rank=0 M=2048 i=84 phase=post ms=1.383
+HB rank=1 M=2048 i=85 phase=pre
+HB rank=0 M=2048 i=85 phase=pre
+HB rank=0 M=2048 i=85 phase=post ms=1.238
+HB rank=1 M=2048 i=85 phase=post ms=1.361
+HB rank=1 M=2048 i=86 phase=pre
+HB rank=0 M=2048 i=86 phase=pre
+HB rank=1 M=2048 i=86 phase=post ms=1.211
+HB rank=0 M=2048 i=86 phase=post ms=1.249
+HB rank=1 M=2048 i=87 phase=pre
+HB rank=0 M=2048 i=87 phase=pre
+HB rank=1 M=2048 i=87 phase=post ms=1.355
+HB rank=0 M=2048 i=87 phase=post ms=1.380
+HB rank=1 M=2048 i=88 phase=pre
+HB rank=0 M=2048 i=88 phase=pre
+HB rank=1 M=2048 i=88 phase=post ms=1.357
+HB rank=0 M=2048 i=88 phase=post ms=1.380
+HB rank=1 M=2048 i=89 phase=pre
+HB rank=0 M=2048 i=89 phase=pre
+HB rank=0 M=2048 i=89 phase=post ms=1.265
+HB rank=1 M=2048 i=89 phase=post ms=1.383
+HB rank=1 M=2048 i=90 phase=pre
+HB rank=0 M=2048 i=90 phase=pre
+HB rank=0 M=2048 i=90 phase=post ms=1.271
+HB rank=1 M=2048 i=90 phase=post ms=1.362
+HB rank=1 M=2048 i=91 phase=pre
+HB rank=0 M=2048 i=91 phase=pre
+HB rank=1 M=2048 i=91 phase=post ms=1.315
+HB rank=0 M=2048 i=91 phase=post ms=1.380
+HB rank=1 M=2048 i=92 phase=pre
+HB rank=0 M=2048 i=92 phase=pre
+HB rank=1 M=2048 i=92 phase=post ms=1.382
+HB rank=0 M=2048 i=92 phase=post ms=1.388
+HB rank=1 M=2048 i=93 phase=pre
+HB rank=0 M=2048 i=93 phase=pre
+HB rank=0 M=2048 i=93 phase=post ms=1.278
+HB rank=1 M=2048 i=93 phase=post ms=1.410
+HB rank=1 M=2048 i=94 phase=pre
+HB rank=0 M=2048 i=94 phase=pre
+HB rank=1 M=2048 i=94 phase=post ms=1.342
+HB rank=0 M=2048 i=94 phase=post ms=1.387
+HB rank=1 M=2048 i=95 phase=pre
+HB rank=0 M=2048 i=95 phase=pre
+HB rank=1 M=2048 i=95 phase=post ms=1.341
+HB rank=0 M=2048 i=95 phase=post ms=1.375
+HB rank=1 M=2048 i=96 phase=pre
+HB rank=0 M=2048 i=96 phase=pre
+HB rank=0 M=2048 i=96 phase=post ms=1.259
+HB rank=1 M=2048 i=96 phase=post ms=1.348
+HB rank=1 M=2048 i=97 phase=pre
+HB rank=0 M=2048 i=97 phase=pre
+HB rank=0 M=2048 i=97 phase=post ms=1.249
+HB rank=1 M=2048 i=97 phase=post ms=1.338
+HB rank=1 M=2048 i=98 phase=pre
+HB rank=0 M=2048 i=98 phase=pre
+HB rank=1 M=2048 i=98 phase=post ms=1.316
+HB rank=0 M=2048 i=98 phase=post ms=1.276
+HB rank=1 M=2048 i=99 phase=pre
+HB rank=0 M=2048 i=99 phase=pre
+HB rank=0 M=2048 i=99 phase=post ms=1.243
+HB rank=1 M=2048 i=99 phase=post ms=1.311
+HB rank=1 M=2048 i=100 phase=preHB rank=0 M=2048 i=100 phase=pre
+
+HB rank=0 M=2048 i=100 phase=post ms=1.251
+HB rank=1 M=2048 i=100 phase=post ms=1.320
+HB rank=1 M=2048 i=101 phase=pre
+HB rank=0 M=2048 i=101 phase=pre
+HB rank=1 M=2048 i=101 phase=post ms=1.346
+HB rank=0 M=2048 i=101 phase=post ms=1.383
+HB rank=1 M=2048 i=102 phase=pre
+HB rank=0 M=2048 i=102 phase=pre
+HB rank=0 M=2048 i=102 phase=post ms=1.279
+HB rank=1 M=2048 i=102 phase=post ms=1.381
+HB rank=1 M=2048 i=103 phase=pre
+HB rank=0 M=2048 i=103 phase=pre
+HB rank=0 M=2048 i=103 phase=post ms=1.262
+HB rank=1 M=2048 i=103 phase=post ms=1.358
+HB rank=1 M=2048 i=104 phase=pre
+HB rank=0 M=2048 i=104 phase=pre
+HB rank=0 M=2048 i=104 phase=post ms=1.248
+HB rank=1 M=2048 i=104 phase=post ms=1.339
+HB rank=1 M=2048 i=105 phase=pre
+HB rank=0 M=2048 i=105 phase=pre
+HB rank=0 M=2048 i=105 phase=post ms=1.239
+HB rank=1 M=2048 i=105 phase=post ms=1.355
+HB rank=1 M=2048 i=106 phase=pre
+HB rank=0 M=2048 i=106 phase=pre
+HB rank=1 M=2048 i=106 phase=post ms=1.348
+HB rank=0 M=2048 i=106 phase=post ms=1.400
+HB rank=1 M=2048 i=107 phase=pre
+HB rank=0 M=2048 i=107 phase=pre
+HB rank=1 M=2048 i=107 phase=post ms=1.377
+HB rank=0 M=2048 i=107 phase=post ms=1.432
+HB rank=1 M=2048 i=108 phase=pre
+HB rank=0 M=2048 i=108 phase=pre
+HB rank=0 M=2048 i=108 phase=post ms=1.245HB rank=1 M=2048 i=108 phase=post ms=1.314
+
+HB rank=1 M=2048 i=109 phase=pre
+HB rank=0 M=2048 i=109 phase=pre
+HB rank=0 M=2048 i=109 phase=post ms=1.256HB rank=1 M=2048 i=109 phase=post ms=1.324
+
+HB rank=1 M=2048 i=110 phase=pre
+HB rank=0 M=2048 i=110 phase=pre
+HB rank=0 M=2048 i=110 phase=post ms=1.240
+HB rank=1 M=2048 i=110 phase=post ms=1.309
+HB rank=1 M=2048 i=111 phase=pre
+HB rank=0 M=2048 i=111 phase=pre
+HB rank=1 M=2048 i=111 phase=post ms=1.345HB rank=0 M=2048 i=111 phase=post ms=1.277
+
+HB rank=1 M=2048 i=112 phase=pre
+HB rank=0 M=2048 i=112 phase=pre
+HB rank=1 M=2048 i=112 phase=post ms=1.307
+HB rank=0 M=2048 i=112 phase=post ms=1.342
+HB rank=1 M=2048 i=113 phase=pre
+HB rank=0 M=2048 i=113 phase=pre
+HB rank=1 M=2048 i=113 phase=post ms=1.367
+HB rank=0 M=2048 i=113 phase=post ms=1.379
+HB rank=1 M=2048 i=114 phase=preHB rank=0 M=2048 i=114 phase=pre
+
+HB rank=1 M=2048 i=114 phase=post ms=1.249
+HB rank=0 M=2048 i=114 phase=post ms=1.283
+HB rank=1 M=2048 i=115 phase=pre
+HB rank=0 M=2048 i=115 phase=pre
+HB rank=0 M=2048 i=115 phase=post ms=1.270
+HB rank=1 M=2048 i=115 phase=post ms=1.347
+HB rank=1 M=2048 i=116 phase=pre
+HB rank=0 M=2048 i=116 phase=pre
+HB rank=0 M=2048 i=116 phase=post ms=1.246
+HB rank=1 M=2048 i=116 phase=post ms=1.299
+HB rank=1 M=2048 i=117 phase=pre
+HB rank=0 M=2048 i=117 phase=pre
+HB rank=1 M=2048 i=117 phase=post ms=1.360HB rank=0 M=2048 i=117 phase=post ms=1.293
+
+HB rank=1 M=2048 i=118 phase=pre
+HB rank=0 M=2048 i=118 phase=pre
+HB rank=1 M=2048 i=118 phase=post ms=1.319
+HB rank=0 M=2048 i=118 phase=post ms=1.378
+HB rank=1 M=2048 i=119 phase=pre
+HB rank=0 M=2048 i=119 phase=pre
+HB rank=0 M=2048 i=119 phase=post ms=1.293
+HB rank=1 M=2048 i=119 phase=post ms=1.391
+HB rank=1 M=4096 i=0 phase=pre
+HB rank=0 M=4096 i=0 phase=pre
+HB rank=1 M=4096 i=0 phase=post ms=14867.627
+HB rank=0 M=4096 i=0 phase=post ms=14867.638
+HB rank=1 M=4096 i=1 phase=pre
+HB rank=0 M=4096 i=1 phase=pre
+HB rank=1 M=4096 i=1 phase=post ms=15125.311
+HB rank=0 M=4096 i=1 phase=post ms=15125.217
+HB rank=0 M=4096 i=2 phase=preHB rank=1 M=4096 i=2 phase=pre
+
+HB rank=0 M=4096 i=2 phase=post ms=2.330
+HB rank=1 M=4096 i=2 phase=post ms=2.434
+HB rank=1 M=4096 i=3 phase=pre
+HB rank=0 M=4096 i=3 phase=pre
+HB rank=0 M=4096 i=3 phase=post ms=2.392
+HB rank=1 M=4096 i=3 phase=post ms=2.561
+HB rank=1 M=4096 i=4 phase=preHB rank=0 M=4096 i=4 phase=pre
+
+HB rank=0 M=4096 i=4 phase=post ms=2.334
+HB rank=1 M=4096 i=4 phase=post ms=2.414
+HB rank=1 M=4096 i=5 phase=pre
+HB rank=0 M=4096 i=5 phase=pre
+HB rank=1 M=4096 i=5 phase=post ms=2.480
+HB rank=0 M=4096 i=5 phase=post ms=2.471
+HB rank=0 M=4096 i=6 phase=preHB rank=1 M=4096 i=6 phase=pre
+
+HB rank=1 M=4096 i=6 phase=post ms=2.395
+HB rank=0 M=4096 i=6 phase=post ms=2.435
+HB rank=1 M=4096 i=7 phase=pre
+HB rank=0 M=4096 i=7 phase=pre
+HB rank=1 M=4096 i=7 phase=post ms=2.380
+HB rank=0 M=4096 i=7 phase=post ms=2.377
+HB rank=1 M=4096 i=8 phase=preHB rank=0 M=4096 i=8 phase=pre
+
+HB rank=1 M=4096 i=8 phase=post ms=2.268
+HB rank=0 M=4096 i=8 phase=post ms=2.291
+HB rank=1 M=4096 i=9 phase=pre
+HB rank=0 M=4096 i=9 phase=pre
+HB rank=1 M=4096 i=9 phase=post ms=2.328
+HB rank=0 M=4096 i=9 phase=post ms=2.400
+HB rank=1 M=4096 i=10 phase=preHB rank=0 M=4096 i=10 phase=pre
+
+HB rank=1 M=4096 i=10 phase=post ms=2.249
+HB rank=0 M=4096 i=10 phase=post ms=2.314
+HB rank=1 M=4096 i=11 phase=pre
+HB rank=0 M=4096 i=11 phase=pre
+HB rank=1 M=4096 i=11 phase=post ms=2.372
+HB rank=0 M=4096 i=11 phase=post ms=2.415
+HB rank=1 M=4096 i=12 phase=preHB rank=0 M=4096 i=12 phase=pre
+
+HB rank=1 M=4096 i=12 phase=post ms=2.318
+HB rank=0 M=4096 i=12 phase=post ms=2.334
+HB rank=1 M=4096 i=13 phase=pre
+HB rank=0 M=4096 i=13 phase=pre
+HB rank=1 M=4096 i=13 phase=post ms=2.346
+HB rank=0 M=4096 i=13 phase=post ms=2.370
+HB rank=1 M=4096 i=14 phase=preHB rank=0 M=4096 i=14 phase=pre
+
+HB rank=1 M=4096 i=14 phase=post ms=2.400
+HB rank=0 M=4096 i=14 phase=post ms=2.415
+HB rank=1 M=4096 i=15 phase=pre
+HB rank=0 M=4096 i=15 phase=pre
+HB rank=1 M=4096 i=15 phase=post ms=2.268
+HB rank=0 M=4096 i=15 phase=post ms=2.271
+HB rank=0 M=4096 i=16 phase=preHB rank=1 M=4096 i=16 phase=pre
+
+HB rank=1 M=4096 i=16 phase=post ms=2.431
+HB rank=0 M=4096 i=16 phase=post ms=2.432
+HB rank=1 M=4096 i=17 phase=pre
+HB rank=0 M=4096 i=17 phase=pre
+HB rank=1 M=4096 i=17 phase=post ms=2.405
+HB rank=0 M=4096 i=17 phase=post ms=2.417
+HB rank=0 M=4096 i=18 phase=preHB rank=1 M=4096 i=18 phase=pre
+
+HB rank=1 M=4096 i=18 phase=post ms=2.423HB rank=0 M=4096 i=18 phase=post ms=2.408
+
+HB rank=1 M=4096 i=19 phase=pre
+HB rank=0 M=4096 i=19 phase=pre
+HB rank=1 M=4096 i=19 phase=post ms=2.427
+HB rank=0 M=4096 i=19 phase=post ms=2.421
+HB rank=0 M=4096 i=20 phase=preHB rank=1 M=4096 i=20 phase=pre
+
+HB rank=1 M=4096 i=20 phase=post ms=2.324
+HB rank=0 M=4096 i=20 phase=post ms=2.474
+HB rank=1 M=4096 i=21 phase=pre
+HB rank=0 M=4096 i=21 phase=pre
+HB rank=1 M=4096 i=21 phase=post ms=2.357
+HB rank=0 M=4096 i=21 phase=post ms=2.423
+HB rank=1 M=4096 i=22 phase=preHB rank=0 M=4096 i=22 phase=pre
+
+HB rank=0 M=4096 i=22 phase=post ms=2.294
+HB rank=1 M=4096 i=22 phase=post ms=2.353
+HB rank=1 M=4096 i=23 phase=pre
+HB rank=0 M=4096 i=23 phase=pre
+HB rank=1 M=4096 i=23 phase=post ms=2.350
+HB rank=0 M=4096 i=23 phase=post ms=2.405
+HB rank=1 M=4096 i=24 phase=preHB rank=0 M=4096 i=24 phase=pre
+
+HB rank=1 M=4096 i=24 phase=post ms=2.415
+HB rank=0 M=4096 i=24 phase=post ms=2.413
+HB rank=1 M=4096 i=25 phase=pre
+HB rank=0 M=4096 i=25 phase=pre
+HB rank=0 M=4096 i=25 phase=post ms=2.298
+HB rank=1 M=4096 i=25 phase=post ms=2.415
+HB rank=0 M=4096 i=26 phase=preHB rank=1 M=4096 i=26 phase=pre
+
+HB rank=0 M=4096 i=26 phase=post ms=2.377
+HB rank=1 M=4096 i=26 phase=post ms=2.443
+HB rank=1 M=4096 i=27 phase=preHB rank=0 M=4096 i=27 phase=pre
+
+HB rank=0 M=4096 i=27 phase=post ms=2.275
+HB rank=1 M=4096 i=27 phase=post ms=2.406
+HB rank=0 M=4096 i=28 phase=preHB rank=1 M=4096 i=28 phase=pre
+
+HB rank=1 M=4096 i=28 phase=post ms=2.325
+HB rank=0 M=4096 i=28 phase=post ms=2.339
+HB rank=1 M=4096 i=29 phase=pre
+HB rank=0 M=4096 i=29 phase=pre
+HB rank=1 M=4096 i=29 phase=post ms=2.351
+HB rank=0 M=4096 i=29 phase=post ms=2.442
+HB rank=1 M=4096 i=30 phase=preHB rank=0 M=4096 i=30 phase=pre
+
+HB rank=0 M=4096 i=30 phase=post ms=2.464
+HB rank=1 M=4096 i=30 phase=post ms=2.532
+HB rank=1 M=4096 i=31 phase=pre
+HB rank=0 M=4096 i=31 phase=pre
+HB rank=1 M=4096 i=31 phase=post ms=2.445
+HB rank=0 M=4096 i=31 phase=post ms=2.449
+HB rank=1 M=4096 i=32 phase=preHB rank=0 M=4096 i=32 phase=pre
+
+HB rank=0 M=4096 i=32 phase=post ms=2.242
+HB rank=1 M=4096 i=32 phase=post ms=2.307
+HB rank=1 M=4096 i=33 phase=pre
+HB rank=0 M=4096 i=33 phase=pre
+HB rank=1 M=4096 i=33 phase=post ms=2.354
+HB rank=0 M=4096 i=33 phase=post ms=2.400
+HB rank=0 M=4096 i=34 phase=preHB rank=1 M=4096 i=34 phase=pre
+
+HB rank=1 M=4096 i=34 phase=post ms=2.243
+HB rank=0 M=4096 i=34 phase=post ms=2.263
+HB rank=1 M=4096 i=35 phase=pre
+HB rank=0 M=4096 i=35 phase=pre
+HB rank=1 M=4096 i=35 phase=post ms=2.288
+HB rank=0 M=4096 i=35 phase=post ms=2.291
+HB rank=1 M=4096 i=36 phase=preHB rank=0 M=4096 i=36 phase=pre
+
+HB rank=1 M=4096 i=36 phase=post ms=2.390
+HB rank=0 M=4096 i=36 phase=post ms=2.453
+HB rank=1 M=4096 i=37 phase=pre
+HB rank=0 M=4096 i=37 phase=pre
+HB rank=1 M=4096 i=37 phase=post ms=2.436
+HB rank=0 M=4096 i=37 phase=post ms=2.416
+HB rank=1 M=4096 i=38 phase=preHB rank=0 M=4096 i=38 phase=pre
+
+HB rank=1 M=4096 i=38 phase=post ms=2.444
+HB rank=0 M=4096 i=38 phase=post ms=2.440
+HB rank=1 M=4096 i=39 phase=pre
+HB rank=0 M=4096 i=39 phase=pre
+HB rank=1 M=4096 i=39 phase=post ms=2.446
+HB rank=0 M=4096 i=39 phase=post ms=2.428
+HB rank=1 M=4096 i=40 phase=preHB rank=0 M=4096 i=40 phase=pre
+
+HB rank=1 M=4096 i=40 phase=post ms=2.440HB rank=0 M=4096 i=40 phase=post ms=2.426
+
+HB rank=1 M=4096 i=41 phase=pre
+HB rank=0 M=4096 i=41 phase=pre
+HB rank=1 M=4096 i=41 phase=post ms=2.446
+HB rank=0 M=4096 i=41 phase=post ms=2.421
+HB rank=1 M=4096 i=42 phase=preHB rank=0 M=4096 i=42 phase=pre
+
+HB rank=1 M=4096 i=42 phase=post ms=2.343HB rank=0 M=4096 i=42 phase=post ms=2.305
+
+HB rank=1 M=4096 i=43 phase=pre
+HB rank=0 M=4096 i=43 phase=pre
+HB rank=1 M=4096 i=43 phase=post ms=2.467
+HB rank=0 M=4096 i=43 phase=post ms=2.427
+HB rank=1 M=4096 i=44 phase=preHB rank=0 M=4096 i=44 phase=pre
+
+HB rank=1 M=4096 i=44 phase=post ms=2.420
+HB rank=0 M=4096 i=44 phase=post ms=2.412
+HB rank=1 M=4096 i=45 phase=pre
+HB rank=0 M=4096 i=45 phase=pre
+HB rank=0 M=4096 i=45 phase=post ms=2.440
+HB rank=1 M=4096 i=45 phase=post ms=2.534
+HB rank=1 M=4096 i=46 phase=preHB rank=0 M=4096 i=46 phase=pre
+
+HB rank=1 M=4096 i=46 phase=post ms=2.301
+HB rank=0 M=4096 i=46 phase=post ms=2.377
+HB rank=1 M=4096 i=47 phase=pre
+HB rank=0 M=4096 i=47 phase=pre
+HB rank=1 M=4096 i=47 phase=post ms=2.360
+HB rank=0 M=4096 i=47 phase=post ms=2.337
+HB rank=0 M=4096 i=48 phase=pre
+HB rank=1 M=4096 i=48 phase=pre
+HB rank=1 M=4096 i=48 phase=post ms=2.315
+HB rank=0 M=4096 i=48 phase=post ms=2.408
+HB rank=1 M=4096 i=49 phase=pre
+HB rank=0 M=4096 i=49 phase=pre
+HB rank=1 M=4096 i=49 phase=post ms=2.457
+HB rank=0 M=4096 i=49 phase=post ms=2.467
+HB rank=1 M=4096 i=50 phase=preHB rank=0 M=4096 i=50 phase=pre
+
+HB rank=1 M=4096 i=50 phase=post ms=2.463
+HB rank=0 M=4096 i=50 phase=post ms=2.461
+HB rank=1 M=4096 i=51 phase=pre
+HB rank=0 M=4096 i=51 phase=pre
+HB rank=1 M=4096 i=51 phase=post ms=2.374
+HB rank=0 M=4096 i=51 phase=post ms=2.438
+HB rank=1 M=4096 i=52 phase=preHB rank=0 M=4096 i=52 phase=pre
+
+HB rank=1 M=4096 i=52 phase=post ms=2.326
+HB rank=0 M=4096 i=52 phase=post ms=2.439
+HB rank=1 M=4096 i=53 phase=pre
+HB rank=0 M=4096 i=53 phase=pre
+HB rank=1 M=4096 i=53 phase=post ms=2.383
+HB rank=0 M=4096 i=53 phase=post ms=2.444
+HB rank=0 M=4096 i=54 phase=preHB rank=1 M=4096 i=54 phase=pre
+
+HB rank=1 M=4096 i=54 phase=post ms=2.244
+HB rank=0 M=4096 i=54 phase=post ms=2.259
+HB rank=1 M=4096 i=55 phase=pre
+HB rank=0 M=4096 i=55 phase=pre
+HB rank=1 M=4096 i=55 phase=post ms=2.508HB rank=0 M=4096 i=55 phase=post ms=2.473
+
+HB rank=1 M=4096 i=56 phase=preHB rank=0 M=4096 i=56 phase=pre
+
+HB rank=1 M=4096 i=56 phase=post ms=2.383
+HB rank=0 M=4096 i=56 phase=post ms=2.388
+HB rank=1 M=4096 i=57 phase=pre
+HB rank=0 M=4096 i=57 phase=pre
+HB rank=1 M=4096 i=57 phase=post ms=2.357
+HB rank=0 M=4096 i=57 phase=post ms=2.349
+HB rank=0 M=4096 i=58 phase=preHB rank=1 M=4096 i=58 phase=pre
+
+HB rank=0 M=4096 i=58 phase=post ms=2.387
+HB rank=1 M=4096 i=58 phase=post ms=2.436
+HB rank=1 M=4096 i=59 phase=pre
+HB rank=0 M=4096 i=59 phase=pre
+HB rank=1 M=4096 i=59 phase=post ms=2.312
+HB rank=0 M=4096 i=59 phase=post ms=2.417
+HB rank=1 M=4096 i=60 phase=preHB rank=0 M=4096 i=60 phase=pre
+
+HB rank=1 M=4096 i=60 phase=post ms=2.262
+HB rank=0 M=4096 i=60 phase=post ms=2.416
+HB rank=1 M=4096 i=61 phase=pre
+HB rank=0 M=4096 i=61 phase=pre
+HB rank=0 M=4096 i=61 phase=post ms=2.218HB rank=1 M=4096 i=61 phase=post ms=2.284
+
+HB rank=1 M=4096 i=62 phase=preHB rank=0 M=4096 i=62 phase=pre
+
+HB rank=1 M=4096 i=62 phase=post ms=2.338
+HB rank=0 M=4096 i=62 phase=post ms=2.383
+HB rank=1 M=4096 i=63 phase=pre
+HB rank=0 M=4096 i=63 phase=pre
+HB rank=0 M=4096 i=63 phase=post ms=2.296
+HB rank=1 M=4096 i=63 phase=post ms=2.457
+HB rank=1 M=4096 i=64 phase=pre
+HB rank=0 M=4096 i=64 phase=pre
+HB rank=1 M=4096 i=64 phase=post ms=2.354
+HB rank=0 M=4096 i=64 phase=post ms=2.441
+HB rank=1 M=4096 i=65 phase=pre
+HB rank=0 M=4096 i=65 phase=pre
+HB rank=1 M=4096 i=65 phase=post ms=2.347
+HB rank=0 M=4096 i=65 phase=post ms=2.392
+HB rank=1 M=4096 i=66 phase=preHB rank=0 M=4096 i=66 phase=pre
+
+HB rank=1 M=4096 i=66 phase=post ms=2.339
+HB rank=0 M=4096 i=66 phase=post ms=2.373
+HB rank=1 M=4096 i=67 phase=pre
+HB rank=0 M=4096 i=67 phase=pre
+HB rank=1 M=4096 i=67 phase=post ms=2.418
+HB rank=0 M=4096 i=67 phase=post ms=2.389
+HB rank=1 M=4096 i=68 phase=preHB rank=0 M=4096 i=68 phase=pre
+
+HB rank=1 M=4096 i=68 phase=post ms=2.363
+HB rank=0 M=4096 i=68 phase=post ms=2.405
+HB rank=1 M=4096 i=69 phase=pre
+HB rank=0 M=4096 i=69 phase=pre
+HB rank=1 M=4096 i=69 phase=post ms=2.384
+HB rank=0 M=4096 i=69 phase=post ms=2.409
+HB rank=1 M=4096 i=70 phase=pre
+HB rank=0 M=4096 i=70 phase=pre
+HB rank=1 M=4096 i=70 phase=post ms=2.438
+HB rank=0 M=4096 i=70 phase=post ms=2.432
+HB rank=1 M=4096 i=71 phase=pre
+HB rank=0 M=4096 i=71 phase=pre
+HB rank=1 M=4096 i=71 phase=post ms=2.286
+HB rank=0 M=4096 i=71 phase=post ms=2.261
+HB rank=1 M=4096 i=72 phase=preHB rank=0 M=4096 i=72 phase=pre
+
+HB rank=1 M=4096 i=72 phase=post ms=2.297HB rank=0 M=4096 i=72 phase=post ms=2.257
+
+HB rank=1 M=4096 i=73 phase=pre
+HB rank=0 M=4096 i=73 phase=pre
+HB rank=0 M=4096 i=73 phase=post ms=2.433
+HB rank=1 M=4096 i=73 phase=post ms=2.506
+HB rank=1 M=4096 i=74 phase=preHB rank=0 M=4096 i=74 phase=pre
+
+HB rank=1 M=4096 i=74 phase=post ms=2.400
+HB rank=0 M=4096 i=74 phase=post ms=2.456
+HB rank=1 M=4096 i=75 phase=pre
+HB rank=0 M=4096 i=75 phase=pre
+HB rank=1 M=4096 i=75 phase=post ms=2.482
+HB rank=0 M=4096 i=75 phase=post ms=2.464
+HB rank=1 M=4096 i=76 phase=preHB rank=0 M=4096 i=76 phase=pre
+
+HB rank=0 M=4096 i=76 phase=post ms=2.374HB rank=1 M=4096 i=76 phase=post ms=2.403
+
+HB rank=1 M=4096 i=77 phase=preHB rank=0 M=4096 i=77 phase=pre
+
+HB rank=0 M=4096 i=77 phase=post ms=2.283
+HB rank=1 M=4096 i=77 phase=post ms=2.352
+HB rank=1 M=4096 i=78 phase=preHB rank=0 M=4096 i=78 phase=pre
+
+HB rank=1 M=4096 i=78 phase=post ms=2.341
+HB rank=0 M=4096 i=78 phase=post ms=2.358
+HB rank=1 M=4096 i=79 phase=pre
+HB rank=0 M=4096 i=79 phase=pre
+HB rank=1 M=4096 i=79 phase=post ms=2.298
+HB rank=0 M=4096 i=79 phase=post ms=2.364
+HB rank=1 M=4096 i=80 phase=preHB rank=0 M=4096 i=80 phase=pre
+
+HB rank=1 M=4096 i=80 phase=post ms=2.324
+HB rank=0 M=4096 i=80 phase=post ms=2.345
+HB rank=1 M=4096 i=81 phase=pre
+HB rank=0 M=4096 i=81 phase=pre
+HB rank=0 M=4096 i=81 phase=post ms=2.266
+HB rank=1 M=4096 i=81 phase=post ms=2.397
+HB rank=0 M=4096 i=82 phase=preHB rank=1 M=4096 i=82 phase=pre
+
+HB rank=1 M=4096 i=82 phase=post ms=2.371
+HB rank=0 M=4096 i=82 phase=post ms=2.401
+HB rank=1 M=4096 i=83 phase=pre
+HB rank=0 M=4096 i=83 phase=pre
+HB rank=1 M=4096 i=83 phase=post ms=2.285
+HB rank=0 M=4096 i=83 phase=post ms=2.296
+HB rank=1 M=4096 i=84 phase=preHB rank=0 M=4096 i=84 phase=pre
+
+HB rank=1 M=4096 i=84 phase=post ms=2.282
+HB rank=0 M=4096 i=84 phase=post ms=2.432
+HB rank=1 M=4096 i=85 phase=pre
+HB rank=0 M=4096 i=85 phase=pre
+HB rank=1 M=4096 i=85 phase=post ms=2.395
+HB rank=0 M=4096 i=85 phase=post ms=2.456
+HB rank=1 M=4096 i=86 phase=preHB rank=0 M=4096 i=86 phase=pre
+
+HB rank=1 M=4096 i=86 phase=post ms=2.374
+HB rank=0 M=4096 i=86 phase=post ms=2.402
+HB rank=1 M=4096 i=87 phase=pre
+HB rank=0 M=4096 i=87 phase=pre
+HB rank=1 M=4096 i=87 phase=post ms=2.390
+HB rank=0 M=4096 i=87 phase=post ms=2.449
+HB rank=1 M=4096 i=88 phase=preHB rank=0 M=4096 i=88 phase=pre
+
+HB rank=1 M=4096 i=88 phase=post ms=2.337
+HB rank=0 M=4096 i=88 phase=post ms=2.371
+HB rank=1 M=4096 i=89 phase=pre
+HB rank=0 M=4096 i=89 phase=pre
+HB rank=0 M=4096 i=89 phase=post ms=2.240HB rank=1 M=4096 i=89 phase=post ms=2.269
+
+HB rank=1 M=4096 i=90 phase=preHB rank=0 M=4096 i=90 phase=pre
+
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/tmp/opencode/e2-repro/e2_repro_trace.py", line 198, in <module>
+[rank1]:     main()
+[rank1]:   File "/tmp/opencode/e2-repro/e2_repro_trace.py", line 148, in main
+[rank1]:     stream.synchronize()
+[rank1]:   File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/npu/streams.py", line 85, in synchronize
+[rank1]:     super(Stream, self).synchronize()
+[rank1]: RuntimeError: synchronize:../torch_npu/csrc/core/npu/NPUStream.cpp:414 NPU function error: c10_npu::acl::AclrtSynchronizeStreamWithTimeout(stream()), error code is 507014
+[rank1]: [ERROR] 2026-10-27-21:51:28 (PID:1578209, Device:1, RankID:1) ERR00100 PTA call acl api failed
+[rank1]: [Error]: The aicore execution times out. 
+[rank1]:         Rectify the fault based on the error information in the ascend log.
+[rank1]: [PID: 1578209] 2026-10-27-21:49:16.134.849 Invalid_Argument(EE1001): The argument is invalid. Reason: rtGetDeviceInfo execution failed, the feature is not supported.
+[rank1]:         Solution: 1. Check the input parameter range of the function. 2. Check the function invocation relationship.
+[rank1]: TraceBack (most recent call last):
+[rank1]:         An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+[rank1]:         [AIC_INFO] after execute:args print end[FUNC:GetError][FILE:stream.cc][LINE:1746]
+[rank1]:         [DFX_INFO]AI Core kernel execution failed, device_id=3, stream_id=14, report_stream_id=14, task_id=686, flip_num=0, fault kernel_name=_ZN12_GLOBAL__N_116E2PipelineKernelIL_ZNS_10tiling1024EELj1024ELb1EEEvPhS1_S1_S1_S1_S1_S1_mS1_S1_S1_S1_mjjj, fault kernel info ext=none, program id=10, hash=625200327436290034.[FUNC:GetError][FILE:stream.cc][LINE:1746]
+[rank1]:         rtStreamSynchronizeWithTimeout execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+
+
+[rank1]: DEVICE[3] PID[1578209]: 
+[rank1]: EXCEPTION STREAM:
+[rank1]:   Exception info:TGID=3269398, model id=65535, stream id=14, stream phase=3
+[rank1]:   Message info[0]:RTS_HWTS: Aicore timeout, slot_id=3, stream_id=14, task_id=686
+[rank1]:     Other info[0]:time=2026-10-28-05:51:26.685.006, function=process_hwts_timeout_exception, line=453, error code=0x25
+terminate called without an active exception
+W1027 21:51:37.655000 1578078 site-packages/torch/distributed/elastic/multiprocessing/api.py:1010] Sending process 1578208 closing signal SIGTERM
+/usr/local/python3.12.13/lib/python3.12/multiprocessing/resource_tracker.py:279: UserWarning: resource_tracker: There appear to be 30 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+E1027 21:51:38.120000 1578078 site-packages/torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: -6) local_rank: 1 (pid: 1578209) of binary: /usr/local/python3.12.13/bin/python3.12
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+=========================================================
+/tmp/opencode/e2-repro/e2_repro_trace.py FAILED
+---------------------------------------------------------
+Failures:
+[1]:
+  time      : 2026-10-27_21:51:38
+  host      : qwen-test
+  rank      : 0 (local_rank: 0)
+  exitcode  : -15 (pid: 1578208)
+  error_file: <N/A>
+  traceback : Signal 15 (SIGTERM) received by PID 1578208
+---------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-27_21:51:37
+  host      : qwen-test
+  rank      : 1 (local_rank: 1)
+  exitcode  : -6 (pid: 1578209)
+  error_file: <N/A>
+  traceback : Signal 6 (SIGABRT) received by PID 1578209
+=========================================================
+[ERROR] 2026-10-27-21:51:38 (PID:1578078, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception

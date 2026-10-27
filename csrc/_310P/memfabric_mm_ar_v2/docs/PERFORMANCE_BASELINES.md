@@ -165,3 +165,24 @@
 - **B2−D4=+285.8/+579.5µs**：先完整MM后串行AR输给Chunk交叠流水，维持overlap主线；**B1慢约60%**为staging/生产者流同步/2牺牲+1有效stage/CacheClean/DONE的真实换路代价，不是MemFabric固有带宽结论。
 - 与R2真实NZ Screen对照：本批Stock M2048/4096=1070/2017µs、D4=1362/2513µs（R2 Screen为1057/2006与1368/2540µs），方向一致（D4约−20%）。
 - L3/L4、Graph、Serving均NOT_RUN；正式D4/Host SO未改，Stock默认不变。
+
+## 2026-10-28｜A1-E2十场实机：E2路线性能否定（工作分支`work/310p-mm-ar-e2-pipeline-20261028`@`f701f3e7c`，16384 dev2,3）
+
+> run_id `a1-e2-pipeline-20261028-001`（attempt3有效场）；Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`私有装载前后一致；候选SO`2d9a0cfb…`（E1/E2同SO）+Host`8719cdd8…`；真实NZ路由4/4；十场26份双Rank JSON全bit-exact、status=0；漂移≤4.9%，`E2_FULL_CHAIN_TIMING_VALID`。attempt2的E2-P M4096 507014与attempt1外部SIGTERM证据均保全。[实机报告](A1_E2_PIPELINE_ONDEVICE_REPORT_20261028.md)、[原始证据](../evidence/a1_e2_pipeline_20261028/)。配对p50=max(rank0[i],rank1[i])，每臂两场。
+
+| 配对p50 (µs) | M2048 | M4096 |
+|---|---:|---:|
+| Stock(NZ+HCCL) | 1087.5 | 2022.6 |
+| E1 | 1236.1 | 2285.5 |
+| E2-R/1024 | 1268.7 | 2292.6 |
+| E2-P/1024 | 1328.0 | 2383.0 |
+| E2-P/512 | 1581.2 | 2756.9 |
+
+| 相对收益 | M2048 | M4096 |
+|---|---:|---:|
+| E2-R vs E1 | −2.57% | −0.31% |
+| E2-P/1024 vs E1 | −6.92% | −4.09% |
+| E2-P/512 vs E1 | −21.83% | −17.10% |
+| E1 vs Stock | −12.02% | −11.50% |
+
+**结论**：无任何E2臂超过E1或Stock；两级放行树中性偏负、READY预失效净负且放大507014暴露面、Chunk512再次劣于1024。E1保持最佳候选；对Stock剩余差距约148µs(M2048)/263µs(M4096)。长尾与p50成比例，无D4式周期长尾。下一关键路径：核内MM生产效率、producer侧每Chunk ENTIRE失效、ReadyTree会合延迟的单变量设备分段（`INNER_PHASE_UNKNOWN`仍成立）。
