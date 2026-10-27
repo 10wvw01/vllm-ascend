@@ -288,4 +288,4 @@
 - **实现隔离**：从`work/310p-mm-ar-five-arm-dcci-20261028`（E1实机证据分支）派生`work/310p-mm-ar-e2-pipeline-20261028`，独立`mf310p_v2_e2_pipeline.asc`、`e2_private_host.cpp`、`e2_build.sh`、`e2_arm.py`、`e2_assess.py`、`e2_campaign.sh`、新增CPU合同及CI。正式D4、父分支E1代码、Serving、Stock默认与DFlash均不改。
 - **源码合同和正确性风险**：E2-P mode2在8核都预失效后由Core0发送及等待对端READY，才广播让所有核进入首个MM；不允许接收区域Scalar读写、不抢先SDMA，原QUIET/DONE和首写守护保持。E2-R mode1完全保留E1接收端等待后DCCI。现场新READY协议可能出现Credit次序或缓存可见性问题，需要先编译/双RankSmoke；任何器件异常原地STOP。
 - **实验**：真NZ HCCL路由4/4→ E2R/P1024/P512独立TP2短Smoke → `stock,e1,e2r,e2p,e2p512,e2p512,e2p,e2r,e1,stock` 10场配对p50/p90/p99，场间漂移阈值5%，原始Rank/status/构建SO与卡巡检可审计。只对稳定实测签L1；Qwen L2/L3/L4保持NOT_RUN。
-- **精确进度**：本轮现阶段`E2_SOURCE_COMMITTED`；**无新BiSheng成功记录、无E2 TP2 Smoke、无E2性能、无Serving验证**。源码完成不代表可以跳过G0/CPU/编译。参见[ADR-018](DECISIONS.md)及[E2实现/准入方案](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)。
+- **精确进度**：本轮现阶段`E2_SOURCE_COMMITTED`；两轮独立源级结构/协议静审已完成PASS；**未见CPU/Actions执行通过记录，无新BiSheng成功记录、无E2 TP2 Smoke、无E2性能、无Serving验证**。源码完成不代表可以跳过G0/CPU/编译。参见[ADR-018](DECISIONS.md)及[E2实现/准入方案](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)。
