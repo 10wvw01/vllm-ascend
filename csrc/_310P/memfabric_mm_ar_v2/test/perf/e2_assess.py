@@ -154,7 +154,7 @@ def analyze(folder, route_dir=None):
         "status":status,
         "stock_native_NZ_route_verified":len(routes)==4,
         "native_route_evidence":routes,
-        "E1_device_correctness_on_new_binary":"BIT_EXACT_IN_ALL_10_SESSIONS" if status!="INCONCLUSIVE_DRIFT" else "BIT_EXACT_BUT_DRIFT",
+        "E1_E2_device_correctness_on_new_binary":"BIT_EXACT_IN_ALL_10_SESSIONS" if status!="INCONCLUSIVE_DRIFT" else "BIT_EXACT_BUT_DRIFT",
         "candidate_work_head":heads[0],
         "comparisons":comps,"raw_sessions":raw,
         "limitations":[
