@@ -64,7 +64,7 @@ table{border-collapse:collapse;width:100%;min-width:650px;font-variant-numeric:t
 <tr><td>Stock名义完整链</td><td><b>2142.8µs</b></td><td><b>1917.6µs</b></td></tr>
 <tr><td>V2 D4融合</td><td><b>2510.8µs</b></td><td><b>2429.7µs</b></td></tr>
 <tr><td>V2额外开销</td><td class="negative">≈368.0µs</td><td class="negative">≈512.1µs</td></tr>
-</tbody></table></div><p class="note">U1普通行主序MM-only约1869µs，真实NZ-MM约752µs（约快2.5倍）。<b>不能认定V2慢点全部来自MM：</b>MM、SDMA、IB等待、规约与Add内部尚缺真实分段计时。</p></section>
+</tbody></table></div><p class="note">U1普通行主序MM-only约1869µs，真实NZ-MM约752µs（约快2.5倍）。<b>不能认定V2慢点全部来自MM：</b>MM、SDMA、IB等待、规约与Add内部尚缺真实分段计时。另据20份逐站点记录复算，短Profiler的Step0第10层 <code>out_proj_8</code> 在两个Rank分别出现约70.59ms/70.82ms的V2 Kernel离群点；它与后续无Profiler周期峰值不属于同一请求，尚不能认定因果相关。</p></section>
 <section><h2>4. L3：无Profiler的真实Prefill关键区间</h2>
 <p>input4096 / output1 / TP2 / Eager / concurrency1；四次独立Serve，6次预热+30次有效请求每场；采用双Rank按请求取较慢设备Event，已对照L2 Trace审核Forward入口到Logits的依赖完成性。</p>
 <div class="scroll"><table><thead><tr><th>会话</th><th>臂</th><th>配对p50</th><th>p90</th><th>特征</th></tr></thead><tbody>
