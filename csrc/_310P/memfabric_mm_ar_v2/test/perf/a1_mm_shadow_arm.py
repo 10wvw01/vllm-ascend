@@ -216,6 +216,9 @@ def main():
                     if rc:
                         raise RuntimeError(f"shadow MM launch rc={rc}")
                     return outs[variant] if a.arm == "nd" else None
+                # 两Rank逻辑第i次采样在Event之前由CPU Gloo屏障对齐。
+                # 屏障耗时不计入Device Event，不能跨Rank减设备绝对时钟。
+                dist.barrier()
                 t0=time.perf_counter_ns()
                 e0.record(stream)
                 got = call()
@@ -248,7 +251,7 @@ def main():
             json.dump({"schema":"A1_MM_SHADOW_RANK_V1",
                        "arm":a.arm,"rank":rank,"world_size":2,
                        "shadow_sha256":manifest["so_sha256"],
-                       "d4_sha256":PINNED_D4,"mm_geometry":"M1024x2/4,N2048,K2048,8core",
+                       "d4_sha256":PINNED_D4,"mm_geometry":"M2048/4096,Chunk1024,N2048,K2048,8core",
                        "weight_layout":"NZ29","profile":False,
                        "memory":"MemFabric symmetric arena" if mem else "ordinary GM",
                        "device_span_is_complete_kernel":True,
