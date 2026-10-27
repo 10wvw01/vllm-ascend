@@ -17,6 +17,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 import torch_npu
+import vllm_ascend.vllm_ascend_C as extension
 from u1_spec import D4_DEVICE_SHA, PLUGIN_SHA, MEMFABRIC_HOST_SHA, KVER_SHA
 
 K = N = 2048
@@ -35,7 +36,7 @@ def main():
             or os.environ.get("U1_EXCLUSIVE_APPROVED") != "YES"
             or os.environ.get("U1_RESTORE_PLAN_VERIFIED") != "YES"):
         p.error("G0, exclusive and restore hard gates must be approved")
-    if any(k in os.environ for k in ("MF_KFC_BYPASS", "MF310P_V2_NOWARMUP")):
+    if any(k in os.environ for k in ("MF_KFC_BYPASS", "MF310P_V2_NOWARMUP", "MF310P_V2_AR_ONLY_NOWARMUP")):
         p.error("no safety bypass")
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
         p.error("two workers required")
@@ -47,6 +48,13 @@ def main():
     ):
         if os.environ.get(key) != value:
             p.error(f"unverified runtime identity {key}")
+    host_path = os.environ.get("V2_HOST_LIB", "")
+    if (not host_path or Path(host_path).resolve() != Path(extension.__file__).resolve()
+            or hashlib.sha256(Path(extension.__file__).read_bytes()).hexdigest() != PLUGIN_SHA):
+        p.error("actual imported plugin identity is not approved")
+    visible = os.environ.get("ASCEND_RT_VISIBLE_DEVICES", "").split(",")
+    if len(visible) != 2 or not all(x.isdecimal() for x in visible) or visible[0] == visible[1]:
+        p.error("pin verified same-card dual-die physical devices")
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.npu.set_device(local_rank)
