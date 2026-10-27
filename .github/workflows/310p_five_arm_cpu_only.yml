@@ -1,0 +1,38 @@
+name: 310P five-arm pure-CPU contract
+on:
+  pull_request:
+    branches: [dev/310p-memfabric-mm-ar]
+    paths:
+      - "csrc/_310P/memfabric_mm_ar_v2/**"
+      - ".github/workflows/310p_five_arm_cpu_only.yml"
+  workflow_dispatch:
+
+jobs:
+  five-arm-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m pip install --disable-pip-version-check pytest
+      - name: Parse benchmark and assessor source
+        run: |
+          python3 -m py_compile \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_arm.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_nz_route.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_assess.py
+      - name: Shell script grammar
+        run: |
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_build_e.sh
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_campaign.sh
+      - name: CPU-only protocol and offline assessor
+        run: |
+          python3 -m pytest -q \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_five_arm_code_contract.py
+      - name: Existing V2 CPU contract regression
+        run: |
+          python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Project governance static scan
+        run: python3 tools/310p_mm_ar/project_gate.py --static
