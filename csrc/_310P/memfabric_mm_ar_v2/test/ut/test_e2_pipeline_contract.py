@@ -97,7 +97,7 @@ class E2PipelineContract(unittest.TestCase):
             for rank in (0,1):
                 results={}
                 for m in ASSESS.MS:
-                    value=(m/3+round(100*stage,2)+rank/10)
+                    value=(m/3+{"stock":0,"e1":110,"e2r":70,"e2p":50,"e2p512":60}[arm]+rank/10)
                     if drift and arm=="e2p" and stage==7:
                         value*=1+drift
                     results[str(m)]={
