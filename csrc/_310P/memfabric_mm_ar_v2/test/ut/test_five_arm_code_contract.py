@@ -46,8 +46,11 @@ class FiveArmContract(unittest.TestCase):
         self.assertEqual(src.count("FlushCoreDCache(ownC + start + coreOff);"),1)
         self.assertEqual(src.count("FlushCoreDCache(ownPeerC + base);"),2)
         self.assertEqual(src.count("DataCacheCleanAndInvalid<int32_t, CacheLine::ENTIRE_DATA_CACHE>(fence);"),1)
-        for phrase in ("WaitReady(ibGm, ibUb, core);",
-                       "ReleaseAdd(ibGm, ibUb, core);",
+        self.assertIn("ReadyTree(ibGm, ibUb, core);",src)
+        self.assertIn("IBWait<true>(ibGm, ibUb, core + 1, kIBReady);",src)
+        self.assertEqual(sum(src.count(f"IBWait<true>(ibGm, ibUb, {i}, kIBReady);") for i in (1,2,4,6)),4)
+        self.assertEqual(src.count("WaitReady(ibGm, ibUb, core);"),0)
+        for phrase in ("ReleaseAdd(ibGm, ibUb, core);",
                        "WaitAddDone(ibGm, ibUb, core);",
                        "smem_shm_sdma_signal_at(", "smem_shm_sdma_wait_at(",
                        "smem_shm_sdma_quiet_at(", "kTagDone"):
