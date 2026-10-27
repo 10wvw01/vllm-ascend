@@ -45,7 +45,7 @@ class FiveArmContract(unittest.TestCase):
         formal=source(KERNEL/"mf310p_v2_kernel.asc")
         self.assertEqual(src.count("FlushCoreDCache(ownC + start + coreOff);"),1)
         self.assertEqual(src.count("FlushCoreDCache(ownPeerC + base);"),2)
-        self.assertEqual(src.count("CacheLine::ENTIRE_DATA_CACHE"),1)
+        self.assertEqual(src.count("DataCacheCleanAndInvalid<int32_t, CacheLine::ENTIRE_DATA_CACHE>(fence);"),1)
         for phrase in ("WaitReady(ibGm, ibUb, core);",
                        "ReleaseAdd(ibGm, ibUb, core);",
                        "WaitAddDone(ibGm, ibUb, core);",
@@ -65,6 +65,7 @@ class FiveArmContract(unittest.TestCase):
         self.assertIn("A1_FIVE_ARM_G0_PASSED",sh)
         self.assertIn("MF_KFC_BYPASS",sh)
         self.assertIn("FIVE_ARM_E_DCCI_ENTIRE_BUILD_V1",build)
+        self.assertIn('-x asc "$SRC" -x asc "$SRC_B2" -x none',build)
         self.assertNotIn("setup.py build_ext --inplace",build)
         self.assertNotIn("git reset --hard",sh)
 
