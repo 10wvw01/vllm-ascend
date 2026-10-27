@@ -26,7 +26,7 @@ for name in MF_KFC_BYPASS MF310P_V2_NOWARMUP MF310P_V2_AR_ONLY_NOWARMUP         
   [[ -z "${!name+x}" ]] || { echo "forbidden bypass: $name" >&2; exit 2; }
 done
 PERF="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$PERF/../../../.." && pwd)"
+ROOT="$(cd "$PERF/../../../../.." && pwd)"
 [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || {
   echo "dirty tracked working copy: STOP" >&2; exit 2; }
 mkdir -m 700 "$OUT"
