@@ -32,6 +32,24 @@ done
 [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || {
   echo "tracked code dirty: refuse reproducibility risk" >&2; exit 2;
 }
+# U1_RUN in a child process cannot export SHA to later D4 diag children.
+# Freeze and export the *actual bytes* once here; each stage re-checks own imports.
+for var in V2_HOST_LIB U1_DEVICE_SO_PATH U1_CORE_SO_LIB64 U1_CORE_SO_PY MF_SDMA_ORCH_JSON; do
+  f="${!var:-}"
+  [[ "$f" == /* && -f "$f" ]] || { echo "missing isolated binary $var" >&2; exit 2; }
+done
+sha() { sha256sum "$1" | awk '{print $1}'; }
+export U1_HOST_SHA256="$(sha "$U1_CORE_SO_LIB64")"
+export U1_DEVICE_SHA256="$(sha "$U1_DEVICE_SO_PATH")"
+export U1_KVER_SHA256="$(sha "$MF_SDMA_ORCH_JSON")"
+[[ "$(sha "$U1_CORE_SO_PY")" == "$U1_HOST_SHA256" ]] || exit 2
+[[ "$U1_HOST_SHA256" == 1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30 ]] || exit 2
+[[ "$U1_DEVICE_SHA256" == 2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19 ]] || exit 2
+[[ "$U1_KVER_SHA256" == 25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78 ]] || exit 2
+plugin_path="$(python3 -c 'import vllm_ascend.vllm_ascend_C as x;print(x.__file__)' 2>&1 | tail -n 1)"
+[[ -f "$plugin_path" && "$(readlink -f "$plugin_path")" == "$(readlink -f "$V2_HOST_LIB")" ]] || exit 2
+export U1_PLUGIN_SHA256="$(sha "$plugin_path")"
+[[ "$U1_PLUGIN_SHA256" == 8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1 ]] || exit 2
 mkdir -m 700 "$OUT"
 step="CPU_PRECHECK"
 on_err() {
