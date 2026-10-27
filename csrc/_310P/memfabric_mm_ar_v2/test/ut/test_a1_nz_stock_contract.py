@@ -56,10 +56,11 @@ def test_confirm_nz_requires_independent_profiler_route(tmp_path):
                for r in output["performance_map"])
     evidence = tmp_path / "route.json"
     (tmp_path / "trace.txt").write_text("synthetic CPU fixture only")
+    (tmp_path / "trace2.txt").write_text("synthetic CPU fixture only")
     evidence.write_text(json.dumps({
         "stock_hccl_fp16_verified": True, "memfabric_route_verified": True,
         "hccl_stream_end_to_end_verified": True, "no_backend_coexistence": True,
-        "evidence_files": ["trace.txt"],
+        "evidence_files": ["trace.txt", "trace2.txt"],
     }))
     with pytest.raises(ValueError, match="NZ route"):
         analyzer.evaluate(tmp_path, "large", "confirm", evidence)
@@ -102,7 +103,7 @@ def test_nz_source_default_is_nonbreaking():
     ana = (PERF / "u1_analyze.py").read_text()
     for path in ("u1_arm.py", "u1_analyze.py", "a1_nz_route_gate.py"):
         ast.parse((PERF / path).read_text())
-    assert 'os.environ.get("U1_STOCK_LAYOUT", "row_major")' in src
+    assert 'os.environ.get("U1_STOCK_LAYOUT", "nz" if a.scope == "large" else "row_major")' in src
     assert 'stock_weight = w_nz if a.stock_weight_layout == "nz" else w' in src
     assert "F.linear(x, stock_weight)" in src
     assert "export U1_STOCK_LAYOUT=" in runner
