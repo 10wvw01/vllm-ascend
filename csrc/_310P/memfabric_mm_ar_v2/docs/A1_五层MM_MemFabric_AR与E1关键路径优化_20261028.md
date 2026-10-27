@@ -18,7 +18,7 @@
 
 ## 2. 已经实现的源代码
 
-- `src/op_kernel/mf310p_v2_b2_full_mm_ar.asc`：独立B2设备核。与D4保持MM几何、8核、NZ权重、DCCI、Add2048和最终quiet/DONE。原D4每Chunk一次`WaitReady`，B2改成完整MM完成后**仅一次生产端WaitReady**；其后才进入发送/接收/归约循环。
+- `src/op_kernel/mf310p_v2_b2_full_mm_ar.asc`：独立B2设备核。与D4保持MM几何、8核、NZ权重、DCCI、Add2048和最终quiet/DONE。原D4每Chunk一次`WaitReady`，B2改成完整MM完成后**仅一次生产端WaitReady**；其后才进入发送/接收/归约循环。每个SDMA分包的Add后执行8核`WaitAddDone`会合，防止Core0在工作核消费上包`ReleaseAdd`事件之前重用同一IB槽；整个MM阶段仍然只有一次`WaitReady`。
 - `src/op_kernel/mf310p_v2_dcci_entire_candidate.asc`：E1独立设备核。D4正文复制后精确替换3个DCCI调用点（发送端1处、接收端2处），替换为每核`ENTIRE_DATA_CACHE`。将`WaitReady`的7→1扇入改为Core0等待1/2/4/6四核、Core2/4/6各等待其后一核的**两级IB Ready树**；`ReleaseAdd`/`WaitAddDone`、SDMA signal/wait、QUIET、DONE顺序保留；不能把“减少缓存维护时长”吹成“删除IB或Wait”。实际IB/Wait的时间缩短为待测假设。
 - `test/perf/five_arm_private_host.cpp`：私有Host ABI读取**来自相同主线源码**的现有`mf310p_v2_trial`布局，以独立B2/E1设备符号发射；每个候选首写和输出地址变化保留设备同步防护。**绝不装入Serving默认路径**。
 - `test/perf/five_arm_build_e.sh`：BiSheng CANN9.1/dav-2002将两个设备核链接进**隔离私有SO**，单独G++编译私有Host SO，记录主线/候选源及SO SHA。**不覆盖正式D4/插件/V1/Host/KVER**。
