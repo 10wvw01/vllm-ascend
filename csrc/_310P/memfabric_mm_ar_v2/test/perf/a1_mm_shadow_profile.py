@@ -27,8 +27,10 @@ def main():
     p.add_argument("--build-manifest",type=Path,required=True)
     args=p.parse_args()
     if (int(os.getenv("WORLD_SIZE","0"))!=2 or not args.out.is_absolute()
-            or not args.out.is_dir() or list(args.out.iterdir())):
-        p.error("two ranks; empty precreated absolute output required")
+            or not args.out.is_dir()):
+        p.error("two ranks and precreated absolute output required")
+    if list(args.out.glob("rank*_m*_kernel_details.csv")):
+        p.error("never reuse or overwrite existing original profiler CSV")
     manifest=json.loads(args.build_manifest.read_text(encoding="utf-8"))
     if manifest.get("so_sha256")!=digest(args.shadow_so):
         p.error("binary identity mismatch")
