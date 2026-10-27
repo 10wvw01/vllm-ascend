@@ -92,9 +92,16 @@ def evaluate(root: Path) -> dict:
                 if any(proof.get(k)!=v for k,v in expected.items()):
                     raise ValueError("native/shadow profiler route identity mismatch")
                 import hashlib
+                durations=proof.get("device_kernel_durations_us",[])
                 if (proof.get("kernel_hits",0)<3 or
+                    not isinstance(durations,list) or
+                    len(durations)!=proof["kernel_hits"] or
+                    any(type(x) not in (float,int) or not math.isfinite(x) or x<=0
+                        for x in durations) or
+                    type(proof.get("device_kernel_p50_us")) not in (float,int) or
+                    abs(statistics.median(durations)-proof["device_kernel_p50_us"])>0.01 or
                     proof.get("csv_sha256")!=hashlib.sha256(csv_path.read_bytes()).hexdigest()):
-                    raise ValueError("not enough real NZ/shadow kernel hits or CSV hash mismatch")
+                    raise ValueError("not enough native/shadow real durations or CSV hash mismatch")
                 route_proofs.append(proof)
     all_sessions=BASE+MEMORY
     stages=sorted(x.name for x in (root/"sessions").iterdir())
@@ -121,7 +128,17 @@ def evaluate(root: Path) -> dict:
         valid=valid and stable
         median={arm:round(statistics.median(v),3) for arm,v in by.items()}
         native,shadow=median["native"],median["nd"]
+        device_kernel={}
+        for arm in ("native","nd"):
+            durations=[q["device_kernel_p50_us"] for q in route_proofs
+                       if q["arm"]==arm and q["M"]==m]
+            if len(durations)!=2:
+                raise ValueError("missing one Rank device kernel duration")
+            device_kernel[arm]=round(max(durations),4) # 双Rank关键耗时保守选取
         output.append({"M":m,"native_nz_mm_p50_us":native,
+            "short_profiler_kernel_rankmax_p50_us":device_kernel,
+            "short_profiler_shadow_minus_native_us":round(
+                device_kernel["nd"]-device_kernel["native"],4),
             "v2_shadow_nd_p50_us":shadow,
             "delta_shadow_minus_native_us":round(shadow-native,3),
             "shadow_slowdown_pct":round((shadow/native-1)*100,3),
@@ -141,7 +158,7 @@ def evaluate(root: Path) -> dict:
             "Symmetric-GM pool lifetime and first-write sync are not inside Event samples.",
             "Only actual native aclnnMatmulWeightNz profiler and bit-exact proof qualify native baseline.",
             "Across isolated sessions, per-index two-rank max is a conservative logical pair after Gloo barrier.",
-            "NPU Event includes stream launch scheduling; CANN profiler must report device kernel duration separately.",
+            "NPU Event includes stream launch scheduling; independent CANN kernel duration is a second diagnostic metric, not substituted into ABBA.",
             "Differences of median memory modes are controlled perturbations, not exact causal components.",
         ]}
 
