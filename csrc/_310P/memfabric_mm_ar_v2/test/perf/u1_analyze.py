@@ -242,6 +242,20 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
                 not isinstance(p, str) or not (root / p).is_file()
                 for p in raw_files):
             raise ValueError("missing independent trace evidence")
+        if stock_layout == "nz":
+            nz_report = info.get("nz_stock_route_report")
+            if (not isinstance(nz_report, str) or not nz_report or
+                    Path(nz_report).is_absolute() or ".." in Path(nz_report).parts):
+                raise ValueError("NZ route audit report relative path required")
+            proof_path = (root / nz_report).resolve()
+            if not proof_path.is_relative_to(root.resolve()) or not proof_path.is_file():
+                raise ValueError("missing independent NZ route proof")
+            proof = json.loads(proof_path.read_text(encoding="utf-8"))
+            if (proof.get("schema") != "A1_NZ_U1_NATIVE_ROUTE_V1"
+                    or proof.get("status") != "NZ_STOCK_ROUTE_VERIFIED"
+                    or {(r.get("rank"), r.get("M")) for r in proof.get("proofs", [])}
+                    != {(rank, m) for rank in (0, 1) for m in (2048, 4096)}):
+                raise ValueError("NZ-Stock has no four real profiler route proofs")
         audit_sha = digest(audit)
         for line in table:
             if line["decision"] == "CANDIDATE_REQUIRES_ROUTE_AUDIT":
@@ -250,6 +264,7 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
         "experiment": "U1_FULLCHAIN", "scope": scope, "phase": phase,
         "manifest_sha256": digest(manifest), "audit_sha256": audit_sha,
         "stock_weight_layout": stock_layout,
+        "nz_route_proof_required": stock_layout == "nz",
         "sessions": rows, "performance_map": table,
         "within_worker_anchor_drift_exceeds_5pct": anchor_drift_fail,
         "important": [
