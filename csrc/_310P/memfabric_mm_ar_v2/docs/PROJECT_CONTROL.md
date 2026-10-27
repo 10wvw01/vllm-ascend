@@ -280,3 +280,12 @@
 - **十场五臂配对p50（max(rank0,rank1)）**：M2048：Stock 1070.4µs、B1 2653.8µs、B2 1647.9µs、D4 1362.0µs、E1 1263.6µs；M4096：Stock 2017.5µs、B1 5031.2µs、B2 3092.5µs、D4 2513.0µs、E1 2274.2µs。**E1 vs D4：+7.79%/+10.50%（−98.4/−238.8µs）**且M2048尾部更紧（E1 p99≈1327µs vs D4该场2372µs）；**E1 vs Stock：−15.29%/−11.29%**（仍慢，L1对Stock不签）；B1慢约60%（staging/流同步/多launch真实代价，非MF固有带宽）；B2比D4慢285.8/579.5µs（串行结构输给Chunk交叠）。
 - **机器判定**：总状态**`INCONCLUSIVE_DRIFT`**——M2048的D4臂场间漂移5.685%>5%门限（stage07出现p99=2372µs周期长尾，与R1已知V2周期长尾一致），按合同不挑场不复算；M4096全臂稳定（≤2.02%）但随总状态降级为参考。
 - **决策（按A1§5）**：`E1<C且E1>=A`→**E1保留为下一优化基线**（仅工作分支候选，不进正式默认CMake/Serving），下一E代聚焦同步消息缩减/冗余清理消除/D4式周期长尾；维持Chunk交叠主线（B2负向）；B1归因staging成本。正式D4/Host SO零改动，Stock默认不变，L3/L4 NOT_RUN。工作分支证据审核后择优回写主线并审PR。
+
+
+## 28. 2026-10-28｜A1-E2融合流水关键路径重构源码提交（E1→E2，310P3 NOT_RUN）
+
+- **性能驱动**：最新E1五层M2048/4096配对p50=1263.6/2274.2µs，比D4降低约98/239µs，但仍慢真NZ Stock约193/257µs。用户要求继续极致优化，而非停在旧D4诊断。确认采用双候选机制：E2-R改变每Chunk Add放行扇出1→4→7；E2-P在首个数据消息之前，完成双Rank全部接收核DCache预失效和一次8B READY互认，消除随后每Chunk接收端DCCI；E2-P/512另测2MiB Chunk vs E2-P/1024的4MiB Chunk。
+- **实现隔离**：从`work/310p-mm-ar-five-arm-dcci-20261028`（E1实机证据分支）派生`work/310p-mm-ar-e2-pipeline-20261028`，独立`mf310p_v2_e2_pipeline.asc`、`e2_private_host.cpp`、`e2_build.sh`、`e2_arm.py`、`e2_assess.py`、`e2_campaign.sh`、新增CPU合同及CI。正式D4、父分支E1代码、Serving、Stock默认与DFlash均不改。
+- **源码合同和正确性风险**：E2-P mode2在8核都预失效后由Core0发送及等待对端READY，才广播让所有核进入首个MM；不允许接收区域Scalar读写、不抢先SDMA，原QUIET/DONE和首写守护保持。E2-R mode1完全保留E1接收端等待后DCCI。现场新READY协议可能出现Credit次序或缓存可见性问题，需要先编译/双RankSmoke；任何器件异常原地STOP。
+- **实验**：真NZ HCCL路由4/4→ E2R/P1024/P512独立TP2短Smoke → `stock,e1,e2r,e2p,e2p512,e2p512,e2p,e2r,e1,stock` 10场配对p50/p90/p99，场间漂移阈值5%，原始Rank/status/构建SO与卡巡检可审计。只对稳定实测签L1；Qwen L2/L3/L4保持NOT_RUN。
+- **精确进度**：本轮现阶段`E2_SOURCE_COMMITTED`；**无新BiSheng成功记录、无E2 TP2 Smoke、无E2性能、无Serving验证**。源码完成不代表可以跳过G0/CPU/编译。参见[ADR-018](DECISIONS.md)及[E2实现/准入方案](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)。
