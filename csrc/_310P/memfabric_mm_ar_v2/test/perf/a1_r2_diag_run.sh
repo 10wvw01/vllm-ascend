@@ -52,5 +52,28 @@ PY
   done
 done
 python3 "$PERF/a1_r2_diag_assess.py" --root "$OUT" --out "$OUT/diag_assessment.json"
+# 同一批次的额外短Profiler仅用于看Whole Kernel及AI Core活动，
+# 与No-Profiler数据分开，绝不拿单Chunk差额冒充内部MM/SDMA时间。
+if [[ "${A1_R2_SHORT_PROFILER:-NO}" == YES ]]; then
+  mkdir -m 700 "$OUT/short_profiler"
+  for case in formal loop4 diag0; do
+    mkdir -m 700 "$OUT/short_profiler/$case"
+    npu-smi info > "$OUT/short_profiler/$case/device_before.txt" 2>&1
+    if ! timeout --signal=TERM --kill-after=30s 15m torchrun --standalone --nproc-per-node=2 \
+      "$PERF/u1_diag_large.py" --case "$case" --profile \
+      --out "$OUT/short_profiler/$case" --warmup 3 --iters 4 \
+      --store-url "tcp://127.0.0.1:$A1_R2_DIAG_STORE_PORT" \
+      > "$OUT/short_profiler/$case/torchrun.log" 2>&1; then
+      echo "short profiler $case failed; STOP" >&2
+      exit 1
+    fi
+    for rank in 0 1; do
+      [[ -s "$OUT/short_profiler/$case/${case}_rank${rank}_trace.json" ]] || {
+        echo "missing profiled Rank $rank trace" >&2; exit 1;
+      }
+    done
+    npu-smi info > "$OUT/short_profiler/$case/device_after.txt" 2>&1
+  done
+fi
 npu-smi info > "$OUT/npu_after.txt" 2>&1
 echo "D4_DIAG_COMPLETE; INNER_PHASE_UNKNOWN until independent supported profiler evidence"
