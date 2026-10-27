@@ -29,6 +29,8 @@ def make_fixture(root: Path, slowdown: float = 1.25):
                 csv.write_text("actual synthetic kernel csv; not real device data\n")
                 meta={"schema":"A1_MM_SHADOW_ROUTE_V1","arm":arm,"rank":rank,
                       "M":m,"kernel_hits":6,"shadow_sha256":sha,"bit_exact":True,
+                      "device_kernel_durations_us":[800.0 if arm=="native" else 1100.0]*6,
+                      "device_kernel_p50_us":800.0 if arm=="native" else 1100.0,
                       "csv_sha256":hashlib.sha256(csv.read_bytes()).hexdigest()}
                 (csv.parent/f"rank{rank}_m{m}_route.json").write_text(json.dumps(meta))
     for i,arm in enumerate(BASE+MEMORY):
