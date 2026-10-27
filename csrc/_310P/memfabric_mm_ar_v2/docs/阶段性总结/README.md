@@ -8,6 +8,7 @@
 
 | 时间 | 主题 | 一句话结论 |
 |---|---|---|
+| 2026-10-27 | [A1-R1 实机测试总结（HTML）](A1-R1_实机测试总结_20261027.html) | 工程正确性PASS；U1行主序Stock下V2 +21%，真实NZ-Stock站点V2慢368/512µs，L3 Prefill慢26～28ms且存在周期重尾；L4未跑 |
 | 2026-10-26 | [V2 MM + MemFabric AllReduce Add 优化进展](V2_MM_MemFabric_AllReduce_Add优化进展_20261026.md) | Add Tile1024→2048，V2 Kernel 双Rank配对耗时降低6.26%；Qwen3.6 Eager小样本吞吐改善1.86%，稳定性P0仍未关闭 |
 
 ## 归档原则
