@@ -245,3 +245,12 @@
 - **核心性能事实**：U1 row-major Stock基线8场ABBA：M2048 V2+22.5%，M4096 V2+21.1%，不能以此宣称实际模型提升；真实Qwen `aclnnMatmulWeightNz` 约752µs、Stock HCCL AR约1391/1166µs，融合D4约2511/2430µs，V2每Rank每目标站点分别慢约368/512µs（近似），双Rank各40站点已取证且无额外contiguous copy。L3 input4096/output1、TP2、并发1、无Profiler四ServeABBA，V2慢26.12/27.70ms，Stock跨会话漂移2.83ms，V2有周期性长尾。**L3未GO、正式4096/2048/并发10/50请求L4_NOT_RUN_BY_DESIGN，Stock默认继续保留。**
 - **方向P0**：①在原A1工作分支把U1 `Stock_NZ MM+HCCL`改成Serving同源主基线，row-major仅诊断；②真实短窗剖面/计时分解D4 MM/SDMA/IB/Core0/Add及设备依赖，**尚不能判定仅靠NZ化就足够**；③调查V2约6～7请求周期重尾；④新Kernel单变量优化后同批按正确基线跑L1/L2/L3，有真正L3_GO才正式L4。性能负结论不终止大M研发，但当前D4不得转正式默认/发布。数据见[现版性能基线](PERFORMANCE_BASELINES.md)。
 
+## 24. 2026-10-27｜R2单批工具就绪（静态）、首轮原仓CPU和实机尚未运行
+
+- **实施分支**：`work/310p-mm-ar-large-m-a1-20261026`的[单批执行合同](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R2_NZ_STOCK_25MS_周期长尾联合诊断合同_20261027.md)已更新，提供可执行入口`test/perf/a1_r2_one_batch.sh`：CPU/真实NZ路由→Stock_NZ/正式D4双RankSmoke及8场ABBA→五种D4机制Case（可选短Profiler）→15s/5s/5s/15s四Serve长尾对照→原R1证据复算。**正式Kernel/D4 Device SO、生产Stock默认、MemFabric冻结Host及KVER11不改**。
+- **严格身份与失败防护**：NZ原生`torch_npu.profiler.tensorboard_trace_handler`必须真实导出四份CANN解析CSV且每Rank/M的MatMulWeightNz及HCCL唯一配对通过；所有子进程继承同一完整冻结Host/D4/Plugin/KVER SHA。循环的独立进程池、双Rank错误/前后卡状态、`STOP_STAGE.json`及私有运行目录必须保留。没有G0/独占/回滚或共享SO无法隔离则NO_GO，不清KFC、不自动换卡。
+- **机制归因真实性**：现有`formal/loop4/diag0/diag4/diag5`有明确模式差异，正式D4的2.5ms**不能**用模式时间差精确拆成MM/SDMA/IB/Add，独立内分段设备指标未出现时`INNER_PHASE_UNKNOWN`。Profiler短窗用于定位Whole Kernel及可用CANN硬件指标，不与正式无Profiler L1样本混合。
+- **Epoch风险**：KVER11正常换纪监督循环不逐次打印完成日志，R2脚本同时检查`MF_SDMA_ORCH_EPOCH_BUDGET_S`显式预算和每次Serve两Die`sdma orch configured ... epochBudgetS`运行配置；日志不可见标`EPOCH_RUNTIME_BUDGET_UNVERIFIED`，即便峰频率随15s/5s改变，也只能支持假说，不签因果已证明。需要实际同源时间戳或经授权的设备/Host进度探针才能定责。
+- **测试状态**：已提交新增CPU合成拒绝性UT、原仓CPU/静态验证命令和独立A1工作分支专用Actions工作流`.github/workflows/310p_a1_r2_cpu_only.yml`；截止此次远端审核**未观察到Actions执行记录**，也未进入310P3，因此`R2_CPU_NOT_RUN / R2_G0_NOT_RUN / R2_NZ_NOT_RUN / R2_PHASE_NOT_RUN / R2_EPOCH_NOT_RUN`。本轮主线仅记录实施准备，不提前宣称P0根因或加速。
+- **下一步**：用户在310P3委托OpenCode按当前A1 HEAD开展**一次**完整R2诊断；先原仓CPU及G0，真实私有加载成功即按机器门连续推进，出错原地STOP；回传后由主线审原始CSV、Rank JSON、Profile和epoch日志，再确定实际要改哪个Kernel/通信变量。
+
