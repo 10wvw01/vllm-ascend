@@ -96,6 +96,10 @@ U1_CONFIRM_APPROVED=YES U1_STOCK_LAYOUT=nz \
 # Confirm is only a measured candidate until separate HCCL stream audit is attached;
 # do not auto-promote the U1 aggregate to a model-grade GO.
 step="D4_INNER_MECHANISM"
+# 默认多采正式4Chunk/串行4Chunk/单Chunk的短Profiler诊断，
+# 不将Profiler样本和无Profiler样本混合计时；如设备Profiling不支持则STOP。
+export A1_R2_SHORT_PROFILER="${A1_R2_SHORT_PROFILER:-YES}"
+[[ "$A1_R2_SHORT_PROFILER" == YES || "$A1_R2_SHORT_PROFILER" == NO ]] || exit 2
 bash "$PERF/a1_r2_diag_run.sh" "$OUT/mechanism" \
   > "$OUT/mechanism_launch.log" 2>&1
 step="EPOCH_ABBA"
