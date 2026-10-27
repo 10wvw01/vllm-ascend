@@ -1,0 +1,58 @@
+{
+  "experiment": "U1_LARGE_MECHANISM_DIAG",
+  "case": "diag0",
+  "rank": 0,
+  "M": 1024,
+  "chunks": 1,
+  "chunk_rows": 1024,
+  "bit_exact": true,
+  "status": 0,
+  "profile": false,
+  "iters": 8,
+  "warmup": 3,
+  "samples": [
+    {
+      "i": 0,
+      "event_us": 787.787,
+      "wall_us": 12368.89
+    },
+    {
+      "i": 1,
+      "event_us": 23673.594,
+      "wall_us": 23893.73
+    },
+    {
+      "i": 2,
+      "event_us": 469.557,
+      "wall_us": 672.07
+    },
+    {
+      "i": 3,
+      "event_us": 11970.105,
+      "wall_us": 12181.77
+    },
+    {
+      "i": 4,
+      "event_us": 12442.37,
+      "wall_us": 12549.74
+    },
+    {
+      "i": 5,
+      "event_us": 724.636,
+      "wall_us": 935.66
+    },
+    {
+      "i": 6,
+      "event_us": 23601.042,
+      "wall_us": 23759.46
+    },
+    {
+      "i": 7,
+      "event_us": 478.125,
+      "wall_us": 608.88
+    }
+  ],
+  "trace": null,
+  "event_p50_us": 6378.946,
+  "note": "diag0/4/5 are SINGLE chunk (1024) with non-equivalent protocol; loop4 serial is not four-chunk formal overlap. Never subtract profiler diagnostics to claim actual kernel phase durations."
+}

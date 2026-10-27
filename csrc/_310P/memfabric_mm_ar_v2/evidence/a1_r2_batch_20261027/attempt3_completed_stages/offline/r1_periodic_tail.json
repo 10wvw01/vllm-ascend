@@ -1,0 +1,103 @@
+{
+  "schema": "A1_R1_PERIODIC_TAIL_V1",
+  "status": "REPRODUCIBLE_PERIODIC_V2_TAIL_CAUSE_UNKNOWN",
+  "sessions": [
+    {
+      "id": "S1",
+      "arm": "stock",
+      "median_ms": 2346.08215,
+      "mad_ms": 1.18738,
+      "spike_threshold_ms": 20.0,
+      "spike_indices_zero_based": [],
+      "gap_indices": [],
+      "spike_excess_ms": [],
+      "rank_skew_at_spikes_ms": []
+    },
+    {
+      "id": "F1",
+      "arm": "v2",
+      "median_ms": 2372.20264,
+      "mad_ms": 1.97461,
+      "spike_threshold_ms": 20.0,
+      "spike_indices_zero_based": [
+        0,
+        6,
+        12,
+        19,
+        25
+      ],
+      "gap_indices": [
+        6,
+        6,
+        7,
+        6
+      ],
+      "spike_excess_ms": [
+        136.0366,
+        124.6931,
+        184.8167,
+        153.0491,
+        145.1567
+      ],
+      "rank_skew_at_spikes_ms": [
+        0.0312,
+        0.0034,
+        0.0479,
+        0.0193,
+        0.0044
+      ]
+    },
+    {
+      "id": "F2",
+      "arm": "v2",
+      "median_ms": 2370.95581,
+      "mad_ms": 2.31653,
+      "spike_threshold_ms": 20.60691,
+      "spike_indices_zero_based": [
+        0,
+        6,
+        12,
+        19,
+        25
+      ],
+      "gap_indices": [
+        6,
+        6,
+        7,
+        6
+      ],
+      "spike_excess_ms": [
+        88.8579,
+        81.677,
+        80.0313,
+        77.9812,
+        79.7739
+      ],
+      "rank_skew_at_spikes_ms": [
+        0.0671,
+        0.0134,
+        0.01,
+        0.01,
+        0.0022
+      ]
+    },
+    {
+      "id": "S2",
+      "arm": "stock",
+      "median_ms": 2343.25098,
+      "mad_ms": 0.74341,
+      "spike_threshold_ms": 20.0,
+      "spike_indices_zero_based": [],
+      "gap_indices": [],
+      "spike_excess_ms": [],
+      "rank_skew_at_spikes_ms": []
+    }
+  ],
+  "limitations": [
+    "Zero-based indices are request order after six warmup queries; not device epoch numbers.",
+    "No causality: correlation does NOT identify MM/SDMA/IB/pool/host mechanisms.",
+    "Same-rank timing matches cannot establish a shared physical clock; only per-request elapsed durations compared.",
+    "Measurement uses Forward-to-Logits NPU event; no formal L4/TTFT claims."
+  ],
+  "next_discriminator": "Capture immutable request-index -> time -> MemFabric pool epoch/generation/mail tag and progress -> Rank0/1 completion -> kernel and host trace; profile only a short targeted window and avoid inserted synchronization."
+}
