@@ -38,6 +38,7 @@ def sha(p:Path)->str:
 def parse():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--stage", type=int, choices=range(1,len(SCHEDULE)+1),required=True)
+    p.add_argument("--phase", choices=("smoke","confirm"),default="confirm")
     p.add_argument("--out",type=Path,required=True)
     p.add_argument("--build-manifest",type=Path,default=None)
     p.add_argument("--store-url",default=os.environ.get(
@@ -48,11 +49,14 @@ def parse():
     a.arm=SCHEDULE[a.stage-1]
     if not a.out.is_absolute() or not a.out.is_dir():
         p.error("existing absolute output directory required")
-    if a.warmup<20 or a.iters<100 or a.iters>500:
-        p.error("minimum 20 warmup and 100 measured samples")
+    if a.phase=="confirm" and (a.warmup<20 or a.iters<100 or a.iters>500):
+        p.error("confirm requires >=20 warmup and >=100 samples")
+    if a.phase=="smoke" and (a.warmup<3 or a.iters<6 or a.iters>20):
+        p.error("smoke requires 3 warmup and 6-20 samples")
     if int(os.getenv("WORLD_SIZE","0"))!=2 or os.getenv("RANK") not in ("0","1"):
         p.error("true TP2 two processes required")
-    if (a.out/f"{a.stage:02d}_{a.arm}_rank{os.environ['RANK']}.json").exists():
+    prefix="smoke_" if a.phase=="smoke" else ""
+    if (a.out/f"{prefix}{a.stage:02d}_{a.arm}_rank{os.environ['RANK']}.json").exists():
         p.error("no overwriting saved evidence")
     if any(x in os.environ for x in (
         "MF_KFC_BYPASS","MF310P_V2_NOWARMUP","MF310P_V2_AR_ONLY_NOWARMUP",
@@ -248,10 +252,11 @@ def main():
                 "event_p99_us":round(pct(vals,.99),3),
             }
             print(f"ARM={a.arm} rank={rank} M={m} samples={len(vals)} PASS",flush=True)
-        out=a.out/f"{a.stage:02d}_{a.arm}_rank{rank}.json"
+        prefix="smoke_" if a.phase=="smoke" else ""
+        out=a.out/f"{prefix}{a.stage:02d}_{a.arm}_rank{rank}.json"
         with out.open("x",encoding="utf-8") as fh:
             json.dump({
-                "schema":"A1_FIVE_ARM_TP2_V1","stage":a.stage,"arm":a.arm,
+                "schema":"A1_FIVE_ARM_TP2_V1","stage":a.stage,"arm":a.arm,"phase":a.phase,
                 "rank":rank,"TP":2,"weight_format":"NZ29",
                 "K":K,"N":N,"Ms":list(MS),"stock_route_required":"aclnnMatmulWeightNz",
                 "jit_compile":False,"allow_internal_format":True,
