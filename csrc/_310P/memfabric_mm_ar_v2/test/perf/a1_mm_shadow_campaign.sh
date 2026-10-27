@@ -22,6 +22,19 @@ for key in U1_DEVICE_SO_PATH U1_CORE_SO_LIB64 MF_SDMA_ORCH_JSON; do
   f="${!key:-}"
   [[ "$f" == /* && -f "$f" ]] || { echo "missing private binary $key" >&2; exit 2; }
 done
+for key in A1_MM_SHADOW_V1_DEVICE_LIB MEMFABRIC_HYBRID_HOME_PATH; do
+  f="${!key:-}"
+  [[ "$f" == /* && ( -f "$f" || -d "$f" ) ]] || { echo "missing $key" >&2; exit 2; }
+done
+[[ -f "$A1_MM_SHADOW_V1_DEVICE_LIB" ]] || { echo "A1_MM_SHADOW_V1_DEVICE_LIB must be a file" >&2; exit 2; }
+# R2验证过的私有装载顺序：priv-libs(修复版hybm core)最前，site(含V1 device SO)
+# 次之，MemFabric共享lib64再次；CANN/driver基础路径继承自外层环境。
+MF_LIB64="$MEMFABRIC_HYBRID_HOME_PATH/$(uname -m)-linux/lib64"
+[[ -f "$MF_LIB64/libmf_smem.so" ]] || MF_LIB64="$MEMFABRIC_HYBRID_HOME_PATH/lib64"
+[[ -f "$MF_LIB64/libmf_smem.so" ]] || { echo "libmf_smem.so not found under MEMFABRIC_HYBRID_HOME_PATH" >&2; exit 2; }
+PRIV_DIR="$(cd "$(dirname "$U1_CORE_SO_LIB64")" && pwd)"
+V1_DIR="$(cd "$(dirname "$A1_MM_SHADOW_V1_DEVICE_LIB")" && pwd)"
+export LD_LIBRARY_PATH="$PRIV_DIR:$V1_DIR:$MF_LIB64:${LD_LIBRARY_PATH:-}"
 : "${A1_MM_SHADOW_STORE_PORT:?single unused localhost MemFabric port}"
 [[ "$A1_MM_SHADOW_STORE_PORT" =~ ^[0-9]+$ &&
    "$A1_MM_SHADOW_STORE_PORT" -ge 1024 &&

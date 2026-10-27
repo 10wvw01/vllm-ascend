@@ -45,8 +45,30 @@ class Layout(ctypes.Structure):
         "arena_rows", "batch_m", "max_batches", "reserved")]
 
 
+def verify_patched_stack_mapped() -> None:
+    """fail-closed：确认修复版Host SO与V1 device SO真实映射进本进程。
+
+    实机取证(2026-10-27)：私有Host SO不导出mf310p_*池API；sym臂改为加载
+    独立编译的同源V1 adapter导出SO，其依赖链(priv libmf_hybm_core 1dc46d7d
+    + site libmf310p_device.so)必须经LD_LIBRARY_PATH(R2验证方案)正确解析。
+    映射缺失即STOP，绝不静默退化为非修复栈或普通GM。"""
+    core = os.environ.get("U1_CORE_SO_LIB64", "")
+    v1dev = os.environ.get("A1_MM_SHADOW_V1_DEVICE_LIB", "")
+    if not core or not v1dev:
+        raise RuntimeError("patched stack identity env missing")
+    maps = Path("/proc/self/maps").read_text(encoding="utf-8")
+    for required, tag in ((core, "patched libmf_hybm_core.so"),
+                          (v1dev, "vllm_ascend libmf310p_device.so")):
+        if required not in maps:
+            raise RuntimeError(
+                f"real loading gate: {tag} not mapped in this process")
+
+
 class Symmetric:
-    def __init__(self, rank: int, stream, url: str, libfile: Path):
+    def __init__(self, rank: int, stream, url: str, libfile: Path,
+                 expected_sha: str):
+        if digest(libfile) != expected_sha:
+            raise RuntimeError("adapter export SO digest mismatch")
         lib = ctypes.CDLL(str(libfile))
         P = ctypes.c_void_p
         lib.mf310p_create.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_char_p,
@@ -62,6 +84,7 @@ class Symmetric:
         lib.mf310p_destroy.argtypes = [P]
         lib.mf310p_destroy.restype = ctypes.c_int
         self.lib = lib
+        verify_patched_stack_mapped()
         self.ctx = P()
         rc = lib.mf310p_create(rank, 2, url.encode(), 96 * 1024 * 1024,
                                8192, CHUNK, ctypes.byref(self.ctx))
@@ -152,9 +175,17 @@ def parse():
     if a.arm in ("sym", "sym_clean"):
         if not a.store_url.startswith("tcp://127.0.0.1:"):
             p.error("private local MemFabric store URL required")
+        adapter = manifest.get("adapter_so_path")
+        if (not manifest.get("adapter_so_sha256") or not adapter
+                or not Path(adapter).is_file()
+                or digest(Path(adapter)) != manifest["adapter_so_sha256"]):
+            p.error("V1 adapter pool export SO not verified from manifest")
         path = Path(os.environ.get("U1_CORE_SO_LIB64", ""))
         if not path.is_file() or digest(path) != PINNED_HOST:
             p.error("real patched private Host SO not verified")
+        if not Path(os.environ.get("A1_MM_SHADOW_V1_DEVICE_LIB", "")
+                    ).is_file():
+            p.error("vllm_ascend V1 device SO path required for loading gate")
         if os.environ.get("U1_HOST_SHA256") != PINNED_HOST or os.environ.get("U1_KVER_SHA256") != PINNED_KVER:
             p.error("real Host/KVER identity not verified")
     return a, manifest
@@ -176,7 +207,8 @@ def main():
         ptr = ctypes.c_void_p(stream.npu_stream)
         if a.arm in ("sym", "sym_clean"):
             mem = Symmetric(rank, stream, a.store_url,
-                            Path(os.environ["U1_CORE_SO_LIB64"]))
+                            Path(manifest["adapter_so_path"]),
+                            manifest["adapter_so_sha256"])
         lib = ctypes.CDLL(str(a.shadow_so))
         fn = getattr(lib, SHADOW_SYMBOL)
         fn.argtypes = [ctypes.c_uint64]*3 + [ctypes.c_uint32]*3 + [ctypes.c_void_p]
@@ -255,11 +287,13 @@ def main():
             json.dump({"schema":"A1_MM_SHADOW_RANK_V1",
                        "arm":a.arm,"rank":rank,"world_size":2,
                        "shadow_sha256":manifest["so_sha256"],
+                       "adapter_so_sha256":manifest.get("adapter_so_sha256"),
                        "d4_sha256":PINNED_D4,"mm_geometry":"M2048/4096,Chunk1024,N2048,K2048,8core",
                        "weight_layout":"NZ29","profile":False,
                        "memory":"MemFabric symmetric arena" if mem else "ordinary GM",
                        "device_span_is_complete_kernel":True,
                        "sym_pool_created":mem is not None,
+                       "patched_stack_maps_verified":mem is not None,
                        "results":records},f,ensure_ascii=False,indent=2)
             f.write("\n")
         dist.barrier()

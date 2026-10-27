@@ -49,9 +49,52 @@ LIB="$OUT/libmf310p_v2_mm_shadow.so"
 nm -D "$LIB" > "$OUT/symbols.txt"
 grep -F 'mf310p_v2_mm_shadow_launch_async' "$OUT/symbols.txt" >/dev/null || {
   echo "missing exported shadow ABI" >&2; exit 1; }
-python3 - "$OUT/manifest.json" "$ROOT" "$SRC" "$HDR" "$LIB" "$BISHENG" <<'PY'
+# 第二个独立产物：树内V1 adapter（与正式插件内建完全同源）导出mf310p_*池API，
+# 供sym/sym_clean臂创建真实MemFabric对称arena。绝不安装、不改任何共享/冻结SO。
+# 实机取证(2026-10-27)：私有Host SO(1dc46d7d)不导出mf310p_*；该符号只存在于
+# 插件内部。导出SO是取得真实对称arena设备指针且不触碰冻结身份的唯一独立途径。
+: "${A1_MM_SHADOW_V1_DEVICE_LIB:?absolute vllm_ascend V1 device SO (libmf310p_device.so) required}"
+[[ "$A1_MM_SHADOW_V1_DEVICE_LIB" == /* && -f "$A1_MM_SHADOW_V1_DEVICE_LIB" ]] || {
+  echo "A1_MM_SHADOW_V1_DEVICE_LIB must be absolute existing file" >&2; exit 2; }
+command -v g++ >/dev/null || { echo "host g++ required for adapter export" >&2; exit 2; }
+V1_ROOT="$(cd "$P/../memfabric_mm_ar" && pwd)"
+V1_SRC="$V1_ROOT/memfabric310p_adapter.cpp"
+V1_HDR="$V1_ROOT/memfabric310p_adapter_api.h"
+[[ -f "$V1_SRC" && -f "$V1_HDR" ]] || { echo "V1 adapter source absent" >&2; exit 2; }
+MF_HOST_INC="$MEMFABRIC_HYBRID_HOME_PATH/include/smem/host"
+if [[ ! -f "$MF_HOST_INC/smem_shm.h" ]]; then
+  MF_HOST_INC="$MEMFABRIC_HYBRID_HOME_PATH/$(uname -m)-linux/include/smem/host"
+fi
+[[ -f "$MF_HOST_INC/smem_shm.h" ]] || {
+  echo "MemFabric public host headers absent" >&2; exit 2; }
+MF_LIB64="$MEMFABRIC_HYBRID_HOME_PATH/$(uname -m)-linux/lib64"
+if [[ ! -f "$MF_LIB64/libmf_smem.so" ]]; then
+  MF_LIB64="$MEMFABRIC_HYBRID_HOME_PATH/lib64"
+fi
+[[ -f "$MF_LIB64/libmf_smem.so" ]] || {
+  echo "MemFabric public libmf_smem.so absent" >&2; exit 2; }
+V1_LIB_DIR="$(cd "$(dirname "$A1_MM_SHADOW_V1_DEVICE_LIB")" && pwd)"
+ADP="$OUT/libmf310p_v1_adapter_export.so"
+g++ -O2 -std=c++17 -fPIC -shared -o "$ADP" "$V1_SRC" \
+  -I"$V1_ROOT" \
+  -I"$ASCEND_HOME_PATH/aarch64-linux/include" \
+  -I"$MF_HOST_INC" \
+  -L"$V1_LIB_DIR" -lmf310p_device \
+  -L"$MF_LIB64" -lmf_smem \
+  -L"$ASCEND_HOME_PATH/aarch64-linux/lib64" -lascendcl \
+  "-Wl,-rpath,$V1_LIB_DIR" "-Wl,-rpath,$MF_LIB64" \
+  > "$OUT/adapter_build.log" 2>&1 || {
+     echo "V1 adapter export g++ FAIL: preserve adapter_build.log" >&2; exit 1; }
+nm -D "$ADP" > "$OUT/adapter_symbols.txt"
+for sym in mf310p_create mf310p_control_barrier mf310p_exchange_geometry \
+           mf310p_get_layout mf310p_destroy; do
+  grep -F " T $sym" "$OUT/adapter_symbols.txt" >/dev/null || {
+    echo "adapter export missing $sym" >&2; exit 1; }
+done
+python3 - "$OUT/manifest.json" "$ROOT" "$SRC" "$HDR" "$LIB" "$BISHENG" \
+  "$V1_SRC" "$ADP" "$A1_MM_SHADOW_V1_DEVICE_LIB" <<'PY'
 import hashlib,json,subprocess,sys,pathlib
-dst,root,src,hdr,lib,bisheng=map(pathlib.Path,sys.argv[1:])
+dst,root,src,hdr,lib,bisheng,v1src,adp,v1dev=map(pathlib.Path,sys.argv[1:])
 def digest(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 data={"schema":"A1_MM_SHADOW_BUILD_V1",
       "branch_head":subprocess.check_output(["git","-C",str(root),"rev-parse","HEAD"],text=True).strip(),
@@ -59,7 +102,12 @@ data={"schema":"A1_MM_SHADOW_BUILD_V1",
       "source_sha256":digest(src),"common_header_sha256":digest(hdr),
       "so_sha256":digest(lib),"so_path":str(lib),
       "compiler_path":str(bisheng),
+      "adapter_source_sha256":digest(v1src),
+      "adapter_so_sha256":digest(adp),"adapter_so_path":str(adp),
+      "v1_device_link_lib":str(v1dev),
+      "v1_device_link_sha256":digest(v1dev),
       "production_d4_sha256_untouched":"must separately verify pre/post D4 SO SHA"}
 dst.write_text(json.dumps(data,indent=2)+"\n")
 PY
 echo "SHADOW_BUILD_READY $LIB (not installed, not linked into Serving)"
+echo "ADAPTER_EXPORT_READY $ADP (pool API export only; not installed)"

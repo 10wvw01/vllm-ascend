@@ -158,6 +158,31 @@ def test_nz_cast_materialization_sync_guarded():
     assert cast_arm<cpu_ref<first_raw,"arm .cpu() refs must precede raw pointer use"
 
 
+def test_sym_arm_uses_manifest_adapter_with_real_loading_gate():
+    # 实机取证(2026-10-27):私有Host SO(1dc46d7d)不导出mf310p_*池API。
+    # sym臂必须使用独立V1 adapter导出SO(manifest校验SHA)+进程映射门禁
+    # (修复版hybm core与site V1 device SO真实映射)，绝不静默退化。
+    arm=(PERF/"a1_mm_shadow_arm.py").read_text()
+    assert "verify_patched_stack_mapped" in arm
+    assert "/proc/self/maps" in arm
+    assert 'manifest.get("adapter_so_path")' in arm
+    assert 'manifest["adapter_so_sha256"]' in arm
+    assert 'A1_MM_SHADOW_V1_DEVICE_LIB' in arm
+    assert "digest(libfile) != expected_sha" in arm
+    build=(PERF/"a1_mm_shadow_build.sh").read_text()
+    assert "A1_MM_SHADOW_V1_DEVICE_LIB" in build
+    assert "libmf310p_v1_adapter_export.so" in build
+    assert "memfabric310p_adapter.cpp" in build
+    for sym in ("mf310p_create","mf310p_control_barrier",
+                "mf310p_exchange_geometry","mf310p_get_layout",
+                "mf310p_destroy"):
+        assert sym in build
+    campaign=(PERF/"a1_mm_shadow_campaign.sh").read_text()
+    assert "A1_MM_SHADOW_V1_DEVICE_LIB" in campaign
+    assert "LD_LIBRARY_PATH" in campaign
+    assert "libmf_smem.so" in campaign
+
+
 def test_cpu_python_sources_compile():
     import ast
     for file in ("a1_mm_shadow_arm.py","a1_mm_shadow_profile.py",
