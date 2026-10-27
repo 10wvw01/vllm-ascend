@@ -1,0 +1,103 @@
+{
+  "schema": "E2_PIPELINE_TP2_V1",
+  "stage": 4,
+  "arm": "e2p",
+  "phase": "smoke",
+  "rank": 1,
+  "TP": 2,
+  "weight_format": "NZ29",
+  "K": 2048,
+  "N": 2048,
+  "Ms": [
+    2048,
+    4096
+  ],
+  "stock_route_required": "aclnnMatmulWeightNz",
+  "jit_compile": false,
+  "allow_internal_format": true,
+  "data_variants": 2,
+  "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+  "host_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "production_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "candidate": {
+    "schema": "E2_PIPELINE_BUILD_V1",
+    "mainline": "dev/310p-memfabric-mm-ar",
+    "work_head": "dd4a3636d38afeca053e83ad85088e134bcdffe6",
+    "device_arch": "dav-2002",
+    "isolated_not_installed": true,
+    "source_sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef",
+    "b2_source_sha256": "c34beebfeb3597cb6a5861626f6eca1abe45cc103e12d000e0063e49e9405cfb",
+    "e2_source_sha256": "7bda1388156131405ae69771fec37b460770b6d9a6b9ffcda5ff11dcbe68e1de",
+    "private_host_source_sha256": "9424f33e254b8f3ebe960335e3a9e8dcc936edfdb35a3b5e772af376769348a5",
+    "private_host_so": "/tmp/opencode/e2-build-20261028/libmf310p_e2_private_host.so",
+    "private_host_sha256": "2f074225e222c3b885c47993fa535f478e81adf8db358d7e34a77ab285aa914a",
+    "frozen_baseline_source_sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17",
+    "common_sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb",
+    "candidate_so": "/tmp/opencode/e2-build-20261028/libmf310p_e2_candidates.so",
+    "candidate_sha256": "2d9a0cfb3b4f1f8d65d9b7c79b2c93b201a88a99f592b37c0938261ad964809a",
+    "npu_correctness": "NOT_RUN",
+    "perf": "NOT_RUN",
+    "formal_d4_binary_intact": "MUST_VERIFY_PRE_AND_POST_AT_G0"
+  },
+  "profile": false,
+  "results": {
+    "2048": {
+      "M": 2048,
+      "rank": 1,
+      "arm": "e2p",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        1273.958,
+        1336.745,
+        1287.89,
+        1220.86,
+        1366.432,
+        1205.86
+      ],
+      "host_wall_us": [
+        1355.97,
+        1423.51,
+        1361.54,
+        1295.1,
+        1441.56,
+        1286.33
+      ],
+      "event_p50_us": 1280.924,
+      "event_p90_us": 1351.588,
+      "event_p99_us": 1364.948
+    },
+    "4096": {
+      "M": 4096,
+      "rank": 1,
+      "arm": "e2p",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        2475.807,
+        2379.6101,
+        2474.323,
+        2409.375,
+        2375.756,
+        2336.797
+      ],
+      "host_wall_us": [
+        2568.33,
+        2462.31,
+        2565.32,
+        2480.4,
+        2454.94,
+        2409.26
+      ],
+      "event_p50_us": 2394.493,
+      "event_p90_us": 2475.065,
+      "event_p99_us": 2475.733
+    }
+  },
+  "metric": "local same-rank Event for complete MM+AR; TP2 analysis pairs rank maxima",
+  "limits": "E1 whole-DCache baseline; E2-R adds hierarchical Add release; E2-P pre-invalidates peer DCache and exchanges READY before any data SDMA. E2-P/512 doubles SDMA packet count. Different arms never share a process."
+}

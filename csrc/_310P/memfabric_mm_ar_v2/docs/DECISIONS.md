@@ -143,11 +143,12 @@
 - **状态**：~~截至本决策新增代码，B2/E1设备编译、数值、性能均`NOT_RUN`，尚不具备实机GO判定。~~ **2026-10-28实机更新**：run_id `a1-five-arm-20261028-001`（16384卡dev2,3、私有装载、独占巡检、前后SHA一致）完成两轮深审→CPU62项→dav-2002隔离编译→真实NZ路由4/4→B2/E1双Rank Smoke→十场ABBA。E1 vs D4 **+7.79%（M2048）/+10.50%（M4096）**，E1仍慢于Stock（−15.29%/−11.29%）；总状态`INCONCLUSIVE_DRIFT`（D4 M2048场间漂移5.685%>5%，stage07周期长尾），M2048速比不签。按本ADR"最大性能导向"：**E1保留为下一优化基线**（仅工作分支候选），下一E代聚焦同步消息缩减、按可见性证明消除冗余清理、治理周期长尾；B2串行结构负向（+285.8/+579.5µs vs D4）维持Chunk交叠主线；B1慢归因staging成本。详见[五层实施方案](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)、[实机报告](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)。
 
 
-## ADR-018｜2026-10-28｜E2性能优先：两级Add放行树与双Rank READY栅栏预失效｜**开发候选，设备NOT_RUN**
+## ADR-018｜2026-10-28｜E2性能优先：两级Add放行树与双Rank READY栅栏预失效｜**2026-10-28实机已执行：E2性能否定，E1保持基线**
 
 - **触发证据**：A1五层真NZ Stock/E1实机`a1-five-arm-20261028-001`：E1 M2048/4096为1263.6/2274.2µs，D4为1362.0/2513.0µs，Stock为1070.4/2017.5µs；E1相对D4约+7.79%/+10.50%，但对Stock仍落后；M2048 D4漂移5.685%使整批总状态`INCONCLUSIVE_DRIFT`。严禁引用这些数字为新E2收益。
 - **新方案**：E2-R原E1每Chunk 1→7 Add Release变两级1→4→7事件树；E2-P在所有8核完成接收DCache预失效后，跨Rank双方先投递并等待带独立imm的8B READY，才允许任意数据SDMA；随后接收端Vector DataCopy读GM，去掉每Chunk收件DCCI。附加512/1024分包同算法对照，严格遵守4MiB单消息已验证约束。
 - **风险与回退**：READY控制信箱复用已验证DONE控制区域但必须不同imm且先READY后DONE；双Rank提前失效后不得由Scalar访问接收arena，信件必须检查dst/len/status/imm。E2-R保留逐Chunk接收DCCI作为快速隔离路径；E1原源码与正式D4/Serving/Stock默认均未变。新增Kernel不直接加入CMake或Shared SO。
 - **验证次序**：CPU代码合同、BiSheng dav-2002私有SO、四卡只读G0与健康独占、Stock NZ真实路由、E2R→E2P1024→E2P512各自双Rank短Smoke，PASS后十场E1/E2/Stock配对ABBA，无Profiler Event+Wall，p50/p90/p99/漂移与双Rank原始取证；任错算/KFC/IB/507014/507899/507018立停，不自动切卡或禁防护。
 - **生产验收**：E2设备完整链需跨越E1/Stock，随后按ADR-015做40站点L2/L3 Prefill关键路径，L3 GO后才做正式input4096/output2048/TP2/batch10 TTFT；此ADR不构成Serving启用或实机GO。
-- **实施位置**：`work/310p-mm-ar-e2-pipeline-20261028`（以E1实验工作分支为父），[E2独立实施合同](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)。状态`CODE_PENDING_CI_BUILD_NPU`。
+- **实施位置**：`work/310p-mm-ar-e2-pipeline-20261028`（以E1实验工作分支为父），[E2独立实施合同](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)、[实机报告](A1_E2_PIPELINE_ONDEVICE_REPORT_20261028.md)。
+- **实机裁决（2026-10-28，run_id `a1-e2-pipeline-20261028-001`）**：十场全bit-exact且`E2_FULL_CHAIN_TIMING_VALID`；E2-R vs E1 −2.57%/−0.31%（中性偏负），E2-P vs E1 −6.92%/−4.09%（净负），E2-P512 −21.83%/−17.10%（大幅负），**无一超过E1或Stock**。两级放行树不是关键路径；READY预失效成本高于其节省且放大507014暴露面（attempt2事件与受控复现证据保全，精确因果UNKNOWN）；Chunk512再证劣于1024。**E2路线否定为性能杠杆，E1保持最佳融合候选**；下一关键路径转向核内MM生产效率、producer侧每Chunk失效成本与ReadyTree会合延迟的单变量设备分段。

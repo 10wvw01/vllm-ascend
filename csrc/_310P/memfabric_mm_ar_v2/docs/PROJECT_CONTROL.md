@@ -289,3 +289,11 @@
 - **源码合同和正确性风险**：E2-P mode2在8核都预失效后由Core0发送及等待对端READY，才广播让所有核进入首个MM；不允许接收区域Scalar读写、不抢先SDMA，原QUIET/DONE和首写守护保持。E2-R mode1完全保留E1接收端等待后DCCI。现场新READY协议可能出现Credit次序或缓存可见性问题，需要先编译/双RankSmoke；任何器件异常原地STOP。
 - **实验**：真NZ HCCL路由4/4→ E2R/P1024/P512独立TP2短Smoke → `stock,e1,e2r,e2p,e2p512,e2p512,e2p,e2r,e1,stock` 10场配对p50/p90/p99，场间漂移阈值5%，原始Rank/status/构建SO与卡巡检可审计。只对稳定实测签L1；Qwen L2/L3/L4保持NOT_RUN。
 - **精确进度**：本轮现阶段`E2_SOURCE_COMMITTED`；两轮独立源级结构/协议静审已完成PASS；**未见CPU/Actions执行通过记录，无新BiSheng成功记录、无E2 TP2 Smoke、无E2性能、无Serving验证**。源码完成不代表可以跳过G0/CPU/编译。参见[ADR-018](DECISIONS.md)及[E2实现/准入方案](A1_E2_两级Release与READY预失效性能攻坚_20261028.md)。
+
+## 29. 2026-10-28｜A1-E2实机完成：正确性全通过、E2性能未超E1、方向否定
+
+- **执行与安全**：run_id `a1-e2-pipeline-20261028-001`（attempt3有效场），工作分支`work/310p-mm-ar-e2-pipeline-20261028` @ `f701f3e7c`（=源码合同基线`dd4a3636d`+507014防御性取证提交）。卡16384（dev2,3）同卡双Die独占、30s巡检无外部进入、测后回基线；冻结Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`私有装载前后SHA一致；CPU合同73项+治理6项通过；候选SO`2d9a0cfb`（E1/E2同SO）。报告与原始证据：[实机报告](A1_E2_PIPELINE_ONDEVICE_REPORT_20261028.md)、[evidence/a1_e2_pipeline_20261028/](../evidence/a1_e2_pipeline_20261028/)。
+- **路由与正确性**：真实NZ路由4/4；三组E2双RankSmoke与十场26份Rank JSON全部bit-exact、协议status=0（含数千次逐调用验证，无一错算）。
+- **507014事件与处置**：attempt1为外部工具SIGTERM误杀（非设备异常，证据保全）；attempt2在04_e2p M4096触发507014（M2048已100/100全PASS，两Rank同挂），按合同STOP保全；受控复现2/2落在M4096第91次调用，探针/慢速/单M4096等13+轮全部通过——判定为概率性等待基础设施风险（有界自旋预算>设备看门狗，与已知Gate E同类），E2-P核首READY等待暴露面最大，精确因果UNKNOWN。防御性修复提交`f701f3e7c`（异常路径专用只读取证探针+postmortem自动保全，正常路径零开销，CPU合同复测通过），attempt3全程无异常。
+- **十场配对p50（max(rank0,rank1)）**：M2048 Stock 1087.5 / E1 1236.1 / E2-R 1268.7 / E2-P 1328.0 / E2-P512 1581.2µs；M4096 Stock 2022.6 / E1 2285.5 / E2-R 2292.6 / E2-P 2383.0 / E2-P512 2756.9µs。漂移≤4.9%，机器判定`E2_FULL_CHAIN_TIMING_VALID`。**E2-R vs E1：−2.57%/−0.31%；E2-P vs E1：−6.92%/−4.09%；E2-P512 vs E1：−21.83%/−17.10%——无任何E2臂超过E1，更未超过Stock**；E1 vs Stock −12.02%/−11.50%，最佳E2臂对Stock剩余差距181/270µs。长尾与p50成比例，无D4式周期长尾。
+- **裁决（按A1合同）**：两级Add放行树不是E1关键路径（中性偏负）；READY栅栏接收预失效净负且引入最大507014暴露面；Chunk512再次证实劣于1024。**E2路线作为性能杠杆被实测否定，E1保持最佳融合候选基线**；E2各臂留在工作分支候选池，不进正式CMake/Serving。下一优化关键路径：融合核内MM生产效率、producer侧每Chunk ENTIRE失效成本、ReadyTree会合延迟的单变量设备分段（`INNER_PHASE_UNKNOWN`仍成立）。Stock默认不变；L2/L3/L4 NOT_RUN。已同步[性能基线](PERFORMANCE_BASELINES.md)与[ADR-018更新](DECISIONS.md)。
