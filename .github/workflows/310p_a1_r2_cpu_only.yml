@@ -33,6 +33,6 @@ jobs:
         shell: bash
         run: |
           P=csrc/_310P/memfabric_mm_ar_v2/test/perf
-          for f in "$P"/a1_r2_*.sh "$P"/u1_run.sh "$P"/a1_prefill_serve_session.sh; do
+          for f in "$P"/a1_r2_*.sh "$P"/a1_mm_shadow_*.sh "$P"/u1_run.sh "$P"/a1_prefill_serve_session.sh; do
             bash -n "$f"
           done
