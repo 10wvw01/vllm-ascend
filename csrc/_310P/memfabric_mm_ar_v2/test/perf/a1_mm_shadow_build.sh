@@ -17,8 +17,15 @@ HDR="$P/src/op_kernel/mf310p_v2_kernel_common.h"
 [[ -f "$ASCEND_HOME_PATH/aarch64-linux/include/acl/acl_rt.h" ]] || {
   echo "wrong CANN headers" >&2; exit 2; }
 MF_INC="$MEMFABRIC_HYBRID_HOME_PATH/include/smem/device"
-[[ -f "$MF_INC/smem_shm_aicore_base_sdma.h" ]] || exit 2
+if [[ ! -f "$MF_INC/smem_shm_aicore_base_sdma.h" ]]; then
+  MF_INC="$MEMFABRIC_HYBRID_HOME_PATH/$(uname -m)-linux/include/smem/device"
+fi
+[[ -f "$MF_INC/smem_shm_aicore_base_sdma.h" ]] || {
+  echo "patched MemFabric public SDMA device header absent" >&2; exit 2; }
 BISHENG="$ASCEND_HOME_PATH/bin/bisheng"
+if [[ ! -x "$BISHENG" ]]; then
+  BISHENG="$ASCEND_HOME_PATH/compiler/aarch64-linux/bin/bisheng"
+fi
 [[ -x "$BISHENG" ]] || { echo "CANN9.1 bisheng absent" >&2; exit 2; }
 command -v sha256sum >/dev/null
 command -v nm >/dev/null
