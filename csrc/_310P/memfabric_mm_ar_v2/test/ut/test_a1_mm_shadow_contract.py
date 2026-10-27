@@ -183,6 +183,26 @@ def test_sym_arm_uses_manifest_adapter_with_real_loading_gate():
     assert "libmf_smem.so" in campaign
 
 
+def test_campaign_resume_is_verified_batching_not_cherrypicking():
+    # 用户原则(2026-10-27):外部占用中断可分批续跑。续跑必须:
+    # 会话跳过仅当通过与最终分析同源read_session全量校验;部分目录归档到
+    # sessions/之外(不得污染assess的严格12场目录校验);source SHA跨批次一致;
+    # 评估产物删除重建;数值/身份门禁失败仍是硬STOP。
+    campaign=(PERF/"a1_mm_shadow_campaign.sh").read_text()
+    assert "from a1_mm_shadow_assess import read_session" in campaign
+    assert "aborted/session_" in campaign
+    assert "aborted/routes_" in campaign
+    assert "refuse mixing batches" in campaign
+    assert "source_sha.txt.new" in campaign
+    assert 'rm -f "$OUT/mm_shadow_assessment.json"' in campaign
+    assert "build_verified" in campaign
+    assert "route_ok" in campaign
+    # 归档目录绝不出现在sessions/内
+    assert 'mv "$dir" "${dir}.aborted' not in campaign
+    # 绝不删除或重写已验证会话
+    assert "rm -rf" not in campaign.replace("rm -f \"$OUT/mm_shadow_assessment.json\"","")
+
+
 def test_cpu_python_sources_compile():
     import ast
     for file in ("a1_mm_shadow_arm.py","a1_mm_shadow_profile.py",
