@@ -238,3 +238,10 @@
 - **为什么要真实L2校准L3**：Event只取真实模型Forward入口→Logits产生，若没有与设备Trace/跨Stream依赖校验，它**尚不能冒充整个Step关键路径**。实际目标Kernel必须按10个o_proj+30个out_proj核实，不能凭Profiler Kernel名称或40次Kernel时长相加签L3；若无可审计完成边界，输出`L3_MEASUREMENT_NOT_READY`，保留本批可用L1/L2结果，不执行正式L4。性能负增益本身不取消L2诊断或大M继续优化。
 - **主线与实施分工**：主线[实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)增加E-06任务/本次最新授权；A1 Draft PR#9只承载新测试代码与运行报告。未取得新310P实测数据、Stock默认、Gate E/507014和首写安全发布阻塞不变。
 
+## 22. 2026-10-27｜A1-R1单批实机归档：工程安全通过、真实模型L3无正向收益
+
+- **执行与当前版本**：A1工作分支`ff885ff559efea6523f8026e24704a0797c2ef8b`完成`a1-r1-batch-20261027-001`；[实机原报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/A1_R1_BATCH_REPORT_20261027.md)、[主线独立复盘](A1_R1_实机复盘与优化优先级_20261027.md)、[唯一实验总账](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)。本次复核是远端原始证据与20份逐站点JSON的静态验收，未重新访问服务器原始整包profiler CSV。
+- **安全/正确性准入已通过**：16384(dev2,3)同卡独占；私有PYTHONPATH+LD_LIBRARY_PATH成功装载实际修复Host`1dc46d7d`、D4`2a19390c`、插件`8eb65de9`、KVER11`25e16b0a`；`/proc/maps`按PID取证且原共享双Host/Device SO未改；CPU108 passed+27subtests；M2048 Stock/V2双Rank位精确/KFC/首写status=0，`ALLOW_SCREEN`。首次PYTHONPATH遗漏tbe错误500001、清理命令误杀自身和L3末条事件35/36已修复且留原证据。**这不代表历史发布Gate E/507014全关闭**。
+- **核心性能事实**：U1 row-major Stock基线8场ABBA：M2048 V2+22.5%，M4096 V2+21.1%，不能以此宣称实际模型提升；真实Qwen `aclnnMatmulWeightNz` 约752µs、Stock HCCL AR约1391/1166µs，融合D4约2511/2430µs，V2每Rank每目标站点分别慢约368/512µs（近似），双Rank各40站点已取证且无额外contiguous copy。L3 input4096/output1、TP2、并发1、无Profiler四ServeABBA，V2慢26.12/27.70ms，Stock跨会话漂移2.83ms，V2有周期性长尾。**L3未GO、正式4096/2048/并发10/50请求L4_NOT_RUN_BY_DESIGN，Stock默认继续保留。**
+- **方向P0**：①在原A1工作分支把U1 `Stock_NZ MM+HCCL`改成Serving同源主基线，row-major仅诊断；②真实短窗剖面/计时分解D4 MM/SDMA/IB/Core0/Add及设备依赖，**尚不能判定仅靠NZ化就足够**；③调查V2约6～7请求周期重尾；④新Kernel单变量优化后同批按正确基线跑L1/L2/L3，有真正L3_GO才正式L4。性能负结论不终止大M研发，但当前D4不得转正式默认/发布。数据见[现版性能基线](PERFORMANCE_BASELINES.md)。
+
