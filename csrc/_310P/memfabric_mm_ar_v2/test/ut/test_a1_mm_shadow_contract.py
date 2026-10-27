@@ -141,6 +141,23 @@ def test_shadow_source_is_not_modified_production():
     assert "IBWait" not in source
 
 
+def test_nz_cast_materialization_sync_guarded():
+    # 实机取证(2026-10-27,a1-mm-shadow预检):npu_format_cast(29)的NZ物化对同流
+    # 裸指针消费者不保证流有序；首用进程内cast后立即读data_ptr()会确定性全错。
+    # profile必须在cast与首个for m采样之间显式synchronize；arm的.cpu()参考拷贝
+    # 必须位于首个w_nz.data_ptr()消费者之前（隐式同步）。
+    profile=(PERF/"a1_mm_shadow_profile.py").read_text()
+    cast=profile.index("npu_format_cast(w,29)")
+    sync=profile.index("stream.synchronize()",cast)
+    loop=profile.index("for m in MS:",cast)
+    assert cast<sync<loop,"profile must sync NZ materialization before raw consumers"
+    arm=(PERF/"a1_mm_shadow_arm.py").read_text()
+    cast_arm=arm.index("npu_format_cast(w, 29)")
+    first_raw=arm.index("w_nz.data_ptr()",cast_arm)
+    cpu_ref=arm.index(".cpu()",cast_arm)
+    assert cast_arm<cpu_ref<first_raw,"arm .cpu() refs must precede raw pointer use"
+
+
 def test_cpu_python_sources_compile():
     import ast
     for file in ("a1_mm_shadow_arm.py","a1_mm_shadow_profile.py",

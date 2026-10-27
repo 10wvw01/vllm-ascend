@@ -58,6 +58,10 @@ def main():
         torch.manual_seed(4242)
         w=torch.randn(N,K,device=f"npu:{local}",dtype=torch.float16)
         nz=torch_npu.npu_format_cast(w,29)
+        # 实机取证(2026-10-27):npu_format_cast(29)的NZ物化对同流裸指针消费者
+        # 不保证流有序；首次enabled影子launch会读到未物化缓冲并确定性产生全错输出。
+        # 在任何data_ptr()消费者之前必须先同步（arm脚本经.cpu()refs隐式同步故安全）。
+        stream.synchronize()
         for m in MS:
             torch.manual_seed(1200+rank*17+m)
             x=torch.randn(m,K,device=f"npu:{local}",dtype=torch.float16)
