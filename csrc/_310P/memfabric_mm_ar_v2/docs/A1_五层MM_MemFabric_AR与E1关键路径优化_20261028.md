@@ -67,14 +67,16 @@ bash csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_campaign.sh \
 - 若B2比C快：说明“先完整MM后AR”可能胜过当前Chunk流水，必须继续收缩交叠协议成本，而不是无条件增加深度。
 - **最终项目成功仍是Qwen3.6真实Prefill TTFT；旧R2/影子证据、新五层器件Event与客户端请求TTFT不能互相冒充。**
 
-## 6. 当前真实状态
+## 6. 当前真实状态（2026-10-28实机后更新）
 
 | 项 | 状态 |
 |---|---|
-| 五层合同与B2/E1源码 | 已创建于隔离任务分支，待两轮深审和设备BiSheng编译 |
-| 正式D4 Device SO、Host/Serving/Stock默认 | 不修改 |
-| CPU语法/单测 | 待本轮源码和CI完成后确认，不可写PASS |
-| B2/E1 dav-2002编译、TP2数值Smoke | NOT_RUN |
-| 五层真实NZ路由与十场ABBA | NOT_RUN |
-| E1相对Stock/D4性能收益 | UNKNOWN |
+| 五层合同与B2/E1源码 | 已创建并通过两轮静态深审；dav-2002隔离编译成功（候选SO `72b868c7…`） |
+| 正式D4 Device SO、Host/Serving/Stock默认 | 不修改（前后SHA一致，已核实） |
+| CPU语法/单测 | **PASS**：pytest 62项、py_compile、bash -n |
+| B2/E1 dav-2002编译、TP2数值Smoke | **PASS**（双Rank×M2048/4096 bit-exact、status=0） |
+| 五层真实NZ路由与十场ABBA | **已执行**：路由证明4/4有效；十场完成、无STOP；总状态`INCONCLUSIVE_DRIFT`（D4 M2048场间漂移5.685%>5%） |
+| E1相对Stock/D4性能收益 | E1 vs D4 **+7.79%（M2048）/+10.50%（M4096）**；E1 vs Stock **−15.29%/−11.29%**（仍慢于Stock，L1不签） |
 | L3/L4 Qwen真实业务 | NOT_RUN |
+
+实机报告与全部原始证据：[A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)、[evidence/a1_five_arm_20261028/](../evidence/a1_five_arm_20261028/)。

@@ -1,0 +1,430 @@
+{
+  "schema": "A1_FIVE_ARM_ASSESS_V1",
+  "status": "INCONCLUSIVE_DRIFT",
+  "stock_native_NZ_route_verified": true,
+  "native_route_evidence": [
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 395.262,
+      "hccl_kernel_p50_us": 593.465,
+      "csv_sha256": "6a307c07592d4a0f7b04a21758bf99b5fee2876359d6a0b8103c9295857bc8aa",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 401.185,
+      "hccl_kernel_p50_us": 575.4715,
+      "csv_sha256": "13497af2754850e083d26d72a448f0efedca95b30938c23f8622374d4885f37a",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 767.3825,
+      "hccl_kernel_p50_us": 1153.271,
+      "csv_sha256": "fdf2cd6e2058716098bdbc8b6ce4ba46981e4514a23cbc1e8f002f6414cb9d4d",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 775.6675,
+      "hccl_kernel_p50_us": 1147.871,
+      "csv_sha256": "5b9e23425f5e2a37b70e189ca88f5fb23e1a854d6528b9e1a5b9754e09cbb2d4",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    }
+  ],
+  "E1_device_correctness_on_new_binary": "BIT_EXACT_BUT_DRIFT",
+  "candidate_work_head": "b6ac7330b58a810a11fd74720074f293034b2347",
+  "comparisons": [
+    {
+      "M": 2048,
+      "stable": false,
+      "arm_session_p50_us": {
+        "e1": [
+          1256.263,
+          1270.977
+        ],
+        "d4": [
+          1324.401,
+          1399.688
+        ],
+        "b2": [
+          1619.427,
+          1676.316
+        ],
+        "stock": [
+          1072.838,
+          1067.996
+        ],
+        "b1": [
+          2642.982,
+          2664.596
+        ]
+      },
+      "arm_time_us": {
+        "e1": 1263.62,
+        "d4": 1362.044,
+        "b2": 1647.871,
+        "stock": 1070.417,
+        "b1": 2653.789
+      },
+      "drift": {
+        "e1": 0.01171,
+        "d4": 0.05685,
+        "b2": 0.03513,
+        "stock": 0.00453,
+        "b1": 0.00818
+      },
+      "E1_vs_stock_speedup_pct": -15.29,
+      "E1_vs_D4_speedup_pct": 7.789,
+      "B1_vs_stock_speedup_pct": -59.665,
+      "B2_vs_stock_speedup_pct": -35.042,
+      "D4_vs_stock_speedup_pct": -21.411,
+      "B2_minus_D4_us": 285.827,
+      "D4_minus_E1_us": 98.424
+    },
+    {
+      "M": 4096,
+      "stable": true,
+      "arm_session_p50_us": {
+        "e1": [
+          2272.696,
+          2275.638
+        ],
+        "d4": [
+          2507.032,
+          2518.958
+        ],
+        "b2": [
+          3123.372,
+          3061.667
+        ],
+        "stock": [
+          2016.458,
+          2018.541
+        ],
+        "b1": [
+          5009.623,
+          5052.839
+        ]
+      },
+      "arm_time_us": {
+        "e1": 2274.167,
+        "d4": 2512.995,
+        "b2": 3092.519,
+        "stock": 2017.499,
+        "b1": 5031.231
+      },
+      "drift": {
+        "e1": 0.00129,
+        "d4": 0.00476,
+        "b2": 0.02015,
+        "stock": 0.00103,
+        "b1": 0.00863
+      },
+      "E1_vs_stock_speedup_pct": -11.286,
+      "E1_vs_D4_speedup_pct": 10.502,
+      "B1_vs_stock_speedup_pct": -59.9,
+      "B2_vs_stock_speedup_pct": -34.762,
+      "D4_vs_stock_speedup_pct": -19.717,
+      "B2_minus_D4_us": 579.524,
+      "D4_minus_E1_us": 238.828
+    }
+  ],
+  "raw_sessions": [
+    {
+      "stage": 1,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1072.838,
+          "paired_p90_us": 1203.862,
+          "paired_p99_us": 1246.009,
+          "r0_p50_us": 1070.365,
+          "r1_p50_us": 1070.17,
+          "n": 100,
+          "rank0_sha256": "f2755e7b2c3a640139cf45ec32dfc2a2f520244dd52f634519d7b4cd665b7688",
+          "rank1_sha256": "ab71ab47e010d6a955f9e3491a31b70f299a0e00b0a8b7e63a3c54f8c325c32e"
+        },
+        "4096": {
+          "paired_p50_us": 2016.458,
+          "paired_p90_us": 2031.513,
+          "paired_p99_us": 2042.103,
+          "r0_p50_us": 2011.497,
+          "r1_p50_us": 2014.714,
+          "n": 100,
+          "rank0_sha256": "f2755e7b2c3a640139cf45ec32dfc2a2f520244dd52f634519d7b4cd665b7688",
+          "rank1_sha256": "ab71ab47e010d6a955f9e3491a31b70f299a0e00b0a8b7e63a3c54f8c325c32e"
+        }
+      }
+    },
+    {
+      "stage": 2,
+      "arm": "b1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 2642.982,
+          "paired_p90_us": 2788.88,
+          "paired_p99_us": 2845.069,
+          "r0_p50_us": 2632.852,
+          "r1_p50_us": 2628.815,
+          "n": 100,
+          "rank0_sha256": "97fb0836ea79db5cd356692739f509643492176696523998584c83f0082c04dd",
+          "rank1_sha256": "7d0d6d59044d7d77c264cdf225498ca9e1bb38cd5aee93337b40fc6941cec4c9"
+        },
+        "4096": {
+          "paired_p50_us": 5009.623,
+          "paired_p90_us": 5261.424,
+          "paired_p99_us": 5296.881,
+          "r0_p50_us": 4989.714,
+          "r1_p50_us": 4996.706,
+          "n": 100,
+          "rank0_sha256": "97fb0836ea79db5cd356692739f509643492176696523998584c83f0082c04dd",
+          "rank1_sha256": "7d0d6d59044d7d77c264cdf225498ca9e1bb38cd5aee93337b40fc6941cec4c9"
+        }
+      }
+    },
+    {
+      "stage": 3,
+      "arm": "b2",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1619.427,
+          "paired_p90_us": 1745.693,
+          "paired_p99_us": 1772.977,
+          "r0_p50_us": 1592.292,
+          "r1_p50_us": 1612.67,
+          "n": 100,
+          "rank0_sha256": "599ee89d122b957ba4c7bc56d1d030d9631d802d7a324c386b211db11f1c8012",
+          "rank1_sha256": "6c5e0869b479f706cd49f9ec949c2dbdd5fdce187e50a733cbde44b4970fa2cc"
+        },
+        "4096": {
+          "paired_p50_us": 3123.372,
+          "paired_p90_us": 3169.057,
+          "paired_p99_us": 3292.412,
+          "r0_p50_us": 3119.258,
+          "r1_p50_us": 3088.659,
+          "n": 100,
+          "rank0_sha256": "599ee89d122b957ba4c7bc56d1d030d9631d802d7a324c386b211db11f1c8012",
+          "rank1_sha256": "6c5e0869b479f706cd49f9ec949c2dbdd5fdce187e50a733cbde44b4970fa2cc"
+        }
+      }
+    },
+    {
+      "stage": 4,
+      "arm": "d4",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1324.401,
+          "paired_p90_us": 1434.698,
+          "paired_p99_us": 1463.014,
+          "r0_p50_us": 1309.024,
+          "r1_p50_us": 1299.909,
+          "n": 100,
+          "rank0_sha256": "36cebd7c8cd2481baf980c58b1602c94fe625f6ade34dd77444ae83bc7da0e9e",
+          "rank1_sha256": "29d329600519567e44dcabfe4d7561aa3cf136bb0bd537e5bfbabff5e2cc2f5d"
+        },
+        "4096": {
+          "paired_p50_us": 2507.032,
+          "paired_p90_us": 2596.943,
+          "paired_p99_us": 2634.091,
+          "r0_p50_us": 2472.018,
+          "r1_p50_us": 2483.112,
+          "n": 100,
+          "rank0_sha256": "36cebd7c8cd2481baf980c58b1602c94fe625f6ade34dd77444ae83bc7da0e9e",
+          "rank1_sha256": "29d329600519567e44dcabfe4d7561aa3cf136bb0bd537e5bfbabff5e2cc2f5d"
+        }
+      }
+    },
+    {
+      "stage": 5,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1256.263,
+          "paired_p90_us": 1293.172,
+          "paired_p99_us": 1321.573,
+          "r0_p50_us": 1246.289,
+          "r1_p50_us": 1216.888,
+          "n": 100,
+          "rank0_sha256": "c468d03a0a2aefa9181f2684370921245c5f5651571fa2f1b454c6a8d819b2f9",
+          "rank1_sha256": "38139aa78cfa33a95ffc74a16cb34869e2d1f11077daf98d08690934ffb7aa23"
+        },
+        "4096": {
+          "paired_p50_us": 2272.696,
+          "paired_p90_us": 2380.388,
+          "paired_p99_us": 2400.452,
+          "r0_p50_us": 2268.164,
+          "r1_p50_us": 2245.937,
+          "n": 100,
+          "rank0_sha256": "c468d03a0a2aefa9181f2684370921245c5f5651571fa2f1b454c6a8d819b2f9",
+          "rank1_sha256": "38139aa78cfa33a95ffc74a16cb34869e2d1f11077daf98d08690934ffb7aa23"
+        }
+      }
+    },
+    {
+      "stage": 6,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1270.977,
+          "paired_p90_us": 1306.536,
+          "paired_p99_us": 1327.461,
+          "r0_p50_us": 1252.201,
+          "r1_p50_us": 1164.727,
+          "n": 100,
+          "rank0_sha256": "cda0b3db5296ff14d963015acbf1c1d660af601f82e2dfd5244143be4bf4404f",
+          "rank1_sha256": "e2cc33b4d4bf0c0c4bf77df8afe840e1860a4d3f542a5bbf0c5fd3e57a8e82a9"
+        },
+        "4096": {
+          "paired_p50_us": 2275.638,
+          "paired_p90_us": 2333.169,
+          "paired_p99_us": 2378.849,
+          "r0_p50_us": 2264.87,
+          "r1_p50_us": 2259.088,
+          "n": 100,
+          "rank0_sha256": "cda0b3db5296ff14d963015acbf1c1d660af601f82e2dfd5244143be4bf4404f",
+          "rank1_sha256": "e2cc33b4d4bf0c0c4bf77df8afe840e1860a4d3f542a5bbf0c5fd3e57a8e82a9"
+        }
+      }
+    },
+    {
+      "stage": 7,
+      "arm": "d4",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1399.688,
+          "paired_p90_us": 1457.257,
+          "paired_p99_us": 2372.292,
+          "r0_p50_us": 1355.039,
+          "r1_p50_us": 1392.982,
+          "n": 100,
+          "rank0_sha256": "ab3abda498cdb79bf334f3b4316e286b74a2c7712ec0128fe8ecc4a87abdf94a",
+          "rank1_sha256": "5b100f253cbde4365c9f7be1557272e8363df67db765d03a81b4c7eedc47cad5"
+        },
+        "4096": {
+          "paired_p50_us": 2518.958,
+          "paired_p90_us": 2603.391,
+          "paired_p99_us": 2656.731,
+          "r0_p50_us": 2486.588,
+          "r1_p50_us": 2504.023,
+          "n": 100,
+          "rank0_sha256": "ab3abda498cdb79bf334f3b4316e286b74a2c7712ec0128fe8ecc4a87abdf94a",
+          "rank1_sha256": "5b100f253cbde4365c9f7be1557272e8363df67db765d03a81b4c7eedc47cad5"
+        }
+      }
+    },
+    {
+      "stage": 8,
+      "arm": "b2",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1676.316,
+          "paired_p90_us": 1741.81,
+          "paired_p99_us": 1789.063,
+          "r0_p50_us": 1656.459,
+          "r1_p50_us": 1655.325,
+          "n": 100,
+          "rank0_sha256": "f5da01c7ff01b8efbad5c56aea6efc60775fc15d0e4c801d3efec0b235080c99",
+          "rank1_sha256": "01969ba23f4a924641e8e78d3914d0a95656518cbf30c874c5f8a964c946d72e"
+        },
+        "4096": {
+          "paired_p50_us": 3061.667,
+          "paired_p90_us": 3157.541,
+          "paired_p99_us": 3211.726,
+          "r0_p50_us": 3045.209,
+          "r1_p50_us": 3052.552,
+          "n": 100,
+          "rank0_sha256": "f5da01c7ff01b8efbad5c56aea6efc60775fc15d0e4c801d3efec0b235080c99",
+          "rank1_sha256": "01969ba23f4a924641e8e78d3914d0a95656518cbf30c874c5f8a964c946d72e"
+        }
+      }
+    },
+    {
+      "stage": 9,
+      "arm": "b1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 2664.596,
+          "paired_p90_us": 2767.549,
+          "paired_p99_us": 2819.957,
+          "r0_p50_us": 2614.049,
+          "r1_p50_us": 2656.589,
+          "n": 100,
+          "rank0_sha256": "16d38b01caf5b860f4d83ad6c168e9cf244eb1aac1e1a78b7f2f435662261acd",
+          "rank1_sha256": "61363d2437cf2cfc046391ecb0f3f80e937647bcda76714bd9bb130fb7e6de0a"
+        },
+        "4096": {
+          "paired_p50_us": 5052.839,
+          "paired_p90_us": 5287.539,
+          "paired_p99_us": 5338.564,
+          "r0_p50_us": 5020.104,
+          "r1_p50_us": 5052.839,
+          "n": 100,
+          "rank0_sha256": "16d38b01caf5b860f4d83ad6c168e9cf244eb1aac1e1a78b7f2f435662261acd",
+          "rank1_sha256": "61363d2437cf2cfc046391ecb0f3f80e937647bcda76714bd9bb130fb7e6de0a"
+        }
+      }
+    },
+    {
+      "stage": 10,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1067.996,
+          "paired_p90_us": 1208.046,
+          "paired_p99_us": 1232.877,
+          "r0_p50_us": 1066.289,
+          "r1_p50_us": 1062.357,
+          "n": 100,
+          "rank0_sha256": "ba9348ecc5e4763f940f3ae8b991b8b8d8b0bb658c3acb00092b7cf1e0eaf14e",
+          "rank1_sha256": "e9c3dceff19c4770bc06b6a9d9604861ee43f20b7beeb66a0ae86ba9dc052655"
+        },
+        "4096": {
+          "paired_p50_us": 2018.541,
+          "paired_p90_us": 2035.375,
+          "paired_p99_us": 2050.912,
+          "r0_p50_us": 2012.552,
+          "r1_p50_us": 2014.531,
+          "n": 100,
+          "rank0_sha256": "ba9348ecc5e4763f940f3ae8b991b8b8d8b0bb658c3acb00092b7cf1e0eaf14e",
+          "rank1_sha256": "e9c3dceff19c4770bc06b6a9d9604861ee43f20b7beeb66a0ae86ba9dc052655"
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "B1 has native output staging, required host stream sync and three AICore stage launches; this is REAL full-chain cost, not pure MF AR.",
+    "B2 is complete custom MM then logically full MF AR, internally packetized; B2-vs-D4 includes changed execution organization, not an isolated overlap metric.",
+    "E1 shares D4 protocol and tiling but substitutes per-core all-DCache clean+invalidate at both producer and receiver.",
+    "No kernel phase timestamp is inferred by subtracting arm p50.",
+    "No hardware/Graph/Serving success is implied by this offline analyzer."
+  ]
+}

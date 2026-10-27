@@ -150,3 +150,18 @@
 正式D4全链比NZ Stock慢约20%的多窗口方向仍清晰，但该批U1八场Confirm中第7场D4-M1024 anchor漂移**6.99% >5%**，严格`INCONCLUSIVE_DRIFT`，**不签L1**。正式D4内部MM、DCCI、IB、SDMA/Wait/Add的精确分段仍`UNKNOWN`，影子实验不允许冒充它。
 
 **新五层路线**：[本分支A1五层正式合同](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)，五臂分别StockNZ+HCCL、StockNZ+MemFabric AR、B2完整自定义MM结束后MF AR、冻结D4 Chunk重叠、E1整核DCache刷新+ReadyTree两级会合。新实现已提交隔离短期分支，**新五层算子实测、E1相对Stock/D4收益、L3/L4均NOT_RUN；不得继承旧T2的row-major MM+AR数据作为本轮NZ基线**。
+
+## 2026-10-28｜A1五层十场实机（工作分支`work/310p-mm-ar-five-arm-dcci-20261028`@`b6ac7330b`，16384 dev2,3）
+
+> run_id `a1-five-arm-20261028-001`；Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`私有装载，候选SO `72b868c7…`隔离未安装，前后SHA一致；真实NZ路由4/4证明在先；24份Rank JSON全bit-exact、协议status=0。[实机报告](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)、[原始证据](../evidence/a1_five_arm_20261028/)。配对p50=max(rank0[i],rank1[i])，每臂两场×每场每Rank100样本+20热身。
+
+| 形状 | A/Stock NZ+HCCL | B1/native+MF | B2/fullMM+MF | C/D4 | E1/optimized | E1 vs D4 | E1 vs Stock | 判定 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| M2048 | 1070.4µs | 2653.8µs | 1647.9µs | 1362.0µs | **1263.6µs** | **+7.79%**（−98.4µs） | −15.29% | `INCONCLUSIVE_DRIFT`：D4臂场间漂移5.685%>5%（stage07 p99=2372µs周期长尾）；M2048速比不签 |
+| M4096 | 2017.5µs | 5031.2µs | 3092.5µs | 2513.0µs | **2274.2µs** | **+10.50%**（−238.8µs） | −11.29% | 内部稳定（全臂≤2.02%）但随总状态降级为参考值 |
+
+- **E1（整核DCache Clean+Invalid + 两级ReadyTree）为真实设备关键路径收益**：M2048/M4096对D4分别−98.4/−238.8µs，且M2048下E1 p99（1321.6/1327.5µs）显著优于D4长尾场（2372.3µs）；该数值远小于"139.6µs×2×4"朴素加法，符合多点收敛关键路径预期。
+- **E1仍慢于原生NZ Stock完整链**（−11%～−15%），按A1§5不声称比Stock快；E1保留为下一优化基线。
+- **B2−D4=+285.8/+579.5µs**：先完整MM后串行AR输给Chunk交叠流水，维持overlap主线；**B1慢约60%**为staging/生产者流同步/2牺牲+1有效stage/CacheClean/DONE的真实换路代价，不是MemFabric固有带宽结论。
+- 与R2真实NZ Screen对照：本批Stock M2048/4096=1070/2017µs、D4=1362/2513µs（R2 Screen为1057/2006与1368/2540µs），方向一致（D4约−20%）。
+- L3/L4、Graph、Serving均NOT_RUN；正式D4/Host SO未改，Stock默认不变。

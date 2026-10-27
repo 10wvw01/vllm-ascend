@@ -264,7 +264,6 @@
 - **P0前置安全约束升级为外部调度独占**：Attempt2曾在初始G0转为空闲后两分钟再次被别的宿主进程占用，随后本批进程树异常消失，其机制/操作者未知。Attempt3亦遇到dev2/dev3反复短暂占用。需要管理员协调约80min**连续双Die独占租约**与全程宿主级只读进程/显存/hugepages监视，不能仅在脚本开头拍一张G0快照就当整轮独占。若无租约，优先停止重复跑Confirm/Serving；任何未知抢占不自动换卡、重启、杀他人进程或覆盖共享SO。
 - **下一步工作划分**：现场有稳定窗口时，尽量只补最新真NZ Stock八场ABBA Confirm+原生HCCL完成独立审计、Epoch 15→5→5→15无Profiler四场，原先有效路由/Smoke/机制证据不用重复耗时跑；研发侧并行设计**单独实验编译产物**的D4正式路径设备阶段探针，并验证CANN/310P3可用性。新L3收益仍无正向，**Stock默认与L4 Gate E历史阻塞不变**。
 
-
 ## 26. 2026-10-28｜A1五层MM+AR与E1性能优先候选（工作分支，**未有NPU结果**）
 
 - **用户确认目标**：五层完整链对照A=原生NZ-MM+HCCL、B1=原生NZ-MM+MemFabric AR、B2=自研完整MM结束后再启动逻辑一次MF AR、C=原D4多Chunk交叠、E1=新缓存/同步关键路径优化融合Kernel。B2不是D4`overlap=0`；必须证明**所有M的MM完成后才发出第一条SDMA消息**。
@@ -273,3 +272,11 @@
 - **历史正确限定**：A1-MM-SHADOW valid run2 M4096原生NZ-MM Event约848.2µs、影子ND MM约867.6µs，发送端CleanLines受控增量约139.6µs；A1 U1新的StockNZ完整链对照仍受M1024 anchor场间漂移6.99%阻断，L1仍不可签。R2`loop4`与`formal`不是单变量交叠对照，不能把约0.6ms差值当严格交叠收益；早期T2原生MM+MF中转和首写修复成本重，旧Stock还非当前NZ直接路由，所以只能历史参考。
 - **新五层测试事实**：当前仅完成工作分支源码/脚本/CPU合成合同提交，**尚未有新的本地CPU执行证据、CANN BiSheng编译、310P3真机G0、双Rank候选Smoke、十场原始样本、模型L2/L3/L4**。精确状态：`G-KERNEL_IMPLEMENTED_PENDING_REVIEW_AND_G0`；不得把实验脚本的`PASS`字面量或文档当硬件PASS。
 - **门禁与交接**：完成两轮静态深审和CPU合同，构建私有B2/E1独立Device+Host SO（无生产SO覆盖），现场核主线HEAD/工作HEAD/两Host/D4/KVER SHA/真实逻辑物理Die/连续独占、首写及真实NZ route；B2/E1短Smoke正确后再走10场平衡五臂ABBA并存原始证据。507014/507899/507018/错算/首写/外部占用则保留现场STOP。工作分支实机证据审核后，择优回写本控制台与[性能基线](PERFORMANCE_BASELINES.md)、审PR并挑选合入正式E候选；Stock默认不改。
+
+## 27. 2026-10-28｜A1五层+ E1单批实机完成：E1显著快于D4但仍慢于Stock，M2048 D4漂移致总状态INCONCLUSIVE_DRIFT
+
+- **执行与安全**：run_id `a1-five-arm-20261028-001`，工作分支`work/310p-mm-ar-five-arm-dcci-20261028` @ `b6ac7330b`隔离worktree。卡16384（dev2,3）同卡双Die+MCU健康、全程30s只读巡检独占、无Alarm/507014/507899/507018、测后显存回基线。私有装载沿用R1/R2验证方案（Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`，私有PYTHONPATH+LD_LIBRARY_PATH，共享系统未改，前后SHA一致）。CPU62项PASS、两轮深审PASS、B2/E1 dav-2002隔离编译（候选`72b868c7…`，无正式ABI导出）；KFC在授权Smoke首次建池自动部署。报告与原始证据：[实机报告](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)、[evidence/a1_five_arm_20261028/](../evidence/a1_five_arm_20261028/)。
+- **路由与正确性**：真实NZ路由证明4/4（每Rank×M2048/4096原生CANN CSV：`aclnnMatmulWeightNz`≥6、`hcom_allReduce`≥6、TransData=0）；B2/E1双Rank Smoke与十场共24份Rank JSON全部bit-exact、协议status=0。
+- **十场五臂配对p50（max(rank0,rank1)）**：M2048：Stock 1070.4µs、B1 2653.8µs、B2 1647.9µs、D4 1362.0µs、E1 1263.6µs；M4096：Stock 2017.5µs、B1 5031.2µs、B2 3092.5µs、D4 2513.0µs、E1 2274.2µs。**E1 vs D4：+7.79%/+10.50%（−98.4/−238.8µs）**且M2048尾部更紧（E1 p99≈1327µs vs D4该场2372µs）；**E1 vs Stock：−15.29%/−11.29%**（仍慢，L1对Stock不签）；B1慢约60%（staging/流同步/多launch真实代价，非MF固有带宽）；B2比D4慢285.8/579.5µs（串行结构输给Chunk交叠）。
+- **机器判定**：总状态**`INCONCLUSIVE_DRIFT`**——M2048的D4臂场间漂移5.685%>5%门限（stage07出现p99=2372µs周期长尾，与R1已知V2周期长尾一致），按合同不挑场不复算；M4096全臂稳定（≤2.02%）但随总状态降级为参考。
+- **决策（按A1§5）**：`E1<C且E1>=A`→**E1保留为下一优化基线**（仅工作分支候选，不进正式默认CMake/Serving），下一E代聚焦同步消息缩减/冗余清理消除/D4式周期长尾；维持Chunk交叠主线（B2负向）；B1归因staging成本。正式D4/Host SO零改动，Stock默认不变，L3/L4 NOT_RUN。工作分支证据审核后择优回写主线并审PR。

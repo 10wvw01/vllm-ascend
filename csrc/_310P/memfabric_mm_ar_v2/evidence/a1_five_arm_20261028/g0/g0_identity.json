@@ -1,0 +1,63 @@
+{
+  "run_id": "a1-five-arm-20261028-001",
+  "date_local": "2026-10-27 18:40~19:05 (+08)",
+  "worktree": "/home/w00804146/310P/vllm-ascend-five-arm",
+  "branch": "work/310p-mm-ar-five-arm-dcci-20261028",
+  "work_head": "b6ac7330b58a810a11fd74720074f293034b2347",
+  "git_status_clean_tracked": true,
+  "card_selected": {
+    "npu_id": 16384,
+    "product": "IT21PD2G10 (310P3)",
+    "serial": "2106030737ZES5001180",
+    "bus": "0000:41:00.0",
+    "dies": "dev2,dev3 same card dual-Die",
+    "health": "OK both Dies + MCU, ChipFault=0",
+    "hugepages": "0/0 both dies",
+    "processes_at_g0": "none on 16384",
+    "memory_baseline_mb": {"dev2": 1938, "dev3": 1010},
+    "other_cards": "5664 occupied(PID 3589835, hugepages full); 38144 residue 13GB+hugepages full; 43520 Die7 Alarm+occupied (excluded per ADR-014)"
+  },
+  "environment": {
+    "ascend_home": "/usr/local/Ascend/cann-9.1.0",
+    "bisheng": "clang 15.0.5 (2026-07-30) aarch64",
+    "driver": "npu-smi 26.1.1, firmware 7.5.0.5.220",
+    "python": "/usr/local/python3.12.13/bin/python3",
+    "torch": "2.10.0+cpu", "torch_npu": "2.10.0.post4",
+    "ascend_rt_visible_devices": "2,3",
+    "store_port": "18884 (verified free)",
+    "memfabric_home": "/usr/local/memfabric_hybrid/latest"
+  },
+  "frozen_binary_identity": {
+    "memfabric_host_libmf_hybm_core_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+    "memfabric_host_path": "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so (private LD_LIBRARY_PATH, repaired aclrtMemSetAccess physical-ID, shared system SO untouched)",
+    "d4_device_libmf310p_v2_trial_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+    "d4_device_path": "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_v2_trial_device.so (private PYTHONPATH site)",
+    "plugin_vllm_ascend_C_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+    "plugin_path": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+    "kver11_json_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "kver11_json_path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+    "loading_scheme": "private PYTHONPATH site + LD_LIBRARY_PATH priv-libs (R1/R2 verified scheme, no shared install modified)",
+    "kfc_deployment": "auto on-demand at first authorized pool creation (smoke b2), read-only G0 did not pre-deploy; smoke protocol status=0 + bit-exact"
+  },
+  "isolated_candidate_build": {
+    "candidate_so": "libmf310p_v2_dcci_entire_candidate.so",
+    "candidate_sha256": "72b868c726cbac704a25f388810719631d0f6a1abd239fa929f29b1f312ddd0d",
+    "private_host_so": "libmf310p_five_arm_private_host.so",
+    "private_host_sha256": "99403527c46c87f37ebdee81220fad7b341351c17263f054ffa9040417349396",
+    "device_arch": "dav-2002",
+    "isolated_not_installed": true,
+    "formal_d4_abi_exported": false,
+    "binaries_before_equals_after": true
+  },
+  "gates": {
+    "cpu_pytest_ut": "62 passed",
+    "py_compile": "PASS",
+    "bash_n": "PASS",
+    "static_review_rounds": "2 (structural equivalence + protocol hazard)",
+    "g0_readonly": "PASS",
+    "nz_route_proof": "REAL_NZ_ROUTE_PROVEN (4 rank x M, aclnnMatmulWeightNz>=6, hcom_allReduce>=6, TransData=0)",
+    "smoke_b2": "PASS (dual-rank bit-exact, status=0)",
+    "smoke_e1": "PASS (dual-rank bit-exact, status=0)",
+    "campaign": "10 sessions COMPLETE, no STOP, no 507014/507899/507018, exclusive card watch clean"
+  }
+}

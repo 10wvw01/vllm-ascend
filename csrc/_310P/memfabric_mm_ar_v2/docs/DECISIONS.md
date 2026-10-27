@@ -133,11 +133,11 @@
 - **关联规范**：[主线分工治理](BRANCH_GOVERNANCE.md)、[ADR-015 L1～L4历史归因与L3-first合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。此决议不改变ADR-013与ADR-014，实机G0/Smoke/Screen/Confirm/L3/L4均维持原独立授权和异常STOP要求。
 
 
-## ADR-017｜2026-10-28｜五层完整MM+AR对照与E1性能优先重构｜**实验实施中，未取得新实机结论**
+## ADR-017｜2026-10-28｜五层完整MM+AR对照与E1性能优先重构｜**2026-10-28实机已执行：E1>D4方向确立、仍慢于Stock**
 
 - **用户明确需求**：反对把`Chunk MM(k)→SDMA(k)→Add(k)→下个Chunk`冒充“完整串行”；必须加入原生NZ MM→MemFabric AR（B1）和**所有自定义MM结束才允许开始AR**（B2），与Stock A、现有D4 C及实际优化候选E1组成五层。所有层核对完整MM+FP16 SUM结果，不拿分段相加冒充闭环。
 - **技术决策**：E1首先用每核整DCache Clean+Invalid替换D4三个生产/消费DCCI代码位置，并将每Chunk Ready从Core0等7核改成Core0等4个代表核、3个工作核作局部汇聚；共同压低逐64B循环、跨核会合及SDMA Wait暴露的关键路径；**不擅自宣称整缓存刷新快**，正式设备计算、IB、信件顺序、QUIET/DONE保留，任何差异都必须双Rank位精确、真实NZ路由与完整Stock数据验证。
 - **最大性能导向**：不为大M设置ROI停止阈值；E1失败则继续下一代协议优化，不把“过度保守”当成停止调优理由。但禁止通过无依据跳过必要数据可见性/等待或绕开KFC/Gate E报告虚假收益。
 - **实施边界**：仅在由主线派生的`work/310p-mm-ar-five-arm-dcci-20261028`新增独立B2/E1设备核、私有Host及五层基准/评估器，主线D4正式Kernel、Host、Serving、Stock默认、外部DFlash仓库零改动。旧A1 Draft PR #9只读取证，不整支合入/复制过时控制文件。
 - **合入/现场门禁**：源码两轮深审、原仓CPU合同与CANN BiSheng编译、同卡双Die真实独占G0、NZ路由、E1/B2双Rank短Smoke后开展十场原始Event Confirm；现场事实留原始文件。任何新候选正收益先L1，再L2真实40目标站点和L3无Profiler Prefill Step稳定验证，L3_GO后才L4 input4096/output2048/TP2/并发10/50请求TTFT。
-- **状态**：截至本决策新增代码，B2/E1设备编译、数值、性能均`NOT_RUN`，尚不具备实机GO判定。详见[五层实施方案](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)。
+- **状态**：~~截至本决策新增代码，B2/E1设备编译、数值、性能均`NOT_RUN`，尚不具备实机GO判定。~~ **2026-10-28实机更新**：run_id `a1-five-arm-20261028-001`（16384卡dev2,3、私有装载、独占巡检、前后SHA一致）完成两轮深审→CPU62项→dav-2002隔离编译→真实NZ路由4/4→B2/E1双Rank Smoke→十场ABBA。E1 vs D4 **+7.79%（M2048）/+10.50%（M4096）**，E1仍慢于Stock（−15.29%/−11.29%）；总状态`INCONCLUSIVE_DRIFT`（D4 M2048场间漂移5.685%>5%，stage07周期长尾），M2048速比不签。按本ADR"最大性能导向"：**E1保留为下一优化基线**（仅工作分支候选），下一E代聚焦同步消息缩减、按可见性证明消除冗余清理、治理周期长尾；B2串行结构负向（+285.8/+579.5µs vs D4）维持Chunk交叠主线；B1慢归因staging成本。详见[五层实施方案](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)、[实机报告](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)。
