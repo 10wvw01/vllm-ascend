@@ -269,7 +269,7 @@
 
 - **用户确认目标**：五层完整链对照A=原生NZ-MM+HCCL、B1=原生NZ-MM+MemFabric AR、B2=自研完整MM结束后再启动逻辑一次MF AR、C=原D4多Chunk交叠、E1=新缓存/同步关键路径优化融合Kernel。B2不是D4`overlap=0`；必须证明**所有M的MM完成后才发出第一条SDMA消息**。
 - **研发实施位置**：从**本唯一主线**派生短期`work/310p-mm-ar-five-arm-dcci-20261028`；对应[五层实施/实机合同](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)及[ADR-017](DECISIONS.md)。工作分支只放置独立`mf310p_v2_b2_full_mm_ar.asc`、`mf310p_v2_dcci_entire_candidate.asc`、`five_arm_private_host.cpp`、私有构建、十场/route/smoke/分析器和UT。不存在独立长期状态主线，候选B2/E1不混入正式默认CMake。
-- **E1核心设计**：D4中生产/消费两侧按64B每次循环DCCI的3处静态调用，改为各核每次一次`ENTIRE_DATA_CACHE`；力图同时减少发送端Ready前的标量扫描、收件端Add前等待，IB、signal/wait、DONE/quiet原顺序保留。CANN9.1官方文档警告整缓存刷新可能昂贵，性能是否正向**UNKNOWN**。这是第一版实质性优化而不是仅旧逻辑分析；后续不能因为E1负收益停止大M研发。
+- **E1核心设计**：D4中生产/消费两侧按64B每次循环DCCI的3处静态调用，改为各核每次一次`ENTIRE_DATA_CACHE`；再把每Chunk Core0逐次等待另外7核改成树形Ready：Core0只等1/2/4/6四个代表核，Core2/4/6先等待各自邻核。减少DCCI扫描和Core0串行会合，共同争取提早SDMA signal/减少通信Wait暴露。IB事件完成依赖、signal/wait、DONE/quiet仍保留；新拓扑须实机证明正确并测性能。CANN9.1官方文档警告整缓存刷新可能昂贵，性能是否正向**UNKNOWN**。这是第一版实质性优化而不是仅旧逻辑分析；后续不能因为E1负收益停止大M研发。
 - **历史正确限定**：A1-MM-SHADOW valid run2 M4096原生NZ-MM Event约848.2µs、影子ND MM约867.6µs，发送端CleanLines受控增量约139.6µs；A1 U1新的StockNZ完整链对照仍受M1024 anchor场间漂移6.99%阻断，L1仍不可签。R2`loop4`与`formal`不是单变量交叠对照，不能把约0.6ms差值当严格交叠收益；早期T2原生MM+MF中转和首写修复成本重，旧Stock还非当前NZ直接路由，所以只能历史参考。
 - **新五层测试事实**：当前仅完成工作分支源码/脚本/CPU合成合同提交，**尚未有新的本地CPU执行证据、CANN BiSheng编译、310P3真机G0、双Rank候选Smoke、十场原始样本、模型L2/L3/L4**。精确状态：`G-KERNEL_IMPLEMENTED_PENDING_REVIEW_AND_G0`；不得把实验脚本的`PASS`字面量或文档当硬件PASS。
 - **门禁与交接**：完成两轮静态深审和CPU合同，构建私有B2/E1独立Device+Host SO（无生产SO覆盖），现场核主线HEAD/工作HEAD/两Host/D4/KVER SHA/真实逻辑物理Die/连续独占、首写及真实NZ route；B2/E1短Smoke正确后再走10场平衡五臂ABBA并存原始证据。507014/507899/507018/错算/首写/外部占用则保留现场STOP。工作分支实机证据审核后，择优回写本控制台与[性能基线](PERFORMANCE_BASELINES.md)、审PR并挑选合入正式E候选；Stock默认不改。
