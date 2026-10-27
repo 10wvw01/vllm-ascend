@@ -108,3 +108,9 @@ def test_nz_source_default_is_nonbreaking():
     assert "F.linear(x, stock_weight)" in src
     assert "export U1_STOCK_LAYOUT=" in runner
     assert "nz_stock_route_report" in ana
+    probe = (PERF / "a1_nz_stock_profile_probe.py").read_text()
+    ast.parse(probe)
+    assert 'dist.init_process_group(backend="hccl")' in probe
+    assert 'dist.new_group(backend="gloo")' in probe
+    assert "with profile(" in probe
+    assert "not verified" not in src.lower()
