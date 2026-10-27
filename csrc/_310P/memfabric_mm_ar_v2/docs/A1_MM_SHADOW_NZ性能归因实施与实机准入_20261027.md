@@ -2,6 +2,15 @@
 
 > **状态（2026-10-27）：**代码已在`work/310p-mm-ar-large-m-a1-20261026`添加影子Kernel、独立编译、双Rank测试、原始NZ/影子CANN profiler、12场交叉比较和CPU负向UT。**本变更未在310P3上编译/运行，CPU原仓CI待执行，不能称PASS或提前填写MM差值。**保留D4正式Kernel和MemFabric协议原样，Stock仍为Serving默认；A1 PR#9保持Draft。
 
+## 0. 实机准入预检发现与修复（2026-10-27，卡16384 dev2/3）
+
+正式campaign启动前按本文件§4顺序完成预检（CPU回归→BiSheng影子SO→路由验证→MemFabric装载验证），在实机抓到两个确定性缺陷，均已修复并提交到本分支，正式D4与共享SO未动：
+
+1. **NZ物化不保证流有序（`6d061e2f0`）**：`a1_mm_shadow_profile.py`在进程内首次`npu_format_cast(w,29)`后立即把`w_nz.data_ptr()`交给影子Kernel，首个enabled launch确定性输出全错（out_absmax≈5 vs ref≈229，双Rank 2/2复现；`aclrtMemcpy`裸读显示同流`randn`结果未完成即被读出，证明该拷贝路径不排队）。任何设备同步或格式感知消费（`F.linear(x,nz)`/`.cpu()`参考）后立即恢复bit-exact。arm脚本因refs `.cpu()`隐式同步而安全；修复在profile脚本cast后加显式`stream.synchronize()`，并新增UT源码守卫。
+2. **私有Host SO不导出池API（`48a37f109`）**：arm脚本Symmetric类按`U1_CORE_SO_LIB64`加载`mf310p_create`等符号，实机AttributeError双Rank复现；`mf310p_*`只存在于冻结插件内部、任何已安装SO均不导出。修复：build.sh新增第二个独立产物`libmf310p_v1_adapter_export.so`（树内与正式插件完全同源的`memfabric310p_adapter.cpp`，默认可见性编译，链接site V1 device SO与共享`libmf_smem`，经R2验证的priv-libs优先`LD_LIBRARY_PATH`装载修复版hybm core）；arm sym臂改用manifest校验的adapter SHA并新增`/proc/self/maps`真实映射门禁；campaign自建私有`LD_LIBRARY_PATH`。
+3. **预检实测通过项**：双Rank对称池create/barrier/exchange_geometry/get_layout/destroy全rc=0（rank0 send=0x12c140000000、rank1 recv=0x12c182000000、arena_bytes=32MB、sym_size=1GB）；完整sym臂120样本/M×双M bit-exact；CleanLines模式bit-exact；nd/native路由CSV各4份（native M2048 p50≈398-412µs、M4096≈784-787µs；shadow M2048≈414-428µs、M4096≈803-822µs，均为bit-exact前提下的CANN Kernel时长）。
+4. **分批续跑原则（`695d05769`）**：按用户2026-10-27指示，外部占用中断时不停整批：已完成会话经与最终分析同源的`read_session`全量校验才跳过，部分目录归档至`OUT/aborted/`，source SHA跨批次一致，绝不挑样本；数值/正确性/门禁失败仍硬STOP。
+
 ## 1. 要回答的两个不同问题
 
 1. **同构独立MM效率差**：`Delta_MM_only = p50(V2同构MM影子) − p50(原生aclnnMatmulWeightNz)`。这里是MM-only完整设备Event，不是正式D4运行中的“MM阶段耗时”。
