@@ -47,6 +47,7 @@ def paired(ranks: list[dict], spec: dict) -> dict:
             "device_so_sha256": D4_DEVICE_SHA, "plugin_sha256": PLUGIN_SHA,
             "host_so_sha256": MEMFABRIC_HOST_SHA, "kver11_sha256": KVER_SHA,
             "profile": False,
+            "stock_weight_layout": spec.get("stock_weight_layout", "row_major"),
         }
         for k, v in expected.items():
             if record.get(k) != v:
@@ -149,8 +150,12 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
     }.items():
         if meta.get(key) != value:
             raise ValueError(f"manifest mismatch: {key}")
+    stock_layout = meta.get("stock_weight_layout", "row_major")
+    if stock_layout not in ("row_major", "nz") or (stock_layout == "nz" and scope != "large"):
+        raise ValueError("unsupported Stock layout")
     rows = []
     for directory, spec in zip(sessions, specs):
+        spec = {**spec, "stock_weight_layout": stock_layout}
         sid = spec["session"]
         log = directory / "session.log"
         files = [directory / f"{sid}_rank{r}.json" for r in (0, 1)]
@@ -243,10 +248,12 @@ def evaluate(root: Path, scope: str, phase: str, audit: Path | None = None) -> d
     return {
         "experiment": "U1_FULLCHAIN", "scope": scope, "phase": phase,
         "manifest_sha256": digest(manifest), "audit_sha256": audit_sha,
+        "stock_weight_layout": stock_layout,
         "sessions": rows, "performance_map": table,
         "within_worker_anchor_drift_exceeds_5pct": anchor_drift_fail,
         "important": [
             "Screening never grants GO; performance is Stock FP16-HCCL vs complete fused op.",
+            "NZ mode requires independent actual aclnnMatmulWeightNz profiler-route audit before model-grade L1 claim.",
             "Two ranks paired per sample; different sessions compared only through crossover.",
             "NPU Event stream intervals are not pure device kernel cycles.",
             "Diagnostics measure non-equivalent parts and must NEVER be algebraically added/subtracted.",
