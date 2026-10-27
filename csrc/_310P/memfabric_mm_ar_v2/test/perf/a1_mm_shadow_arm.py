@@ -129,8 +129,12 @@ def parse():
         p.error("existing absolute output directory required")
     if a.warmup < 20 or a.iters < 100 or a.iters > 500:
         p.error("minimum 20 warmup + 100 useful samples, max500")
-    if any(a.out.glob("*rank*.json")):
-        p.error("never overwrite rank results")
+    # 两Rank异步启动/完成：仅拒绝自身Rank旧文件，不能因对端本批文件存在而失败。
+    own_rank = os.environ.get("RANK", "")
+    if own_rank not in ("0","1"):
+        p.error("missing process-group Rank identity")
+    if (a.out / f"{a.arm}_rank{own_rank}.json").exists():
+        p.error("never overwrite this Rank's results")
     if int(os.environ.get("WORLD_SIZE", "0")) != 2:
         p.error("actual TP2 two ranks required")
     if any(k in os.environ for k in (
