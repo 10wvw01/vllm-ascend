@@ -1,0 +1,338 @@
+{
+  "experiment": "U1_FULLCHAIN",
+  "scope": "large",
+  "phase": "screen",
+  "manifest_sha256": "0eda6ca29fe5de37e3ca33d08e6da48fbb013fb36935fb3f353a4eecb2f4026d",
+  "audit_sha256": null,
+  "stock_weight_layout": "nz",
+  "nz_route_proof_required": true,
+  "sessions": [
+    {
+      "session": "01_large_stock_fp16",
+      "arm": "stock_fp16",
+      "M_order": [
+        1024,
+        2048,
+        4096
+      ],
+      "log_sha256": "a9f13eb398e660effe776da5f4bf4d11f9839767c8bf2cec001f54ea79f6093e",
+      "rank_sha256": [
+        "e81ca1ccb345b71fc72b3002ccd39b18cf1d30ad79c09fc5f4339483e2c3764f",
+        "b730c6151ae8296263d1c574c3928eacf005eb154542e6d63c6fe7f29cff4970"
+      ],
+      "measurements": {
+        "1024": {
+          "M": 1024,
+          "arm": "stock_fp16",
+          "count": 12,
+          "event_p50_us": 672.148,
+          "event_p90_us": 680.495,
+          "event_p99_us": 683.515,
+          "wall_p50_us": 758.395,
+          "host_gap_p50_us": 87.414,
+          "paired_event_us": [
+            676.771,
+            670.182,
+            677.343,
+            679.167,
+            674.114,
+            666.953,
+            680.495,
+            683.515,
+            660.625,
+            615.911,
+            632.63,
+            626.407
+          ],
+          "paired_wall_us": [
+            761.72,
+            755.29,
+            761.5,
+            766.49,
+            761.7,
+            749.95,
+            765.8,
+            766.78,
+            742.04,
+            693.78,
+            719.98,
+            712.23
+          ],
+          "native_mm_only_p50_us": 313.998,
+          "native_mm_only_p90_us": 323.568
+        },
+        "2048": {
+          "M": 2048,
+          "arm": "stock_fp16",
+          "count": 12,
+          "event_p50_us": 1066.901,
+          "event_p90_us": 1084.583,
+          "event_p99_us": 1094.063,
+          "wall_p50_us": 1146.635,
+          "host_gap_p50_us": 80.192,
+          "paired_event_us": [
+            1067.422,
+            1056.016,
+            1066.38,
+            1084.583,
+            1094.063,
+            1075.417,
+            1064.948,
+            1049.167,
+            1061.042,
+            1065.235,
+            1075.521,
+            1068.984
+          ],
+          "paired_wall_us": [
+            1136.81,
+            1134.57,
+            1148.66,
+            1152.14,
+            1170.01,
+            1153.74,
+            1139.53,
+            1127.13,
+            1131.26,
+            1151.05,
+            1152.08,
+            1144.61
+          ],
+          "native_mm_only_p50_us": 450.951,
+          "native_mm_only_p90_us": 470.547
+        },
+        "4096": {
+          "M": 4096,
+          "arm": "stock_fp16",
+          "count": 12,
+          "event_p50_us": 2022.734,
+          "event_p90_us": 2044.792,
+          "event_p99_us": 2046.51,
+          "wall_p50_us": 2103.33,
+          "host_gap_p50_us": 81.405,
+          "paired_event_us": [
+            2046.51,
+            2016.094,
+            2012.917,
+            2029.74,
+            2037.786,
+            2016.485,
+            2021.64,
+            2044.792,
+            2030.807,
+            2023.828,
+            1995.651,
+            2011.588
+          ],
+          "paired_wall_us": [
+            2122.11,
+            2095.88,
+            2089.6,
+            2111.85,
+            2115.31,
+            2084.59,
+            2101.55,
+            2126.32,
+            2106.34,
+            2105.11,
+            2064.0,
+            2090.07
+          ],
+          "native_mm_only_p50_us": 830.846,
+          "native_mm_only_p90_us": 855.599
+        },
+        "_anchor": {
+          "M": 1024,
+          "early_pair_event_p50_us": 677.057,
+          "late_pair_event_p50_us": 699.986,
+          "late_over_early_pct": 3.387,
+          "abs_drift_pct": 3.387
+        }
+      }
+    },
+    {
+      "session": "02_large_memfabric_d4",
+      "arm": "memfabric_d4",
+      "M_order": [
+        2048,
+        4096,
+        1024
+      ],
+      "log_sha256": "c4dcd58c5ac6b7a10a6b17f8ee6339023bdd70e4e01180c8b1570fff5b9415cb",
+      "rank_sha256": [
+        "66435688d9e289db7805e5d46421a418805e0349ff95eac66c55b94e932c24db",
+        "de4e4fc02e89481e32c259d7033dfbe7777d5f9ec37ad54e58fb3c1fe361ff54"
+      ],
+      "measurements": {
+        "1024": {
+          "M": 1024,
+          "arm": "memfabric_d4",
+          "count": 12,
+          "event_p50_us": 916.667,
+          "event_p90_us": 948.255,
+          "event_p99_us": 1067.395,
+          "wall_p50_us": 997.035,
+          "host_gap_p50_us": 80.186,
+          "paired_event_us": [
+            945.469,
+            923.152,
+            901.146,
+            900.859,
+            902.76,
+            948.255,
+            1067.395,
+            938.542,
+            932.812,
+            895.963,
+            910.182,
+            902.37
+          ],
+          "paired_wall_us": [
+            1042.48,
+            1003.61,
+            977.55,
+            978.94,
+            978.52,
+            1019.57,
+            1147.31,
+            999.21,
+            1004.96,
+            975.75,
+            994.86,
+            980.04
+          ]
+        },
+        "2048": {
+          "M": 2048,
+          "arm": "memfabric_d4",
+          "count": 12,
+          "event_p50_us": 1401.146,
+          "event_p90_us": 1429.818,
+          "event_p99_us": 1448.412,
+          "wall_p50_us": 1489.62,
+          "host_gap_p50_us": 89.33,
+          "paired_event_us": [
+            1423.568,
+            1375.365,
+            1387.865,
+            1429.818,
+            1392.969,
+            1403.151,
+            1374.635,
+            1448.412,
+            1401.954,
+            1400.339,
+            1419.714,
+            1399.245
+          ],
+          "paired_wall_us": [
+            1492.72,
+            1475.04,
+            1473.52,
+            1522.46,
+            1472.71,
+            1487.07,
+            1468.66,
+            1540.78,
+            1492.17,
+            1497.96,
+            1508.05,
+            1485.62
+          ]
+        },
+        "4096": {
+          "M": 4096,
+          "arm": "memfabric_d4",
+          "count": 12,
+          "event_p50_us": 2519.779,
+          "event_p90_us": 2584.505,
+          "event_p99_us": 2653.828,
+          "wall_p50_us": 2598.2,
+          "host_gap_p50_us": 88.437,
+          "paired_event_us": [
+            2510.364,
+            2541.276,
+            2653.828,
+            2529.869,
+            2480.157,
+            2575.495,
+            2505.938,
+            2446.51,
+            2584.505,
+            2526.354,
+            2467.448,
+            2513.204
+          ],
+          "paired_wall_us": [
+            2588.94,
+            2629.16,
+            2725.45,
+            2614.85,
+            2554.83,
+            2660.92,
+            2592.13,
+            2535.5,
+            2677.76,
+            2598.42,
+            2549.19,
+            2597.98
+          ]
+        },
+        "_anchor": {
+          "M": 2048,
+          "early_pair_event_p50_us": 1398.06,
+          "late_pair_event_p50_us": 1330.013,
+          "late_over_early_pct": -4.867,
+          "abs_drift_pct": 4.867
+        }
+      }
+    }
+  ],
+  "performance_map": [
+    {
+      "M": 1024,
+      "stock_p50_us": 672.148,
+      "fused_p50_us": 916.667,
+      "speedup_pct": -26.675,
+      "stock_session_drift_pct": 0.0,
+      "route": "memfabric_d4",
+      "stock_native_mm_only_p50_us": 313.998,
+      "stock_sessions": 1,
+      "fused_sessions": 1,
+      "decision": "SCREEN_ONLY_NO_GO_POSSIBLE"
+    },
+    {
+      "M": 2048,
+      "stock_p50_us": 1066.901,
+      "fused_p50_us": 1401.146,
+      "speedup_pct": -23.855,
+      "stock_session_drift_pct": 0.0,
+      "route": "memfabric_d4",
+      "stock_native_mm_only_p50_us": 450.951,
+      "stock_sessions": 1,
+      "fused_sessions": 1,
+      "decision": "SCREEN_ONLY_NO_GO_POSSIBLE"
+    },
+    {
+      "M": 4096,
+      "stock_p50_us": 2022.734,
+      "fused_p50_us": 2519.779,
+      "speedup_pct": -19.726,
+      "stock_session_drift_pct": 0.0,
+      "route": "memfabric_d4",
+      "stock_native_mm_only_p50_us": 830.846,
+      "stock_sessions": 1,
+      "fused_sessions": 1,
+      "decision": "SCREEN_ONLY_NO_GO_POSSIBLE"
+    }
+  ],
+  "within_worker_anchor_drift_exceeds_5pct": false,
+  "important": [
+    "Screening never grants GO; performance is Stock FP16-HCCL vs complete fused op.",
+    "NZ mode requires independent actual aclnnMatmulWeightNz profiler-route audit before model-grade L1 claim.",
+    "Two ranks paired per sample; different sessions compared only through crossover.",
+    "NPU Event stream intervals are not pure device kernel cycles.",
+    "Diagnostics measure non-equivalent parts and must NEVER be algebraically added/subtracted.",
+    "No claim of Qwen E2E gain; model traffic M distribution and route hits remain separate."
+  ]
+}

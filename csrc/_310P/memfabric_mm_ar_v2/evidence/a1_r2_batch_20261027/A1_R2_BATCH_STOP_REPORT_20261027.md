@@ -5,7 +5,7 @@
 > **设备（目标）:** 310P3 卡`16384`（dev2/dev3 同卡双Die，`ASCEND_RT_VISIBLE_DEVICES=2,3`）
 >
 > **结构化裁决：**
-> `N0环境/冻结身份=PASS`｜`CPU全量回归=2项FAILED→修复后151全绿`｜`批次attempt1=NZ_ROUTE_NO_GO(路由门正确拒绝假NZ基线)`｜`NZ路由根因=已定位并修复(实机3变体对照)`｜`NZ-Smoke/Screen/8场Confirm=NOT_RUN`｜`D4五Case机制诊断=NOT_RUN`｜`Epoch 15/5/5/15四场=NOT_RUN`｜`最终STOP原因=dev2被外部进程占用(共享环境安全门失败)`
+> `N0环境/冻结身份=PASS`｜`CPU全量回归=2项FAILED→修复后151全绿`｜`批次attempt1=NZ_ROUTE_NO_GO(路由门正确拒绝假NZ基线)`｜`NZ路由根因=已定位并修复(实机3变体对照)`｜`attempt2路由证明=NZ_STOCK_ROUTE_VERIFIED(4×6组真实aclnnMatmulWeightNz配对)`｜`attempt2 Screen/Confirm=INVALID(非独占Die+外部静默击杀整树)`｜`NZ-Smoke正式数据/8场Confirm重测/D4五Case/Epoch四场=NOT_RUN`｜`最终STOP原因=16384两Die先后被外部进程占用且外部行为可静默击杀本批进程(共享环境安全门失败)`
 >
 > **本轮无任何换卡/重启/驱逐他人进程/共享SO改动/未执行L4。**
 
@@ -69,6 +69,17 @@ attempt2 一切就绪（修复HEAD、刷新身份JSON、launcher更新）时，n
 - 我方诊断trace导出在04:01后无任何新文件（排除孤儿分析进程归属）。
 
 结论：dev2被外部租户/定时任务占用，16384独占性被破坏。按用户规则“共享环境安全门失败立即STOP；不自动换卡、不重启、不覆盖共享SO”执行全批停止。注意凌晨~04:00为定时任务高发窗口，本轮进场时间（03:36）与其冲突。
+
+## 6.1 attempt2补充：独占失效复现+整树被外部静默击杀
+
+~04:15 手工G0复查显示dev2回到干净基线（1927MB、hugepages 0/0、无进程）后重启attempt2，但批次自身快照证明：
+
+- 04:17:50（batch g0_before.txt）：dev2已变为2363MB+205/205 hugepages——外部进程在清洁检查后~2分钟内返回，**整个attempt2在非独占dev2上运行**；
+- 04:17:50–04:23:56：CPU_PRECHECK、NZ_REAL_ROUTE（**NZ_STOCK_ROUTE_VERIFIED**，4×6组真实`aclnnMatmulWeightNz`配对：M2048 MM 399–411µs+HCCL 601–614µs；M4096 MM 779–801µs+HCCL 1152–1206µs）、NZ Smoke PASS、Screen（3形状）、Confirm会话01（stock完整）与会话02（d4双Rank JSON完整）依次完成，全部快照均录得dev2 2362–2364MB；
+- **04:23:56 整个批次进程树（launcher→one_batch→u1_run→torchrun）静默死亡**：无STOP_STAGE.json（ERR trap未触发）、无FAIL行、会话02的post_npu_smi.txt未写出；死亡时刻恰为外部工作负载撤离dev2、新外部进程（宿主pid 3784624）在dev3出现并从10.7GB持续增长（~18MB/s）的瞬间；dmesg无OOM击杀记录；
+- 05:00+：dev3仍被该外部进程占用增长中，dev2残留hugepages。
+
+**数据处置：** attempt2的Screen/Confirm数值因非独占Die且异常终止，**不作为任何正式证据**（`screen_analysis_tainted_nonexclusive.json`仅存档）；`nz_route_verified.json`作为**路由身份证据保留**（内核dispatch选择不敏感于Die共享），但附带本告警。凶手归属UNKNOWN，与外部Die轮换负载存在强时间相关（疑似设备上下文级清理）。详见 `attempt2_external_kill/`。
 
 ## 7. 恢复与续跑程序（下一次授权）
 
