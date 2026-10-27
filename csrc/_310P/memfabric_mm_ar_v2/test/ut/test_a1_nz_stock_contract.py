@@ -107,6 +107,11 @@ def test_nz_source_default_is_nonbreaking():
     assert 'os.environ.get("U1_STOCK_LAYOUT", "nz" if a.scope == "large" else "row_major")' in src
     assert 'stock_weight = w_nz if a.stock_weight_layout == "nz" else w' in src
     assert "F.linear(x, stock_weight)" in src
+    # NZ Stock基线必须在Serving等价环境测量：镜像serve启动的内部格式开关，
+    # 否则实测退化为通用MatMul+TransData而非真实站点的aclnnMatmulWeightNz。
+    assert 'if arm == "stock_fp16" and a.stock_weight_layout == "nz":' in src
+    assert "torch.npu.config.allow_internal_format = True" in src
+    assert "torch_npu.npu.set_compile_mode(jit_compile=False)" in src
     assert 'if [[ -z "${U1_STOCK_LAYOUT:-}" ]]; then' in runner
     assert 'if [[ "$SCOPE" == large ]]; then U1_STOCK_LAYOUT=nz' in runner
     assert 'else U1_STOCK_LAYOUT=row_major; fi' in runner
@@ -117,3 +122,7 @@ def test_nz_source_default_is_nonbreaking():
     assert 'dist.init_process_group(backend="hccl")' in probe
     assert 'dist.new_group(backend="gloo")' in probe
     assert "with profile(" in probe
+    assert "torch.npu.config.allow_internal_format = True" in probe
+    assert "_ExperimentalConfig" in probe
+    assert "profiler_level=torch_npu.profiler.ProfilerLevel.Level1" in probe
+    assert "record_shapes" not in probe

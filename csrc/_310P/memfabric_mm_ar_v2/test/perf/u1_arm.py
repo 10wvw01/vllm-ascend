@@ -133,6 +133,14 @@ def main():
     torch.npu.set_device(local_rank)
     device = torch.device(f"npu:{local_rank}")
     arm = arm_for(a.scope, a.stage)
+    if arm == "stock_fp16" and a.stock_weight_layout == "nz":
+        # NZ Stock基线必须运行在Serving等价环境：裸torchrun进程缺少vllm_ascend
+        # serve启动设置的内部格式开关（model_runner_v1.py:229与_310p/worker_310p.py:44）。
+        # 缺失时F.linear(x,w_nz)实测退化为通用MatMul+TransData（ND输入NZ输出，
+        # ~1830µs），并非真实站点命中的aclnnMatmulWeightNz（~770µs，ND输出）。
+        # 仅NZ Stock会话设置；fused/row_major会话保持R1历史环境以便可比。
+        torch.npu.config.allow_internal_format = True
+        torch_npu.npu.set_compile_mode(jit_compile=False)
     # Stock与MemFabric禁止同进程共存，沿用F1-C已验证的group顺序。
     if arm == "stock_fp16":
         dist.init_process_group(backend="hccl")

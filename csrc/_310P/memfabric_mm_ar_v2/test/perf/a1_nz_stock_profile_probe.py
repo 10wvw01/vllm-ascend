@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 from pathlib import Path
 
 import torch
@@ -59,12 +60,31 @@ def main():
     rank = int(os.environ["RANK"])
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.npu.set_device(local_rank)
+    # Serving等价启动：镜像vllm_ascend serve的model_runner_v1.py:229与
+    # _310p/worker_310p.py:44。缺失时F.linear(x,weight_nz)实测走通用MatMul+
+    # TransData（ND输出~1830µs）而非真实站点的aclnnMatmulWeightNz（~770µs），
+    # 路由门会正确拒绝该假NZ基线。
+    torch.npu.config.allow_internal_format = True
+    torch_npu.npu.set_compile_mode(jit_compile=False)
     device = torch.device(f"npu:{local_rank}")
     dist.init_process_group(backend="hccl")
     cpu = dist.new_group(backend="gloo")
     result = []
     try:
         from torch_npu.profiler import ProfilerActivity, profile, tensorboard_trace_handler
+        # 镜像vllm_ascend TorchNPUProfilerWrapper的_ExperimentalConfig：
+        # 没有它CANN分析只输出任务级精简CSV（无aclnn名/形状/格式），
+        # 路由门无法证明真实NZ Kernel。
+        experimental_config = torch_npu.profiler._ExperimentalConfig(
+            export_type=torch_npu.profiler.ExportType.Text,
+            profiler_level=torch_npu.profiler.ProfilerLevel.Level1,
+            msprof_tx=False,
+            aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization,
+            l2_cache=False,
+            op_attr=False,
+            data_simplification=True,
+            record_op_args=False,
+            gc_detect_threshold=None)
         torch.manual_seed(4242)
         weight = torch.randn(N, K, device=device, dtype=torch.float16)
         weight_nz = torch_npu.npu_format_cast(weight, 29)
@@ -91,19 +111,25 @@ def main():
             trace_dir.mkdir(mode=0o700, exist_ok=False)
             with profile(
                 activities=[ProfilerActivity.CPU, ProfilerActivity.NPU],
-                record_shapes=True, with_stack=False,
+                with_stack=False,
+                experimental_config=experimental_config,
                 on_trace_ready=tensorboard_trace_handler(
                     str(trace_dir), worker_name=f"rank{rank}_m{m}")
             ) as prof:
                 for _ in range(args.iters):
                     dist.barrier(group=cpu)
                     invoke()
-            # 必须来自当前会话的真实设备活动解析CSV，不接受复制历史CSV。
-            candidates = [
-                f for f in trace_dir.rglob("kernel_details.csv")
-                if f.is_file() and f.stat().st_size > 100
-                and "ASCEND_PROFILER_OUTPUT" in f.parts
-            ]
+            # CANN离线分析可能滞后于trace导出；等待真正解析出的CSV。
+            candidates = []
+            for _ in range(60):
+                candidates = [
+                    f for f in trace_dir.rglob("kernel_details.csv")
+                    if f.is_file() and f.stat().st_size > 100
+                    and "ASCEND_PROFILER_OUTPUT" in f.parts
+                ]
+                if len(candidates) == 1:
+                    break
+                time.sleep(2)
             if len(candidates) != 1:
                 raise RuntimeError(
                     f"rank{rank} M{m} expected 1 real CANN kernel_details.csv, "
