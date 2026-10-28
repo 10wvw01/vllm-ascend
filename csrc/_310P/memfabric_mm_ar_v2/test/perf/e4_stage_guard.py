@@ -108,11 +108,14 @@ def run_stage(card: int, log: Path, poll: float, command: list[str]) -> int:
     if not command:
         raise ValueError("stage command required")
     record(log, "PREFLIGHT_START", argv=command, card=card)
+    last_raw = ""
     try:
-        _, before = sample(card)
+        last_raw, before = sample(card)
         checked = assess(before, stage_running=False)
     except LeaseLost as exc:
         record(log, "STOP", phase="PREFLIGHT", reason=str(exc))
+        if last_raw:
+            (log.parent / "lease_guard_stop.npu.txt").write_text(last_raw, encoding="utf-8")
         raise
     record(log, "PREFLIGHT_PASS", **checked)
     child = subprocess.Popen(command, start_new_session=True)
@@ -125,19 +128,21 @@ def run_stage(card: int, log: Path, poll: float, command: list[str]) -> int:
     signal.signal(signal.SIGINT, interrupted)
     try:
         while True:
-            _, snapshot = sample(card)
+            last_raw, snapshot = sample(card)
             verified = assess(snapshot, stage_running=True)
             record(log, "LEASE_SAMPLE", **verified)
             ret = child.poll()
             if ret is not None:
                 # 短Screen可能不足2秒：结束时强制再采一帧，不能只靠定时采样。
-                _, final = sample(card)
+                last_raw, final = sample(card)
                 record(log, "POST_STAGE_LEASE", **assess(final, stage_running=True))
                 record(log, "STAGE_EXIT", exit_code=ret)
                 return ret
             time.sleep(poll)
     except BaseException as exc:
         record(log, "STOP", reason=str(exc))
+        if last_raw:
+            (log.parent / "lease_guard_stop.npu.txt").write_text(last_raw, encoding="utf-8")
         stop_owned(child)
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
