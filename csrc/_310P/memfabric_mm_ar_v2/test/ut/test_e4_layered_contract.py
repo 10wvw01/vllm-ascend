@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from itertools import product
 from pathlib import Path
 import sys
 import tempfile
@@ -13,6 +14,7 @@ PERF=ROOT/"test/perf"
 sys.path.insert(0,str(PERF))
 import e4_shape_plan as P
 import e4_assess as A
+import e4_packet_protocol as Q
 
 def source(path: str) -> str:
     return (ROOT/path).read_text(encoding="utf-8")
@@ -104,6 +106,38 @@ class E4Contracts(unittest.TestCase):
         self.assertLess(f.index("if (core != 0)"),f.index("smem_shm_sdma_wait_at(reserved)"))
         self.assertNotIn("ReleaseAdd(ibGm, ibUb, core);\n            E4Wait",s)
         self.assertIn("WaitAddDone(ibGm, ibUb, core)",s)
+
+    def test_all_packet_orders_and_ib_release_across_groups(self):
+        recv=0x10000000
+        for n in (1,2,4):
+            for orders in product(((0,1),(1,0)),repeat=n):
+                result=Q.simulate_campaign(orders,recv)
+                self.assertEqual(result["groups"],n)
+                self.assertEqual(result["release_events"],dict.fromkeys(range(1,8),n))
+                for g,trace in enumerate(result["group_trace"]):
+                    self.assertTrue(trace["core0_after_two_mails"])
+                    self.assertEqual(trace["wait_add_done_core_set"],tuple(range(8)))
+                    self.assertEqual(set(sum((list(x[1]) for x in trace["releases"]),[])),
+                                     set(range(1,8)))
+
+    def test_malformed_packet_mail_fails_closed(self):
+        recv=0x10000000
+        m0=Q.packet_mail(0,0,recv)
+        m1=Q.packet_mail(0,1,recv)
+        bads=(
+            (m0,m0), (m1,m1),
+            (m0,), (m1,),
+            (m0,Q.Mail(m1.dst+64,m1.length,m1.imm)),
+            (m0,Q.Mail(m1.dst,m1.length-64,m1.imm)),
+            (m0,Q.Mail(m1.dst,m1.length,m1.imm|0x10000)),
+            (m0,Q.Mail(m1.dst,m1.length,m1.imm,False)),
+            (m0,Q.packet_mail(1,0,recv)),
+        )
+        for case in bads:
+            with self.subTest(case=case):
+                with self.assertRaises(ValueError):
+                    Q.simulate_group(0,recv,case)
+        self.assertEqual(Q.packet_mail(0,0,recv).length,4*1024*1024)
 
     def test_host_abi_build_identity_and_runner(self):
         h=source("test/perf/e4_private_host.cpp")
