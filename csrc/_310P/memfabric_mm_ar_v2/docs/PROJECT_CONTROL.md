@@ -312,3 +312,31 @@
 - **受守护Screen 4/7场后STOP**：stock/e1（campaign内）、e3g/e4t2（手动续跑，同一守护调用）完成；screen_05_e4t4运行中外部进程2932134入侵→守护器3>2检测→STOP清理我方进程组（第5次实机保护实证）；e4t8/e4p按no-retry合同未启动。守护审计10阶段零跨卡/零超额PID。
 - **守护器无性能扰动实证**：38144受守护 vs attempt2的16384无守护——stock锚2025.8 vs 2037.7µs（+0.58%）、e3g锚2142.3 vs 2133.9（+0.40%）、**p99近乎逐值复现**（e3g 2227.2 vs 2228.2、e1 2426.4 vs 2408.8）；同构对照e4t2-vs-e3g本轮−1.55%（attempt2 −0.10%）标定单场Screen噪声带±1.5%→**e4t8的−2.71%仅约1.8倍噪声带，Screen只筛方向、正式裁决必须十四场Confirm**。
 - **当前状态**：e4t8/e4t4/e4p三场Screen因外部调度扩散至38144未跑成，e4t8方向维持attempt2原判（对Stock差距38.5µs）待Confirm；四卡均无稳定独占窗口，**管理员连续双Die独占租约仍是进入Confirm的P0前置**。attempt3b零Kernel/Serving/Stock/共享SO改动、未杀租户、未清KFC。[attempt3b报告（E4分支）](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)、[主线归档新增12文件](../evidence/e4_layered_20261028/attempt2_3_mainline_archive/)。
+
+
+## 31. 2026-10-29｜V3 SDMA ADD代码开发与一次快速算子验证合同
+
+用户已批准完整V3方案，并进一步指定不重跑V2/真实NZ Stock性能臂，只测V3并复用历史数据。
+从本主线`54d5518d`派生`work/310p-mm-ar-v3-sdma-add-20261029`，新增[独立V3工程](../../memfabric_mm_ar_v3/README.md)：
+公共signal_at ADD_FP16执行分片Reduce，COPY All-Gather恢复完整结果，MTE输出搬运；不含本地Vector Add。
+MM保持已有1024子调用/basicM，支持256/512/1024/2048组、串行/一组前瞻、显式尾块padding及Torch C ABI薄适配。
+私有构建不修改现有V2/Serving/共享安装，依赖冻结MemFabric `beaf490b`/KVER28，公共头与全部SO需重核身份。
+快测在单次有界会话逐关推进IB→FP16 ADD→协议/回绕→融合/尾块→V3 M2048/4096双组长两短轮。
+对照由归档JSON/性能表生成，保留历史漂移与Screen标签；不同卡/SDK/批次不能签为正式因果收益。
+设备选择使用未重映射的直接DeviceID并经CANN验证；守护仅停止自有进程，独占窗口由现场协调。
+**CPU合同与两轮静审已完成；CANN编译、V3实机正确性及性能均NOT_RUN。**
+Opencode可先私有编译，成功且G0满足后按脚本执行短测；失败STOP，无自动重试或旧性能臂补测。
+不更改E4历史裁决；不启用生产默认或DFlash/Graph，不触发L3/L4。
+
+
+## 32. 2026-10-29｜上游MemFabric源码树同步与V3执行单固定
+
+用户明确授权推送我方V3工作分支，并要求研发侧完成全部仓库/分支/编译部署规划，OpenCode只执行。
+GitCode `dev-v1.2.0`最新`ba3e7f42`相对旧镜像增加SetAccess物理号修复；
+GitHub镜像同步为`b9d46f97`，完整tree均`59f1fb6f`。使用插件快照提交保留GitHub历史，提交号不相同但源码树相同。
+V3依赖改锁镜像`b9d46f97`，ADD/公共头/KVER28不变；上游占位自拷贝差异仍未改变。
+执行规划见[V3 OpenCode执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)，来源证据见[同步JSON](../../memfabric_mm_ar_v3/UPSTREAM_SYNC.json)。
+新增prepare_sdk.py：新隔离克隆调用上游wrapper，关闭Python/HCOM/测试包，显式收集Host/头/AICPU三件套；
+避免上游run包漏复制AICPU目录导致现场自行拼包。之后只编私有V3直调库，不替换共享SDK/Serving。
+默认固定38144 dev4/5，在真实独占/G0成立后一次V3-only有界快测；失败STOP回传，由研发修复源码。
+本轮没有服务器CANN编译或NPU结果；不能把镜像同步或CPU检查写为实机PASS。

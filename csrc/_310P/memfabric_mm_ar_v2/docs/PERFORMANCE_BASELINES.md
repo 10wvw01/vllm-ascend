@@ -171,3 +171,13 @@
 ## 2026-10-28｜E4 Attempt3b换卡38144受守护Screen（4/7场，方向性，不签正式性能）
 
 > 卡38144（用户授权换卡）、全程受守护、单场×30样本。M4096配对p50/p90/p99（µs）：stock 2025.8/2053.9/2058.6、e1 2340.7/2395.8/2426.4、e3g 2142.3/2197.8/2227.2、e4t2 2175.4/2236.2/2264.5；M2048 e3g落后Stock 33.6%（跨卡复证单组结构性劣势）。**守护器无性能扰动**：vs attempt2（16384、无守护）stock锚+0.58%、e3g锚+0.40%、p99近乎逐值复现。同构对照e4t2-vs-e3g差−1.55%（attempt2 −0.10%）标定单场噪声带±1.5%→e4t8的−2.71%（attempt2）仅约1.8倍噪声带，**正式裁决必须十四场Confirm**。e4t8/e4t4/e4p三场因外部调度扩散至38144未跑成，e4t8方向维持attempt2原判。详见[attempt3b报告（E4分支）](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)。
+
+
+## 2026-10-29｜V3-only短测使用历史对照：无新增设备数值
+
+用户要求不重复运行V2和真实NZ Stock性能臂。V3工具读取E3 `e3_assessment.json`、
+E4 attempt2 `attempt2_e4_screen_summary.json`及本表R2 D4 Screen记录，保留来源SHA、
+`INCONCLUSIVE_DRIFT`/`SCREEN_ONLY`标签，输出每个V3形状相对每份历史基线的独立差值。
+双Rank逐样本取max后计算V3 p50/p90/p99，前后两轮检查漂移；不同版本/卡/KVER的差值仅供方向筛选。
+**V3 CANN编译/实机/性能NOT_RUN，没有任何V3收益数字或正式GO。**
+历史数据不得被重新归类为本次同批对照；脚本不自动重跑旧臂，不启动模型/TTFT。

@@ -156,3 +156,24 @@
 
 **ADR-021执行补充｜2026-10-28｜最小保护工具代码就绪，尚待实际CPU/设备验收**：原E4分支[PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)已补`e4_stage_guard.py`（每次torchrun前/中/后核目标双Die健康和可观测跨卡新PID，异常自动STOP并保留原始npu-smi证据，只终止本run进程组），`e4_detached.py`（独立Session启动/status/退出码及Screen-only限权），新增CPU负面测试与CI；`e4_campaign.sh`四处设备入口均接入守护并强制当前HEAD/Build绑定。**测试代码仍NOT_RUN，工具没有取得真实持续独占租约也不能保证测试环境安全**；新HEAD必须先CPU合同和G0，通过后重编私有SO，方可进入E4四候选设备Smoke，七臂短Screen仍非正式性能Confirm。
 
+
+
+## ADR-022｜2026-10-29｜V3用SDMA ADD求和；本轮只测V3并复用历史对照
+
+- 用户批准V3独立开发：MM写本地部分结果，READY之后以ADD_FP16执行owner分片Reduce，COPY All-Gather，保留独立输出与全部同步/首写保护。
+- 不允许全量双端原地ADD互改发送源；标签改为40位并拒绝epoch溢出；ADD不允许不确定重试。
+- MemFabric固定`beaf490b`/KVER28，V3与旧KVER11头/库不混用；当前源码占位自拷贝差异记录为长稳未闭环项。
+- 用户明确要求快速判断算子相对历史V2/真实NZ Stock的收益方向：默认只跑V3，旧臂不重测；
+  允许生成带来源和历史原判定的跨批差值，但不签同批正式性能GO，不自动补测。
+- 新工程[README](../../memfabric_mm_ar_v3/README.md)、[两轮审查](../../memfabric_mm_ar_v3/REVIEW.md)及一键短测入口统一归本项目主线管理。
+- 代码/CPU完成不等于设备PASS；私有BiSheng编译和G0后才能执行ADD→协议→融合→短测。Stock默认及原模型准入边界不变。
+
+
+## ADR-023｜2026-10-29｜上游同步与V3两仓私有部署执行合同
+
+- 权威GitCode来源`ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4`，镜像`b9d46f97955b11a8b7a892e9fd8d516e66346a65`，完整tree相同；V3改锁后者。
+- 采用GitHub插件进行源码树快照同步，保留原GitHub历史及上游来源，不宣称commit身份相同。
+- OpenCode只执行[固定执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)，不承担协议/源码修正或依赖选择。
+- 只更新我方MemFabric及V3两个新隔离源码树；不改上游/外部HaonanWu1/运行中的框架和Serving。
+- private SDK显式包含上游打包器漏掉的SDMA AICPU三件套，之后编V3私有SO；不执行共享安装器、不预部署四卡。
+- 默认仍为V3-only快速历史对照，无旧性能臂、模型或Confirm；服务器编译/设备验证仍NOT_RUN。

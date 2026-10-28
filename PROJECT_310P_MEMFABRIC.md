@@ -4,6 +4,20 @@
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
+## 2026-10-29｜V3 SDMA ADD开发与V3-only快速历史对照
+
+用户已批准V3：移除本地Vector Add，采用单Kernel MM + ADD Reduce-Scatter + COPY All-Gather。
+独立工程见[csrc/_310P/memfabric_mm_ar_v3/README.md](csrc/_310P/memfabric_mm_ar_v3/README.md)，
+工作分支`work/310p-mm-ar-v3-sdma-add-20261029`从主线`54d5518d`派生。
+用户最新要求是**只跑V3短测、复用历史V2/真实NZ Stock，不重新跑旧性能臂**；
+该快测只提供历史方向对照，不签同批正式收益，不执行Serving/TTFT/Confirm。
+代码包含原语/协议/融合/串行与流水/尾块/Torch薄适配、私有构建和一键有界测试。
+当前仅CPU与静态检查，**BiSheng/310P3实测NOT_RUN**；Stock默认不变。
+
+上游MemFabric已同步：GitCode `ba3e7f42` → GitHub镜像 `b9d46f97`（整树一致，commit不同）。
+V3最新依赖和OpenCode两仓私有构建/部署流程见[固定执行单](csrc/_310P/memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)。
+
+
 ## 2026-10-28 最新权威状态（先读，避免把历史NOT_RUN当现状）
 
 **E3实机已经完成，E4编码已开工；二者的准入阶段不能混淆。** 真实NZ Stock M4096=2022.553µs、E1=2271.836µs、E3-G=2119.506µs、E3-T=2267.090µs。E3-G较E1提升7.187%（缩短152.330µs），但**仍慢Stock 96.953µs**；M2048 E1两场漂移6.192%，所以E3整批仍`INCONCLUSIVE_DRIFT`，不挑样本签正收益；真实M2049～4095尚未做融合实机性能。E3修复过一次E3-T L0C满载507015 AICore异常，E2-P曾遇507014且根因未闭环。**Stock一直是Serving默认**，E3/E4的L2真实Qwen站点、L3 Prefill Step和L4客户端TTFT皆`NOT_RUN`。

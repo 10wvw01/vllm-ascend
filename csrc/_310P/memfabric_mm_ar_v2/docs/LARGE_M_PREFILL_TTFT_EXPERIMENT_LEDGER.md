@@ -196,3 +196,11 @@ L3 无Profiler轻量Stock/V2 Screen
 **本总账最新裁决（2026-10-27，A1-R1实机审核后）：**R1设备G0/私有装载、原仓CPU108+27、M2048双RankSmoke全部PASS，无新507014/507899。L1按行主序Stock测得M2048+22.5%、M4096+21.1%，**不可代表真实Qwen3.6 Stock**；L2真实NZ Stock约2143/1918µs而D4约2511/2430µs（每Rank分别慢368/512µs每目标站点），L3无Profiler四Serve ABBA双窗口V2慢26.1/27.7ms、有重尾，**当前D4 L3_NO_GAIN，正式L4_NOT_RUN_BY_DESIGN，Stock保持默认**。下一步先修NZ真实基线并做V2内部MM/通信/等待/周期尾部单变量归因，正式发布Gate E与历史507014仍未解除。来源：[实机报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/A1_R1_BATCH_REPORT_20261027.md)、[复盘](A1_R1_实机复盘与优化优先级_20261027.md)。
 
 **本总账最新裁决（2026-10-27，A1-R2三次实机尝试后）：**原R1结论仍成立——当前D4真实Qwen3.6 Prefill L3没有正收益，L4仍未运行；R2发现独立U1 Stock最初并非真正NZ路径，修复Serving同源选路后证实原生MM/HCCL并取得有效Screen（M2048−22.692%、M4096−21.013% V2速度增益），但正式8场Confirm因Stock漂移与外部负载干扰被判`INCONCLUSIVE_DRIFT`；D4五Case+短Profiler对外部耗时取证完成，内部MM/SDMA/IB/Add分段仍`INNER_PHASE_UNKNOWN`；Epoch15/5/5/15未启动有效场次，`EPOCH_CAUSAL_UNKNOWN`；**绝不把Screen筛选数替代正式Confirm**。下一P0是保障物理16384双Die稳定独占窗口，再补Confirm+Epoch；独立设备内部探针开发可并行。正式Stock默认与发布Gate E历史阻塞不变。[R2原始报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/A1_R2_FINAL_REPORT_20261027.md)。
+
+
+## 2026-10-29｜新增V3算子级快速验证分支（用户指定历史对照）
+
+V3从主线`54d5518d`独立开发，见[工程与现场命令](../../memfabric_mm_ar_v3/README.md)。
+本轮用户限定：只跑V3原语/协议/融合短测及M2048/4096算子时延，复用历史V2/真实NZ Stock；
+不重测旧性能臂，不启动Confirm、L2/L3/L4或Serving。历史方向对照不改变正式TTFT目标与旧结论。
+当前CPU/静态完成、CANN/NPU/收益NOT_RUN；待OpenCode私有编译、独占G0并逐关短测后回填双Rank原始证据。

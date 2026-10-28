@@ -1,0 +1,24 @@
+{
+  "schema": "MEMFABRIC_UPSTREAM_SYNC_V1",
+  "date_local": "2026-10-29",
+  "upstream_url": "https://gitcode.com/GDD_ESCC/memfabric_hybrid",
+  "github_url": "https://github.com/10wvw01/memfabric_hybrid",
+  "branch": "dev-v1.2.0",
+  "previous_github_head": "beaf490b01222bae268dc3f3a640b1d0267befd6",
+  "upstream_head": "ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4",
+  "upstream_change": "5776ba3f3091e60ce6c01765978e8c733f2f4c19",
+  "upstream_head_time": "2026-10-28T18:53:32+08:00",
+  "github_mirror_head": "b9d46f97955b11a8b7a892e9fd8d516e66346a65",
+  "upstream_tree": "59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103",
+  "github_tree": "59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103",
+  "whole_tree_identical": true,
+  "sync_mode": "connector snapshot commit; existing GitHub history preserved; upstream commit identities differ",
+  "changed_files": [
+    "src/hybm/csrc/driver/hybm_gva.cpp",
+    "src/hybm/csrc/mm/hybm_vmm_based_segment.cpp"
+  ],
+  "effect": "310P VMM SetAccess uses physical IDs while MallocPhysical keeps logical IDs",
+  "add_api_changed": false,
+  "kver": 28,
+  "device_validation": "NOT_RUN"
+}

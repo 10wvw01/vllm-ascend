@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: Apache-2.0
+#pragma once
+#include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct mf310p_v3_context mf310p_v3_context;
+uint32_t mf310p_v3_abi(void);
+// One context per process; caller selects its NPU before create. TP=2 only.
+int mf310p_v3_create(int rank, const char* store_url, uint32_t packet_bytes, mf310p_v3_context** out);
+// All run methods enqueue on one fixed stream. Buffers must live through completion.
+// group_rows=256/512/1024/2048; rows is padded to a whole group by the caller.
+// mode=0 fused MM, mode=1 protocol-only on precomputed FP16 partials.
+int mf310p_v3_run(mf310p_v3_context* ctx, uint64_t x, uint64_t weight_nz, uint64_t y,
+                 uint32_t rows, uint32_t group_rows, uint32_t pipeline, uint32_t mode, void* stream);
+// Both ranks contribute src to the peer's seed. Result is local_seed + peer_src.
+int mf310p_v3_probe_add(mf310p_v3_context* ctx, uint64_t src, uint64_t seed, uint64_t y,
+                       uint32_t bytes, void* stream);
+// Mandatory one-time official IB fan-in/fan-out probe before data launches.
+int mf310p_v3_ib_probe(mf310p_v3_context* ctx, uint32_t repetitions, void* stream);
+int mf310p_v3_status(mf310p_v3_context* ctx, uint64_t* status);
+// Must be called after stream completion, on the owning device.
+int mf310p_v3_destroy(mf310p_v3_context* ctx);
+#ifdef __cplusplus
+}
+#endif
