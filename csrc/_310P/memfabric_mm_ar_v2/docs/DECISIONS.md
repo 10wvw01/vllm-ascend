@@ -131,3 +131,13 @@
 - **选择性合入策略**：本次只审查、同步ADR-015和L3-first历史与正式实验合同、项目入口、性能基线与分支治理。现有正式Kernel/Host/Serving、Stock默认、上游DFlash和MemFabric协议**零改动**；不复制未验证的A1测试脚本。主线文档合入后，A1 PR #9需按更新的主线核对差异，后续只合入审查合格的实施资产，禁止回流旧版治理文件覆盖主线。
 - **闭环规定**：任一实机报告经过证据审核后，在同一批主线变更中更新`PROJECT_CONTROL.md`（状态）、`PERFORMANCE_BASELINES.md`（事实和适用工况），产生新决策则追加ADR；CI/静态审查与实机准入分开标识，不以PR建立或文档合并暗示性能/安全PASS。
 - **关联规范**：[主线分工治理](BRANCH_GOVERNANCE.md)、[ADR-015 L1～L4历史归因与L3-first合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。此决议不改变ADR-013与ADR-014，实机G0/Smoke/Screen/Confirm/L3/L4均维持原独立授权和异常STOP要求。
+
+
+## ADR-020｜2026-10-28｜E3证据归主线与E4分层流水/连续M实验授权｜**有效；E4设备NOT_RUN**
+
+- **治理决定**：E3工作分支[PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)的`run_id=e3-chunk2048-20261028-001`已经完成G0、修复后BiSheng、Smoke、八场原始双RankL1对照；本决策**选择性**将实验事实/归因边界/当前下阶段策略写入唯一主线，不合并E3正式Kernel/Host、原始Profiler大型文件或过期分支管控文档。主线[证据审核与E4合同](E3_实机证据审核与E4分层流水准入_20261028.md)成为正式索引，E3来源PR仍Draft只读证据。
+- **可信E3结果**：M4096真实NZStock2022.553µs，E1 2271.836µs，E3-G2119.506µs，E3-T2267.090µs；E3-G对E1 **+7.187%（净少152.330µs）**，仍慢Stock **96.953µs**。M4096所有臂漂移≤2.02%；M2048同批Stock1078.412/E1 1222.611/E3-G1451.002/E3-T1483.932µs但E1跨场漂移6.192%>5%，**整批总体INCONCLUSIVE_DRIFT**，不可硬签M2048的精确速比；E3-G负向方向稳健。E3-T首版L0C满载首个真实MM引发507015，改`basicM 256→128`并重新双Rank验证PASS，不等于507014根因已闭环。
+- **归因裁决**：E3-G相对E1保持4次1024 MM子调用、4条4MiB数据消息和Add总元素数不变；每4096行producer/consumer缓存维护、ReadyTree及Add release会合从4组→2组，兼有流水与每Core输出布局变化。152.330µs是**净整体效果**，各内部阶段独立耗时未知，不允许归到某一单点。E2-R/READY预失效/512和E3-T继续冻结负收益证据。
+- **E4范围**：只新增一个隔离工作分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，基于E3已验证代码；优先 E4-0 AddTile2048/4096/8192单变量、E4-A Packet0/1分半组Add、E4-B连续M的可审计规划器/混合2048+1024与尾块。不能提前发未完成包或把新增IB/缓存费用藏在流水里。真实Serving路由维持Stock，全部E4硬件/性能`NOT_RUN`。
+- **必要审查**：一切E4设备内同核通信仍遵守Core0唯一mail消费者、每包dst/len/imm、DataCache生产/接收可见性、最终8核AddDone、quiet+DONE和首写、双Rank安全。原生真NZ Stock完整链是唯一性能基线，M区间连续测试在合法Padding及真实额外copy开销下逐点衡量。历史Qwen L2/L3/L4在E3/E4下均NOT_RUN。
+
