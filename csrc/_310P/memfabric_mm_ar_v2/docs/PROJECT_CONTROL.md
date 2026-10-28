@@ -290,3 +290,12 @@
 - **工程实施与合同**：`src/op_kernel/mf310p_v2_e3_group2048.asc`、`test/perf/e3_private_host.cpp`、`e3_build.sh`、`e3_arm.py`、`e3_assess.py`、`e3_campaign.sh`、`test/ut/test_e3_chunk2048_contract.py`，详见[正式实验设计](A1_E3_CHUNK2048_设计与实机验证_20261028.md)。Host仍以已审1024创建池，避免污染生产ABI；只将逻辑Chunk2048传给独立设备候选，数据发送最大4MiB。
 - **实机执行**：项目G0与四卡只读选卡→原仓CPU和新合同→隔离BiSheng编译（新tiling可能编译不支持）→NZ路由4/4→G/T逐项双Rank bit-exact Smoke→`stock,e1,e3g,e3t,e3t,e3g,e1,stock`八场TP2完整链、5%漂移判定；保存双RankJSON、设备报警、4MiB双包、SO身份、源码HEAD。507014等异常STOP保全，不能自动清他人资源。
 - **当前状态**：E3源码与测试合同已提交，但CPU测试运行、CANN编译、G0和设备数据均`NOT_RUN`。绝不继承E2有效性能作E3硬件成绩。E3若确证正收益，才考虑Qwen真实40站点/L3/正式input4096/output2048/TP2/batch10。
+
+## 31. 2026-10-28｜E3 Chunk2048单批实机完成：M4096 E3-G真实超越E1，单组场景退化，T被L0C约束击败
+
+- **执行与安全**：run_id `e3-chunk2048-20261028-001`，分支`work/310p-mm-ar-e3-chunk2048-20261028`基准`65837dc4`；隔离worktree`/home/w00804146/310P/e3wt`。四卡只读G0后16384（dev2,3）同卡双Die+MCU健康独占，全程30s巡检无507014/507899/507018/IB/KFC异常、无外部抢占，测后卡回基线；私有装载沿用R1/R2/five-arm方案（Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`，前后SHA一致）。原仓UT 71项、py_compile/bash_n、项目门禁全PASS。
+- **BUG修复1（已提交`3e58ae38`）**：E3-T首版`e3Shape2048`baseM=256×baseN=256的FP32累加器=256KB恰好100%占满dav-2002 L0C（编译期未拦截），首次Smoke首个真实kernel即双Rank对称AICore异常（retCode=0x26, failure_mode=1）；E3-G同批全过证明异常隔离在T tiling。修复为basicM=128（singleCoreM=256不变，T仍是每组每核一次256行MM调用），UT锁定断言+复跑+重建+双Smoke转PASS。[修复记录](../evidence/e3_chunk2048_20261028/bugfix1_l0c_overflow/README.md)。
+- **正确性**：真实NZ路由4/4（`aclnnMatmulWeightNz`≥6、`hcom_allReduce`≥6、TransData=0）；E3-G/E3-T双Rank Smoke与8场16份Rank JSON全部bit-exact、协议status=0；8MiB逻辑组2×4MiB分包、双包唯一tag/len/dst校验、两包齐后Add均由内核断言+UT+运行期status证明。
+- **八场性能（配对p50）**：M4096：Stock 2022.6、E1 2271.8、**E3-G 2119.5（vs E1 +7.19%/−152.3µs，vs Stock −4.57%/−97.0µs）**、E3-T 2267.1（vs E1 +0.21%，vs E3-G −6.51%）；M2048：Stock 1078.4、E1 1222.6、E3-G 1451.0（vs E1 −15.74%）、E3-T 1483.9。M4096全臂漂移≤2.02%稳定；M2048 E1臂6.19%>5%使总状态`INCONCLUSIVE_DRIFT`（E3-G劣于两场E1各自p50，方向稳健）。[实机报告](A1_E3_CHUNK2048_实机报告_20261028.md)、[性能台账](PERFORMANCE_BASELINES.md)。
+- **结论**：①Chunk2048只在组数≥2（M4096）赢：固定同步开销减半>交叠损失；单组（M2048）零交叠净亏228µs。②真2048 MM在310P3不可实现更大基础tile（L0C硬限制），E3-T的−6.51%是单次大调用相对两次调度的真实代价，非通信差异。③E1→E3-G把对Stock差距从−10.84%缩到−4.57%（−97µs）。下一轮：单组组内"前1024行MM完成即发首包"混合粒度流水、producer DCCI分段、Core0串行链、周期长尾。
+- **边界**：全部为L1离线算子；L2/L3/L4 NOT_RUN；正式D4/E1源码、Serving默认、共享SO零改动；E3候选SO仅隔离目录未安装；Stock默认不变。E3-G是否升为下一优化基线待主线裁决。
