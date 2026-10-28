@@ -102,6 +102,35 @@ class TestProtection(TestCase):
                 with self.assertRaisesRegex(ValueError,"Confirm"):
                     D.guard_inputs(state,out,build,repo)
 
+    def test_detached_start_is_own_process_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);state=base/"state";out=base/"out";build=base/"build"
+            build.mkdir()
+            with mock.patch.object(D,"guard_inputs",return_value="deadbeef"),\
+                 mock.patch.dict(os.environ,{"E4_PHYSICAL_CARD_ID":"16384"},clear=True),\
+                 mock.patch.object(D.subprocess,"Popen") as popen:
+                popen.return_value.pid=43210
+                self.assertEqual(D.start(state,out,build),0)
+                args,kwargs=popen.call_args
+                self.assertIn("worker",args[0])
+                self.assertTrue(kwargs["start_new_session"])
+                self.assertEqual(kwargs["stdin"],D.subprocess.DEVNULL)
+                j=json.loads((state/"launch.json").read_text())
+                self.assertEqual(j["worker_pid"],43210)
+                self.assertEqual(j["repo_head"],"deadbeef")
+                self.assertFalse((state/"result.json").exists())
+
+    def test_worker_abnormal_exit_must_write_stop_result(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);state=base/"state";out=base/"out";build=base/"build"
+            for d in (state,out,build):d.mkdir()
+            child=mock.Mock();child.wait.return_value=143
+            with mock.patch.object(D.subprocess,"Popen",return_value=child):
+                self.assertEqual(D.worker(state,out,build),143)
+            result=json.loads((state/"result.json").read_text())
+            self.assertEqual(result["state"],"STOP")
+            self.assertEqual(result["exit_code"],143)
+
     def test_detached_exit_is_explicit_not_optimistic(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
