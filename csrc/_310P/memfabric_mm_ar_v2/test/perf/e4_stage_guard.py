@@ -39,6 +39,8 @@ def parse_info(raw: str, card: int) -> dict:
         raise LeaseLost(f"target card {card} health entries={health!r}, need two OK dies")
     by_card: dict[int, set[int]] = {}
     for line in tail.splitlines():
+        if re.match(r"^\\|\\s*\\d+\\s+", line) and not PROC.match(line):
+            raise LeaseLost("unparseable npu-smi process row; STOP")
         for n, die, pid in PROC.findall(line):
             n, die, pid = int(n), int(die), int(pid)
             if die not in (0, 1) or pid <= 0:
@@ -128,6 +130,9 @@ def run_stage(card: int, log: Path, poll: float, command: list[str]) -> int:
             record(log, "LEASE_SAMPLE", **verified)
             ret = child.poll()
             if ret is not None:
+                # 短Screen可能不足2秒：结束时强制再采一帧，不能只靠定时采样。
+                _, final = sample(card)
+                record(log, "POST_STAGE_LEASE", **assess(final, stage_running=True))
                 record(log, "STAGE_EXIT", exit_code=ret)
                 return ret
             time.sleep(poll)
