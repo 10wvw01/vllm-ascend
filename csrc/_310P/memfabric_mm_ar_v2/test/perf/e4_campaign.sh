@@ -73,7 +73,7 @@ echo "REAL_NZ_ROUTE_PROVEN" | tee -a "$OUT/progress.txt"
 # E4编译、纯CPU和G0 PASS后，先做E3G锚点与四个E4候选的极短双RankSmoke。
 # 所有候选必须双Rank位精确、status0；任何异常即停测保全。
 # E4均两次1024 MM；Tile4096/8192仅改Add元素量，E4p只改消费者半组Add时序。
-# 2048组(8MiB)必须验证所有两条4MiB数据消息都到齐后才能Add。
+# E3-G/E4-T必须两包到齐后再Add；E4-P只允许对应半组在本包校验通过后Add，Core0需消费两包，最终所有8核Done后quiet/DONE。
 for spec in "3:e3g" "4:e4t2" "5:e4t4" "6:e4t8" "7:e4p"; do
   stage="${spec%%:*}"; arm="${spec#*:}"
   echo "SMOKE_START $arm" | tee -a "$OUT/progress.txt"
