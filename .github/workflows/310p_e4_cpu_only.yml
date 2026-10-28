@@ -25,6 +25,9 @@ jobs:
             csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_assess.py \
             csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_shape_plan.py \
             csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_packet_protocol.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_stage_guard.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_detached.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_test_protection.py \
             csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_layered_contract.py
       - name: E4 Shell AST
         run: |
@@ -32,6 +35,8 @@ jobs:
           bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_campaign.sh
       - name: Exhaustive 2049-shape geometry and packet Add CPU contracts
         run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_layered_contract.py
+      - name: E4 active lease + detached runner negative CPU contracts
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_test_protection.py
       - name: Existing V2 CPU regression
         run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
       - name: Project governance static gate
