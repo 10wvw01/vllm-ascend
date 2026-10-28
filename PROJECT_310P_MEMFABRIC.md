@@ -13,6 +13,12 @@
 - **唯一活跃研发实现**：[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)，短分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，首版AddTile与Packet分半组Add候选、2049个M的**纯CPU**混合分组/安全路由规划器。**E4 CPU/CI、CANN编译、310P实机、性能尚NOT_RUN；连续M设备Kernel及生产自适应路由均未实现**。
 - **下一步**：E4源码协议深审与CPU/独立BiSheng→G0/双Rank短Smoke→七臂短Screen→有收益再经单独批准十四场Confirm；之后实现连续M混合尾块设备路径，最终和真实Qwen业务TTFT层级分别验证。禁止用户未授权时启用自动Serving路由或直接merge实验分支代码。
 
+### E4 2026-10-28第一轮设备执行结论（ADR-021）
+
+- E4 **G0、原仓CPU80条、E4合同9条、BiSheng四变体（包括AddTile8192）、原生NZ路由4/4、E3-G正确性Smoke**已经完成；尚无任何E4新变体设备Smoke与性能。运行中目标16384 dev2/3遭跨四卡宿主PID506263抢占；E4-T2进程还独立遭执行工具SIGTERM中止，未运行Kernel。**七臂Screen NOT_RUN，正式十四场Confirm未授权/NOT_RUN，Stock默认无变化**。E3-G受污染的约2.3/6.5～6.8ms交替Smoke不允许作性能比较。
+- 主线已独立保全[23份E4 Attempt1原始证据](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)、[中文原始实机报告](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件报告](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)，拷贝文件Git blob SHA与来源一致；E4实现仍在[Draft PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)。
+- **下一步先修实机运行治理，才复测算法**：现场必须取得连续双Die独占窗口，补强G0后实时外部进程出现即STOP（现30秒巡检只记录而不阻断）并让OpenCode以独立session启动及轮询消除工具超时SIGTERM；完成CPU负面回归、两轮静审后重G0核对SO/HEAD，再做E4-T2/T4/T8/P正确性Smoke与七臂Screen。不得伪称E4本轮有性能增益或已支持任意M设备执行。
+
 ## 从这里恢复上下文（推荐阅读顺序）
 
 1. [项目控制台：当前全项目状态、技术合同和决策](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——全项目权威状态。
