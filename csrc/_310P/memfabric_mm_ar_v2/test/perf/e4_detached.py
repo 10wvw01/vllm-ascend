@@ -96,10 +96,11 @@ def worker(state: Path, out: Path, build: Path) -> int:
     stopped = False
 
     def on_signal(signum: int, _frame: object) -> None:
+        # 只标记并抛出，绝不在handler内wait/poll本worker的campaign子进程：
+        # 若SIGTERM打断的是child.wait()内部(此时持有Popen._waitpid_lock)，
+        # 在handler内再次wait同一child必然死锁；清理放在栈展开后的except块。
         nonlocal stopped
         stopped = True
-        if child is not None:
-            stop_group(child)
         raise SystemExit(128 + signum)
 
     signal.signal(signal.SIGTERM, on_signal)

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """纯CPU测试：E4实机主动STOP、真实npu-smi表、脱管进程及构建身份。"""
 from __future__ import annotations
-import json,os,sys,tempfile
+import json,os,signal,subprocess as sp,sys,tempfile,time
 from pathlib import Path
 from unittest import TestCase,mock
 PERF=Path(__file__).resolve().parents[1]/"perf"
@@ -128,6 +128,53 @@ class TestProtection(TestCase):
             child=mock.Mock();child.wait.return_value=143
             with mock.patch.object(D.subprocess,"Popen",return_value=child):
                 self.assertEqual(D.worker(state,out,build),143)
+            result=json.loads((state/"result.json").read_text())
+            self.assertEqual(result["state"],"STOP")
+            self.assertEqual(result["exit_code"],143)
+
+    def test_worker_sigterm_no_deadlock_and_cleans_campaign(self):
+        """回归：SIGTERM打断child.wait()(持Popen._waitpid_lock)时handler不得
+        再wait同一child——真进程级验证worker退出143、result.json落盘、
+        campaign子进程被清理，超时即死锁失败。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);state=base/"state";out=base/"out";build=base/"build"
+            for d in (state,out,build):d.mkdir()
+            helper=(
+                "import sys,json\n"
+                "from pathlib import Path\n"
+                f"sys.path.insert(0,r'{PERF}')\n"
+                "import subprocess as sp\n"
+                "_REAL_POPEN=sp.Popen\n"
+                "import e4_detached as D\n"
+                "def fake_popen(cmd,**kw):\n"
+                "    p=_REAL_POPEN(['bash','-c','exec sleep 30'],start_new_session=True,"
+                "stdin=sp.DEVNULL,stdout=sp.DEVNULL,stderr=sp.STDOUT,close_fds=True)\n"
+                f"    Path(r'{state}/camp.pid').write_text(str(p.pid))\n"
+                "    return p\n"
+                "D.subprocess.Popen=fake_popen\n"
+                f"rc=D.worker(Path(r'{state}'),Path(r'{out}'),Path(r'{build}'))\n"
+                "print(json.dumps({'worker_rc':rc}))\n")
+            proc=sp.Popen([sys.executable,"-c",helper],
+                          stdout=sp.PIPE,stderr=sp.STDOUT,text=True)
+            try:
+                for _ in range(100):
+                    if (state/"camp.pid").exists() and proc.poll() is None:
+                        break
+                    time.sleep(0.05)
+                time.sleep(0.3)  # 确保主线程已阻塞在child.wait()内部
+                os.kill(proc.pid,signal.SIGTERM)
+                outp,_=proc.communicate(timeout=20)
+            except sp.TimeoutExpired:
+                proc.kill();proc.wait()
+                self.fail("worker deadlocked on SIGTERM (regression of handler-wait deadlock)")
+            self.assertIn("worker_rc",outp)
+            camp_pid=int((state/"camp.pid").read_text())
+            for _ in range(60):
+                try:os.kill(camp_pid,0)
+                except ProcessLookupError:break
+                time.sleep(0.1)
+            else:
+                self.fail("campaign child survived worker SIGTERM")
             result=json.loads((state/"result.json").read_text())
             self.assertEqual(result["state"],"STOP")
             self.assertEqual(result["exit_code"],143)
