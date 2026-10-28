@@ -29,3 +29,7 @@
 - 本目录和主线`docs/PERFORMANCE_BASELINES.md`/ADR-020/`PROJECT_CONTROL.md`即便PR#20关闭也可独立读取**全部52份本轮关键可复核文本数据**。
 - 如有后续源分支更新，禁止直接覆盖主线归档；新实验须独立`run_id`和目录，原数据保持不变，校验Git blob SHA后另行审签。
 - 在E4新增真实结果之前，不能将其源级静态审查/纯CPU合约的通过写成任何310P3/BiSheng/Serving收益。
+
+## 独立数值交叉核验（原始Rank样本对机器评估）
+
+将主线16份正式Rank JSON逐场读取，针对M2048和M4096分别把同索引rank0/rank1的100个NPU Event样本取`max(rank0[i],rank1[i])`，再取各场p50，与本主线`e3_assessment.json.raw_sessions[].Ms[].paired_p50_us`逐项比对：**八场×两形状共16个结果全部一致，最大仅约0.001µs显示精度舍入差**；每个样本规模100、非Stock结果均为`bit_exact=true,status=0`。本交叉核验没有改变原始JSON或从漂移失败样本挑选新的结果；M2048整体`INCONCLUSIVE_DRIFT`、M4096稳定的机器合同结论保持原样。
