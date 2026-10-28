@@ -340,3 +340,20 @@ V3依赖改锁镜像`b9d46f97`，ADD/公共头/KVER28不变；上游占位自拷
 避免上游run包漏复制AICPU目录导致现场自行拼包。之后只编私有V3直调库，不替换共享SDK/Serving。
 默认固定38144 dev4/5，在真实独占/G0成立后一次V3-only有界快测；失败STOP回传，由研发修复源码。
 本轮没有服务器CANN编译或NPU结果；不能把镜像同步或CPU检查写为实机PASS。
+
+## 33. 2026-10-29｜V3 R3全门禁通过但性能失败；chunk512/1024/2048重排（ADR-024）
+
+- 证据归档在V3分支`6144af16`的[三轮记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)。
+  执行`f2c3eaf0`、MemFabric`db38d75e`/KVER28：修复fork+exec助手缺失和守护器助手窗口误杀，
+  CPU87、CANN、IB/ADD/协议/融合/尾块双Rank全部PASS，4配置×2轮×30样本完成。
+- 逐样本max双Rank复算8场p50与原JSON一致。最佳group2048的M2048/4096为
+  1709.941/2883.197微秒，较历史E4/E3-G慢17.29%/35.11%，较历史真实NZ Stock慢57.11%/41.49%；
+  轮间漂移0.28%～1.37%。接受用户要求：当前V3性能目标失败，重新设计，不能以功能PASS替代收益。
+- [V3.1复核与设计](../../memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)：
+  chunk仅512/1024/2048，保留V2 MM tiling；将MM/Reduce/Gather分段推进，
+  不再Finish上一组后才提交当前Reduce；验证1/2/4MiB包与双UB MTE，
+  单Core0邮件分发器处理合法跨tile消息，保持DCCI/首写/精确一次ADD/最终quiet+DONE。
+- 历史跨批对照仍不签正式性能GO；不重跑V2/Stock、不启模型或TTFT。
+  本次只做证据审查和设计，V3.1实现/编译/设备均NOT_RUN。
+- 职责更正：OpenCode负责执行及执行BUG修复、汇总采样/证据并提交远程；
+  研发负责方案/协议、实现审查、结果归因和后续推进，覆盖§32旧“只执行不修复”的交接限制。

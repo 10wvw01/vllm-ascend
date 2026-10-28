@@ -141,3 +141,10 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/quick.py status \
 - 模型40站点、DFlash、Graph和长稳另按项目门禁验收，本轮不运行这些阶段。
 
 源码与两轮静态审查见[REVIEW.md](REVIEW.md)。项目状态归主线V2目录中的控制台/ADR/总账统一维护。
+
+## 2026-10-29：实机审核与V3.1重排
+
+[实机复核与新排布](PERFORMANCE_REVIEW_20261029.md)：87项CPU、CANN编译及全部设备门禁PASS，
+但V3最佳group2048相对历史V2/E3-G时延增加17.29%/35.11%（M2048/4096），性能目标失败。
+下一版按用户指定的chunk512/1024/2048，保持V2对应MM tiling，改为MM/Reduce/Gather分段推进，
+同时验证大包与双缓冲MTE；不重跑V2/Stock性能臂。新排布尚未实现或实测。

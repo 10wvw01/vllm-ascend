@@ -4,6 +4,18 @@
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
+## 2026-10-29｜V3实机已完成，性能失败，进入V3.1流水重排
+
+已审核V3分支`6144af16`的[原始R1/R2/R3证据](csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)：
+执行`f2c3eaf0`、MemFabric修复`db38d75e`/KVER28；CPU87条、CANN编译、五关双Rank正确性全部PASS。
+四配置两轮30样本全部完成；最佳group2048在M2048/4096为1709.941/2883.197微秒，
+相对历史V2/E3-G仍慢17.29%/35.11%，相对同批历史NZ Stock慢57.11%/41.49%。
+**当前V3性能目标失败，不推进集成；下方开发期NOT_RUN只保留为历史状态。**
+研发[复核与新设计](csrc/_310P/memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)
+固定chunk512/1024/2048，沿用V2对应MM tiling，重排MM/Reduce/Gather并减少包、同步和MTE串行。
+V3.1尚未实现/实测；继续只测V3并复用历史V2/Stock，Serving默认不变。
+OpenCode负责执行、执行BUG修复、数据/证据与远程提交；方案、协议与结果审查由研发负责。
+
 ## 2026-10-29｜V3 SDMA ADD开发与V3-only快速历史对照
 
 用户已批准V3：移除本地Vector Add，采用单Kernel MM + ADD Reduce-Scatter + COPY All-Gather。
