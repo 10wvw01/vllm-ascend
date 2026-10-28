@@ -39,10 +39,13 @@ def verify_manifest(path):
         **m["dependency"]["installed_files"],
         **m["dependency"]["public_headers"],
         m["dependency"]["orch_json"]: m["dependency"]["orch_sha256"],
+        m["dependency"]["deploy_helper"]: m["dependency"]["deploy_helper_sha256"],
     }
     for name, expected in files.items():
         if sha(name) != expected:
             raise ValueError(f"frozen dependency/artifact changed: {name}")
+    if not os.access(m["dependency"]["deploy_helper"], os.X_OK):
+        raise ValueError("frozen deploy helper lost the executable bit")
     return m
 
 

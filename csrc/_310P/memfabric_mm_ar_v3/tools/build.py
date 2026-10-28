@@ -16,9 +16,11 @@ from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[1]
 REPO = PROJECT.parents[2]
-MF_BASE = "b9d46f97955b11a8b7a892e9fd8d516e66346a65"
+MF_BASE = "db38d75e8485d31451302219eb7a1bfeb1dd107c"
 MF_UPSTREAM = "ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4"
-MF_TREE = "59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103"
+MF_TREE = "4fe624cabbf62d6475f79cc63bd19dcbedacb0e7"
+MF_FIX_BRANCH = "fix/310p-v3-orch-deploy-helper-20261029"
+MF_SYNC_BASE = "b9d46f97955b11a8b7a892e9fd8d516e66346a65"
 
 
 def sha(path):
@@ -39,17 +41,28 @@ def only(paths, label):
 def dependency(source, home):
     head = git(source, "rev-parse", "HEAD")
     if head != MF_BASE:
-        raise ValueError(f"MemFabric must be pinned to {MF_BASE}; found {head}. Audit a new dependency explicitly.")
+        raise ValueError(
+            f"MemFabric must be pinned to {MF_BASE} ({MF_FIX_BRANCH}); found {head}. Audit a new dependency explicitly."
+        )
     if git(source, "status", "--porcelain", "--untracked-files=no"):
         raise ValueError("MemFabric source contains unrecorded changes")
     if git(source, "rev-parse", "HEAD^{tree}") != MF_TREE:
-        raise ValueError("MemFabric source tree differs from audited GitCode upstream")
+        raise ValueError("MemFabric source tree differs from the audited fix branch")
+    base_check = subprocess.run(["git", "-C", str(source), "merge-base", "--is-ancestor", MF_SYNC_BASE, head])
+    if base_check.returncode != 0:
+        raise ValueError("fix branch is not rooted at the audited sync commit b9d46f97")
     version_info = only(home.glob("**/version.info"), "installed package version.info")
     if not re.search(rf"^CommitId:\s*{head}\s*$", version_info.read_text(), re.MULTILINE):
         raise ValueError("installed package CommitId does not match the pinned MemFabric source")
     inc = only(home.glob("**/include/smem/device/smem_shm_aicore_base_sdma.h"), "installed SDMA header").parent
     host = only(home.glob("**/include/smem/host/smem_shm.h"), "installed host header").parent
     smem = only(home.glob("**/libmf_smem.so"), "public SMEM library")
+    hybm = only(home.glob("**/lib64/libmf_hybm_core.so"), "orchestrator host library")
+    helper = only(home.glob("**/lib64/orch_deploy_helper"), "out-of-process deploy helper")
+    if not os.access(helper, os.X_OK):
+        raise ValueError("orch_deploy_helper is not executable")
+    if helper.parent != hybm.parent:
+        raise ValueError("deploy helper must sit next to libmf_hybm_core.so for dladdr discovery")
     contract = source / "src/hybm/ops/hybm_kernel/hybm_sdma_contract.h"
     kver = int(re.search(r"HYBM_SDMA_ORCH_KVER\s*=\s*(\d+)", contract.read_text()).group(1))
     orch = only(home.glob(f"**/libmf_sdma_orch_v{kver}.json"), "versioned launch JSON")
@@ -75,10 +88,14 @@ def dependency(source, home):
         "source_head": head,
         "upstream_head": MF_UPSTREAM,
         "source_tree": MF_TREE,
+        "fix_branch": MF_FIX_BRANCH,
+        "fix_base": MF_SYNC_BASE,
         "home": str(home),
         "kver": kver,
         "orch_json": str(orch),
         "orch_sha256": sha(orch),
+        "deploy_helper": str(helper),
+        "deploy_helper_sha256": sha(helper),
         "installed_files": identities,
         "smem": str(smem),
         "device_include": str(inc),

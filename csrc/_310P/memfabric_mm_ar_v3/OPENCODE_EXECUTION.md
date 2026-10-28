@@ -29,15 +29,19 @@
 | 仓库 | 作用 | 分支/锁定值 | 服务器动作 |
 |---|---|---|---|
 | `gitcode.com/GDD_ESCC/memfabric_hybrid` | 权威上游，只读来源 | `dev-v1.2.0`；`ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4` | 不修改，不必再克隆 |
-| `github.com/10wvw01/memfabric_hybrid` | 已同步的SDK构建源码 | `dev-v1.2.0`；`b9d46f97955b11a8b7a892e9fd8d516e66346a65` | 新克隆，detached HEAD固定提交 |
+| `github.com/10wvw01/memfabric_hybrid` | V3部署修复SDK源码 | `fix/310p-v3-orch-deploy-helper-20261029`；`db38d75e8485d31451302219eb7a1bfeb1dd107c` | 新克隆，detached HEAD固定提交 |
 | `github.com/10wvw01/vllm-ascend` | V3算子、适配器和执行工具 | `work/310p-mm-ar-v3-sdma-add-20261029`；完整SHA以本次交接消息为准 | 新克隆，detached HEAD固定该SHA |
 
 不更新vLLM主框架、现有Serving worktree、已安装vllm-ascend wheel、模型权重或DFlash。
 不更新/提交`HaonanWu1/vllm-ascend`。不把V3 merge进研发主线或切换为生产默认。
 
-GitHub镜像使用保留现有历史的快照提交，所以它的commit SHA不同于上游。
-两边完整tree均为`59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103`，代码逐字节一致。
-此次新增SetAccess物理号修复，ADD接口、公共设备头及KVER28不变。来源证明见[UPSTREAM_SYNC.json](UPSTREAM_SYNC.json)。
+GitHub镜像`b9d46f97`与上游`ba3e7f42`整树逐字节一致（tree `59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103`），
+含SetAccess物理号修复，ADD接口、公共设备头及KVER28不变；来源证明见[UPSTREAM_SYNC.json](UPSTREAM_SYNC.json)。
+V3首轮实机（2026-10-28）证明该锁定的进程内部署链在torch_npu宿主下不可用（KFC system 仅纯ACL进程可执行），
+故按研发侧指令从`b9d46f97`创建`fix/310p-v3-orch-deploy-helper-20261029`：
+移植生产验证过的`orch_deploy_helper` fork+exec部署机制并强制独占使用（助手缺失/失败即报错，
+不回退进程内KFC、不"假定已部署"），ADD/KVER28/SetAccess修复不变；助手由私有SDK显式编译打包进lib64，
+`prepare_sdk.py`/`build.py`校验其存在、可执行位与SHA。V3依赖锁定同步指向该修复分支。
 
 ## 2. 冻结环境与创建隔离目录
 
@@ -77,11 +81,13 @@ git clone --single-branch --branch work/310p-mm-ar-v3-sdma-add-20261029 \
 git -C "$V3_RUN_ROOT/vllm-ascend" checkout --detach "$V3_EXPECTED_SHA"
 test "$(git -C "$V3_RUN_ROOT/vllm-ascend" rev-parse HEAD)" = "$V3_EXPECTED_SHA"
 
-git clone --single-branch --branch dev-v1.2.0 \
+git clone --single-branch --branch fix/310p-v3-orch-deploy-helper-20261029 \
   https://github.com/10wvw01/memfabric_hybrid.git "$V3_RUN_ROOT/memfabric-src"
-git -C "$V3_RUN_ROOT/memfabric-src" checkout --detach b9d46f97955b11a8b7a892e9fd8d516e66346a65
+git -C "$V3_RUN_ROOT/memfabric-src" checkout --detach db38d75e8485d31451302219eb7a1bfeb1dd107c
+test "$(git -C "$V3_RUN_ROOT/memfabric-src" rev-parse HEAD)" = \
+  db38d75e8485d31451302219eb7a1bfeb1dd107c
 test "$(git -C "$V3_RUN_ROOT/memfabric-src" rev-parse HEAD^{tree})" = \
-  59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103
+  4fe624cabbf62d6475f79cc63bd19dcbedacb0e7
 
 cd "$V3_RUN_ROOT/vllm-ascend"
 "$V3_PYTHON" -c 'import torch, torch_npu; print(torch.__version__, torch_npu.__version__)' \
@@ -113,10 +119,11 @@ cd "$V3_RUN_ROOT/vllm-ascend"
 |---|---|
 | 公共头 | `memfabric-sdk/include/smem/{host,device}` |
 | Host动态库 | `memfabric-sdk/aarch64-linux/lib64` |
+| 部署助手（必需） | `memfabric-sdk/aarch64-linux/lib64/orch_deploy_helper` |
 | AICPU设备源SO | `memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.so` |
 | CUST迁移JSON | 同目录`libmf_sdma_orch.json` |
 | KVER28 launch JSON | 同目录`libmf_sdma_orch_v28.json` |
-| SDK构建/复制证据 | `memfabric-sdk/memfabric_build.log`、`sdk_manifest.json`、`version.info` |
+| SDK构建/复制证据 | `memfabric_build.log`、`orch_deploy_helper_build.log`、`sdk_manifest.json`、`version.info` |
 
 不用旧的KVER11补丁SO，不复制系统安装中的同名库，不临时修改SetAccess源码。
 上游新修复已经包含在这次锁定的源码中。AICPU hcc编译器缺失或任一三件套缺失都STOP。

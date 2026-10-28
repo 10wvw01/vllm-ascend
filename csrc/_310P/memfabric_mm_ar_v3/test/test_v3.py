@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -277,3 +278,56 @@ def test_sdk_staging_refuses_incomplete_or_ambiguous_binaries(tmp_path, monkeypa
         p.write_text("different-build")
     with pytest.raises((ValueError, FileNotFoundError)):
         sdk.stage(source, tmp_path / "sdk")
+
+
+def helper_fixture(tmp_path):
+    source = tmp_path / "source"
+    helper = source / "tools/aicpu_kernel_deploy/orch_deploy_helper.cpp"
+    helper.parent.mkdir(parents=True)
+    helper.write_text("int main() { return 0; }\n")
+    cann = tmp_path / "cann"
+    (cann / "aarch64-linux/include/acl").mkdir(parents=True)
+    (cann / "aarch64-linux/include/acl/acl.h").write_text("/* acl */\n")
+    (cann / "aarch64-linux/lib64").mkdir(parents=True)
+    (cann / "aarch64-linux/lib64/libascendcl.so").write_text("/* acl */\n")
+    shim = tmp_path / "fake-g++"
+    shim.write_text(
+        "#!/usr/bin/env bash\n"
+        "target=''\n"
+        "while [ $# -gt 0 ]; do\n"
+        '  if [ "$1" = -o ]; then target="$2"; shift 2; continue; fi\n'
+        "  shift\n"
+        "done\n"
+        "printf 'fake helper\\n' > \"$target\"\n"
+    )
+    os.chmod(shim, 0o755)
+    return source, cann, shim
+
+
+def test_helper_compile_command_pins_source_and_acl_paths(tmp_path, monkeypatch):
+    sdk = sdk_module(monkeypatch)
+    source, cann, shim = helper_fixture(tmp_path)
+    monkeypatch.setattr(sdk.shutil, "which", lambda name: str(shim))
+    command = sdk.helper_compile_command(source, cann)
+    assert command[-5:] == ["-lascendcl", "-lruntime", "-ldl"] or command[-1] == "-ldl"
+    assert str(source / "tools/aicpu_kernel_deploy/orch_deploy_helper.cpp") in command
+    assert f"-I{cann / 'aarch64-linux/include'}" in command
+    assert f"-Wl,-rpath,{cann / 'aarch64-linux/lib64'}" in command
+    (source / "tools/aicpu_kernel_deploy/orch_deploy_helper.cpp").unlink()
+    with pytest.raises(FileNotFoundError):
+        sdk.helper_compile_command(source, cann)
+
+
+def test_build_helper_compiles_records_and_refuses_overwrite(tmp_path, monkeypatch):
+    sdk = sdk_module(monkeypatch)
+    source, cann, shim = helper_fixture(tmp_path)
+    monkeypatch.setattr(sdk.shutil, "which", lambda name: str(shim))
+    dest = tmp_path / "sdk"
+    records = []
+    receipt = sdk.build_helper(source, dest, cann, records)
+    staged = dest / "aarch64-linux/lib64/orch_deploy_helper"
+    assert staged.is_file() and os.access(staged, os.X_OK)
+    assert receipt["sha256"] == sdk.sha(staged) == records[-1]["sha256"]
+    assert (dest / "orch_deploy_helper_build.log").is_file()
+    with pytest.raises(FileExistsError):
+        sdk.build_helper(source, dest, cann, records)

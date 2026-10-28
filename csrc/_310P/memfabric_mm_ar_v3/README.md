@@ -34,10 +34,14 @@ Reduce中发送源和被累加区互不相交。收到Reduce邮件也证明对�
 
 ## 依赖与构建
 
-固定MemFabric源码：`10wvw01/memfabric_hybrid@b9d46f97955b11a8b7a892e9fd8d516e66346a65`，KVER28。
-旧KVER11安装包和旧V2嵌入头不适用于V3。公共头、Host库、设备so和launch JSON必须同批。
-构建脚本校验源码HEAD/工作区、公共头SHA、JSON类型/KVER，冻结所有安装SO与V3源码SHA。
-它只在指定目录生成私有V3 so，不覆盖共享安装、不预部署AICPU。
+固定MemFabric源码：`10wvw01/memfabric_hybrid`分支`fix/310p-v3-orch-deploy-helper-20261029`
+（`db38d75e8485d31451302219eb7a1bfeb1dd107c`，基于同步锁`b9d46f97`），KVER28。
+该修复分支按研发侧指令移植生产验证过的`orch_deploy_helper` fork+exec部署机制并强制独占使用
+（torch_npu宿主进程内KFC命令会永久打死设备上下文；助手缺失/失败即报错，无进程内回退），
+ADD/KVER28/SetAccess修复不变。旧KVER11安装包和旧V2嵌入头不适用于V3。
+公共头、Host库、设备so、launch JSON和部署助手必须同批。
+构建脚本校验源码HEAD/工作区、公共头SHA、JSON类型/KVER、助手存在/可执行位/SHA，
+冻结所有安装SO与V3源码SHA。它只在指定目录生成私有V3 so，不覆盖共享安装、不预部署AICPU。
 
 上游GitCode已同步到`ba3e7f42`，GitHub镜像提交为`b9d46f97`，两边完整tree一致。
 新增SetAccess物理设备号修复，详见[UPSTREAM_SYNC.json](UPSTREAM_SYNC.json)。

@@ -5,6 +5,9 @@
 The upstream .run packer does not copy output/hybm/aicpu_kernel. This
 stager explicitly includes SDMA source SO + CUST JSON + versioned launch
 JSON, so the executor must not improvise packaging or copy old KVER11 files.
+It also compiles orch_deploy_helper into lib64: pool creation hard-requires
+the out-of-process deploy helper (in-process KFC is forbidden under torch_npu),
+so a private SDK without this executable cannot create a first pool.
 No shared installation, shell profile, Python wheel, or device is changed.
 """
 
@@ -18,7 +21,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from build import MF_BASE, MF_TREE, MF_UPSTREAM, git, sha
+from build import MF_BASE, MF_FIX_BRANCH, MF_SYNC_BASE, MF_TREE, MF_UPSTREAM, git, sha
 
 
 def copy_file(source, target, records):
@@ -30,6 +33,57 @@ def copy_file(source, target, records):
         return
     shutil.copy2(source, target)
     records.append({"source": str(source), "target": str(target), "sha256": sha(target)})
+
+
+def helper_compile_command(source, cann):
+    """g++ command building orch_deploy_helper from the isolated source tree."""
+    helper_source = source / "tools/aicpu_kernel_deploy/orch_deploy_helper.cpp"
+    if not helper_source.is_file():
+        raise FileNotFoundError(f"deploy helper source missing: {helper_source}")
+    compiler = shutil.which("g++")
+    if not compiler:
+        raise FileNotFoundError("g++ not found")
+    include = cann / "aarch64-linux/include"
+    libdir = cann / "aarch64-linux/lib64"
+    for path in (include / "acl/acl.h", libdir / "libascendcl.so"):
+        if not path.is_file():
+            raise FileNotFoundError(f"CANN ACL paths missing: {path}")
+    return [
+        compiler,
+        "-O2",
+        "-std=c++17",
+        "-Wall",
+        "-Werror",
+        f"-I{include}",
+        "-o",
+        "TARGET",
+        str(helper_source),
+        f"-L{libdir}",
+        f"-Wl,-rpath,{libdir}",
+        "-lascendcl",
+        "-lruntime",
+        "-ldl",
+    ]
+
+
+def build_helper(source, dest, cann, records):
+    """Compile the out-of-process deploy helper next to the staged host libraries.
+
+    The library refuses any in-process KFC deployment under torch_npu, so a private
+    SDK without this executable can never create a first pool on a fresh device.
+    """
+    command = helper_compile_command(source, cann)
+    target = dest / "aarch64-linux/lib64/orch_deploy_helper"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        raise FileExistsError(f"helper already staged: {target}")
+    command[command.index("TARGET")] = str(target)
+    log_path = dest / "orch_deploy_helper_build.log"
+    with log_path.open("x") as log:
+        subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, timeout=600, check=True)
+    os.chmod(target, 0o755)
+    records.append({"source": "compiled", "target": str(target), "sha256": sha(target)})
+    return {"command": command, "target": str(target), "sha256": sha(target), "log": str(log_path)}
 
 
 def stage(source, dest):
@@ -72,7 +126,7 @@ def main():
     if platform.machine() != "aarch64":
         raise ValueError("MemFabric SDK must be built on the aarch64 310P3 host")
     if git(source, "rev-parse", "HEAD") != MF_BASE or git(source, "rev-parse", "HEAD^{tree}") != MF_TREE:
-        raise ValueError("wrong MemFabric commit/tree; use the exact GitHub mirror lock")
+        raise ValueError(f"wrong MemFabric commit/tree; use the exact {MF_FIX_BRANCH} lock")
     if git(source, "status", "--porcelain", "--untracked-files=no"):
         raise ValueError("dirty MemFabric source")
     if (source / "build").exists() or (source / "output").exists():
@@ -110,14 +164,18 @@ def main():
         )
     # Stage from the build graph, not from the incomplete .run archive; do not execute its installer.
     records = stage(source, out)
+    helper = build_helper(source, out, cann, records)
     receipt = {
-        "schema": "V3_PRIVATE_SDK_V1",
+        "schema": "V3_PRIVATE_SDK_V2",
         "source": str(source),
         "head": MF_BASE,
         "upstream_head": MF_UPSTREAM,
         "tree": MF_TREE,
+        "fix_branch": MF_FIX_BRANCH,
+        "fix_base": MF_SYNC_BASE,
         "kver": 28,
         "build_command": command,
+        "deploy_helper": helper,
         "files": records,
         "device_deployment": "NOT_RUN",
         "scope": "host private staging only",
