@@ -143,3 +143,13 @@
 
 
 **ADR-020落实追加记录（2026-10-28，主线原始证据迁移）**：已将[E3主线证据52份归档清单](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)、[E3机器评估](../evidence/e3_chunk2048_20261028/e3_assessment.json)、双Rank原始采样、真NZ路由、G0及原报告全部原样保存在`dev/310p-memfabric-mm-ar`；每份源blob SHA与归档blob一致。此后工作分支PR#20不再是关键机器数据唯一备份。**不因证据迁移授予任何E3实验Kernel/Host的生产合入资格**，Stock默认不变；大型Profiler及原未上传的PLog/build日志仍留待补证。
+
+
+## ADR-021｜2026-10-28｜E4 Attempt1被外部占卡阻断，连续独占和主动STOP守护升为P0｜**有效**
+
+- **机测事实**：run_id `e4-layered-20261028-001`，执行HEAD `1e20d3522cc9dd8040b257fae8d887e7d12f3b5e`，归档HEAD `5b727e9f9153e8292c6022a14b63e974dfb0db03`。G0、原仓80+E4合同9条UT、2049M CPU规划、CANN9.1 BiSheng四实例隔离编译、原生NZ四组路由、E3-G双RankSmoke均PASS。但E4-T2048启动即被执行工具SIGTERM打断无Kernel执行；外部宿主PID506263随后被查证在四卡持续占用，原始首份06:29:39Z巡检已有该PID。**全部E4新候选设备Smoke和短Screen NOT_RUN**；十四场Confirm从未授权。不能给出E4与Stock/E3-G的任何测速结论。
+- **治理故障**：`e4_campaign.sh`的30s巡检仅记录而不作即时安全决策；G0单次独占不保证整轮持续独占。外部进程出现后E3-G Smoke发生同下标Rank同时2.3ms/6.5～6.8ms交替，属于被占卡污染的正确性取证，不可用于L1对照。原工具进程组SIGTERM也是独立执行工艺问题，不得解释成E4-T Kernel失败。
+- **强制P0**：下一轮继续沿用当前E4隔离分支/PR #21，不另开E5或重跑上一轮CPU验收；先获取真实连续单卡双Die独占，再完成具有**阻断新阶段**能力的宿主级只读外部占用检测（不能仅打印30s日志），与独立session启动+进程完成状态轮询的终止保证，补CPU模拟/负面测试和两轮静审。发生异常全批STOP保全，无自动重试、换卡、杀租户PID或清KFC；每次重用构建须核实执行HEAD与manifest以及SO SHA完全一致，不兼容则重建。任何性能Screen都必须G0/运行中独占、原生NZ、全部E4 Smoke PASS。
+- **性能合同不变**：E3-G已验证M4096 2119.506µs vs真正Stock2022.553µs，仍差96.953µs；`INNER_PHASE_UNKNOWN`。E4-T2/T4/T8/PacketAdd增益`UNKNOWN`，E4-B仍仅纯CPU连续M规划。Stock Serving默认不变、E4 L2/L3/L4 NOT_RUN、十四场Confirm需单独授权。
+- **权威原件**：[本主线E4 Attempt1 23份逐文件同SHA归档](../evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)，[原中文报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)，[STOP根因取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)，[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)（实施非主线）。
+
