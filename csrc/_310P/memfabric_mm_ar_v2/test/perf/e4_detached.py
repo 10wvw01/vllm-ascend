@@ -50,7 +50,7 @@ def guard_inputs(state: Path, out: Path, build: Path, repo_root: Path) -> str:
 
 def start(state: Path, out: Path, build: Path) -> int:
     perf = Path(__file__).resolve().parent
-    root = perf.parents[3]
+    root = perf.parents[4]
     head = guard_inputs(state, out, build, root)
     state.mkdir(mode=0o700)
     info = {"state": "STARTING", "repo_head": head, "out": str(out),
