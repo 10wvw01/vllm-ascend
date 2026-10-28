@@ -185,7 +185,14 @@ def main():
         e0, e1 = torch.npu.Event(enable_timing=True), torch.npu.Event(enable_timing=True)
         torch.npu.synchronize()
         dist.barrier()
-        session = V3Session(manifest["host_so"], rank, a.store_url)
+        # 声明部署窗口：池创建期间库会 fork+exec orch_deploy_helper（每 Rank ≤1 个
+        # 短命设备进程），守护器据此容忍有界瞬态超额；窗口结束即撤销标记。
+        deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
+        deploy_flag.write_text(json.dumps({"rank": rank, "phase": "pool-create"}))
+        try:
+            session = V3Session(manifest["host_so"], rank, a.store_url)
+        finally:
+            deploy_flag.unlink(missing_ok=True)
         data["loaded_libraries"] = loaded_identity(manifest)
 
         def checked(out, ref, label):

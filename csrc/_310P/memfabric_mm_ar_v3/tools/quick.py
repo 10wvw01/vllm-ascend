@@ -126,7 +126,7 @@ def run(a):
             str(a.protocol_reps),
         ]
         result["device_test"] = "STARTED"
-        ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout)
+        ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
         result["exit_code"] = ret
         if ret:
             raise RuntimeError(f"V3 worker/lease guard stopped with {ret}; do not auto-retry")

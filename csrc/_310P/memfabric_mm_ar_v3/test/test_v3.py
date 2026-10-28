@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -194,6 +195,86 @@ def test_guard_runtime_stop_preserves_unrelated_process(tmp_path, monkeypatch):
     finally:
         unrelated.terminate()
         unrelated.wait(timeout=5)
+
+
+def test_guard_deploy_window_tolerates_transient_helpers_only(tmp_path, monkeypatch):
+    """声明窗口内的瞬态自有助手子进程被有界容忍；持续超额或无标记超额仍STOP。"""
+    state = {"phase": 0}
+    (tmp_path / "deploy_window_rank0.flag").write_text('{"rank": 0}')
+    sequences = [
+        snapshot(),  # preflight idle
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # ranks only
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 333 |\n| 38144 1 | 444 |\n"),  # +2 helpers
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # healed
+    ]
+
+    def poll(_card):
+        raw = sequences[min(state["phase"], len(sequences) - 1)]
+        state["phase"] += 1
+        return raw, guard.parse_info(raw, 38144)
+
+    quick = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
+
+    def child_poll():
+        return 0 if state["phase"] >= len(sequences) else None
+
+    monkeypatch.setattr(guard, "sample", poll)
+    monkeypatch.setattr(guard.subprocess, "Popen", lambda *a, **k: quick)
+    monkeypatch.setattr(quick, "poll", lambda: child_poll())
+    try:
+        rc = guard.run_stage(38144, tmp_path / "guard.jsonl", 0.01, ["unused"], 5, deploy_flag_dir=tmp_path)
+        assert rc == 0
+        events = [json.loads(line)["event"] for line in (tmp_path / "guard.jsonl").read_text().splitlines()]
+        assert "DEPLOY_WINDOW_TRANSIENT" in events and "DEPLOY_WINDOW_HEALED" in events
+        assert "STOP" not in events
+    finally:
+        quick.terminate()
+        quick.wait(timeout=5)
+
+
+def test_guard_deploy_window_stops_persistent_and_unflagged_extras(tmp_path, monkeypatch):
+    state = {"phase": 0}
+    busy = snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 333 |\n| 38144 1 | 444 |\n")
+
+    def poll(_card):
+        state["phase"] += 1
+        raw = snapshot() if state["phase"] == 1 else busy
+        return raw, guard.parse_info(raw, 38144)
+
+    # 两个替身子进程须在补丁前创建：补丁会劫持全局 subprocess.Popen。
+    children = [
+        subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
+        for _ in range(2)
+    ]
+    holder = {"child": children[0]}
+    monkeypatch.setattr(guard, "sample", poll)
+    monkeypatch.setattr(guard.subprocess, "Popen", lambda *a, **k: holder["child"])
+    try:
+        # 无标记：立即 STOP（stop_owned 终止的是自带会话的替身子进程）。
+        rc = guard.run_stage(38144, tmp_path / "g1.jsonl", 0.01, ["unused"], 5)
+        assert rc == 97
+        # 有标记但持续超额（超过有界时限）：仍 STOP。
+        (tmp_path / "deploy_window_rank0.flag").write_text('{"rank": 0}')
+        state["phase"] = 0
+        holder["child"] = children[1]
+        rc = guard.run_stage(
+            38144,
+            tmp_path / "g2.jsonl",
+            0.01,
+            ["unused"],
+            5,
+            deploy_flag_dir=tmp_path,
+            deploy_persist_s=1.0,
+        )
+        assert rc == 97
+        for name in ("g1.jsonl", "g2.jsonl"):
+            events = [json.loads(line)["event"] for line in (tmp_path / name).read_text().splitlines()]
+            assert "STOP" in events
+    finally:
+        for proc in children:
+            if proc.poll() is None:
+                proc.terminate()
+                proc.wait(timeout=5)
 
 
 def test_portable_cpp_contract(tmp_path):

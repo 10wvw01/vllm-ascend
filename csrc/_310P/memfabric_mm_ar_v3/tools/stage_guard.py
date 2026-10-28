@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
-"""V3现场守护（从E4 5cff1b2d逐文件回收）：：目标卡双Die只读检查 + 每阶段运行中的主动STOP。
+"""V3现场守护（从E4 5cff1b2d逐文件回收）：目标卡双Die只读检查 + 每阶段运行中的主动STOP。
 
 本守护不是排他锁：容器PID命名空间可能无法映射宿主PID；仅对可观测的
 跨卡进程/目标卡进程数量异常 fail-closed，目标卡单独入侵仍需真实独占租约保护。
 只终止自己启动的torchrun进程组，绝不kill外部租户。
+
+部署窗口例外（V3 2026-10-29）：库强制 fork+exec `orch_deploy_helper` 完成设备侧
+kernel 部署——两个短命助手子进程与两个 Rank 同卡出现是本方案的合法形态，npu-smi
+宿主 PID 无法映射回容器进程，故以 worker 声明的 `deploy_window_rank*.flag` 标记
+识别该窗口：窗口内允许至多 max+2 个目标卡进程且持续超上限不得超过有界时限；
+无标记或持续超限仍立即 STOP，跨卡/健康/解析失败不受窗口影响。
 """
 
 from __future__ import annotations
@@ -28,6 +34,10 @@ STOP_EXIT = 97
 
 class LeaseLost(RuntimeError):
     pass
+
+
+class ExtraTargetPids(LeaseLost):
+    """目标卡进程数超限（部署窗口内可被有界容忍的自有助手子进程形态）。"""
 
 
 def parse_info(raw: str, card: int) -> dict:
@@ -55,7 +65,7 @@ def parse_info(raw: str, card: int) -> dict:
     }
 
 
-def assess(snap: dict, *, stage_running: bool, max_rank_pids: int = 2) -> dict:
+def assess(snap: dict, *, stage_running: bool, max_rank_pids: int = 2, deploy_allowance: int = 0) -> dict:
     target = snap["target"]
     outside = snap["outside"]
     if not stage_running and target:
@@ -63,8 +73,10 @@ def assess(snap: dict, *, stage_running: bool, max_rank_pids: int = 2) -> dict:
     cross = target & outside
     if cross:
         raise LeaseLost(f"external cross-card PID on target: {sorted(cross)}")
-    if len(target) > max_rank_pids:
-        raise LeaseLost(f"unexpected target process count {len(target)}>{max_rank_pids}: {sorted(target)}")
+    if len(target) > max_rank_pids + deploy_allowance:
+        raise ExtraTargetPids(
+            f"unexpected target process count {len(target)}>{max_rank_pids + deploy_allowance}: {sorted(target)}"
+        )
     return {
         "target_pids": sorted(target),
         "cross_card": sorted(cross),
@@ -102,11 +114,29 @@ def stop_owned(child: subprocess.Popen) -> None:
         child.wait()
 
 
-def run_stage(card: int, log: Path, poll: float, command: list[str], timeout: float = 600) -> int:
+def deploy_window_open(flag_dir: Path | None) -> bool:
+    """worker 在池创建前后声明/撤销的部署窗口标记（每 Rank 一个文件）。"""
+    if flag_dir is None:
+        return False
+    return any(flag_dir.glob("deploy_window_rank*.flag"))
+
+
+def run_stage(
+    card: int,
+    log: Path,
+    poll: float,
+    command: list[str],
+    timeout: float = 600,
+    deploy_flag_dir: Path | None = None,
+    deploy_extra_pids: int = 2,
+    deploy_persist_s: float = 60.0,
+) -> int:
     if not log.is_absolute() or not log.parent.is_dir() or log.is_symlink():
         raise ValueError("absolute log under an existing directory required")
     if not command:
         raise ValueError("stage command required")
+    if deploy_extra_pids < 0 or not (1.0 <= deploy_persist_s <= 600.0):
+        raise ValueError("deploy window bounds invalid")
     record(log, "PREFLIGHT_START", argv=command, card=card)
     last_raw = ""
     try:
@@ -121,6 +151,7 @@ def run_stage(card: int, log: Path, poll: float, command: list[str], timeout: fl
     child = subprocess.Popen(command, start_new_session=True)
     record(log, "STAGE_STARTED", child_pid=child.pid)
     deadline = time.monotonic() + timeout
+    over_since: float | None = None
     previous_term = signal.getsignal(signal.SIGTERM)
     previous_int = signal.getsignal(signal.SIGINT)
 
@@ -134,13 +165,35 @@ def run_stage(card: int, log: Path, poll: float, command: list[str], timeout: fl
             if time.monotonic() >= deadline:
                 raise LeaseLost("V3 stage wall-clock deadline exceeded")
             last_raw, snapshot = sample(card)
-            verified = assess(snapshot, stage_running=True)
+            declared = deploy_window_open(deploy_flag_dir)
+            verified = assess(snapshot, stage_running=True, deploy_allowance=deploy_extra_pids if declared else 0)
+            if len(snapshot["target"]) > 2:
+                # 分层：无窗口或超额>allowance 已在 assess 内 STOP；此处只剩
+                # "声明窗口内 3~4 个进程"——自有助手子进程形态，仅有界容忍。
+                if not declared:
+                    raise LeaseLost(f"unexpected target process count without deploy window: {verified}")
+                if over_since is None:
+                    over_since = time.monotonic()
+                    record(log, "DEPLOY_WINDOW_TRANSIENT", **verified)
+                elif time.monotonic() - over_since > deploy_persist_s:
+                    raise LeaseLost(f"deploy window extras persisted >{deploy_persist_s}s: {verified['target_pids']}")
+            elif over_since is not None:
+                over_since = None
+                record(log, "DEPLOY_WINDOW_HEALED")
             record(log, "LEASE_SAMPLE", **verified)
             ret = child.poll()
             if ret is not None:
                 # 短Screen可能不足2秒：结束时强制再采一帧，不能只靠定时采样。
                 last_raw, final = sample(card)
-                record(log, "POST_STAGE_LEASE", **assess(final, stage_running=True))
+                record(
+                    log,
+                    "POST_STAGE_LEASE",
+                    **assess(
+                        final,
+                        stage_running=True,
+                        deploy_allowance=deploy_extra_pids if deploy_window_open(deploy_flag_dir) else 0,
+                    ),
+                )
                 record(log, "STAGE_EXIT", exit_code=ret)
                 return ret
             time.sleep(poll)
