@@ -151,3 +151,5 @@
 - **固定开销归因限制**：E3-G MM调用和SDMA消息都未减少，减少的是2048会合组数量及每组生产/接收DCCI、Ready、AddRelease的次数；`INNER_PHASE_UNKNOWN`。AddTile仍为2048 **FP16元素**，不是2048行。E4 AddTile和Packet级Add均为未实测待验。
 - **业务状态**：E3/E4 L2 真实40站点、L3 Prefill设备Step和L4客户端TTFT全`NOT_RUN`；本主线正式Stock默认不变，既有历史SEL-01/Eager等结果不迁移为E3成绩。
 
+
+**E3关键证据已归档主线（2026-10-28后续补充）**：[52份主线原始归档](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)含[E3机器评估](../evidence/e3_chunk2048_20261028/e3_assessment.json)与[原版实机报告](A1_E3_CHUNK2048_实机报告_20261028.md)，16份正式双Rank Event采样及G0/NZ/SHA逐文件与来源Git blob一致。此举**不改变数值或漂移判定**，仅消除PR#20为唯一证据存放位置的工程风险；其深层Profiler和未上传的PLog/构建日志不视作已归档。
