@@ -19,6 +19,8 @@
 - 主线已独立保全[23份E4 Attempt1原始证据](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)、[中文原始实机报告](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件报告](csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)，拷贝文件Git blob SHA与来源一致；E4实现仍在[Draft PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)。
 - **下一步先修实机运行治理，才复测算法**：现场必须取得连续双Die独占窗口，补强G0后实时外部进程出现即STOP（现30秒巡检只记录而不阻断）并让OpenCode以独立session启动及轮询消除工具超时SIGTERM；完成CPU负面回归、两轮静审后重G0核对SO/HEAD，再做E4-T2/T4/T8/P正确性Smoke与七臂Screen。不得伪称E4本轮有性能增益或已支持任意M设备执行。
 
+**E4测试保护实施进展（2026-10-28）**：已在原[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)实现`e4_stage_guard.py`主动占卡STOP与`e4_detached.py`独立Session启动/status/退出码，全部四处torchrun接入守护，新增纯CPU故障注入合同，详见[主线PROJECT_CONTROL第28节](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)和[现场操作指南](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/docs/A1_E4_最小实机测试保护与复跑操作_20261028.md)。**这是工具代码完成，不代表新的CPU/CI或310P3实机PASS。** 必须在新的独占租约下重G0、核HEAD、重编私有SO，再对四候选Smoke/Screen；Stock生产默认与Confirm授权仍不变。
+
 ## 从这里恢复上下文（推荐阅读顺序）
 
 1. [项目控制台：当前全项目状态、技术合同和决策](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)——全项目权威状态。
