@@ -161,3 +161,9 @@
 - 运行中宿主PID506263竞争占卡，E3-G M4096六条配对Event约2.3ms/6.5～6.8ms交替，**绝对不得作为E3-G新版性能或Stock对照**。E4-T2的torchrun被执行工具SIGTERM打断无设备执行；E4-T4/T8/PacketAdd完全未上机，全部E4候选的`Smoke=NOT_RUN / Screen=NOT_RUN / Confirm=NOT_RUN`（Confirm另受未授权约束）。**本节不新增E4性能表或速度增益**。
 - 上轮可用E3-G（M4096 2119.506µs）与真NZ Stock（2022.553µs）差96.953µs仍是**旧E3批次的参考目标，不可视为E4同批对照**。E4-B全2049形状规划仅CPU验证，变长设备执行/路由未知。
 
+
+## 2026-10-28｜E4 Attempt2七臂Screen（方向性，不签正式性能）与Attempt3零新数据
+
+> attempt2（HEAD `5b727e9f9`，30样本/臂、rank max配对p50，`SCREEN_ONLY_NO_SIGNED_PERFORMANCE`）：M4096 Stock 2037.7 / E1 2261.9 / E3-G 2133.9 / e4t2 2131.7 / e4t4 2112.5 / **e4t8 2076.2** / e4p 2105.3µs——**e4t8相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs缩至38.5µs（回收约60%）**；e4t2与E3-G差0.10%（排除重建漂移）；e4p −1.34%（受"Core0须等两包"结构性限制）；M2048全部E4候选与E3-G持平（±1.3%）、仍落后Stock约32-34%。E3-G/Stock两锚与E3-Confirm认证值高度一致（96.2 vs 96.953µs），方向可信度高，但单场Screen不可签正式结论。
+>
+> attempt3（保护机制验收轮）**零新性能样本**：16384被宿主级外部负载分时占用（最长安静窗口约8分钟），五臂Smoke复测与七臂Screen复测均BLOCKED；候选SO与attempt2逐字节一致（`08f73f2c…`），attempt2 Screen方向维持原判。e4t8/e4t4的正式速比、漂移与p90/p99尾部判定须待授权的十四场Confirm，且须先获得连续双Die独占租约（P0）。原始Screen JSON与守护器证据见[主线归档](../evidence/e4_layered_20261028/attempt2_3_mainline_archive/)。
