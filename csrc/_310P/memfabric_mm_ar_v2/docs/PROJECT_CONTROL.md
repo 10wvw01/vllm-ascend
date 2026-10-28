@@ -8,12 +8,12 @@
 
 > **2026-10-27大M实验总账已设立：**[LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md](LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md) 是本项目**大M Prefill→TTFT实验任务、执行状态、结果证据、阻塞和更新日志的唯一维护入口**；本 PROJECT_CONTROL 继续负责全项目事实与方向。本轮仅新增总账/链接，没有A1原仓CPU、四卡G0、L1～L4新设备结果，禁止将计划当性能PASS或上机许可。
 
-
 > **2026-10-27 项目主线正式方向（ADR-015 + ADR-016）：**大M最终以**真实Qwen3.6 Prefill TTFT**为唯一最终性能主指标；L1唯一有效算子级基线为**完整原生FP16 Stock MM+HCCL AR**，聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点在双Rank上的关键路径。性能研发采取 **L1/L2归因优化 → L3真实Prefill设备Step无Profiler可重复正向收益门槛 → L4正式4096/2048/TP2/并发10/50请求TTFT验收**；L3无稳定正收益则继续大M优化，不提前运行长输出L4。4096/1客户端时延不等于L3设备Step；当前无Profiler设备Step计时能力尚未完成静审/校准。**主线管方向，A1工作分支只管实施**；本次只纳入文档，不代表已有新的设备测试结果或提供实机许可。详见 [主线正式实验合同](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR-015/016](DECISIONS.md)。
 
 **唯一项目：** 在 Ascend **310P3 单卡双 Die、TP=2** 上，用 MemFabric 实现**单 Kernel MM+AllReduce（SDMA+FP16 Add）**，覆盖 Qwen3.6-35B-A3B-w8a8 中已确认未量化的 attention `o_proj` / GDN `out_proj`；模块选择以运行时 shape、dtype、TP、真实模型前缀为准，禁止为了扩大覆盖误改量化 MoE 路由。
 
 **不可动摇：**
+
 1. 大 M **持续性能攻坚到可证实的硬件/协议瓶颈**，不再为每个局部参数计算投入价值，工作重点是正式 Kernel 的 MM 效率、SDMA 真实交叠、额外拷贝/布局、同步关键路径。须报告 **完整融合算子 vs 原生 Stock MM+HCCL AR**，不能拿“D4相对旧V2”冒充。
 2. 小 M 是**MM+MemFabric AR 同 Kernel**带来的固定开销优化。真正目标是原生热态 FP16 Stock（完整 MM+HCCL），不是旧 T1 诊断核；普通 Decode M=1/8/10/16 和投机验证实际 M 分布都要覆盖，不假设 speculative M 恒为10。不可删除必要 cache clean、同步、credit 来造收益。
 3. **同步兼容 DFlash 投机推理、Graph 和异步调度**，避免算子优化完以后另做一套集成。外部代码只能只读参照，不修改、不推送、不向 `HaonanWu1/vllm-ascend` 创建 PR。
@@ -67,6 +67,7 @@
 ## 5. 每次交接、报告和代码提交的强制格式
 
 每轮在GitHub本主线的状态更新至少包含：
+
 1. **HEAD/基线版本**：主线SHA、实验SHA、外部DFlash固定SHA、CANN/Host/Device/KVER11 SHA及本次改动文件。
 2. **当前结论**：只写有证据的PASS/FAIL/UNKNOWN；明确是D4内部、完整算子Stock对照还是Qwen真实业务。
 3. **测试合同**：TP2/单卡双Die、M/K/N/dtype/weight布局、Overlap/Chunk、Graph模式、普通/投机、实机设备号及样本数。
@@ -83,7 +84,6 @@
 - **MemFabric独立源码/安装**：历史工程另有GitCode/自有镜像与服务器多套源码、build及SO；**不要假定GitHub代码SHA=安装SO版本**；必须以现场Git远程、部署清单及实际SO SHA为准。此前资产取证见 [310P3版本溯源报告](310P3_版本溯源与资产保全报告_20261020.md)。
 - **现存分支完整盘点**见 [BRANCH_GOVERNANCE.md](BRANCH_GOVERNANCE.md)；历史性能/稳定性总账在`docs/310p-v1-v2-perf-stability-ledger-20261023`，不再作为今日项目控制台。
 
-
 ## 7. 2026-10-25 工程主线锐评与治理闭环（G-DOC）
 
 - **确认**：本项目唯一研发主线固定 `dev/310p-memfabric-mm-ar`，`main` 仅为通用仓库默认分支。相对于D4的正式Kernel/Serving文件未发现主线建立导致的变更；已存在的U1资产仍是 **CPU/310P实测 NOT_RUN**。
@@ -93,14 +93,14 @@
 - **遗留人工门禁**：GitHub仓库保护/强制PR与状态检查尚未在仓库设置中确认；所有者须另行配置和核验。若改变了生产Kernel/Host/Graph合同，仍必须人工完成两轮源码评审及实机前G0，不可因这组治理检查通过而开机。
 - **后续研发优先级不变**：DFlash运行时真实物理M与Graph路由调查、大M严格完整算子Stock对照、小M专用同Kernel方案；待提交对应可执行方案和环境/版本准入清单，明确GO后再请用户委托OpenCode上机。
 
-
 ### CI首次扩展回归暴露并修复的工程漂移（2026-10-25）
+
 - [GitHub Actions 40126853357](https://github.com/10wvw01/vllm-ascend/actions/runs/40126853357)：6/6 治理单测 PASS，既有V2源码合同测试 **53 PASS / 1 FAIL**。
 - 唯一 FAIL：`test_v2_project_layout.py` 的旧根目录白名单只允许 docs/src/test/evidence，未接纳已正式入库的项目 `AGENTS.md`；属于**测试目录合同滞后于合法项目治理文件**，不是设备Kernel的数值/同步失败。
 - 处置：严格保留目录集合验证，明确添加 `AGENTS.md`，不放宽成任意新增文件；静态回归实际结果须按本次后续 GitHub Actions run 确认。**U1设备实验仍NOT_RUN**。
 
-
 ### GitHub Actions扩展回归复验：已通过（2026-10-25）
+
 - [Run 40126962427](https://github.com/10wvw01/vllm-ascend/actions/runs/40126962427)，验证提交 `2f5079163500e254b335a5b3540263691b903552`：`project-control` SUCCESS。
 - 实际日志：治理检查器6/6 `unittest` PASS、既有V2 `test/ut` **54/54 pytest PASS**，项目入口静态检查和本轮Git变更台账检查均 PASS。
 - 这是**GitHub Ubuntu/Python 3.11 的纯CPU源码及合成数据合同测试**，未使用310P、CANN、MemFabric设备库；不能推导出 U1 设备运行、DFlash Eager/Graph真实命中、数值正确性或任何L1/L2性能收益。**U1 设备侧仍 NOT_RUN**。
@@ -118,7 +118,6 @@
 
 **当前是否需要310P3实机：** 本轮G-DOC治理与CPU验证不需要；下一阶段**真实D4完整V2 vs原生Stock L1、真实DFlash物理M/Graph路径**需要设备。上机前先依据 [ENGINEERING_GATES.md](ENGINEERING_GATES.md) 完成脚本/环境/版本准入审查，再明确提交给用户委托OpenCode；本轮无上机授权或执行。
 
-
 ## 8. Stock+DFlash 未成功启动：上游源码与环境依赖审计（2026-10-25）
 
 - **用户新增历史事实**：此前Stock+DFlash投机推理尝试失败、疑似缺依赖；V2 Graph历史从未完成成功验收，曾有Graph AB实则Stock-vs-Stock。两者为独立问题，不可混报。
@@ -128,11 +127,10 @@
 - **研发门槛调整**：DFlash集成先修复并证明**Stock+DFlash Eager(K=7)**最小单请求与batch10运行，再分别核对Stock+DFlash Graph、V2融合Eager、V2融合Graph；任何一次Stock成功都不可替代 V2 Graph真实Kernel/Replay取证。大M正式算子L1优化可与此环境问题并行推进。
 - **此提交无实机操作**，无正式Kernel/Host/Serving修改、无L0/L1/L2新性能结果；下一轮如需现场先取`stock_dflash_preflight.json`和实际ImportError/模块路径，再决定最小修复。
 
-
 ### 上游依赖审计工具的 GitHub CI 结果（2026-10-25）
+
 - [CI run 40128444031](https://github.com/10wvw01/vllm-ascend/actions/runs/40128444031)，提交 `4f97de5e00451f3cc089c175e1105efa78c04b78`：治理/诊断单测 **12/12 PASS**，既有V2源码合同 **54/54 PASS**，元数据/改动闭环检查PASS。
 - 仅证明检查工具在GitHub无NPU环境下可执行。历史Stock+DFlash故障根因与服务器实际vLLM/torch/transformers依赖均仍 **UNKNOWN**；Graph/V2不因该CI改变验收状态。
-
 
 ## 9. R1：Stock+DFlash 和 V2+DFlash 正式研发与实机准入（2026-10-25）
 
@@ -177,7 +175,6 @@
 - **实测口径**：TP2/单卡双Die，input4096/output2048/concurrency10/50请求、K7 DFlash与相同真实Runner对照；L1完整 Stock MM+HCCL vs V2 MM+MemFabric，L2 Stock+DFlash vs 融合+DFlash，双Rank首调正确性、真实调用数/层、physical M/Graph是否命中、性能传导。大M继续极限调优，小M专攻同Kernel固定开销。Stock默认。
 - **实证边界**：R1-B过去在特定Stock+Draft+vLLM0.27.1旧Runner组合上构造失败（已归档），不得据此否定其他Stock成功配置；本次只是GitHub代码/项目治理，**没有新310P3推理、Kernel、Graph性能或现成Stock成功实测**。确切可工作Stock环境由后续只读取证锁定，不推断。
 - **准入**：只保留融合算子自身的数值/首写/SO/KVER/G0/Gate E安全门禁；**46项通用V2 Runner准入矩阵失效，不得用于阻塞本项目核心算子研发或DFlash薄接入。**
-
 
 ## 14. 2026-10-26｜Gate E / 507014 移交 MemFabric 团队的独立复现基线（新测试 NOT_RUN）
 
@@ -281,7 +278,6 @@
 - **机器判定**：总状态**`INCONCLUSIVE_DRIFT`**——M2048的D4臂场间漂移5.685%>5%门限（stage07出现p99=2372µs周期长尾，与R1已知V2周期长尾一致），按合同不挑场不复算；M4096全臂稳定（≤2.02%）但随总状态降级为参考。
 - **决策（按A1§5）**：`E1<C且E1>=A`→**E1保留为下一优化基线**（仅工作分支候选，不进正式默认CMake/Serving），下一E代聚焦同步消息缩减/冗余清理消除/D4式周期长尾；维持Chunk交叠主线（B2负向）；B1归因staging成本。正式D4/Host SO零改动，Stock默认不变，L3/L4 NOT_RUN。工作分支证据审核后择优回写主线并审PR。
 
-
 ## 30. 2026-10-28｜E3 实施：Chunk2048计算组 / 双4MiB通信分包｜阶段性源码提交
 
 - **为何E3新增2048**：2026-10-28 E2正式报告证明R/P/512负收益、E1仍最佳（M4096 E1约2285.5µs、Stock约2022.6µs），用户要求继续MM生产/producer缓存关键路径并补充真实Chunk2048实验。**8MiB逻辑组不能作为8MiB单条MemFabric包投递**；E3分离ComputeGroup2048与TransportPacket1024行（2×4MiB）。
@@ -299,3 +295,42 @@
 - **八场性能（配对p50）**：M4096：Stock 2022.6、E1 2271.8、**E3-G 2119.5（vs E1 +7.19%/−152.3µs，vs Stock −4.57%/−97.0µs）**、E3-T 2267.1（vs E1 +0.21%，vs E3-G −6.51%）；M2048：Stock 1078.4、E1 1222.6、E3-G 1451.0（vs E1 −15.74%）、E3-T 1483.9。M4096全臂漂移≤2.02%稳定；M2048 E1臂6.19%>5%使总状态`INCONCLUSIVE_DRIFT`（E3-G劣于两场E1各自p50，方向稳健）。[实机报告](A1_E3_CHUNK2048_实机报告_20261028.md)、[性能台账](PERFORMANCE_BASELINES.md)。
 - **结论**：①Chunk2048只在组数≥2（M4096）赢：固定同步开销减半>交叠损失；单组（M2048）零交叠净亏228µs。②真2048 MM在310P3不可实现更大基础tile（L0C硬限制），E3-T的−6.51%是单次大调用相对两次调度的真实代价，非通信差异。③E1→E3-G把对Stock差距从−10.84%缩到−4.57%（−97µs）。下一轮：单组组内"前1024行MM完成即发首包"混合粒度流水、producer DCCI分段、Core0串行链、周期长尾。
 - **边界**：全部为L1离线算子；L2/L3/L4 NOT_RUN；正式D4/E1源码、Serving默认、共享SO零改动；E3候选SO仅隔离目录未安装；Stock默认不变。E3-G是否升为下一优化基线待主线裁决。
+
+## 31. 2026-10-28｜E4隔离开发现场状态（本分支不是项目权威主线）
+
+> 正式项目事实/ADR/E3审签结果以 `dev/310p-memfabric-mm-ar` 的 [PROJECT_CONTROL.md](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md) 和 [ADR-020](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md) 为唯一权威。该章节仅解释E4代码/测试变更，不覆盖旧状态，也不宣称上机成绩。
+
+- **新实现**：私有`E4Group2048Kernel<ADD_TILE,PACKET_ADD>`，MM生产仍冻结E3-G的两次1024调用与2048组、两包4MiB、完整DCCI/ReadyTree和quiet/DONE；AddTile2048/4096/8192三档+Packet到达半组Add（Core0唯一mail消费者、Core1～3/4～7独立release），其余默认不变。
+- **离线自适应M**：`test/perf/e4_shape_plan.py`全覆盖M2048～4096、精确合法组组合/≤4096容量/≤4MiB每包，默认路由Stock；**只具备CPU规划，不具备真实变长尾块设备Kernel**。
+- **私有构建/运行**：`e4_private_host.cpp/e4_build.sh/e4_arm.py/e4_assess.py/e4_campaign.sh`；E4只接受M2048/4096，先双RankSmoke→七臂短Screen→明确授权才十四臂Confirm；原生NZ路由与冻结SO/KVER SHA均为门禁。
+- **当前真实性**：源码已落分支；CPU pytest、BiSheng编译、G0和全部E4设备性能均`NOT_RUN`。E3历史实机已完成，但不能继承E3的PASS给E4；私有候选必须经过两轮静审后独立实机。生产Stock/Serving/正式D4/E1/MemFabric无改动。详见[实现与门禁](A1_E4_分层流水与连续M_实施及门禁_20261028.md)。
+
+### E4第一轮实机（2026-10-28，run_id=e4-layered-20261028-001）
+
+- **已完成并PASS**：G0（16384/dev2,3独占、四冻结SHA与E3同批次逐字节一致）、原仓UT 80项+E4合同UT、2049-M穷尽规划审计、py_compile/bash -n/治理静态门、E1/E3-G/E4四实例BiSheng dav-2002隔离编译一次通过（**AddTile8192无BUILD_UNSUPPORTED**；正式D4符号未导出）、真实NZ路由4/4（MatmulWeightNz+HCCL、0 TransData，两轮campaign各一次）。
+- **attempt1 STOP（06:29–07:03）**：宿主级外部进程PID 506263占用全部四卡（16384双Die持续增长、hugepages满）触发"设备被占用→立即STOP"合同止损；另有e4t2 torchrun被工具超时SIGTERM误杀的工艺失误（无设备执行，如实归档）。等待窗口部署setsid全脱管空闲监视+自动G0复核（attempt2_automation/），09:35卡空闲、hugepages 1分钟回收。
+- **attempt2完成全部允许阶段（09:39启动）**：五臂双Rank Smoke全部PASS（e3g/e4t2/e4t4/e4t8/e4p，bit-exact、status=0、首写成功；**E4四臂为首次设备执行**，e4t8未触发507015类资源异常，e4p的Core0唯一邮件消费者/分核释放协议实机成立）；七臂Screen完成（30样本/臂）；全程16384零外部进程、结束后卡回基线、前后二进制SHA一致。**attempt2执行HEAD为5b727e9f9（早于下方守护代码合入），使用委托版campaign脚本+本会话setsid监视器完成，其结果不因守护代码后合入而失效。**
+- **Screen方向性结果（SCREEN_ONLY，不签正式性能）**：M4096配对p50 Stock 2037.7 / E1 2261.9 / E3-G 2133.9 / e4t2 2131.7 / e4t4 2112.5 / **e4t8 2076.2** / e4p 2105.3µs。**e4t8相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs（复现E3 Confirm的96.953µs）缩至38.5µs**；e4t2与E3-G差0.10%确认无重建漂移；e4p −1.34%；**M2048四臂与E3-G持平（±1.3%）、仍落后Stock约32–34%，消费者侧无解单组交叠损失**。
+- **结论与下一轮**：E4设备正确性已证实；性能待授权Confirm，**最优先e4t8（尾部p90/p99为关键观察点）、次优先e4t4**；e4p结构性上限已兑现暂缓；M2048需core-ownership重排或1024+1024混合组新候选。证据与报告：[第一轮实机验证报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)。
+
+### E4 Attempt1后最小测试保护已编码（2026-10-28，attempt2未使用，自下一次实机生效）
+
+- **只改测试代码**：`test/perf/e4_stage_guard.py`加入目标卡G0后每阶段2秒巡检、跨卡宿主同PID/超额Rank进程/设备健康/坏npu-smi格式的主动STOP，单独终止自身创建的`torchrun`进程组；`e4_campaign.sh`中4处NZ/Smoke/Screen/Confirm的torchruns已受统一守护且新增`E4_PHYSICAL_CARD_ID`与当前HEAD绑定构建manifest强制检查。原30秒卡巡检日志继续保留。
+- **独立启动收尾**：`test/perf/e4_detached.py`以两层独立Session启动/监督测试，输出`launch.json`、`campaign.log`、`result.json`、可查询明确退出码，只允许Screen，不会绕过Confirm授权。测试代码/模版+CPU负面合同`test/ut/test_e4_test_protection.py`及CI扩展。
+- **2026-10-28保护机制CPU验收与死锁修复（HEAD `05d679341`）**：CPU回归（原仓UT 93+9、保护专项13含新回归、E4合同9+9、静态门全PASS）与无NPU真进程故障注入（StageGuard 28/28：506263跨卡/第三进程/npu-smi失败/Alarm/preflight占用全STOP 97、只清理自己进程组、无关进程存活、原始快照保全；Detached 18/18：独立Session存活、SIGTERM→STOP/143+campaign清理、无marker→STOP/96、stale manifest/Confirm/state复用全拒绝）全部通过。**修复真实BUG**：`e4_detached.py`的SIGTERM handler内`stop_group(child)`在主线程持有Popen`_waitpid_lock`的`child.wait()`内再次wait同一child导致**永久futex死锁**（worker挂死、result.json不落盘、campaign泄漏，100%复现）；修复为handler只raise、清理移至栈展开后的except块，并加真进程回归UT（旧代码20s死锁失败/修复版<1s通过）。守护器对真实npu-smi 26.1.1输出解析已在本服务器验证。证据[protection_acceptance_20261028/](../evidence/e4_layered_20261028/protection_acceptance_20261028/)。CANN重编与全部NPU阶段仍NOT_RUN。
+- **诚实边界**：监控无法单凭容器npu-smi识别所有目标卡独占PID的所属方，也不能捕获短于采样间隔的外部抢占；**外部独占租约仍为P0**。上述attempt2在守护代码合入前执行（HEAD 5b727e9f9、委托版campaign脚本），其独占由本会话外置监视器+全程30s巡检验证。详见[最小测试保护与复跑操作](A1_E4_最小实机测试保护与复跑操作_20261028.md)。
+
+### E4 Attempt3：保护机制验收完成，设备Smoke/Screen因外部分时占用BLOCKED（2026-10-28，HEAD `1bfacb251`）
+
+- **验收结论**：测试保护机制CPU/实机验收**全部通过**——原仓UT 93+9、保护专项13（含死锁回归）、E4合同9+9、静态门全PASS；无NPU真进程故障注入46/46（StageGuard 28/28、Detached 18/18）；真实设备四场景实证：①受守护真实双Rank torchrun全生命周期无误杀（2秒采样正确识别我方两Rank、退出即排空）；②preflight拦截单PID外部入侵（2433615）；③campaign preflight拦截双PID外部任务（2620627/2621272，detached runner修复后首次实机使用即正确STOP收尾）；④**运行中拦截第三方进程（2640164）并只清理自己**——attempt1的506263事故模式以真实入侵完整闭环。真实NZ路由4/4（受守护）。修复1个真实BUG：`e4_detached.py` SIGTERM handler内wait自身campaign导致**永久futex死锁**（worker挂死/result.json不落盘/进程泄漏，100%复现；修复`05d679341`+真进程回归UT双盲验证）。详见[attempt3验收报告](../evidence/e4_layered_20261028/A1_E4_attempt3_保护机制验收报告_20261028.md)。
+- **隔离重编译**：新HEAD `1bfacb251`下BiSheng重编，**候选SO SHA `08f73f2c…`与attempt1/2逐字节一致**（测试工具改动不触及Kernel源码，确定性编译证实）；manifest HEAD/SO绑定正确、三私有ABI齐全、正式D4符号未导出；四冻结SHA（Host/D4/插件/KVER11）与上轮逐字节一致。attempt2的五臂双Rank Smoke与七臂Screen证据维持原判，未重复运行。
+- **BLOCKED原因**：16384被宿主级外部负载**持续分时占用**（20秒×35分钟监视器记录：阵发式40-90秒任务、最高34GB、占空比~50%、最长安静窗口约8分钟，与§25记录的dev2/dev3反复短暂占用模式一致）。五臂Smoke需约12分钟、完整campaign需35-45分钟连续独占，无可行窗口。按约束两次有界尝试（均被守护器正确STOP保全）后确定STOP：未杀外部进程、未换卡、未清KFC、未覆盖SO。**进入正式Confirm的工程前置已满足、环境前置（连续双Die独占租约）未满足——管理员协调租约仍是P0。**
+- **对e4t8 2.71% Screen方向的裁决**：候选SO与attempt2逐字节一致、无技术理由怀疑方向，但本轮无复测数据，维持attempt2 Screen方向性结论不变，不构成新性能证据。
+
+### E4 Attempt3b：用户授权换卡38144——五臂双Rank Smoke完成、守护器无扰动实证、Screen 4/7场（2026-10-28，HEAD `e818334de`）
+
+- **换卡依据**：用户明确授权（解除"不自动换卡"）；16384被外部负载持续分时占用后，按ADR-014四卡原则选**38144**（双Die+MCU健康、全天零进程；5664 die1长驻租户、43520 die1 Alarm排除）。已知风险die4 hugepages 5860/5860无主满载——**实测不阻塞**：基础matmul/HCCL/MemFabric建池（chunk1024）全部成功。映射探针（受守护）实证`ASCEND_RT_VISIBLE_DEVICES=4,5`仅落38144双Die、不碰其他卡。
+- **五臂双Rank Smoke全部PASS**（e3g/e4t2/e4t4/e4t8/e4p，bit-exact、status=0、首写/池创建成功）——**E4四臂设备正确性在第二张卡复证attempt2结论**，委托核心设备回归完成。真实NZ路由4/4；新HEAD `e818334de`隔离重编候选SO第三次逐字节一致（`08f73f2c…`）。
+- **受守护Screen完成4/7场后STOP**：stock/e1两场campaign内完成、e3g/e4t2两场手动续跑（与campaign完全相同的守护调用）完成；screen_05_e4t4运行中外部进程2932134入侵→守护器3>2检测→STOP清理我方进程组（第5次实机保护实证）；e4t8/e4p按"no retry"合同未启动。守护审计：10个受守护阶段零跨卡、零超额PID，2次STOP均为外部入侵正确拦截（2884891/2932134）。
+- **守护器无性能扰动实证（委托核心检查项）**：38144受守护vs 16384无守护——stock锚2025.8 vs 2037.7µs（+0.58%）、e3g锚2142.3 vs 2133.9（+0.40%），**p99近乎逐值复现**（e3g 2227.2 vs 2228.2、e1 2426.4 vs 2408.8）；同构对照e4t2-vs-e3g本轮−1.55%（attempt2 −0.10%）标定单场Screen噪声带±1.5%——**e4t8的−2.71%仅约1.8倍噪声带，Screen只筛方向、裁决必须十四场Confirm的判断强化**。M2048 e3g落后Stock 33.6%跨卡复证。
+- **e4t8/e4t4/e4p三场Screen本轮未跑成（外部调度15:42扩散至38144）**，e4t8相对E3-G方向维持attempt2原判待Confirm。当前四卡均无稳定独占窗口（16384/5664/38144外部占用、43520 Alarm）——**管理员连续双Die独占租约仍是进入Confirm的P0前置**。[attempt3b报告](../evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)、[证据](../evidence/e4_layered_20261028/attempt3b_card38144_20261028/)。

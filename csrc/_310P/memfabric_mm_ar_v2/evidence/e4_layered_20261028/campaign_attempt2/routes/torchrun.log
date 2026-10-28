@@ -1,0 +1,35 @@
+W1028 09:39:26.031000 1761215 site-packages/torch/distributed/run.py:852] 
+W1028 09:39:26.031000 1761215 site-packages/torch/distributed/run.py:852] *****************************************
+W1028 09:39:26.031000 1761215 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1028 09:39:26.031000 1761215 site-packages/torch/distributed/run.py:852] *****************************************
+INFO 10-28 09:39:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 09:39:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 09:39:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 09:39:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 09:39:33 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-28 09:39:33 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 09:39:33 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 09:39:33 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 09:39:33 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 09:39:33 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+[rank0]:[W1028 09:39:34.506610470 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/c10d_logger.py:83: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  return func(*args, **kwargs)
+[2026-10-28 09:39:36] [WARNING] [1761293] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-28 09:39:36] [WARNING] [1761293] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-28 09:39:36] [WARNING] [1761293] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-28 09:39:36] [INFO] [1762147] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/e4-campaign-20261028b/routes/rank1_m2048/rank1_m2048_1761294_20261028093936222_ascend_pt
+[2026-10-28 09:39:36] [INFO] [1762148] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/e4-campaign-20261028b/routes/rank0_m2048/rank0_m2048_1761293_20261028093936222_ascend_pt
+||//--[2026-10-28 09:39:38] [INFO] [1762199] profiler.py: CANN profiling data parsed in a total time of 0:00:02.022671
+[2026-10-28 09:39:38] [INFO] [1762201] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023363
+\\[2026-10-28 09:39:39] [INFO] [1762148] profiler.py: All profiling data parsed in a total time of 0:00:03.126088
+[2026-10-28 09:39:39] [INFO] [1762147] profiler.py: All profiling data parsed in a total time of 0:00:03.155387
+[2026-10-28 09:39:41] [WARNING] [1761293] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-28 09:39:41] [WARNING] [1761293] profiler.py: Please use level1 or level2 if you want to collect aic metrics, reset aic metrics to None!
+[2026-10-28 09:39:41] [WARNING] [1761293] profiler.py: Incorrect schedule: Stop profiler while current state is RECORD which may result in incomplete parsed data.
+[2026-10-28 09:39:41] [INFO] [1763391] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/e4-campaign-20261028b/routes/rank1_m4096/rank1_m4096_1761294_20261028093941077_ascend_pt
+[2026-10-28 09:39:41] [INFO] [1763395] profiler.py: Start parsing profiling data in sync mode at: /tmp/opencode/e4-campaign-20261028b/routes/rank0_m4096/rank0_m4096_1761293_20261028093941077_ascend_pt
+||//--[2026-10-28 09:39:43] [INFO] [1763443] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023403
+[2026-10-28 09:39:43] [INFO] [1763445] profiler.py: CANN profiling data parsed in a total time of 0:00:02.023094
+\\[2026-10-28 09:39:44] [INFO] [1763395] profiler.py: All profiling data parsed in a total time of 0:00:03.124557
+[2026-10-28 09:39:44] [INFO] [1763391] profiler.py: All profiling data parsed in a total time of 0:00:03.147907
