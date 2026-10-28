@@ -275,3 +275,8 @@
 - **下一轮阶段口径**：先E4-0单变量+E4-A协议审查及最小可运行候选→双Rank安全Smoke→短Screen（Stock/E3-G锚点M2048/4096）→连续M边界专项测试→胜出者正式确认。优先调查E3-G vs Stock M4096最后96.953µs，随后解决M2048单2048组失去交叠的问题与非对齐Padding。下一层真实40站点/L3/L4在E3/E4下仍NOT_RUN。
 - **证据补全P1**：PR #20报告引用的`bugfix1/smoke_e3t.log`、AICore摘录、`build/`manifest以及`card_watch_30s.log`当前仓库证据目录未见，要求现场核实原始文件并只读补档或说明SERVER_ONLY；本次主线事实不得伪称其已完整落盘。
 
+
+### E3证据已脱离PR#20独立保全（2026-10-28）
+
+在本主线`evidence/e3_chunk2048_20261028/`现已**逐文件原样保存52份**E3关键原始文本证据：机器评估、16份正式Rank JSON、4份Smoke、8份Stock NZ路由JSON/CSV、G0、前后二进制SHA和逐场设备记录、原实机中文报告等；所有归档文件与原E3实验分支的同名文件**Git blob SHA完全一致**。详情：[主线归档Manifest](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)。
+**更正上述“E3原始Evidence仍由PR#20承载”的历史说法**：目前PR#20仅为额外的大型Profiler和实验Kernel代码来源，不再是主要L1机测结果的唯一保全位置。构建日志、507015原始PLog、30s巡检因源分支未上传而保留待补状态。
