@@ -141,3 +141,5 @@
 - **E4范围**：只新增一个隔离工作分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，基于E3已验证代码；优先 E4-0 AddTile2048/4096/8192单变量、E4-A Packet0/1分半组Add、E4-B连续M的可审计规划器/混合2048+1024与尾块。不能提前发未完成包或把新增IB/缓存费用藏在流水里。真实Serving路由维持Stock，全部E4硬件/性能`NOT_RUN`。
 - **必要审查**：一切E4设备内同核通信仍遵守Core0唯一mail消费者、每包dst/len/imm、DataCache生产/接收可见性、最终8核AddDone、quiet+DONE和首写、双Rank安全。原生真NZ Stock完整链是唯一性能基线，M区间连续测试在合法Padding及真实额外copy开销下逐点衡量。历史Qwen L2/L3/L4在E3/E4下均NOT_RUN。
 
+
+**ADR-020落实追加记录（2026-10-28，主线原始证据迁移）**：已将[E3主线证据52份归档清单](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)、[E3机器评估](../evidence/e3_chunk2048_20261028/e3_assessment.json)、双Rank原始采样、真NZ路由、G0及原报告全部原样保存在`dev/310p-memfabric-mm-ar`；每份源blob SHA与归档blob一致。此后工作分支PR#20不再是关键机器数据唯一备份。**不因证据迁移授予任何E3实验Kernel/Host的生产合入资格**，Stock默认不变；大型Profiler及原未上传的PLog/build日志仍留待补证。
