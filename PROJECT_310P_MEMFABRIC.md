@@ -1,8 +1,17 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
-> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-27（Asia/Taipei）。
+> **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-28（UTC+8）。
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
+
+## 2026-10-28 最新权威状态（先读，避免把历史NOT_RUN当现状）
+
+**E3实机已经完成，E4编码已开工；二者的准入阶段不能混淆。** 真实NZ Stock M4096=2022.553µs、E1=2271.836µs、E3-G=2119.506µs、E3-T=2267.090µs。E3-G较E1提升7.187%（缩短152.330µs），但**仍慢Stock 96.953µs**；M2048 E1两场漂移6.192%，所以E3整批仍`INCONCLUSIVE_DRIFT`，不挑样本签正收益；真实M2049～4095尚未做融合实机性能。E3修复过一次E3-T L0C满载507015 AICore异常，E2-P曾遇507014且根因未闭环。**Stock一直是Serving默认**，E3/E4的L2真实Qwen站点、L3 Prefill Step和L4客户端TTFT皆`NOT_RUN`。
+
+- **最新且唯一的方案/证据入口**：[E3实机证据审核与E4分层流水准入](csrc/_310P/memfabric_mm_ar_v2/docs/E3_实机证据审核与E4分层流水准入_20261028.md)、[ADR-020](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)、[主线PROJECT_CONTROL](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)、[主线PERFORMANCE_BASELINES](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)。
+- **历史原始证据，保持不合入**：[E3 PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)，正式报告、八场双RankJSON、机器评估按主线证据审核链接索引，**不以PR工作分支中过期的治理状态代替主线**。
+- **唯一活跃研发实现**：[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)，短分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，首版AddTile与Packet分半组Add候选、2049个M的**纯CPU**混合分组/安全路由规划器。**E4 CPU/CI、CANN编译、310P实机、性能尚NOT_RUN；连续M设备Kernel及生产自适应路由均未实现**。
+- **下一步**：E4源码协议深审与CPU/独立BiSheng→G0/双Rank短Smoke→七臂短Screen→有收益再经单独批准十四场Confirm；之后实现连续M混合尾块设备路径，最终和真实Qwen业务TTFT层级分别验证。禁止用户未授权时启用自动Serving路由或直接merge实验分支代码。
 
 ## 从这里恢复上下文（推荐阅读顺序）
 
@@ -10,7 +19,7 @@
 2. [大M Prefill TTFT实验总账：目标、流程、任务清单、状态、证据和进度日志](csrc/_310P/memfabric_mm_ar_v2/docs/LARGE_M_PREFILL_TTFT_EXPERIMENT_LEDGER.md)——**本轮大M实验唯一进度追踪入口**；新会话和OpenCode开始A1/L3之前必须读取。
 3. [工作分支与合入治理](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)——唯一主线、实验分支归档、代码来源与禁止事项。
 4. [统一性能基线与证据索引](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)——严格区分单算子 V2 内部收益、完整 V2 vs Stock、模型实际传导。
-5. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——ADR-013 废止重建 Runner；ADR-015 锁定TTFT；ADR-016 主线管方向。
+5. [项目决策记录 ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)——ADR-013 废止重建Runner；ADR-015锁定TTFT；ADR-016主线管方向；**ADR-020记录E3审签事实和E4技术门禁**。
 6. [正式 V2 融合工程及薄接入](csrc/_310P/memfabric_mm_ar_v2/docs/README.md)——只改 MM+MemFabric 算子、选层与必要的 Stock 回退。
 7. [DFlash K7 Stock/V2四象限历史实机准入](csrc/_310P/memfabric_mm_ar_v2/docs/DFLASH_STOCK_V2_R1_GO_GATE_20261025.md)——历史Stock/V2/DFlash取证，不代替当前大M实验总账。
 8. [工程准入与310P3实机交接门禁](csrc/_310P/memfabric_mm_ar_v2/docs/ENGINEERING_GATES.md)——区分纯CPU、Kernel、发布级验证；锁定源码/二进制/装载三重身份。
@@ -18,7 +27,7 @@
 
 ## 不可偏离的当前目标
 
-> **最新权威研发方向（2026-10-27，ADR-015/ADR-016）：主线管方向，工作分支管实施。** 大M以真实Qwen3.6 **Prefill TTFT**为最终指标，L1唯一完整基线是原生FP16 Stock MM+HCCL AllReduce，优化聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点双Rank设备关键路径。阶段顺序为 **L1/L2归因与调优 → L3真实无Profiler Prefill Step可重复稳定正向收益 → L4原始4096/2048/TP2/并发10/50请求客户端TTFT**；L3未达到稳定正收益则继续优化，不启动L4长输出验收。L3设备Step尚缺可审计无Profiler采集与校准，不能以4096/1客户端时延代替。正式方向、[L1～L4历史证据复用及实验合同](csrc/_310P/memfabric_mm_ar_v2/docs/L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)保存在本主线；[A1 PR #9](https://github.com/10wvw01/vllm-ascend/pull/9) Draft只负责尚未验收的实验实现。当前没有因此产生新设备测量/合入Kernel，Stock默认及全部G0/安全停止条件不变。
+> **最新权威研发方向（2026-10-27，ADR-015/ADR-016）：主线管方向，工作分支管实施。** 大M以真实Qwen3.6 **Prefill TTFT**为最终指标，L1唯一完整基线是原生FP16 Stock MM+HCCL AllReduce，优化聚焦每Rank实际命中的40个`o_proj/out_proj`目标站点双Rank设备关键路径。阶段顺序为 **L1/L2归因与调优 → L3真实无Profiler Prefill Step可重复稳定正向收益 → L4原始4096/2048/TP2/并发10/50请求客户端TTFT**；L3未达到稳定正收益则继续优化，不启动L4长输出验收。L3设备Step尚缺可审计无Profiler采集与校准，不能以4096/1客户端时延代替。正式方向、[L1～L4历史证据复用及实验合同](csrc/_310P/memfabric_mm_ar_v2/docs/L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)、[ADR](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)保存在本主线；[A1 PR #9](https://github.com/10wvw01/vllm-ascend/pull/9) Draft只负责尚未验收的实验实现。ADR-015/016当时的文档调整不构成新实机测试；其后E1/E2/E3已有可追溯的独立设备试验，详见上方2026-10-28状态。Stock默认及G0/安全停止条件不变。
 
 - **Ascend 310P3 单卡双 Die / TP=2**；同 Kernel 完成 FP16 MM + MemFabric SDMA AllReduce + Add，Stock MM+HCCL 是唯一有效的完整算子最终性能对照。
 - **大 M 必须持续向硬件可证实的极限优化**，不再每轮讨论“值不值得做”；每次输出完整算子 vs Stock，以及 Qwen 集成真实收益及差距原因。
@@ -30,7 +39,7 @@
 
 | 事项 | 状态 |
 |---|---|
-| D4 Tile2048 正式大 M Kernel | V2 内部相对前版本 +6.26%（不是相对 Stock），保留基线 |
+| E3-G完整算子 M4096 | **相对同批E1 +7.187%**，但**仍慢真NZ Stock 96.953µs**；仅L1，M2048整体漂移不签；原始PR #20、主线已审签 |\n| E4分层流水及连续M | [PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)源码+CPU逻辑规划进行中；所有E4设备实验NOT_RUN，生产Stock默认 |\n| D4 Tile2048 正式大 M Kernel | V2 内部相对前版本 +6.26%（不是相对 Stock），保留基线 |
 | 4096 输入/2048 输出/TP2/batch10/Eager 模型 | SEL-01：V2 vs Stock 输出速率中位 +1.12%，方向不一致、未达目标 |
 | 小 M（M=10） | F1-C：T1 425.2µs vs 原生 Stock 308.2µs，T1 等效速率约 −27.5%；NO-GO |
 | F2 Chunk 缩小 | 256、512 均不优于1024；保留 D4 Chunk1024 / Overlap1 |
