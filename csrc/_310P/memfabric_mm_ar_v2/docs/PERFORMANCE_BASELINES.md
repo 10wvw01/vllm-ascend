@@ -167,3 +167,7 @@
 > attempt2（HEAD `5b727e9f9`，30样本/臂、rank max配对p50，`SCREEN_ONLY_NO_SIGNED_PERFORMANCE`）：M4096 Stock 2037.7 / E1 2261.9 / E3-G 2133.9 / e4t2 2131.7 / e4t4 2112.5 / **e4t8 2076.2** / e4p 2105.3µs——**e4t8相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs缩至38.5µs（回收约60%）**；e4t2与E3-G差0.10%（排除重建漂移）；e4p −1.34%（受"Core0须等两包"结构性限制）；M2048全部E4候选与E3-G持平（±1.3%）、仍落后Stock约32-34%。E3-G/Stock两锚与E3-Confirm认证值高度一致（96.2 vs 96.953µs），方向可信度高，但单场Screen不可签正式结论。
 >
 > attempt3（保护机制验收轮）**零新性能样本**：16384被宿主级外部负载分时占用（最长安静窗口约8分钟），五臂Smoke复测与七臂Screen复测均BLOCKED；候选SO与attempt2逐字节一致（`08f73f2c…`），attempt2 Screen方向维持原判。e4t8/e4t4的正式速比、漂移与p90/p99尾部判定须待授权的十四场Confirm，且须先获得连续双Die独占租约（P0）。原始Screen JSON与守护器证据见[主线归档](../evidence/e4_layered_20261028/attempt2_3_mainline_archive/)。
+
+## 2026-10-28｜E4 Attempt3b换卡38144受守护Screen（4/7场，方向性，不签正式性能）
+
+> 卡38144（用户授权换卡）、全程受守护、单场×30样本。M4096配对p50/p90/p99（µs）：stock 2025.8/2053.9/2058.6、e1 2340.7/2395.8/2426.4、e3g 2142.3/2197.8/2227.2、e4t2 2175.4/2236.2/2264.5；M2048 e3g落后Stock 33.6%（跨卡复证单组结构性劣势）。**守护器无性能扰动**：vs attempt2（16384、无守护）stock锚+0.58%、e3g锚+0.40%、p99近乎逐值复现。同构对照e4t2-vs-e3g差−1.55%（attempt2 −0.10%）标定单场噪声带±1.5%→e4t8的−2.71%（attempt2）仅约1.8倍噪声带，**正式裁决必须十四场Confirm**。e4t8/e4t4/e4p三场因外部调度扩散至38144未跑成，e4t8方向维持attempt2原判。详见[attempt3b报告（E4分支）](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)。
