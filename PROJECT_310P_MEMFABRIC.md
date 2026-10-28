@@ -13,7 +13,8 @@
 **当前V3性能目标失败，不推进集成；下方开发期NOT_RUN只保留为历史状态。**
 研发[复核与新设计](csrc/_310P/memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)
 固定chunk512/1024/2048，沿用V2对应MM tiling，重排MM/Reduce/Gather并减少包、同步和MTE串行。
-V3.1尚未实现/实测；继续只测V3并复用历史V2/Stock，Serving默认不变。
+V3.1代码与CPU88项已完成，CANN编译及实机仍NOT_RUN；[编译准入单](csrc/_310P/memfabric_mm_ar_v3/V31_ADMISSION.md)。
+继续只测V3并复用历史V2/Stock，Serving默认不变。
 OpenCode负责执行、执行BUG修复、数据/证据与远程提交；方案、协议与结果审查由研发负责。
 
 ## 2026-10-29｜V3 SDMA ADD开发与V3-only快速历史对照

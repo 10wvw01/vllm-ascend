@@ -16,7 +16,7 @@ constexpr uint64_t kCtrlDstOff = kCtrlSrcOff + 64;
 constexpr uint64_t kIbBytes = 8192;
 constexpr uint32_t kMaxEpoch = (1u << 24) - 1;
 constexpr uint32_t kMaxPacket = 4u << 20;
-constexpr uint32_t kDefaultPacket = 1u << 20;
+constexpr uint32_t kDefaultPacket = 4u << 20;
 enum Phase : uint32_t { READY = 1, REDUCE = 2, GATHER = 3, DONE = 4, RAW_ADD = 5 };
 enum Mode : uint32_t { MATMUL = 0, PARTIAL = 1, RAW = 2 };
 // Exactly 40 bits: phase[39:36], epoch[35:12], group[11:6], packet[5:0].

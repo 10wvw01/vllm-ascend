@@ -124,6 +124,8 @@ def run(a):
             str(a.warmup),
             "--protocol-reps",
             str(a.protocol_reps),
+            "--packet-bytes",
+            str(a.packet_bytes),
         ]
         result["device_test"] = "STARTED"
         ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
@@ -173,6 +175,7 @@ def main():
         cmd.add_argument("--samples", type=int, default=30)
         cmd.add_argument("--warmup", type=int, default=4)
         cmd.add_argument("--protocol-reps", type=int, default=8)
+        cmd.add_argument("--packet-bytes", type=int, choices=[1 << 20, 2 << 20, 4 << 20], default=4 << 20)
         cmd.add_argument("--timeout", type=int, default=600)
         cmd.add_argument("--lease-note", default="operator must obtain an exclusive dual-die window")
     status = sub.add_parser("status")

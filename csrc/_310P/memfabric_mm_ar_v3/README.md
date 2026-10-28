@@ -148,3 +148,10 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/quick.py status \
 但V3最佳group2048相对历史V2/E3-G时延增加17.29%/35.11%（M2048/4096），性能目标失败。
 下一版按用户指定的chunk512/1024/2048，保持V2对应MM tiling，改为MM/Reduce/Gather分段推进，
 同时验证大包与双缓冲MTE；不重跑V2/Stock性能臂。新排布尚未实现或实测。
+
+## V3.1实现已完成，CANN准入待服务器验证
+
+实现三段推进、合法交错邮件分发、双UB copy与4MiB包，chunk固定512/1024/2048。
+CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN编译/NPU均NOT_RUN。
+没有设备编译证据前不宣称实机准入已通过；服务器先编译再按G0和门禁执行。
+完整条件与交接见[准入单](V31_ADMISSION.md)。Stock默认不变，不重跑历史V2/Stock性能臂。

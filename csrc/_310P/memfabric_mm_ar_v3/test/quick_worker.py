@@ -81,6 +81,7 @@ def main():
     p.add_argument("--samples", type=int, default=30)
     p.add_argument("--warmup", type=int, default=4)
     p.add_argument("--protocol-reps", type=int, default=8)
+    p.add_argument("--packet-bytes", type=int, choices=[1 << 20, 2 << 20, 4 << 20], default=4 << 20)
     p.add_argument("--physical-devices", required=True)
     a = p.parse_args()
     if min(a.samples, a.warmup, a.protocol_reps) < 1:
@@ -108,7 +109,7 @@ def main():
     gates, measures = {}, []
     config = {
         "M": [2048, 4096],
-        "groups": [1024, 2048],
+        "groups": [512, 1024, 2048],
         "pipeline": True,
         "samples": a.samples,
         "warmup": a.warmup,
@@ -116,7 +117,7 @@ def main():
         "K": 2048,
         "N": 2048,
         "dtype": "fp16",
-        "packet_bytes": 1 << 20,
+        "packet_bytes": a.packet_bytes,
         "baseline_execution": "NONE",
     }
     data = {
@@ -190,7 +191,7 @@ def main():
         deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
         deploy_flag.write_text(json.dumps({"rank": rank, "phase": "pool-create"}))
         try:
-            session = V3Session(manifest["host_so"], rank, a.store_url)
+            session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
         finally:
             deploy_flag.unlink(missing_ok=True)
         data["loaded_libraries"] = loaded_identity(manifest)
@@ -215,7 +216,7 @@ def main():
             checked(out, ref, f"raw ADD {size}")
         gate("add")
         # Serial and pipeline; multiple packets/groups, alternate data to expose stale accumulation.
-        for group in (1024, 2048):
+        for group in (512, 1024, 2048):
             for pipeline in (False, True):
                 for i in range(a.protocol_reps):
                     dist.barrier()
@@ -230,7 +231,7 @@ def main():
             checked(outputs[4096], partial_refs[4096][v], "protocol ring wrap")
         gate("protocol")
         for m in (2048, 4096):
-            for group in (1024, 2048):
+            for group in (512, 1024, 2048):
                 for pipeline in (False, True):
                     dist.barrier()
                     session.run(xs[m][0], weight_nz, outputs[m], group=group, pipeline=pipeline)
@@ -241,7 +242,7 @@ def main():
         checked(tail_out, tail_ref, "odd M padding")
         gate("tail")
         for repeat in range(2):
-            order = [(m, g) for m in (2048, 4096) for g in (1024, 2048)]
+            order = [(m, g) for m in (2048, 4096) for g in (512, 1024, 2048)]
             if repeat:
                 order.reverse()
             for m, group in order:

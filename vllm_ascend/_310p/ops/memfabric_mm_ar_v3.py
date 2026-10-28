@@ -21,7 +21,7 @@ def padded_rows(rows: int, group: int) -> int:
 class V3Session:
     """PyTorch thin adapter to the public C ABI; no implicit HCCL or fallback."""
 
-    def __init__(self, library: str | Path, rank: int, store_url: str, *, packet_bytes: int = 1 << 20):
+    def __init__(self, library: str | Path, rank: int, store_url: str, *, packet_bytes: int = 4 << 20):
         import torch
 
         if rank not in (0, 1):
