@@ -67,7 +67,9 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/build.py \
   --out /absolute/private/v3-build-001
 ```
 
-`--out`必须是新目录。任何编译失败就保留`build_*.log`并停止，不把语法检查当作BiSheng PASS。
+`--out`必须是新目录。编译失败先保留`build_*.log`并停止当前轮；OpenCode可定位并修复执行中的BUG，
+提交新版本后在新目录重编，职责和证据要求见[OPENCODE_EXECUTION.md](OPENCODE_EXECUTION.md)。
+不把语法检查当作BiSheng PASS。
 新HEAD必须重新构建；构建manifest与启动时的源码/依赖身份不一致会被拒绝。
 
 ## 给OpenCode的一次快速验证
