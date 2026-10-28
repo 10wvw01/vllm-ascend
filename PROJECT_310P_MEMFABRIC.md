@@ -9,7 +9,7 @@
 **E3实机已经完成，E4编码已开工；二者的准入阶段不能混淆。** 真实NZ Stock M4096=2022.553µs、E1=2271.836µs、E3-G=2119.506µs、E3-T=2267.090µs。E3-G较E1提升7.187%（缩短152.330µs），但**仍慢Stock 96.953µs**；M2048 E1两场漂移6.192%，所以E3整批仍`INCONCLUSIVE_DRIFT`，不挑样本签正收益；真实M2049～4095尚未做融合实机性能。E3修复过一次E3-T L0C满载507015 AICore异常，E2-P曾遇507014且根因未闭环。**Stock一直是Serving默认**，E3/E4的L2真实Qwen站点、L3 Prefill Step和L4客户端TTFT皆`NOT_RUN`。
 
 - **最新且唯一的方案/证据入口**：[E3实机证据审核与E4分层流水准入](csrc/_310P/memfabric_mm_ar_v2/docs/E3_实机证据审核与E4分层流水准入_20261028.md)、[ADR-020](csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md)、[主线PROJECT_CONTROL](csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md)、[主线PERFORMANCE_BASELINES](csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md)。
-- **历史原始证据，保持不合入**：[E3 PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)，正式报告、八场双RankJSON、机器评估按主线证据审核链接索引，**不以PR工作分支中过期的治理状态代替主线**。
+- **E3原始证据已在主线保全52份、非只靠PR #20**：[主线归档Manifest](csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)、[机器评估](csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json)、[实机报告](csrc/_310P/memfabric_mm_ar_v2/docs/A1_E3_CHUNK2048_实机报告_20261028.md)，包括16份双Rank原始JSON、真实NZ路由、G0及SO身份，**逐文件Git blob SHA与来源一致**；[E3 PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)仅作实验Kernel与重型Profiler补充，不合入正式源码。
 - **唯一活跃研发实现**：[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)，短分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，首版AddTile与Packet分半组Add候选、2049个M的**纯CPU**混合分组/安全路由规划器。**E4 CPU/CI、CANN编译、310P实机、性能尚NOT_RUN；连续M设备Kernel及生产自适应路由均未实现**。
 - **下一步**：E4源码协议深审与CPU/独立BiSheng→G0/双Rank短Smoke→七臂短Screen→有收益再经单独批准十四场Confirm；之后实现连续M混合尾块设备路径，最终和真实Qwen业务TTFT层级分别验证。禁止用户未授权时启用自动Serving路由或直接merge实验分支代码。
 
