@@ -39,7 +39,7 @@ def parse_info(raw: str, card: int) -> dict:
         raise LeaseLost(f"target card {card} health entries={health!r}, need two OK dies")
     by_card: dict[int, set[int]] = {}
     for line in tail.splitlines():
-        if re.match(r"^\\|\\s*\\d+\\s+", line) and not PROC.match(line):
+        if re.match(r"^\|\s*\d+\s+", line) and not PROC.match(line):
             raise LeaseLost("unparseable npu-smi process row; STOP")
         for n, die, pid in PROC.findall(line):
             n, die, pid = int(n), int(die), int(pid)
