@@ -141,3 +141,13 @@
 - **实施边界**：仅在由主线派生的`work/310p-mm-ar-five-arm-dcci-20261028`新增独立B2/E1设备核、私有Host及五层基准/评估器，主线D4正式Kernel、Host、Serving、Stock默认、外部DFlash仓库零改动。旧A1 Draft PR #9只读取证，不整支合入/复制过时控制文件。
 - **合入/现场门禁**：源码两轮深审、原仓CPU合同与CANN BiSheng编译、同卡双Die真实独占G0、NZ路由、E1/B2双Rank短Smoke后开展十场原始Event Confirm；现场事实留原始文件。任何新候选正收益先L1，再L2真实40目标站点和L3无Profiler Prefill Step稳定验证，L3_GO后才L4 input4096/output2048/TP2/并发10/50请求TTFT。
 - **状态**：~~截至本决策新增代码，B2/E1设备编译、数值、性能均`NOT_RUN`，尚不具备实机GO判定。~~ **2026-10-28实机更新**：run_id `a1-five-arm-20261028-001`（16384卡dev2,3、私有装载、独占巡检、前后SHA一致）完成两轮深审→CPU62项→dav-2002隔离编译→真实NZ路由4/4→B2/E1双Rank Smoke→十场ABBA。E1 vs D4 **+7.79%（M2048）/+10.50%（M4096）**，E1仍慢于Stock（−15.29%/−11.29%）；总状态`INCONCLUSIVE_DRIFT`（D4 M2048场间漂移5.685%>5%，stage07周期长尾），M2048速比不签。按本ADR"最大性能导向"：**E1保留为下一优化基线**（仅工作分支候选），下一E代聚焦同步消息缩减、按可见性证明消除冗余清理、治理周期长尾；B2串行结构负向（+285.8/+579.5µs vs D4）维持Chunk交叠主线；B1慢归因staging成本。详见[五层实施方案](A1_五层MM_MemFabric_AR与E1关键路径优化_20261028.md)、[实机报告](A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md)。
+
+
+## ADR-019｜2026-10-28｜E3计算Chunk2048 / 4MiB通信分包解耦（G/T两种MM tiling）｜**设备NOT_RUN**
+
+- **用户要求与E2负结论**：已认可从E1转向E3，并明确补充真实`chunk=2048`探索。E2-R释放树、E2-P READY预失效和512粒度已验证为性能负收益（[PR #19](https://github.com/10wvw01/vllm-ascend/pull/19)，E2实机有效attempt3，M4096 E1约2285.5µs、Stock约2022.6µs；E2-P曾触发507014，根因UNKNOWN），不从E2-P拷贝不稳定消息协议。
+- **架构决策**：E3逻辑计算/会合/归约Chunk=2048行、每核256行结果（全组8MiB），而**MemFabric消息永远拆为2×4MiB**并对两封不同tag的信件逐一核验唯一性、长度、目标地址和状态；直到两封数据都收到，才能Add该组。绝不把单条8MiB SDMA作为已支持能力。
+- **单变量分层**：Stock真实NZ；E1/1024；E3-G计算2048组由两次1024-MM子调用组成；E3-T计算2048组由一次2048-MM调用组成。G与T相同通信消息、IB、Add及缓存维护；二者主要区别是MM tiling/调用数。E1与G比较的是整体分组架构，不得误写“纯DCCI或纯Overlap收益”。
+- **避免生产ABI破坏**：正式trial Host只接受最多1024行；E3继续以1024创建和验证对称池，通过隔离私有Host显式下发`chunkRows=2048, chunks=M/2048`给E3私有设备符号，使用已有8192行对称窗口、严格检查arena上限。生产D4/E1/Serving/Stock及共享MF SO均不改。
+- **实施**：短分支`work/310p-mm-ar-e3-chunk2048-20261028`直接自E1已验证分支派生；独立E3设备核、Host、BiSheng构建、Stock/E1/G/T八场测试、CPU合同及CI；完整设计[《E3 Chunk2048》](A1_E3_CHUNK2048_设计与实机验证_20261028.md)。
+- **状态**：两轮静审后，待G0/原仓CPU用例/BiSheng CANN9.1/双Rank短Smoke再决定八场性能 GO。新增2048 tiling是否可编译尚`UNKNOWN`，若无法编译不得假报PASS或悄悄回退到G模式；所有新性能和Qwen L2/L3/L4均`NOT_RUN`。
