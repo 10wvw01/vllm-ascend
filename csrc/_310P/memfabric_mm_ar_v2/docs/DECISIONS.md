@@ -153,3 +153,6 @@
 - **性能合同不变**：E3-G已验证M4096 2119.506µs vs真正Stock2022.553µs，仍差96.953µs；`INNER_PHASE_UNKNOWN`。E4-T2/T4/T8/PacketAdd增益`UNKNOWN`，E4-B仍仅纯CPU连续M规划。Stock Serving默认不变、E4 L2/L3/L4 NOT_RUN、十四场Confirm需单独授权。
 - **权威原件**：[本主线E4 Attempt1 23份逐文件同SHA归档](../evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)，[原中文报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)，[STOP根因取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)，[E4 PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)（实施非主线）。
 
+
+**ADR-021执行补充｜2026-10-28｜最小保护工具代码就绪，尚待实际CPU/设备验收**：原E4分支[PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)已补`e4_stage_guard.py`（每次torchrun前/中/后核目标双Die健康和可观测跨卡新PID，异常自动STOP并保留原始npu-smi证据，只终止本run进程组），`e4_detached.py`（独立Session启动/status/退出码及Screen-only限权），新增CPU负面测试与CI；`e4_campaign.sh`四处设备入口均接入守护并强制当前HEAD/Build绑定。**测试代码仍NOT_RUN，工具没有取得真实持续独占租约也不能保证测试环境安全**；新HEAD必须先CPU合同和G0，通过后重编私有SO，方可进入E4四候选设备Smoke，七臂短Screen仍非正式性能Confirm。
+
