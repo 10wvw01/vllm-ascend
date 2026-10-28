@@ -134,3 +134,20 @@
 **D4机制实测**：[双Rank机器报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/diag_assessment.json) Formal 2635.925/2617.149µs、Loop4 3234.206/3213.112µs、Diag0 6378.946/412.448µs、Diag4 27033.241/26994.908µs、Diag5 1021.224/1055.573µs；[短Profiler派生摘要](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/attempt3_completed_stages/mechanism/sp_trace_summary.json)正式`V2TrialKernel<tiling1024,1024>` Rank0/1约2343/2355µs。**机制模式非等价，不可以差值当设备内MM/SDMA/IB/Add真实阶段耗时，INNER_PHASE_UNKNOWN**；短Profiler原始Chrome仍SERVER_ONLY。
 
 **Epoch & Serving**：本轮首个E15A模型启动可用显存27.33GiB小于90%利用率所需38.92GiB，受到外部进程占用导致VLLM初始化失败；后续5/5/15与L3、L4均无新有效数据。原R1周期尖峰仍是待验证假设，不得写“Epoch原因已确定”。[R2最终报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r2_batch_20261027/A1_R2_FINAL_REPORT_20261027.md)。
+
+
+## 2026-10-28｜经主线审阅的E1/E2/E3真实NZ完整L1对照（来源不改写）
+
+> **主线唯一索引**：[E3证据审核及E4门禁](E3_实机证据审核与E4分层流水准入_20261028.md)。本节记录以同卡、同批和双Rank成对Event为有效统计边界，**不同实验批次的具体微秒数不能混算成百分比**；原始报告与JSON仍置于对应PR工作分支。
+
+| 实验批次和形状 | Stock NZ+HCCL (µs) | E1 (µs) | 新候选 (µs) | 新候选相对E1 | 数据有效性 |
+|---|---:|---:|---:|---|---|
+| E2 attempt3 M2048 | 1087.533 | 1236.081 | E2-R1268.731 / E2-P1328.021 / E2-P512 1581.211 | 均负 | `E2_FULL_CHAIN_TIMING_VALID`；E2-P的attempt2 507014保留独立缺陷 |
+| E2 attempt3 M4096 | 2022.624 | 2285.456 | E2-R2292.578 / E2-P2383.007 / E2-P512 2756.868 | 均负 | 同上 |
+| E3 M2048 | 1078.412 | 1222.611 | E3-G1451.002 / E3-T1483.932 | G方向负（−15.74%仅描述性） | `INCONCLUSIVE_DRIFT`，E1漂移6.192%>5%；不得签完整批次 |
+| **E3 M4096** | **2022.553** | **2271.836** | **E3-G2119.506** / E3-T2267.090 | **E3-G +7.187%（少152.330µs）** | M4096所有臂≤2.02%漂移；E3-G仍比Stock慢**96.953µs**，全批仍`INCONCLUSIVE_DRIFT` |
+
+- E3完整L1真实NZ路由4/4、G/T修复后bit-exact/status0、八场16份正式Rank JSON和前后冻结SO身份已在[E3机器评估](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e3-chunk2048-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json)与[实机报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e3-chunk2048-20261028/csrc/_310P/memfabric_mm_ar_v2/docs/A1_E3_CHUNK2048_实机报告_20261028.md)保存。E3-G M4096 p99两场2209.469/2229.079µs，E1为2379.161/2406.195µs；不能只凭p99个别数据认定长稳问题根除。
+- **固定开销归因限制**：E3-G MM调用和SDMA消息都未减少，减少的是2048会合组数量及每组生产/接收DCCI、Ready、AddRelease的次数；`INNER_PHASE_UNKNOWN`。AddTile仍为2048 **FP16元素**，不是2048行。E4 AddTile和Packet级Add均为未实测待验。
+- **业务状态**：E3/E4 L2 真实40站点、L3 Prefill设备Step和L4客户端TTFT全`NOT_RUN`；本主线正式Stock默认不变，既有历史SEL-01/Eager等结果不迁移为E3成绩。
+
