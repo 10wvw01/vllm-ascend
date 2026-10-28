@@ -130,7 +130,7 @@ for stage,arm in enumerate(arms,1):
 flag={arm:res[arm]["4096"]<res["e3g"]["4096"] for arm in arms[3:]}
 out.write_text(json.dumps({"schema":"E4_SCREEN_ONLY_V1","rank_pair_p50_us":res,
     "improves_E3G_M4096_screen_only":flag,
-    "status":"SCREEN_ONLY_NO_SIGNED_PERFORMANCE"},indent=2)+"\\n")
+    "status":"SCREEN_ONLY_NO_SIGNED_PERFORMANCE"},indent=2))
 PY
 # 全十四场为额外成本；只有用户/负责人基于Screen通过后显式授权才能执行。
 if [[ "${E4_CONFIRM_APPROVED:-NO}" != "YES" ]]; then
