@@ -289,3 +289,11 @@
 - **下一步强制修正**：停止无效重跑；由我方研发在同一E4 PR中补G0后持续独占**主动STOP**检测，不可仅做30s日志、后验发现外部PID；执行器需要真正独立session与明确进度/结束状态轮询，避免工具超时SIGTERM。审查、负面CPU合同通过后，取得目标物理卡连续双Die排他租约，重新G0并核源码HEAD+候选SO SHA，执行E3G/E4-T2/T4/T8/P双RankSmoke，再短Screen；任异常STOP。**未见新性能前不启十四场Confirm，不擅自打开Serving或变长M路由。**
 - **路线保持**：E3-G仍为M4096研究基底，旧E3轮完整L1 M4096 E3-G2119.506µs、StockNZ2022.553µs（差96.953µs），但不跨批推导E4收益。E4-B目前仍只覆盖2049个整数M的CPU规划，不支持真实设备尾块。Qwen L2/L3/L4在E4下仍NOT_RUN。
 
+
+## 28. 2026-10-28｜E4 Attempt1工程P0最小测试保护已经编码，复测仍待实机
+
+- **实现位置**：原有唯一E4 [Draft PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)，`work/310p-mm-ar-e4-layered-pipeline-20261028`。新增`test/perf/e4_stage_guard.py`使`e4_campaign.sh`全部四类torchrun（真实NZ/Smoke/Screen/Confirm）被阶段级只读npu-smi监控包裹：每次开跑前目标物理卡双Die健康/无人占用检查、运行中2秒监视跨卡同PID/超额进程/接口异常STOP、结束后补采，异常保存`lease_guard.jsonl`、`lease_guard_stop.npu.txt`且**仅终止自己创建的torchrun进程组**；原30秒卡巡检保留。
+- 新增`test/perf/e4_detached.py`两层独立Session、`launch.json`/`result.json`明确退出码、`start/status`查询，防止工具超时误杀；`E4_CONFIRM_APPROVED=YES`的未经批准Confirm不允许经此入口启动；全部Stage之前需核`E4_PHYSICAL_CARD_ID`及新Git HEAD与Build manifest匹配。附纯CPU负面测试`test/ut/test_e4_test_protection.py`与GitHub Actions语法/单测入口。
+- **状态不能混淆**：此项为工具源码实现和静态检查，**新HEAD CPU pytest/CI、BiSheng重编、G0、E4各候选Smoke/Screen均未执行**。E4 Attempt1旧轮CPU/Build PASS只对旧HEAD有效。E4旧基准Stock/E3-G数值不更新，生产Serving Stock默认不变，十四场Confirm仍需用户独立批准。
+- **仍需真实独占**：仅凭容器内npu-smi，无法证明“目标卡单独进入”的某个宿主PID是否属于本次torchrun，也无法检测2秒间隙内的极短抢占；因此**宿主/调度器连续双Die排他租约是永久P0约束**。方案和最简上机命令在[E4保护操作说明](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/docs/A1_E4_最小实机测试保护与复跑操作_20261028.md)。这次只做测试工具，不合入实验Kernel。
+
