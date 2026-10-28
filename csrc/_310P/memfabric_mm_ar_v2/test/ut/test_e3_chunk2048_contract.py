@@ -57,6 +57,10 @@ class E3Chunk2048(unittest.TestCase):
         k=src(KERNEL/"mf310p_v2_e3_group2048.asc")
         self.assertIn("E3Group2048Kernel<tiling1024, 1024>",k)
         self.assertIn("E3Group2048Kernel<e3Tiling2048, 2048>",k)
+        # dav-2002 L0C=256KB：256x256 FP32累加器100%占满会运行时AICore异常，
+        # T的singleCoreM=256保持一次256行MM调用，basicM必须≤128。
+        self.assertIn("constexpr MatmulShapeParams e3Shape2048 = {256, kN, kK, 128, 256, 64};",k)
+        self.assertNotIn("e3Shape2048 = {256, kN, kK, 256, 256, 64}",k)
         self.assertIn("kComputeCalls = kE3GroupRows / MM_ROWS;",k)
         self.assertIn("mm.SetOrgShape(kComputeRowsPerCore, kN, kK, kK, kN);",k)
         self.assertIn("mm.IterateAll(cg);",k)
