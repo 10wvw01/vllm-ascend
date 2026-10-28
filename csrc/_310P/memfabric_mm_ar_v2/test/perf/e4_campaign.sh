@@ -12,6 +12,8 @@ OUT="$1"; BUILD="$2"
    "${A1_FIVE_ARM_CARD_EXCLUSIVE:-NO}" == YES ]] || {
   echo "G0 health+binary identity+continuous exclusive lease not approved; STOP" >&2; exit 2; }
 : "${ASCEND_RT_VISIBLE_DEVICES:?G0 verified actual same-card dual-Die mapping missing}"
+: "${E4_PHYSICAL_CARD_ID:?fresh G0 must set physical NPU card ID}"
+[[ "$E4_PHYSICAL_CARD_ID" =~ ^[0-9]+$ ]] || { echo "invalid physical card ID" >&2; exit 2; }
 : "${V2_HOST_LIB:?loaded plugin shared library path required}"
 : "${U1_DEVICE_SO_PATH:?frozen formal device binary path required}"
 : "${MF_SDMA_ORCH_JSON:?KVER11 config required}"
@@ -27,6 +29,13 @@ for name in MF_KFC_BYPASS MF310P_V2_NOWARMUP MF310P_V2_AR_ONLY_NOWARMUP         
 done
 PERF="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$PERF/../../../../.." && pwd)"
+# 设备阶段前重新核对双Die独占，运行中每2s主动阻断跨卡同PID或超额进程。
+# 只可停止本阶段自身torchrun进程组，不允许杀外部用户进程。
+e4_stage() {
+  python3 "$PERF/e4_stage_guard.py" \
+    --card "$E4_PHYSICAL_CARD_ID" \
+    --log "$OUT/lease_guard.jsonl" --poll-sec 2 -- "$@"
+}
 [[ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no)" ]] || {
   echo "dirty tracked working copy: STOP" >&2; exit 2; }
 mkdir -m 700 "$OUT"
@@ -49,9 +58,11 @@ cleanup_watch() {
   wait "$WATCH_PID" 2>/dev/null || true
 }
 trap cleanup_watch EXIT
-python3 - "$BUILD/manifest.json" <<'PY'
-import json,sys,pathlib,hashlib
+python3 - "$BUILD/manifest.json" "$ROOT" <<'PY'
+import json,sys,pathlib,hashlib,subprocess
 p=pathlib.Path(sys.argv[1]); d=json.loads(p.read_text())
+head=subprocess.check_output(['git','-C',sys.argv[2],'rev-parse','HEAD'],text=True).strip()
+assert d['work_head']==head, 'stale build HEAD; rebuild before NZ route or NPU testing'
 for path,expected in ((d['candidate_so'],d['candidate_sha256']),
                       (d['private_host_so'],d['private_host_sha256'])):
     assert hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()==expected
@@ -59,7 +70,7 @@ assert d['isolated_not_installed'] and d['device_arch']=='dav-2002'
 PY
 # 不允许让真正NZ Stock悄悄退化为通用MatMul+TransData；先独立采CANN证据。
 mkdir -m 700 "$OUT/routes"
-if ! torchrun --standalone --nproc-per-node=2 "$PERF/five_arm_nz_route.py" \
+if ! e4_stage torchrun --standalone --nproc-per-node=2 "$PERF/five_arm_nz_route.py" \
      --out "$OUT/routes" > "$OUT/routes/torchrun.log" 2>&1; then
   echo "REAL_NZ_ROUTE_STOP; preserve CANN CSV evidence" | tee -a "$OUT/progress.txt"
   exit 1
@@ -77,7 +88,7 @@ echo "REAL_NZ_ROUTE_PROVEN" | tee -a "$OUT/progress.txt"
 for spec in "3:e3g" "4:e4t2" "5:e4t4" "6:e4t8" "7:e4p"; do
   stage="${spec%%:*}"; arm="${spec#*:}"
   echo "SMOKE_START $arm" | tee -a "$OUT/progress.txt"
-  if ! torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
+  if ! e4_stage torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
        --phase smoke --warmup 3 --iters 6 \
        --stage "$stage" --out "$OUT/sessions" \
        --build-manifest "$BUILD/manifest.json" \
@@ -99,7 +110,7 @@ for i in "${!SCREEN[@]}"; do
   stage=$((i+1)); arm="${SCREEN[$i]}"
   label="$(printf 'screen_%02d_%s' "$stage" "$arm")"
   echo "SCREEN_BEGIN $label" | tee -a "$OUT/progress.txt"
-  if ! torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
+  if ! e4_stage torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
        --phase screen --warmup 10 --iters 30 \
        --stage "$stage" --out "$OUT/sessions" \
        --build-manifest "$BUILD/manifest.json" \
@@ -154,7 +165,7 @@ if s.connect_ex(("127.0.0.1",port))==0:
     raise SystemExit("private MF store port still in use; STOP")
 s.close()
 PY
-  if ! torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
+  if ! e4_stage torchrun --standalone --nproc-per-node=2 "$PERF/e4_arm.py" \
        --stage "$stage" --out "$OUT/sessions" \
        --build-manifest "$BUILD/manifest.json" \
        --store-url "tcp://127.0.0.1:$FIVE_ARM_STORE_PORT" \
