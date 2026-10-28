@@ -51,16 +51,17 @@ class TestProtection(TestCase):
             child=mock.Mock(pid=4822)
             child.pid=4822
             child.poll.return_value=None
-            snap=[G.parse_info(info(),16384),
-                  G.parse_info(info(target=(11,12)),16384),
-                  G.parse_info(info(target=(11,12,506263),others=(506263,)),16384)]
-            with mock.patch.object(G,"sample",side_effect=[("",x) for x in snap]),\
+            raws=[info(),info(target=(11,12)),
+                  info(target=(11,12,506263),others=(506263,))]
+            snap=[G.parse_info(x,16384) for x in raws]
+            with mock.patch.object(G,"sample",side_effect=list(zip(raws,snap))),\
                  mock.patch.object(G.subprocess,"Popen",return_value=child),\
                  mock.patch.object(G.time,"sleep"),\
                  mock.patch.object(G,"stop_owned") as stop:
                 self.assertEqual(G.run_stage(16384,log,2,["torchrun"]),G.STOP_EXIT)
                 stop.assert_called_once_with(child)
             self.assertEqual(json.loads(log.read_text().splitlines()[-1])["event"],"STOP")
+            self.assertIn("506263", (Path(tmp)/"lease_guard_stop.npu.txt").read_text())
 
     def test_preflight_stop_never_starts(self):
         with tempfile.TemporaryDirectory() as tmp:
