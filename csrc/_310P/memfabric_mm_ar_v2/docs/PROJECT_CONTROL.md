@@ -299,3 +299,13 @@
 - **八场性能（配对p50）**：M4096：Stock 2022.6、E1 2271.8、**E3-G 2119.5（vs E1 +7.19%/−152.3µs，vs Stock −4.57%/−97.0µs）**、E3-T 2267.1（vs E1 +0.21%，vs E3-G −6.51%）；M2048：Stock 1078.4、E1 1222.6、E3-G 1451.0（vs E1 −15.74%）、E3-T 1483.9。M4096全臂漂移≤2.02%稳定；M2048 E1臂6.19%>5%使总状态`INCONCLUSIVE_DRIFT`（E3-G劣于两场E1各自p50，方向稳健）。[实机报告](A1_E3_CHUNK2048_实机报告_20261028.md)、[性能台账](PERFORMANCE_BASELINES.md)。
 - **结论**：①Chunk2048只在组数≥2（M4096）赢：固定同步开销减半>交叠损失；单组（M2048）零交叠净亏228µs。②真2048 MM在310P3不可实现更大基础tile（L0C硬限制），E3-T的−6.51%是单次大调用相对两次调度的真实代价，非通信差异。③E1→E3-G把对Stock差距从−10.84%缩到−4.57%（−97µs）。下一轮：单组组内"前1024行MM完成即发首包"混合粒度流水、producer DCCI分段、Core0串行链、周期长尾。
 - **边界**：全部为L1离线算子；L2/L3/L4 NOT_RUN；正式D4/E1源码、Serving默认、共享SO零改动；E3候选SO仅隔离目录未安装；Stock默认不变。E3-G是否升为下一优化基线待主线裁决。
+
+
+## 31. 2026-10-28｜E4隔离开发现场状态（本分支不是项目权威主线）
+
+> 正式项目事实/ADR/E3审签结果以 `dev/310p-memfabric-mm-ar` 的 [PROJECT_CONTROL.md](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/PROJECT_CONTROL.md) 和 [ADR-020](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/DECISIONS.md) 为唯一权威。该章节仅解释E4代码/测试变更，不覆盖旧状态，也不宣称上机成绩。
+
+- **新实现**：私有`E4Group2048Kernel<ADD_TILE,PACKET_ADD>`，MM生产仍冻结E3-G的两次1024调用与2048组、两包4MiB、完整DCCI/ReadyTree和quiet/DONE；AddTile2048/4096/8192三档+Packet到达半组Add（Core0唯一mail消费者、Core1～3/4～7独立release），其余默认不变。
+- **离线自适应M**：`test/perf/e4_shape_plan.py`全覆盖M2048～4096、精确合法组组合/≤4096容量/≤4MiB每包，默认路由Stock；**只具备CPU规划，不具备真实变长尾块设备Kernel**。
+- **私有构建/运行**：`e4_private_host.cpp/e4_build.sh/e4_arm.py/e4_assess.py/e4_campaign.sh`；E4只接受M2048/4096，先双RankSmoke→七臂短Screen→明确授权才十四臂Confirm；原生NZ路由与冻结SO/KVER SHA均为门禁。
+- **当前真实性**：源码已落分支；CPU pytest、BiSheng编译、G0和全部E4设备性能均`NOT_RUN`。E3历史实机已完成，但不能继承E3的PASS给E4；私有候选必须经过两轮静审后独立实机。生产Stock/Serving/正式D4/E1/MemFabric无改动。详见[实现与门禁](A1_E4_分层流水与连续M_实施及门禁_20261028.md)。
