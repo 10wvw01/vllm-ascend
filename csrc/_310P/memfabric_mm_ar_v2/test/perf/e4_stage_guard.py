@@ -106,10 +106,21 @@ def run_stage(card: int, log: Path, poll: float, command: list[str]) -> int:
     if not command:
         raise ValueError("stage command required")
     record(log, "PREFLIGHT_START", argv=command, card=card)
-    _, before = sample(card)
-    record(log, "PREFLIGHT_PASS", **assess(before, stage_running=False))
+    try:
+        _, before = sample(card)
+        checked = assess(before, stage_running=False)
+    except LeaseLost as exc:
+        record(log, "STOP", phase="PREFLIGHT", reason=str(exc))
+        raise
+    record(log, "PREFLIGHT_PASS", **checked)
     child = subprocess.Popen(command, start_new_session=True)
     record(log, "STAGE_STARTED", child_pid=child.pid)
+    previous_term = signal.getsignal(signal.SIGTERM)
+    previous_int = signal.getsignal(signal.SIGINT)
+    def interrupted(signum: int, _frame: object) -> None:
+        raise LeaseLost(f"guard received signal {signum}; stop owned stage")
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     try:
         while True:
             _, snapshot = sample(card)
@@ -126,6 +137,9 @@ def run_stage(card: int, log: Path, poll: float, command: list[str]) -> int:
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
         return STOP_EXIT
+    finally:
+        signal.signal(signal.SIGTERM, previous_term)
+        signal.signal(signal.SIGINT, previous_int)
 
 
 def main() -> int:
