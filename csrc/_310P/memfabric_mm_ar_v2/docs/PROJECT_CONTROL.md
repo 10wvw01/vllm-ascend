@@ -280,3 +280,12 @@
 
 在本主线`evidence/e3_chunk2048_20261028/`现已**逐文件原样保存52份**E3关键原始文本证据：机器评估、16份正式Rank JSON、4份Smoke、8份Stock NZ路由JSON/CSV、G0、前后二进制SHA和逐场设备记录、原实机中文报告等；所有归档文件与原E3实验分支的同名文件**Git blob SHA完全一致**。详情：[主线归档Manifest](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)。
 **更正上述“E3原始Evidence仍由PR#20承载”的历史说法**：目前PR#20仅为额外的大型Profiler和实验Kernel代码来源，不再是主要L1机测结果的唯一保全位置。构建日志、507015原始PLog、30s巡检因源分支未上传而保留待补状态。
+
+
+## 27. 2026-10-28｜E4 Attempt1 G0/CPU/编译/NZ/E3G Smoke PASS，外部占卡 STOP（ADR-021）
+
+- **正式状态**：E4 Draft [PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)、执行源码`1e20d3522cc9dd8040b257fae8d887e7d12f3b5e`、归档`5b727e9f9153e8292c6022a14b63e974dfb0db03`、run_id `e4-layered-20261028-001`；报告、G0、真实NZ路径、E3G Smoke及宿主占用证据已**按原文与源Git blob相同**选择性归档本主线23份：[E4 Attempt1归档清单](../evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)。E4的CPU合同、2049M纯离线规划、AddTile2048/4096/8192与PacketAdd私有BiSheng编译全部PASS；真实NZ路由Rank0/1×M2048/4096四组PASS；E3-G双RankSmoke bit-exact/status0 PASS。
+- **STOP及性能真实性**：G0时16384 dev2/3空闲、KVER11和四冻结SO身份一致，运行中UTC06:29:39首份card_watch发现宿主PID506263已占四卡且持续增长；E3-G Smoke被同一时间的并发资源污染，M4096耗时约2.3/6.5～6.8ms交替，不能签任何正式新性能。E4-T2048因执行工具SIGTERM在Kernel前终止，非E4错算；E4-T4096/8192/PacketAdd全未运行；**E4四新候选均无设备正确性和速度结论，七臂Screen NOT_RUN，十四场Confirm从未授权**。相关[中文原始报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)和[STOP取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)可在主线独立打开。
+- **下一步强制修正**：停止无效重跑；由我方研发在同一E4 PR中补G0后持续独占**主动STOP**检测，不可仅做30s日志、后验发现外部PID；执行器需要真正独立session与明确进度/结束状态轮询，避免工具超时SIGTERM。审查、负面CPU合同通过后，取得目标物理卡连续双Die排他租约，重新G0并核源码HEAD+候选SO SHA，执行E3G/E4-T2/T4/T8/P双RankSmoke，再短Screen；任异常STOP。**未见新性能前不启十四场Confirm，不擅自打开Serving或变长M路由。**
+- **路线保持**：E3-G仍为M4096研究基底，旧E3轮完整L1 M4096 E3-G2119.506µs、StockNZ2022.553µs（差96.953µs），但不跨批推导E4收益。E4-B目前仍只覆盖2049个整数M的CPU规划，不支持真实设备尾块。Qwen L2/L3/L4在E4下仍NOT_RUN。
+
