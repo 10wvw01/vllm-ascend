@@ -307,14 +307,14 @@
 
 ### E4第一轮实机（2026-10-28，run_id=e4-layered-20261028-001）
 
-- **已完成并PASS**：G0（16384/dev2,3独占、四冻结SHA与E3同批次逐字节一致）、原仓UT 80项+E4合同UT、2049-M穷尽规划审计、py_compile/bash -n/治理静态门、E1/E3-G/E4四实例BiSheng dav-2002隔离编译一次通过（**AddTile8192无BUILD_UNSUPPORTED**；正式D4符号未导出）、真实NZ路由4/4（MatmulWeightNz+HCCL、0 TransData，CANN CSV归档）、E3-G双Rank Smoke（M2048/4096、bit-exact、status=0、首写成功）。
-- **STOP**：E4四候选Smoke与七臂Screen因宿主级外部进程PID 506263占用全部四卡（16384双Die持续增长、hugepages满）触发"设备被占用→立即STOP"合同止损，均`NOT_RUN`；十四场Confirm未授权未运行。执行侧另有e4t2 torchrun被工具超时SIGTERM误杀的工艺失误（无设备执行，已如实归档）。**E4设备正确性与全部性能结论维持NOT_RUN**；M4096约97µs Stock差距、AddTile4096/8192、PacketAdd、M2048四个问题本轮均无数据。
-- 证据与报告：[第一轮实机验证报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)。下一轮前置：协调四卡无外部租户的连续独占窗口后重G0续跑；campaign以setsid全脱管启动并（经审查后）为巡检增加外部占用自动STOP门禁。
+- **已完成并PASS**：G0（16384/dev2,3独占、四冻结SHA与E3同批次逐字节一致）、原仓UT 80项+E4合同UT、2049-M穷尽规划审计、py_compile/bash -n/治理静态门、E1/E3-G/E4四实例BiSheng dav-2002隔离编译一次通过（**AddTile8192无BUILD_UNSUPPORTED**；正式D4符号未导出）、真实NZ路由4/4（MatmulWeightNz+HCCL、0 TransData，两轮campaign各一次）。
+- **attempt1 STOP（06:29–07:03）**：宿主级外部进程PID 506263占用全部四卡（16384双Die持续增长、hugepages满）触发"设备被占用→立即STOP"合同止损；另有e4t2 torchrun被工具超时SIGTERM误杀的工艺失误（无设备执行，如实归档）。等待窗口部署setsid全脱管空闲监视+自动G0复核（attempt2_automation/），09:35卡空闲、hugepages 1分钟回收。
+- **attempt2完成全部允许阶段（09:39启动）**：五臂双Rank Smoke全部PASS（e3g/e4t2/e4t4/e4t8/e4p，bit-exact、status=0、首写成功；**E4四臂为首次设备执行**，e4t8未触发507015类资源异常，e4p的Core0唯一邮件消费者/分核释放协议实机成立）；七臂Screen完成（30样本/臂）；全程16384零外部进程、结束后卡回基线、前后二进制SHA一致。**attempt2执行HEAD为5b727e9f9（早于下方守护代码合入），使用委托版campaign脚本+本会话setsid监视器完成，其结果不因守护代码后合入而失效。**
+- **Screen方向性结果（SCREEN_ONLY，不签正式性能）**：M4096配对p50 Stock 2037.7 / E1 2261.9 / E3-G 2133.9 / e4t2 2131.7 / e4t4 2112.5 / **e4t8 2076.2** / e4p 2105.3µs。**e4t8相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs（复现E3 Confirm的96.953µs）缩至38.5µs**；e4t2与E3-G差0.10%确认无重建漂移；e4p −1.34%；**M2048四臂与E3-G持平（±1.3%）、仍落后Stock约32–34%，消费者侧无解单组交叠损失**。
+- **结论与下一轮**：E4设备正确性已证实；性能待授权Confirm，**最优先e4t8（尾部p90/p99为关键观察点）、次优先e4t4**；e4p结构性上限已兑现暂缓；M2048需core-ownership重排或1024+1024混合组新候选。证据与报告：[第一轮实机验证报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件取证](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)。
 
-
-### E4 Attempt1后最小测试保护已编码（2026-10-28，尚未进行新实机）
+### E4 Attempt1后最小测试保护已编码（2026-10-28，attempt2未使用，自下一次实机生效）
 
 - **只改测试代码**：`test/perf/e4_stage_guard.py`加入目标卡G0后每阶段2秒巡检、跨卡宿主同PID/超额Rank进程/设备健康/坏npu-smi格式的主动STOP，单独终止自身创建的`torchrun`进程组；`e4_campaign.sh`中4处NZ/Smoke/Screen/Confirm的torchruns已受统一守护且新增`E4_PHYSICAL_CARD_ID`与当前HEAD绑定构建manifest强制检查。原30秒卡巡检日志继续保留。
 - **独立启动收尾**：`test/perf/e4_detached.py`以两层独立Session启动/监督测试，输出`launch.json`、`campaign.log`、`result.json`、可查询明确退出码，只允许Screen，不会绕过Confirm授权。测试代码/模版+CPU负面合同`test/ut/test_e4_test_protection.py`及CI扩展。
-- **诚实边界**：监控无法单凭容器npu-smi识别所有目标卡独占PID的所属方，也不能捕获短于采样间隔的外部抢占；**外部独占租约仍为P0**。该改动仅属于源码/结构门禁，新的CPU pytest、CANN编译、G0、E4-T2/T4/T8/P Smoke及Screen全部**NOT_RUN**；已完成E4 Attempt1报告不被改写。详见[最小测试保护与复跑操作](A1_E4_最小实机测试保护与复跑操作_20261028.md)。
-
+- **诚实边界**：监控无法单凭容器npu-smi识别所有目标卡独占PID的所属方，也不能捕获短于采样间隔的外部抢占；**外部独占租约仍为P0**。上述attempt2在守护代码合入前执行（HEAD 5b727e9f9、委托版campaign脚本），其独占由本会话外置监视器+全程30s巡检验证。详见[最小测试保护与复跑操作](A1_E4_最小实机测试保护与复跑操作_20261028.md)。

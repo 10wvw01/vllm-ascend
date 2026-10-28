@@ -1,0 +1,103 @@
+{
+  "schema": "E4_LAYERED_TP2_V1",
+  "stage": 4,
+  "arm": "e4t2",
+  "phase": "smoke",
+  "rank": 1,
+  "TP": 2,
+  "weight_format": "NZ29",
+  "K": 2048,
+  "N": 2048,
+  "Ms": [
+    2048,
+    4096
+  ],
+  "stock_route_required": "aclnnMatmulWeightNz",
+  "jit_compile": false,
+  "allow_internal_format": true,
+  "data_variants": 2,
+  "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+  "host_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "production_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "candidate": {
+    "schema": "E4_LAYERED_ADD_BUILD_V1",
+    "mainline": "dev/310p-memfabric-mm-ar",
+    "work_head": "5b727e9f9153e8292c6022a14b63e974dfb0db03",
+    "device_arch": "dav-2002",
+    "isolated_not_installed": true,
+    "source_sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef",
+    "e3_source_sha256": "d871928809441a983cb73666207171e1484520046088eaaf19aea032f65fac42",
+    "e4_source_sha256": "4a11399db28e1762624310b8dfdee9095a22b381a2f95b7aa2bee3ee2f639325",
+    "private_host_source_sha256": "6c6ab31a15bbebfd345dd99c59626955c083139c941c4c2af9e9dc18e675ec60",
+    "private_host_so": "/tmp/opencode/e4-build2/libmf310p_e4_private_host.so",
+    "private_host_sha256": "114c6c42235b8b657592fda7f3d89618fdfe5a98a673d38a7a4b66a0d7d311c5",
+    "frozen_baseline_source_sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17",
+    "common_sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb",
+    "candidate_so": "/tmp/opencode/e4-build2/libmf310p_e4_candidates.so",
+    "candidate_sha256": "08f73f2c1936b990a398643243c321582ca39f85cc8b1c80a21efd68cb8d92b2",
+    "npu_correctness": "NOT_RUN",
+    "perf": "NOT_RUN",
+    "formal_d4_binary_intact": "MUST_VERIFY_PRE_AND_POST_AT_G0"
+  },
+  "profile": false,
+  "results": {
+    "2048": {
+      "M": 2048,
+      "rank": 1,
+      "arm": "e4t2",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        1928.802,
+        1883.3849,
+        1950.286,
+        2155.2091,
+        2068.8541,
+        3941.51
+      ],
+      "host_wall_us": [
+        2126.91,
+        1981.51,
+        2040.91,
+        2239.84,
+        2157.39,
+        4024.95
+      ],
+      "event_p50_us": 2009.57,
+      "event_p90_us": 3048.36,
+      "event_p99_us": 3852.195
+    },
+    "4096": {
+      "M": 4096,
+      "rank": 1,
+      "arm": "e4t2",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        2198.6721,
+        2058.568,
+        2134.922,
+        2061.25,
+        2052.084,
+        2055.8331
+      ],
+      "host_wall_us": [
+        2346.49,
+        2173.61,
+        2691.73,
+        2186.67,
+        2165.02,
+        2141.18
+      ],
+      "event_p50_us": 2059.909,
+      "event_p90_us": 2166.797,
+      "event_p99_us": 2195.485
+    }
+  },
+  "metric": "local same-rank Event for complete MM+AR; TP2 analysis pairs rank maxima",
+  "limits": "E4 two 1024 MM per 2048 group, two 4MiB packets; E4Tile only changes AddTile in FP16 elements; E4p releases core1-3/4-7 on matching mail; Core0 is sole mail consumer and executes own Add after both, pool remains 1024"
+}

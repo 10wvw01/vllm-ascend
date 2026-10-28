@@ -1,0 +1,36 @@
+W1028 09:41:23.771000 1765789 site-packages/torch/distributed/run.py:852] 
+W1028 09:41:23.771000 1765789 site-packages/torch/distributed/run.py:852] *****************************************
+W1028 09:41:23.771000 1765789 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1028 09:41:23.771000 1765789 site-packages/torch/distributed/run.py:852] *****************************************
+INFO 10-28 09:41:28 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 09:41:28 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 09:41:28 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 09:41:28 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 09:41:28 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-28 09:41:28 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-28 09:41:28 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-28 09:41:28 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-28 09:41:28 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-28 09:41:28 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+[Gloo] Rank 1 is connected to 1[Gloo] Rank  peer ranks. Expected number of connected peer ranks is : 1
+0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[rank0]:[W1028 09:41:32.743110410 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+2026-10-28 09:41:34.365217 WARN [1765860-1765860][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-28 09:41:34.365580 WARN [1765860-1765860][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-28 09:41:34.365658 WARN [1765859-1765859][HYBM dl_hybm_copy_extend.cpp:35 TryLoadLibrary] Environment MEMFABRIC_HYBRID_EXTEND_LIB_PATH is not set.
+2026-10-28 09:41:34.365971 WARN [1765859-1765859][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-28 09:41:34.367773 2026-10-28 09:41:34.WARN367795 [ 1765860WARN- [17658601765859]-[HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY1765859
+][HYBM hybm_entity_tag_info.cpp:143 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-28 09:41:34.368988 WARN [1765859-1765859][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-28 09:41:34.369001 WARN [1765860-1765860][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] sdid query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-28 09:41:34.369155 WARN [1765860-1765860][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-28 09:41:34.369190 WARN [1765859-1765859][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] server id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+2026-10-28 09:41:34.369242 WARN [1765860-1765860][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:1, fallback to invalid value
+2026-10-28 09:41:34.369374 WARN [1765859-1765859][HYBM hybm_mem_segment.cpp:174 QueryDeviceInfoSocTolerant] super pod id query failed on 310P, ret:207000 deviceId:0, fallback to invalid value
+ARM=e4t2 rank=1 M=2048 samples=6 PASS
+ARM=e4t2 rank=0 M=2048 samples=6 PASS
+ARM=e4t2 rank=1 M=4096 samples=6 PASS
+ARM=e4t2 rank=0 M=4096 samples=6 PASS
+2026-10-28 09:42:34.894704 WARN [1765859-1765859][HYBM hybm_va_manager.cpp:484 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-28 09:42:34.894795 WARN [1765860-1765860][HYBM hybm_va_manager.cpp:484 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-28 09:42:36.926920 WARN [1765859-1766528][AccLink acc_tcp_listener.cpp:151 RunInThread] Acc listener accept thread get stop signal, will exit...
