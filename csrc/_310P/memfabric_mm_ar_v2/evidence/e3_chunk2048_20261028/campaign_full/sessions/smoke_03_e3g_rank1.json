@@ -1,0 +1,102 @@
+{
+  "schema": "E3_CHUNK2048_TP2_V1",
+  "stage": 3,
+  "arm": "e3g",
+  "phase": "smoke",
+  "rank": 1,
+  "TP": 2,
+  "weight_format": "NZ29",
+  "K": 2048,
+  "N": 2048,
+  "Ms": [
+    2048,
+    4096
+  ],
+  "stock_route_required": "aclnnMatmulWeightNz",
+  "jit_compile": false,
+  "allow_internal_format": true,
+  "data_variants": 2,
+  "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+  "host_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "production_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "candidate": {
+    "schema": "E3_CHUNK2048_BUILD_V1",
+    "mainline": "dev/310p-memfabric-mm-ar",
+    "work_head": "3e58ae389784d21eca5fb4bf18bad0fc32de6279",
+    "device_arch": "dav-2002",
+    "isolated_not_installed": true,
+    "source_sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef",
+    "e3_source_sha256": "d871928809441a983cb73666207171e1484520046088eaaf19aea032f65fac42",
+    "private_host_source_sha256": "a3e8b2f687f97873c69edd3551b085bebaee3529d21a8cda2d15410551add13e",
+    "private_host_so": "/tmp/opencode/e3-build2/libmf310p_e3_private_host.so",
+    "private_host_sha256": "ecfa92a3a8e27b16dac05f20c600aaaef4f360f31df5aff626de32cba49b2803",
+    "frozen_baseline_source_sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17",
+    "common_sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb",
+    "candidate_so": "/tmp/opencode/e3-build2/libmf310p_e3_candidates.so",
+    "candidate_sha256": "b0a6b41827fac253308d95e5ebd7bfe557fff7c67b1aa76ff82f9d6da40104b6",
+    "npu_correctness": "NOT_RUN",
+    "perf": "NOT_RUN",
+    "formal_d4_binary_intact": "MUST_VERIFY_PRE_AND_POST_AT_G0"
+  },
+  "profile": false,
+  "results": {
+    "2048": {
+      "M": 2048,
+      "rank": 1,
+      "arm": "e3g",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        1448.698,
+        1375.782,
+        1555.235,
+        1446.64,
+        1418.3331,
+        1315.625
+      ],
+      "host_wall_us": [
+        1532.98,
+        1458.49,
+        1626.54,
+        1521.81,
+        1492.07,
+        1389.63
+      ],
+      "event_p50_us": 1432.487,
+      "event_p90_us": 1501.966,
+      "event_p99_us": 1549.908
+    },
+    "4096": {
+      "M": 4096,
+      "rank": 1,
+      "arm": "e3g",
+      "bit_exact": true,
+      "protocol_status": 0,
+      "warmup": 3,
+      "iters": 6,
+      "npu_event_us": [
+        2045.104,
+        2095.13,
+        2049.557,
+        2201.7701,
+        2152.005,
+        2152.2391
+      ],
+      "host_wall_us": [
+        2162.41,
+        2202.57,
+        2148.73,
+        2296.68,
+        2279.46,
+        2247.73
+      ],
+      "event_p50_us": 2123.568,
+      "event_p90_us": 2177.005,
+      "event_p99_us": 2199.294
+    }
+  },
+  "metric": "local same-rank Event for complete MM+AR; TP2 analysis pairs rank maxima",
+  "limits": "E3 logical Chunk2048=8MiB transports as exactly two <=4MiB SDMA packets; E3-G has two 1024 MM subcalls, E3-T one 2048 MM call; pool remains chunk1024"
+}
