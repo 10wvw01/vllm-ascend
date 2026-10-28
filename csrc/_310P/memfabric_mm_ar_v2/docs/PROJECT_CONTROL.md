@@ -280,3 +280,13 @@
 - **十场五臂配对p50（max(rank0,rank1)）**：M2048：Stock 1070.4µs、B1 2653.8µs、B2 1647.9µs、D4 1362.0µs、E1 1263.6µs；M4096：Stock 2017.5µs、B1 5031.2µs、B2 3092.5µs、D4 2513.0µs、E1 2274.2µs。**E1 vs D4：+7.79%/+10.50%（−98.4/−238.8µs）**且M2048尾部更紧（E1 p99≈1327µs vs D4该场2372µs）；**E1 vs Stock：−15.29%/−11.29%**（仍慢，L1对Stock不签）；B1慢约60%（staging/流同步/多launch真实代价，非MF固有带宽）；B2比D4慢285.8/579.5µs（串行结构输给Chunk交叠）。
 - **机器判定**：总状态**`INCONCLUSIVE_DRIFT`**——M2048的D4臂场间漂移5.685%>5%门限（stage07出现p99=2372µs周期长尾，与R1已知V2周期长尾一致），按合同不挑场不复算；M4096全臂稳定（≤2.02%）但随总状态降级为参考。
 - **决策（按A1§5）**：`E1<C且E1>=A`→**E1保留为下一优化基线**（仅工作分支候选，不进正式默认CMake/Serving），下一E代聚焦同步消息缩减/冗余清理消除/D4式周期长尾；维持Chunk交叠主线（B2负向）；B1归因staging成本。正式D4/Host SO零改动，Stock默认不变，L3/L4 NOT_RUN。工作分支证据审核后择优回写主线并审PR。
+
+
+## 30. 2026-10-28｜E3 实施：Chunk2048计算组 / 双4MiB通信分包｜阶段性源码提交
+
+- **为何E3新增2048**：2026-10-28 E2正式报告证明R/P/512负收益、E1仍最佳（M4096 E1约2285.5µs、Stock约2022.6µs），用户要求继续MM生产/producer缓存关键路径并补充真实Chunk2048实验。**8MiB逻辑组不能作为8MiB单条MemFabric包投递**；E3分离ComputeGroup2048与TransportPacket1024行（2×4MiB）。
+- **两种实际 Kernel**：G模式每个2048组每核两次128行MM(`tiling1024`)；T模式每组每核一次256行MM(`e3Tiling2048`)。同一ReadyTree、整核producer/receiver缓存维护、两封独立tag的SDMA mail、Vector Add2048、quiet与DONE；与E1同批对比MM分组/tiling效果，不把多因素差额误归因于某个等待。
+- **分支关系**：自E1实机分支`work/310p-mm-ar-five-arm-dcci-20261028`派生临时`work/310p-mm-ar-e3-chunk2048-20261028`，不从已证负收益且存在未闭环507014的E2-P分支继承设备路径。主线`dev/310p-memfabric-mm-ar`仍唯一项目权威；正式D4/E1默认Serving零改动。
+- **工程实施与合同**：`src/op_kernel/mf310p_v2_e3_group2048.asc`、`test/perf/e3_private_host.cpp`、`e3_build.sh`、`e3_arm.py`、`e3_assess.py`、`e3_campaign.sh`、`test/ut/test_e3_chunk2048_contract.py`，详见[正式实验设计](A1_E3_CHUNK2048_设计与实机验证_20261028.md)。Host仍以已审1024创建池，避免污染生产ABI；只将逻辑Chunk2048传给独立设备候选，数据发送最大4MiB。
+- **实机执行**：项目G0与四卡只读选卡→原仓CPU和新合同→隔离BiSheng编译（新tiling可能编译不支持）→NZ路由4/4→G/T逐项双Rank bit-exact Smoke→`stock,e1,e3g,e3t,e3t,e3g,e1,stock`八场TP2完整链、5%漂移判定；保存双RankJSON、设备报警、4MiB双包、SO身份、源码HEAD。507014等异常STOP保全，不能自动清他人资源。
+- **当前状态**：E3源码与测试合同已提交，但CPU测试运行、CANN编译、G0和设备数据均`NOT_RUN`。绝不继承E2有效性能作E3硬件成绩。E3若确证正收益，才考虑Qwen真实40站点/L3/正式input4096/output2048/TP2/batch10。
