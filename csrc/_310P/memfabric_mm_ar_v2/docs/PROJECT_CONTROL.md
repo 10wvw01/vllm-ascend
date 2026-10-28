@@ -264,3 +264,14 @@
 - **P0前置安全约束升级为外部调度独占**：Attempt2曾在初始G0转为空闲后两分钟再次被别的宿主进程占用，随后本批进程树异常消失，其机制/操作者未知。Attempt3亦遇到dev2/dev3反复短暂占用。需要管理员协调约80min**连续双Die独占租约**与全程宿主级只读进程/显存/hugepages监视，不能仅在脚本开头拍一张G0快照就当整轮独占。若无租约，优先停止重复跑Confirm/Serving；任何未知抢占不自动换卡、重启、杀他人进程或覆盖共享SO。
 - **下一步工作划分**：现场有稳定窗口时，尽量只补最新真NZ Stock八场ABBA Confirm+原生HCCL完成独立审计、Epoch 15→5→5→15无Profiler四场，原先有效路由/Smoke/机制证据不用重复耗时跑；研发侧并行设计**单独实验编译产物**的D4正式路径设备阶段探针，并验证CANN/310P3可用性。新L3收益仍无正向，**Stock默认与L4 Gate E历史阻塞不变**。
 
+
+## 26. 2026-10-28｜E3已测证据回归主线、E4分层流水正式开工（ADR-020）
+
+**主线权威裁决**：[ADR-020](DECISIONS.md)、[E3机器证据审核与E4准入合同](E3_实机证据审核与E4分层流水准入_20261028.md)、[L1基线](PERFORMANCE_BASELINES.md)。E3实验源码及全量原始Evidence仍由[PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)工作分支承载（`run_id=e3-chunk2048-20261028-001`）；本次将**经审定事实、决策和下一阶段唯一目标选择性写入主线**，不将PR #20全部代码与过期治理文档合入主线，不动Serving/正式Kernel/Stock/MemFabric。
+
+- **实机状态：E3完成**。物理卡16384 dev2/3、真实NZ路由4/4、修复后E3-G/T双RankSmoke和八场`stock,e1,e3g,e3t,e3t,e3g,e1,stock`全部完成，16份正式RankJSON bit-exact/status0，正式冻结SHA前后一致。E3-T原L0C满载首个真实Kernel触发507015→`basicM256→128`修复重新构建PASS；E2-P此前507014根因仍未知。M4096配对p50 Stock2022.553/E1 2271.836/E3-G2119.506/E3-T2267.090µs；**E3-G相对E1+7.187%，仍慢Stock96.953µs**；M2048全批E1跨场漂移6.192%>5%，整批`INCONCLUSIVE_DRIFT`，E3-G慢E1方向稳健。任何版本不称E3“超过Stock”。
+- **精确收益归因待取证**：E3-G相对E1保持四次1024-MM和四条4MiB传输；producer/consumer整核DCCI、ReadyTree、AddRelease从4→2次，其余调度/内存所有权改变。152.330µs只能作为整体净回收，不能拆分宣称DCCI或IB独占。M2049～4095**全部未实测**，现有Serving仅支持1024/512/256的Padding，E3私有Host只接受M2048/4096。
+- **E4开工**：新增**唯一**E4隔离分支`work/310p-mm-ar-e4-layered-pipeline-20261028`，基于已测E3代码，E4-0 AddTile单变量，E4-A包级按Core0～3/4～7分两批Add并保持唯一mail消费者，E4-B连续M只先建立可验证的混合Chunk/尾块规划合同。新的设备端行为必须经过两轮静态深审、UT和独立CANN编译，现均`NOT_RUN`，不得直接让OpenCode运行正式八场或改生产Serving默认。
+- **下一轮阶段口径**：先E4-0单变量+E4-A协议审查及最小可运行候选→双Rank安全Smoke→短Screen（Stock/E3-G锚点M2048/4096）→连续M边界专项测试→胜出者正式确认。优先调查E3-G vs Stock M4096最后96.953µs，随后解决M2048单2048组失去交叠的问题与非对齐Padding。下一层真实40站点/L3/L4在E3/E4下仍NOT_RUN。
+- **证据补全P1**：PR #20报告引用的`bugfix1/smoke_e3t.log`、AICore摘录、`build/`manifest以及`card_watch_30s.log`当前仓库证据目录未见，要求现场核实原始文件并只读补档或说明SERVER_ONLY；本次主线事实不得伪称其已完整落盘。
+
