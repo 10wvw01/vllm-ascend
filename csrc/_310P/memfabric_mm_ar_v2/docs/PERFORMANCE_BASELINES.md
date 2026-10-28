@@ -153,3 +153,11 @@
 
 
 **E3关键证据已归档主线（2026-10-28后续补充）**：[52份主线原始归档](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)含[E3机器评估](../evidence/e3_chunk2048_20261028/e3_assessment.json)与[原版实机报告](A1_E3_CHUNK2048_实机报告_20261028.md)，16份正式双Rank Event采样及G0/NZ/SHA逐文件与来源Git blob一致。此举**不改变数值或漂移判定**，仅消除PR#20为唯一证据存放位置的工程风险；其深层Profiler和未上传的PLog/构建日志不视作已归档。
+
+
+## 2026-10-28｜E4 Attempt1：编译/正确性准入进展，**无新增有效L1性能**
+
+- [E4主线归档原始23文件](../evidence/e4_layered_20261028/MAINLINE_ATTEMPT1_ARCHIVE.md)，原试验`work/310p-mm-ar-e4-layered-pipeline-20261028` @ `1e20d3522`，报告归档`5b727e9f`。G0 CPU80+9条、E4合同9条、BiSheng四实例含AddTile8192一次编译PASS，原生NZ Stock四组路由PASS；E3-G M2048/4096双RankSmoke bit-exact/status0 PASS（**只判正确性**）。
+- 运行中宿主PID506263竞争占卡，E3-G M4096六条配对Event约2.3ms/6.5～6.8ms交替，**绝对不得作为E3-G新版性能或Stock对照**。E4-T2的torchrun被执行工具SIGTERM打断无设备执行；E4-T4/T8/PacketAdd完全未上机，全部E4候选的`Smoke=NOT_RUN / Screen=NOT_RUN / Confirm=NOT_RUN`（Confirm另受未授权约束）。**本节不新增E4性能表或速度增益**。
+- 上轮可用E3-G（M4096 2119.506µs）与真NZ Stock（2022.553µs）差96.953µs仍是**旧E3批次的参考目标，不可视为E4同批对照**。E4-B全2049形状规划仅CPU验证，变长设备执行/路由未知。
+
