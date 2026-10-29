@@ -44,4 +44,12 @@ constexpr uint32_t PacketCount(uint64_t bytes, uint32_t packet)
 {
     return static_cast<uint32_t>((bytes + packet - 1) / packet);
 }
+// L2 attribution trace layout, in uint64 slots; mirrored by the Python adapter
+// and the attribution worker's parser. Null trace pointer disables stamping.
+constexpr uint32_t kTraceBytes = 4096;
+constexpr uint32_t kTraceU64 = kTraceBytes / 8;
+constexpr uint64_t kTraceMagic = 0x4C325431ULL; // "L2T1"
+constexpr uint32_t kTraceHeader = 16; // magic, rows, group, mode, rank, epoch, groups
+constexpr uint32_t kTraceStride = 32; // per-core region: start, end, prod[8], barrier[8], step[8], tail[4]
+constexpr uint32_t kTraceSubBase = kTraceHeader + kCores * kTraceStride; // 5 core0 sub-stamps per group
 } // namespace mfv3

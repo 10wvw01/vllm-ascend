@@ -58,7 +58,7 @@ def main():
     torch.npu.set_compile_mode(jit_compile=False)
     device = torch.device(f"npu:{selected}")
     dist.init_process_group("gloo", timeout=timedelta(seconds=120))
-    arms = {"ib": {}, "raw_add": {}, "partial": [], "fused": [], "fused_merged": []}
+    arms = {"ib": {}, "raw_add": {}, "partial": [], "fused": [], "fused_merged": [], "fused_trace": []}
     data = {
         "schema": "MF310P_V3_ATTRIBUTION_RANK_V1",
         "rank": rank,
@@ -210,6 +210,84 @@ def main():
             lambda out, m, g, v: checked(out, refs[m][v], f"fused_merged m{m} g{g}"),
         )
         session.merged_wave = False
+        # ---- arm 5: merged wave with in-kernel L2 segment stamps ----
+        # Same batch and path as fused_merged; the event-time delta between the
+        # arms is the stamping overhead, and the stamps split the device time
+        # into production, barrier, protocol-step, and drain segments.
+        TRACE_MAGIC, HEADER, STRIDE, SUB = 0x4C325431, 16, 32, 272
+
+        def derive_trace(raw):
+            if raw[0] != TRACE_MAGIC:
+                raise AssertionError(f"trace magic mismatch: {raw[0]:#x}")
+            groups = int(raw[6])
+
+            def base(core):
+                return HEADER + core * STRIDE
+
+            t0 = [raw[base(c)] for c in range(8)]
+            prod = {
+                c: [raw[base(c) + 2 + g] - (raw[base(c) + 1 + g] if g else t0[c]) for g in range(groups)]
+                for c in range(8)
+            }
+            barrier = [raw[base(0) + 10 + g] - raw[base(0) + 2 + g] for g in range(groups)]
+            step = [raw[base(0) + 18 + g] - raw[base(0) + 10 + g] for g in range(groups)]
+            sub = [
+                [raw[SUB + 5 * g + i] - (raw[SUB + 5 * g + i - 1] if i else raw[base(0) + 10 + g]) for i in range(5)]
+                for g in range(groups)
+            ]
+            last_step = raw[base(0) + 17 + groups]
+            tail = {
+                "drain": raw[base(0) + 26] - last_step,
+                "quiet1": raw[base(0) + 27] - raw[base(0) + 26],
+                "done": raw[base(0) + 28] - raw[base(0) + 27],
+                "quiet2": raw[base(0) + 29] - raw[base(0) + 28],
+            }
+            return {
+                "groups": groups,
+                "cycles_total": raw[base(0) + 29] - t0[0],
+                "prod_cycles": {c: prod[c] for c in range(8)},
+                "barrier_cycles": barrier,
+                "step_cycles": step,
+                "sub_cycles": sub,
+                "tail_cycles": tail,
+                "core_total_cycles": [raw[base(c) + 1] - t0[c] for c in range(8)],
+            }
+
+        session.set_trace(True)
+        for m in (2048, 4096):
+            for group in (512, 1024, 2048):
+                samples = []
+                for i in range(a.warmup + a.samples):
+                    dist.barrier()
+                    v = i % 2
+                    n0 = len(session.phase_log)
+                    start = time.perf_counter_ns()
+                    e0.record(session.stream)
+                    out = session.run_pool(xs[m][v], weight_nz, group=group)
+                    e1.record(session.stream)
+                    session.stream.synchronize()
+                    wall = (time.perf_counter_ns() - start) / 1000
+                    event = e0.elapsed_time(e1) * 1000
+                    checked(out, refs[m][v], f"fused_trace m{m} g{group}")
+                    trace = derive_trace(session.fetch_trace())
+                    del out
+                    if i >= a.warmup:
+                        entry = {
+                            "i": i - a.warmup,
+                            "event_us": event,
+                            "wall_us": wall,
+                            "phases": session.phase_log[n0:][0],
+                            "trace": trace,
+                        }
+                        if i == a.warmup:
+                            entry["trace_raw"] = session.fetch_trace()
+                        samples.append(entry)
+                arms["fused_trace"].append({"M": m, "group": group, "samples": samples})
+                print(
+                    json.dumps({"rank": rank, "arm": "fused_trace", "M": m, "group": group, "status": "PASS"}),
+                    flush=True,
+                )
+        session.set_trace(False)
         data["loaded_libraries_after"] = loaded_identity(manifest)
         if data["loaded_libraries"] != data["loaded_libraries_after"]:
             raise RuntimeError("loaded libraries changed")

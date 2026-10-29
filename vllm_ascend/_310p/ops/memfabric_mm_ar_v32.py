@@ -16,6 +16,9 @@ try:
 except ImportError:  # isolated quick worker imports without loading vLLM
     from memfabric_mm_ar_v3 import V3Session
 
+# L2 attribution trace layout; must match mfv3::kTraceU64 in mf310p_v3_protocol.h.
+TRACE_U64 = 512
+
 
 class _WaveBusy(RuntimeError):
     """Both ranks agreed all slots are held; recoverable, the session stays usable."""
@@ -41,6 +44,8 @@ class V32Session(V3Session):
             "mf310p_v32_release": [p, u, u],
             "mf310p_v32_prepare": [p, u, u, u, p],
             "mf310p_v32_run": [p, q, q, u, u, u, u, u, p],
+            "mf310p_v3_trace_control": [p, u],
+            "mf310p_v3_trace_fetch": [p, p, u],
         }
         for name, args in signatures.items():
             fn = getattr(self.lib, name)
@@ -193,6 +198,20 @@ class V32Session(V3Session):
                     self.failed = True
                 raise
             return out
+
+    def set_trace(self, enabled):
+        """L2 attribution: enable or disable in-kernel segment stamps for waves."""
+        with self.lock:
+            self._ready()
+            self._check(self.lib.mf310p_v3_trace_control(self.handle, int(bool(enabled))), "trace control")
+
+    def fetch_trace(self):
+        """Copy the last stamped wave's segments; synchronize the stream first."""
+        with self.lock:
+            self._ready()
+            buffer = (ctypes.c_uint64 * TRACE_U64)()
+            self._check(self.lib.mf310p_v3_trace_fetch(self.handle, buffer, ctypes.sizeof(buffer)), "trace fetch")
+            return list(buffer)
 
     def run(self, *args, **kwargs):
         raise RuntimeError("V32Session uses run_pool; V3.1 protocol cannot mix in this session")

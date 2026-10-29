@@ -19,8 +19,12 @@ def test_plan_a_actual_cpp_schedule(tmp_path):
                 if isinstance(target, ast.Name) and target.id in ("harness", "runner"):
                     values[target.id] = node.value.value
     harness = values["harness"].split("struct Transport {")[0]
+    # The extracted OrderedProgress block stamps L2 segments via TRACE_NOW and
+    # mirrors mfv3::kTraceSubBase from mf310p_v3_protocol.h.
     harness = harness.replace(
-        "#define __aicore__", "#define __gm__\nusing smem_shm_sdma_op_t = int;\n#define __aicore__"
+        "#define __aicore__",
+        "#define __gm__\nusing smem_shm_sdma_op_t = int;\n"
+        "namespace mfv3{constexpr uint32_t kTraceSubBase=272;}\n#define TRACE_NOW() 0\n#define __aicore__",
     )
     transport = kernel[kernel.index("struct Transport {") : kernel.index("// One mailbox consumer")]
     progress = kernel[

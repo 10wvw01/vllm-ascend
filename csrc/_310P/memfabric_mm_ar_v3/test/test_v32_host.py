@@ -59,9 +59,11 @@ extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
 uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
 int enabledLaunches=0;
+uint64_t g_traceSeen=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t pipeline,uint32_t,uint32_t enabled,aclrtStream){
+uint32_t,uint32_t pipeline,uint32_t,uint64_t trace,uint32_t enabled,aclrtStream){
+g_traceSeen=trace;
 if(enabled){assert(pipeline==2 && y==work);enabledLaunches++;}return 0;}
 extern "C" int mf310p_v3_device_raw(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
@@ -155,6 +157,7 @@ if(++round->read==2)rounds.erase(seq);return 0;}
     source = tmp_path / "host.cpp"
     text = source.read_text().split("int main(){")[0]
     text = text.replace("int enabledLaunches=0;", "std::atomic<int> enabledLaunches{0};")
+    text = text.replace("uint64_t g_traceSeen=0;", "std::atomic<uint64_t> g_traceSeen{0};")
     source.write_text(
         text
         + r"""
@@ -208,9 +211,11 @@ extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
 uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
 int enabledLaunches=0;
+uint64_t g_traceSeen=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t pipeline,uint32_t,uint32_t enabled,aclrtStream){
+uint32_t,uint32_t pipeline,uint32_t,uint64_t trace,uint32_t enabled,aclrtStream){
+g_traceSeen=trace;
 if(enabled){assert(pipeline==2 && y==work);enabledLaunches++;}return 0;}
 extern "C" int mf310p_v3_device_raw(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
@@ -249,6 +254,69 @@ assert(!mf310p_v3_destroy(s));assert(destroyed==1 && enabledLaunches==2);
 """
     )
     binary = tmp_path / "wave_host"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-pthread", f"-I{tmp_path}", str(source), "-o", str(binary)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run([str(binary)], check=True, timeout=10)
+
+
+def test_real_host_trace_control_and_fetch(tmp_path):
+    # L2 attribution plumbing: stamps off by default, enable gates the launch
+    # argument, fetch validates size and copies the device buffer.
+    test_real_host_slots_and_generation(tmp_path)
+    host = (Path(__file__).parents[1] / "src/op_host/mf310p_v3_host.cpp").resolve()
+    source = tmp_path / "trace.cpp"
+    source.write_text(
+        f'#include "{host}"\n'
+        + r"""
+#include <cassert>
+extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+int enabledLaunches=0;
+uint64_t g_traceSeen=0;
+extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,
+uint32_t,uint32_t pipeline,uint32_t,uint64_t trace,uint32_t enabled,aclrtStream){
+g_traceSeen=trace;
+if(enabled){assert(pipeline==2 && y==work);enabledLaunches++;}return 0;}
+extern "C" int mf310p_v3_device_raw(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+extern "C" int mf310p_v3_device_ib(uint64_t,uint64_t result,uint32_t reps,uint32_t enabled,aclrtStream){
+if(enabled)for(unsigned c=0;c<8;c++)reinterpret_cast<unsigned*>(result)[c*16]=reps;return 0;}
+int main(){mf310p_v3_context* s=nullptr;
+assert(!mf310p_v32_create(0,"mock",4<<20,&s));assert(!mf310p_v3_ib_probe(s,64,(void*)1));
+unsigned slot,gen;uint64_t address;uint64_t buffer[512];
+assert(mf310p_v3_trace_fetch(s,buffer,4096)==-5);   // not allocated yet
+assert(mf310p_v3_trace_control(nullptr,1)==-1);
+assert(!mf310p_v32_acquire(s,4096,1024,0,(void*)1,&slot,&gen,&address));
+assert(!mf310p_v32_prepare(s,slot,gen,1,(void*)1));
+assert(!mf310p_v32_run(s,4096,8192,4096,1024,0,slot,gen,(void*)1));
+assert(g_traceSeen==0);                              // stamps off: null trace pointer
+assert(!mf310p_v32_release(s,slot,gen));
+assert(!mf310p_v3_trace_control(s,1));              // allocate + enable
+assert(!mf310p_v3_trace_control(s,1));              // idempotent re-enable
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slot,&gen,&address));
+assert(!mf310p_v32_prepare(s,slot,gen,1,(void*)1));
+assert(!mf310p_v32_run(s,4096,8192,4096,1024,0,slot,gen,(void*)1));
+assert(g_traceSeen!=0);                              // stamps on: buffer pointer passed
+assert(mf310p_v3_trace_fetch(s,buffer,4095)==-1);   // exact size required
+assert(mf310p_v3_trace_fetch(s,buffer,4096)==0);
+assert(!mf310p_v3_trace_control(s,0));              // disable keeps the buffer
+assert(!mf310p_v32_release(s,slot,gen));
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slot,&gen,&address));
+assert(!mf310p_v32_prepare(s,slot,gen,1,(void*)1));
+assert(!mf310p_v32_run(s,4096,8192,4096,1024,0,slot,gen,(void*)1));
+assert(g_traceSeen==0);                              // disabled again: null pointer
+assert(!mf310p_v32_release(s,slot,gen));
+assert(!mf310p_v3_destroy(s));assert(destroyed==1 && enabledLaunches==3);
+}
+"""
+    )
+    binary = tmp_path / "trace_host"
     subprocess.run(
         ["g++", "-std=c++17", "-Wall", "-Wextra", "-pthread", f"-I{tmp_path}", str(source), "-o", str(binary)],
         check=True,

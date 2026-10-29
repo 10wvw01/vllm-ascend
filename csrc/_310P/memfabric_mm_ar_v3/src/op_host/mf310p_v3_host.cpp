@@ -12,7 +12,7 @@
 
 extern "C" int mf310p_v3_device_run(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint32_t, uint32_t,
-    uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+    uint32_t, uint32_t, uint32_t, uint32_t, uint64_t, uint32_t, aclrtStream);
 extern "C" int mf310p_v3_device_raw(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint32_t,
     uint32_t, aclrtStream);
@@ -29,6 +29,8 @@ struct mf310p_v3_context {
     int32_t device = -1;
     uint64_t gva = 0, work = 0, peer = 0, expectedWork = 0, expectedCtrl = 0;
     void *ib = nullptr, *status = nullptr, *probe = nullptr;
+    void* trace = nullptr; // L2 attribution device buffer
+    bool stamp = false;
     aclrtStream stream = nullptr;
     std::array<bool, 9> warmed{};
     std::array<uint64_t, 64> outputs{};
@@ -105,7 +107,8 @@ int Launch(mf310p_v3_context* s, uint64_t x, uint64_t w, uint64_t y, uint32_t ro
     return mf310p_v3_device_run(s->gva, x, w, y, s->work, s->peer,
         reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
         s->work + kCtrlSrcOff, s->peer + kCtrlDstOff, s->expectedWork, s->expectedCtrl,
-        rows, group, s->rank, s->epoch, s->packet, pipeline, mode, enabled, s->stream);
+        rows, group, s->rank, s->epoch, s->packet, pipeline, mode,
+        s->stamp && s->trace ? reinterpret_cast<uint64_t>(s->trace) : 0, enabled, s->stream);
 }
 int LaunchRaw(mf310p_v3_context* s, uint64_t src, uint64_t seed, uint64_t y,
               uint32_t bytes, uint32_t enabled)
@@ -265,6 +268,28 @@ extern "C" int mf310p_v3_status(mf310p_v3_context* s, uint64_t* status)
     if (!s || !status) return Error("status arguments", -1);
     return Error("status D2H", aclrtMemcpy(status, sizeof(*status), s->status, sizeof(*status), ACL_MEMCPY_DEVICE_TO_HOST));
 }
+// L2 attribution: one device trace buffer per session, stamps disabled by default.
+extern "C" int mf310p_v3_trace_control(mf310p_v3_context* s, uint32_t enable)
+{
+    if (!s) return Error("trace arguments", -1);
+    if (s->failed) return Error("failed session", -27);
+    if (enable && !s->trace) {
+        void* buffer = nullptr;
+        int rc = aclrtMalloc(&buffer, mfv3::kTraceBytes, ACL_MEM_MALLOC_HUGE_FIRST);
+        if (rc) return Error("trace buffer allocation", rc);
+        s->trace = buffer;
+    }
+    s->stamp = enable != 0;
+    return 0;
+}
+extern "C" int mf310p_v3_trace_fetch(mf310p_v3_context* s, void* host, uint32_t bytes)
+{
+    if (!s || !host || bytes != mfv3::kTraceBytes) return Error("trace fetch arguments", -1);
+    if (s->failed) return Error("failed session", -27);
+    if (!s->trace) return Error("trace buffer not allocated", -5);
+    // Caller must have synchronized the owning stream first.
+    return Error("trace D2H", aclrtMemcpy(host, bytes, s->trace, mfv3::kTraceBytes, ACL_MEMCPY_DEVICE_TO_HOST));
+}
 // Collective allocation is deliberately outside the kernel. A released Storage
 // becomes reusable only after the owning stream drains on BOTH ranks.
 extern "C" int mf310p_v32_acquire(mf310p_v3_context* s, uint32_t rows, uint32_t group,
@@ -388,7 +413,7 @@ extern "C" int mf310p_v32_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
             reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
             s->work + mfv3::kCtrlSrcOff, s->peer + mfv3::kCtrlDstOff,
             s->expectedWork + off, s->expectedCtrl, group, group, s->rank, s->epoch,
-            s->packet, 2, mode, 0, s->stream);
+            s->packet, 2, mode, 0, 0, s->stream);
     if (!s->poolWarmed[warmIndex] && !rc) {
         rc = aclrtSynchronizeDevice();
         if (!rc) rc = smem_shm_control_barrier(s->pool);
@@ -399,7 +424,7 @@ extern "C" int mf310p_v32_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
         reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
         s->work + mfv3::kCtrlSrcOff, s->peer + mfv3::kCtrlDstOff,
         s->expectedWork + off, s->expectedCtrl, rows, group, s->rank, s->epoch,
-        s->packet, 2, mode, 1, s->stream);
+        s->packet, 2, mode, s->stamp && s->trace ? reinterpret_cast<uint64_t>(s->trace) : 0, 1, s->stream);
     if (rc) s->failed = true;
     return Error("enqueue V3.2 fixed FIFO pool output", rc);
 }
@@ -477,7 +502,7 @@ extern "C" int mf310p_v3_destroy(mf310p_v3_context* s)
     if (s->pool) rc = smem_shm_destroy(s->pool, 0);
     if (s->shm) smem_shm_uninit(0);
     if (s->smem) smem_uninit();
-    for (void* p : {s->ib, s->status, s->probe}) {
+    for (void* p : {s->ib, s->status, s->probe, s->trace}) {
         if (p) { const int r = aclrtFree(p); if (!rc) rc = r; }
     }
     delete s;
