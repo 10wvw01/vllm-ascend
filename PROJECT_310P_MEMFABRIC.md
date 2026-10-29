@@ -125,6 +125,6 @@ MemFabric公共非阻塞收件仅提供[需求原稿](csrc/_310P/memfabric_mm_ar
 
 用户定稿完整S固定席位、独立Y、NZ MM计算优先及连续就绪批量通信。
 [A3_DESIGN](csrc/_310P/memfabric_mm_ar_v3/A3_DESIGN.md)与
-[A3_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/A3_ADMISSION.md)：profile3301、设备START、
+[A3_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/A3_ADMISSION.md)：profile3302、首READY参数校验、
 Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完整计时。
 新设备编译/正确性/性能NOT_RUN；A2证据不能替代A3准入。控制台§41，Stock默认不变。

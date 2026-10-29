@@ -24,7 +24,7 @@ def test_actual_a3_progress(tmp_path):
     harness += "\nvoid FlushLine(uint8_t*){}\n"
     transport = kernel[kernel.index("struct Transport {") : kernel.index("// One mailbox consumer")]
     progress = kernel[
-        kernel.index("struct A3Progress {") : kernel.index(
+        kernel.index("// A3 first READY") : kernel.index(
             "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM>"
         )
     ]
@@ -51,17 +51,18 @@ for(unsigned groups:{1,2,4,8})for(unsigned packets:{1,2,4,64}){
   reinterpret_cast<uint8_t*>(dest[1-r].data()),nullptr,reinterpret_cast<uint8_t*>(ctrl[r]),
   reinterpret_cast<uint8_t*>(incoming[1-r]),reinterpret_cast<uint64_t>(dest[r].data()),
   reinterpret_cast<uint64_t>(incoming[r]),r,11,packet};
- try{A3Start(t,reinterpret_cast<uint8_t*>(incoming[r]),4096,1024,
-   scenario==2&&r==1?1024:512,1,0,scenario==1&&r==1?0:1);}
- catch(const std::runtime_error&){rejected++;return;}
- assert(scenario==0);
- A3Progress p{&t,bytes,groups};
+ A3PrepareHeader(t,4096,1024,scenario==2&&r==1?1024:512,1,0,scenario==1&&r==1?0:1);
+ A3Progress p{&t,bytes,groups,reinterpret_cast<uint8_t*>(incoming[r])};
+ try {
+ if(scenario==1&&r==1){p.Submit(0);assert(false);} // failed rank never seeds or computes
  for(unsigned g=0;g<groups;++g){
   {std::lock_guard<std::mutex> lock(mu);for(unsigned j=0;j<bytes/8;++j){
    unsigned i=g*bytes/8+j;source[r][i]=dest[r][i]=r*100000+i;}}
   if((seed+g+r)%3==0)std::this_thread::yield();p.Submit(g);
  }
  p.Drain();
+ }catch(const std::runtime_error&){assert(p.submitted==0);rejected++;return;}
+ assert(scenario==0);
  {std::lock_guard<std::mutex> lock(mu);for(unsigned i=0;i<groups*bytes/8;++i){
  assert(dest[r][i]==100000+2*i);assert(source[r][i]==r*100000+i);}}
  };
@@ -101,15 +102,20 @@ def test_no_hot_collective_or_sync():
     host = (HERE.parent / "src/op_host/mf310p_v3_host.cpp").read_text()
     hot = host[host.index('extern "C" int mf310p_a3_reserve') : host.index('extern "C" int mf310p_v3_destroy')]
     assert "Synchronize" not in hot and "allgather" not in hot and "Exchange(" not in hot
+    assert "NextEpoch(s)" not in hot and "aclrtMemsetAsync" not in hot
     assert "if (ready) s->leases[slot] = 3" in hot
     kernel = (HERE.parent / "src/op_kernel/mf310p_v3_kernel.asc").read_text()
-    a3 = kernel[kernel.index("struct A3Progress {") : kernel.index("__global__ __aicore__ void V3RawAddKernel")]
+    a3 = kernel[kernel.index("// A3 first READY") : kernel.index("__global__ __aicore__ void V3RawAddKernel")]
     assert "GATHER" not in a3 and "FlushLine(flag)" in a3
 
 
 def test_actual_a3_mail_rejection(tmp_path):
     kernel = (HERE.parent / "src/op_kernel/mf310p_v3_kernel.asc").read_text()
-    progress = kernel[kernel.index("struct A3Progress {") : kernel.index("__aicore__ inline void A3Start")]
+    progress = kernel[
+        kernel.index("// A3 first READY") : kernel.index(
+            "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM>"
+        )
+    ]
     source = tmp_path / "reject.cpp"
     source.write_text(
         r"""
@@ -117,6 +123,8 @@ def test_actual_a3_mail_rejection(tmp_path):
 #include <stdexcept>
 #include <cassert>
 #define __aicore__
+#define __gm__
+void FlushLine(uint8_t*){}
 constexpr unsigned READY=1,REDUCE=2;
 constexpr int SMEM_SHM_SDMA_MAIL_OK=0,SMEM_SHM_SDMA_OP_ADD_FP16=2;
 uint64_t DeviceTag(unsigned p,unsigned e,unsigned g,unsigned b){return uint64_t(p)<<36|uint64_t(e)<<12|g<<6|b;}
@@ -130,12 +138,17 @@ void Send(unsigned,unsigned,uint64_t,uint64_t,int){};};
 """
         + progress
         + r"""
-int main(){Transport t;A3Progress p{&t,1024,1};p.published=1;
+int main(){Transport t;uint64_t local[8],peer[8];t.ctrlSrc=reinterpret_cast<uint8_t*>(local);
+A3PrepareHeader(t,2048,1024,1024,1,0,1);for(unsigned i=0;i<8;i++)peer[i]=local[i];
+A3Progress p{&t,1024,1,reinterpret_cast<uint8_t*>(peer)};p.published=1;
 auto reject=[&](Mail m){incoming=m;bool caught=false;try{p.Pump();}catch(...){caught=true;}assert(caught);};
 reject({8192,8,DeviceTag(READY,16,0,0),0});
 reject({8192,8,DeviceTag(READY,17,1,0),0});
 reject({8193,8,DeviceTag(READY,17,0,0),0});
-incoming={8192,8,DeviceTag(READY,17,0,0),0};p.Pump();reject(incoming);
+reject({8192,8,DeviceTag(READY,17,0,0),0}); // old protocol's short first READY
+for(unsigned field=0;field<8;++field){peer[field]++;reject({8192,64,DeviceTag(READY,17,0,0),0});peer[field]--;}
+peer[7]=0;reject({8192,64,DeviceTag(READY,17,0,0),0});peer[7]=1;
+incoming={8192,64,DeviceTag(READY,17,0,0),0};p.Pump();reject(incoming);
 reject({4096,512,DeviceTag(3,17,0,0),0});
 reject({4096,512,DeviceTag(REDUCE,17,0,2),0});
 reject({4097,512,DeviceTag(REDUCE,17,0,0),0});
@@ -148,3 +161,12 @@ p.published=0;reject({4608,512,DeviceTag(REDUCE,17,0,1),0});}
     binary = tmp_path / "reject"
     subprocess.run(["g++", "-std=c++17", str(source), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_first_ready_replaces_start_without_initial_fanout():
+    text = (HERE.parent / "src/op_kernel/mf310p_v3_kernel.asc").read_text()
+    body = text[text.index("void A3Kernel(") : text.index("__global__ __aicore__ void V3RawAddKernel")]
+    assert "A3Start" not in body and "kSubmitted" not in body and "DeviceTag(6," not in body
+    assert body.index("if (!admit)") < body.index("REGIST_MATMUL_OBJ")
+    assert "g == 0 ? 64 : 8" in text
+    assert "kA3Protocol = 3302" in (HERE.parent / "src/op_host/mf310p_v3_host.cpp").read_text()

@@ -44,7 +44,7 @@ struct mf310p_v3_context {
 
 namespace {
 using namespace mfv3;
-constexpr uint32_t kPlanAProtocol = 3203, kA3Protocol = 3301;
+constexpr uint32_t kPlanAProtocol = 3203, kA3Protocol = 3302;
 constexpr uint64_t kA3SourceOff = 2 * kArenaBytes, kA3CtrlOff = 3 * kArenaBytes;
 enum ControlOp : uint32_t { ACQUIRE_SLOT = 1, PREPARE_WAVE = 2, CLOSE_SESSION = 3 };
 struct ControlInfo {
@@ -452,7 +452,7 @@ extern "C" int mf310p_a3_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
     const bool alias = (x >= s->work && x < s->work + 3 * kArenaBytes) ||
                        (w >= s->work && w < s->work + 3 * kArenaBytes);
     const uint32_t ready = admit && lease && x && (mode || w) && !alias;
-    rc = NextEpoch(s);
+    ++s->epoch; // A3 clears its status in-kernel; no per-wave ACL memset task.
     if (!rc) { s->poolMode = true; if (ready) s->leases[slot] = 3;
         rc = LaunchA3(s, x, w, rows, compute, comm, mode, slot, ready, 1); }
     if (rc || !ready) s->failed = true;

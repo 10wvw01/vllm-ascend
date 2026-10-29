@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Explicit A3: immutable full S, independent leased Y, one-stage Direct ADD.
 
-One owning stream; a busy fixed seat is terminal and publishes START ready=0.
+One owning stream; a busy fixed seat is terminal and publishes first READY ready=0.
 No hot Host collective or stream synchronization. Not enabled in serving.
 """
 
@@ -139,7 +139,7 @@ class A3Session(V3Session):
                 )
                 if not admitted:
                     self.failed = True
-                    raise RuntimeError("A3 START rejected locally; stop BOTH ranks") from reason
+                    raise RuntimeError("A3 first READY rejected locally; stop BOTH ranks") from reason
                 event = self.free_events.pop()
                 # Keep inputs BEFORE recording: record failure cannot free live input.
                 self.inflight.append((event, inputs))

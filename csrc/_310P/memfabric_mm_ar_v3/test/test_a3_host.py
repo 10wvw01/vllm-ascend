@@ -21,6 +21,10 @@ def test_actual_a3_host_no_hot_sync_or_collective(tmp_path):
         "inline int aclrtSynchronizeStream(void*){return 0;}",
         "inline int aclrtSynchronizeStream(void*){syncCalls++;return 0;}",
     )
+    text = text.replace(
+        "inline int aclrtMemsetAsync(void* p,size_t a,int v,size_t n,void*){",
+        "int asyncClears=0;\ninline int aclrtMemsetAsync(void* p,size_t a,int v,size_t n,void*){asyncClears++;",
+    )
     header.write_text(text)
     header = tmp_path / "smem_shm.h"
     text = header.read_text().replace("unsigned peerMask=3", "int controlCalls=0;\nunsigned peerMask=3")
@@ -47,7 +51,7 @@ assert(ctrl==s+mfv3::kArenaBytes);assert(y==0x10000000||y==0x10000000+mfv3::kAre
         + r"""
 int main(){mf310p_v3_context* s=nullptr;assert(!mf310p_a3_create(0,"mock",4<<20,&s));
 assert(!mf310p_v3_ib_probe(s,64,(void*)1));assert(!mf310p_a3_warm(s,(void*)1));
-int sync=syncCalls,ctl=controlCalls;unsigned slot,gen;uint64_t addr;
+int sync=syncCalls,ctl=controlCalls,clears=asyncClears;unsigned slot,gen;uint64_t addr;
 for(unsigned i=0;i<2;i++){
 assert(!mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr));
 assert(slot==i&&gen==i+1);
@@ -57,7 +61,7 @@ assert(mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr)==-23);
 assert(slot==0&&gen==3);
 assert(!mf310p_a3_run(s,4096,8192,4096,1024,512,0,slot,gen,0,(void*)1));
 assert(lastAdmit==0&&s->failed&&a3Launches==3);
-assert(sync==syncCalls&&ctl==controlCalls);
+assert(sync==syncCalls&&ctl==controlCalls&&clears==asyncClears);
 assert(mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr)==-27);delete s;}
 """
     )

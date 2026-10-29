@@ -106,7 +106,7 @@ def test_input_is_held_until_nonblocking_event_completion(session):
 def test_busy_seat_submits_failure_without_overwriting_owner(session):
     first = session.run_pool(Input(), partial=True)
     second = session.run_pool(Input(), partial=True)
-    with pytest.raises(RuntimeError, match="START rejected"):
+    with pytest.raises(RuntimeError, match="first READY rejected"):
         session.run_pool(Input(), partial=True)
     assert session.failed and session.lib.admits == [1, 1, 0]
     assert session.lib.held == {0: 1, 1: 2}
@@ -121,7 +121,7 @@ def test_wrap_failure_submits_start_zero_and_releases_once(session, callback_tak
         raise RuntimeError("wrap failed")
 
     session.tensor_module.wrap = broken
-    with pytest.raises(RuntimeError, match="START rejected"):
+    with pytest.raises(RuntimeError, match="first READY rejected"):
         session.run_pool(Input(), partial=True)
     assert session.failed and session.lib.admits == [0] and not session.lib.held
 
@@ -137,6 +137,6 @@ def test_event_failure_blocks_next_launch(session):
 
 def test_bounded_input_capacity_failure_still_notifies_peer(session):
     session.free_events.clear()
-    with pytest.raises(RuntimeError, match="START rejected"):
+    with pytest.raises(RuntimeError, match="first READY rejected"):
         session.run_pool(Input(), partial=True)
     assert session.failed and session.lib.admits == [0]

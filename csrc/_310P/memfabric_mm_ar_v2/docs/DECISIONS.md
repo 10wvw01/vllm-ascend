@@ -240,3 +240,10 @@ TP2借鉴HCCL DoublingDirect：S全波不变，Y先seed再接对端ADD，取消G
 profile3301禁止旧协议混用；输入事件query回收；跨流/Graph不在本版范围。
 终止性资源失败必须通知peer START ready=0，不默默覆盖；公开wait仍可能等待对端READY，
 不得将A3描述成方案B的非阻塞自驱调度。设备准入仍待服务器编译和完整门禁。
+
+## ADR-030｜A3首READY合并帧校验
+
+独立START用于提前失败但非数学依赖；合并到首READY，在满足首范围S/Y就绪时同时确认元数据。
+正常MM无需先等peer，首READY严格校验前不得提交任何ADD。失败端不覆盖S/Y，错误通知先送出再Trap。
+取消初始fan-out和独立ACL状态清零任务；保留数据完成及输出生命周期所需操作。
+profile3302替代3301。核内清状态不改变错误终止合同，成功普通路径不增加quiet或Host同步。

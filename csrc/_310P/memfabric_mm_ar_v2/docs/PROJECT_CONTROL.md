@@ -478,3 +478,14 @@ r6私有构建后同会话五臂A/B（新增fused_merged臂，`merged_wave`默�
 （KeyError），补跑build_tensor.py登记后PASS。回退路径已由Host打桩UT+Python注入UT
 （`test_v32_wave.py`5项+`test_v32_host.py`1项）覆盖；CPU套件57项全过。不构成性能GO；
 merged默认翻转见后续提交；L2内核分段仍未做，需另行授权。
+
+## 43. A3 profile3302：首READY合并帧校验，取消非必要启动固定开销
+
+用户要求减少非必要固定开销。独立START已删除，正常计算不等待跨Rank启动确认；
+第0范围的64B READY合并profile/epoch/slot/形状/粒度/mode/admit，双方校验后才可ADD。
+取消计算前的本地fan-out，状态清零移入Kernel，不再每波提交ACL memset任务。
+失败端不做MM/seed，发送ready=0并在错误路径quiet后Trap；正常对端可以已计算首单元，
+但双方均不允许数据ADD；该故障仍为终止性，不在原会话重试。
+profile3302拒绝与3301混用，源码/设计/准入单及实际协议故障回归同步更新。
+保留现有数据可见性、READY、精确完成、最终quiet/DONE及租约/事件；没有借减开销删除数据依赖。
+新CANN/设备门禁及性能NOT_RUN；不改A2 merged-wave实现或历史实验证据。

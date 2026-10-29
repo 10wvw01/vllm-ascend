@@ -218,3 +218,9 @@ A3完整计时包括本地资源/Storage、完成事件提交、设备START、NZ
 计算候选compute512/1024与通信comm512/1024/2048分别记录；默认六配置固定compute1024。
 比较历史A2/V3.1/V2/真实NZ Stock，不把新增S/seed成本排除，不签跨批正式性能GO。
 设备编译/数值/生命周期/性能NOT_RUN，见[A3_ADMISSION](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。
+
+## A3首READY修订：无新增性能数值
+
+profile3302减少一封正常控制消息、计算前跨Rank等待、本地fan-out和独立ACL memset任务。
+首READY由8B扩为64B携带必要校验；其余数据、seed、事件及最终排空全部计入完整窗口。
+实际节省微秒数未测量，不承诺收益；新设备编译/门禁/性能NOT_RUN。
