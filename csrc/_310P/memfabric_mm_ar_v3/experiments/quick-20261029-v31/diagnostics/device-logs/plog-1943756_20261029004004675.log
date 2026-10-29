@@ -1,0 +1,97 @@
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:04.675.543 [task_fail_callback_data_manager.cc:93] 1943756 TaskFailCallBackManager: Constructor.
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:04.675.606 [xpu_task_fail_callback_data_manager.cc:59] 1943756 XpuTaskFailCallBackManager: XpuTaskFailCallBackManager Constructor.
+[INFO] PROFILING(1943756,orch_deploy_helper):2026-10-29-00:40:04.682.646 [platform.cpp:52] (tid:1943756) Profiling platform version: 1.0.
+[INFO] PROFILING(1943756,orch_deploy_helper):2026-10-29-00:40:04.682.656 [platform.cpp:264] (tid:1943756) Succeeded to DrvGetApiVersion version: 0x72418
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:04.684.112 [runtime_keeper.cc:211] 1943756 CreateRuntimeImpl: Open libruntime_v100.so successfully
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:04.684.895 [runtime.cc:4440] 1943756 GetVisibleDevices: ASCEND_RT_VISIBLE_DEVICES param was not set
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.199 [package_worker_factory.cpp:38][RegisterPackageWorkerCreator][tid:1943756] Register[2] package worker was created successfully
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.205 [package_worker_factory.cpp:38][RegisterPackageWorkerCreator][tid:1943756] Register[3] package worker was created successfully
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.366 [acl.cpp:350]1943756 GetAllPackageVersion: Version of runtime package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.386 [acl.cpp:350]1943756 GetAllPackageVersion: Version of runtime package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.407 [acl.cpp:350]1943756 GetAllPackageVersion: Version of bisheng-compiler package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.426 [acl.cpp:350]1943756 GetAllPackageVersion: Version of hccl package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.453 [acl.cpp:350]1943756 GetAllPackageVersion: Version of oam-tools package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.479 [acl.cpp:350]1943756 GetAllPackageVersion: Version of ops-legacy package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.498 [acl.cpp:350]1943756 GetAllPackageVersion: Version of ops-legacy package is 9.1.0
+[INFO] ASCENDCL(1943756,orch_deploy_helper):2026-10-29-00:40:04.686.539 [acl.cpp:350]1943756 GetAllPackageVersion: Version of driver package is 26.1.1
+[INFO] ATRACE(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.515 [atrace_client_core.c:160](tid:1943756) start to receive device[5] trace log.
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.536 [client_manager.cpp:141][GetInstance][tid:1943756] [ClientManager] Current mode:1
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.549 [process_mode_base.cpp:145][GetLogLevel][tid:1943756] [TsdClient] get ASCEND_GLOBAL_LOG_LEVEL [] ASCEND_GLOBAL_EVENT_ENABLE [] ASCEND_MODULE_LOG_LEVEL []
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.582 [process_mode_manager.cpp:132][OpenProcess][tid:1943756] [ProcessModeManager] enter into open process deviceId[5] rankSize[0]
+[WARNING] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.627 [tsd_util_func.cpp:200][CheckRealPath][tid:1943756] Format to realpath failed, inputPath is [/usr/local/Ascend/driver/lib64/driver/sink_file_mutex_0.cfg]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.675 [process_mode_manager.cpp:561][InitTsdClient][tid:1943756] [TsdClient] deviceId[5] begin to init hdc client
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.688.767 [version_verify.cpp:39][SetVersionInfo][tid:1943756] VersionVerify: send client version to server
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.329 [version_verify.cpp:71][PeerVersionCheck][tid:1943756] VersionVerify: Check client version info, server[1230], client[1230]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.334 [version_verify.cpp:92][ParseVersionInfo][tid:1943756] VersionVerify: pass client version info success
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.336 [hdc_client.cpp:243][CheckHdcConnection][tid:1943756] Service create hdc successfully.
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.344 [version_verify.cpp:117][SpecialFeatureCheck][tid:1943756] VersionVerify: previous type[40], supported
+[WARNING] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.525 [process_mode_manager.cpp:2507][GetShortSocVersion][tid:1943756] get soc_version by halGetSocVersion failed
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.583 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:Ascend-aicpu_legacy.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.593 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:Ascend910-aicpu_legacy.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.602 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:Ascend310P-aicpu_legacy.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.617 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:aicpu_hccl.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.626 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:mc2_server.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.635 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:aicpu_hcomm.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.645 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:cann-hixl-compat.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.654 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:cann-hcomm-compat.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.662 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:cann-hccd-compat.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.671 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:cann-udf-compat.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.678 [package_process_config.cpp:264][SetConfigDataOnHost][tid:1943756] insert package:cann-tsch-compat.tar.gz config
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.704 [package_process_config.cpp:328][RefreshHostPluginVersions][tid:1943756] host plugin pkg:cann-hcomm-compat.tar.gz ini parsed, version:9.1.0 timestamp:20260730_231653901
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.719 [package_process_config.cpp:328][RefreshHostPluginVersions][tid:1943756] host plugin pkg:cann-tsch-compat.tar.gz ini parsed, version:9.1.0 timestamp:20260730_231653901
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.689.761 [version_verify.cpp:117][SpecialFeatureCheck][tid:1943756] VersionVerify: previous type[69], supported
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.033 [process_mode_msg_parse.cpp:202][HandleDevicePluginVersionRsp][tid:1943756] device plugin info rsp, pkgCount:0
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.036 [process_mode_manager.cpp:2216][LoadPackageConfigInfoToDevice][tid:1943756] Receive load package config response result:0
+[WARNING] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.050 [tsd_util_func.cpp:200][CheckRealPath][tid:1943756] Format to realpath failed, inputPath is [/usr/local/Ascend/driver/lib64/driver/sink_file_mutex_0.cfg]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.054 [process_mode_manager.cpp:287][LoadSysOpKernel][tid:1943756] [TsdClient][logicDeviceId_=5] use legacy package
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.188 [client_manager.cpp:282][CheckPackageExistsOnce][tid:1943756] [TsdClient][deviceId=5] pkg size[0] in path[/usr/local/Ascend/cann-9.1.0/opp/built-in/] must be only one, skip send package, packageType[6]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.191 [process_mode_manager.cpp:292][LoadSysOpKernel][tid:1943756] [TsdClient][logicDeviceId_=5] can not find aicpu packages
+[WARNING] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.205 [tsd_util_func.cpp:200][CheckRealPath][tid:1943756] Format to realpath failed, inputPath is [/usr/local/Ascend/driver/lib64/driver/sink_file_mutex_0.cfg]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.226 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:Ascend-aicpu_legacy.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.230 [process_mode_manager.cpp:2322][LoadSinglePackageToDevice][tid:1943756] cannot find package:Ascend-aicpu_legacy.tar.gz, optional is true skip
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.232 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:Ascend310P-aicpu_legacy.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.690.236 [package_process_config.cpp:393][GetPkgHostAndDeviceDstPath][tid:1943756] get orgFile:/usr/local/Ascend/cann-9.1.0/opp/Ascend310P/aicpu/Ascend310P-aicpu_legacy.tar.gz, dstFile:/home/HwHiAiUser/hdcd/device1/aicpu/4159649_Ascend310P-aicpu_legacy.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.021 [process_mode_manager.cpp:2333][LoadSinglePackageToDevice][tid:1943756] current package:Ascend310P-aicpu_legacy.tar.gz is same as device, skip load
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.037 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:Ascend910-aicpu_legacy.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.045 [process_mode_manager.cpp:2322][LoadSinglePackageToDevice][tid:1943756] cannot find package:Ascend910-aicpu_legacy.tar.gz, optional is true skip
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.047 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:aicpu_hccl.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.049 [process_mode_manager.cpp:2282][SupportLoadPkg][tid:1943756] current device chip:4 does not support package:aicpu_hccl.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.052 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:aicpu_hccl.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.054 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:aicpu_hcomm.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.831.064 [package_process_config.cpp:393][GetPkgHostAndDeviceDstPath][tid:1943756] get orgFile:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/aicpu/kernel/aicpu_hcomm.tar.gz, dstFile:/home/HwHiAiUser/hdcd/device1/aicpu/4159649_aicpu_hcomm.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.060 [process_mode_manager.cpp:2333][LoadSinglePackageToDevice][tid:1943756] current package:aicpu_hcomm.tar.gz is same as device, skip load
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.070 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:cann-hccd-compat.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.073 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:cann-hccd-compat.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.075 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:cann-hcomm-compat.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.077 [process_mode_manager.cpp:2282][SupportLoadPkg][tid:1943756] current device chip:4 does not support package:cann-hcomm-compat.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.078 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:cann-hcomm-compat.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.080 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:cann-hixl-compat.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.082 [process_mode_manager.cpp:2282][SupportLoadPkg][tid:1943756] current device chip:4 does not support package:cann-hixl-compat.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.084 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:cann-hixl-compat.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.086 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:cann-tsch-compat.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.087 [process_mode_manager.cpp:2282][SupportLoadPkg][tid:1943756] current device chip:4 does not support package:cann-tsch-compat.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.089 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:cann-tsch-compat.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.090 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:cann-udf-compat.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.092 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:cann-udf-compat.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.094 [process_mode_manager.cpp:2307][LoadSinglePackageToDevice][tid:1943756] begin to load package:mc2_server.tar.gz to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.095 [process_mode_manager.cpp:2282][SupportLoadPkg][tid:1943756] current device chip:4 does not support package:mc2_server.tar.gz
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.097 [process_mode_manager.cpp:2309][LoadSinglePackageToDevice][tid:1943756] current package:mc2_server.tar.gz does not need to load to device:5
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.108 [process_mode_manager.cpp:620][ConstructOpenMsg][tid:1943756] [TsdClient] tsd get process sign successfully, procpid[4159649] signSize[48]
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.120 [version_verify.cpp:117][SpecialFeatureCheck][tid:1943756] VersionVerify: previous type[6], supported
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:04.844.211 [process_mode_manager.cpp:159][OpenProcess][tid:1943756] [ProcessModeManager] deviceId[5] sessionId[1] rankSize[0], wait subprocess start response
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:05.250.450 [stub_process_mode_nowin.cpp:22][ProcessQueueForAdc][tid:1943756] [TsdClient] it is unnecessary for current mode[0] to grant queue auth to aicpusd
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:05.250.464 [process_mode_manager.cpp:197][OpenProcess][tid:1943756] [TsdClient][deviceId=5] [sessionId=1] start hccp and computer process success,whole process spent time as follows:phase1:[1]ms load sink package config to device,phase2:[0]ms load opkernel to device,phase3:[153]ms load sink package to device,phase4:[0]ms send open message to device,phase5:[406]ms receive open message to device,phase6:[0]ms process for adc on host,whole duration:[561]ms
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.250.502 [event_sched.c:1577][ascend][curpid:1943756,1943756][drv][event-sche][eschedDeviceOpen]The devId has opened. (devId=5)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.250.749 [devmm_svm.c:253][ascend][curpid:1943756,1943756][drv][devmm][devmm_setup_device]DrvMemDeviceOpen. (devid=5)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.246 [devmm_virt_interface.c:822][ascend][curpid:1943756,1943756][drv][devmm][devmm_ioctl_init_process]Init_process details. (hostpid=1943756; ret=0; cnt=0)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.449 [drv_share_log.c:240][ascend][curpid:1943756,1943756][drv][devmm][share_log_read_in_single_module]Setup device succeeded. (logical_devid=5; devid=5; vfid=0; hostpid=4159649; devpid=16737)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.454 [devmm_svm.c:212][ascend][curpid:1943756,1943756][drv][devmm][devmm_set_device_info]Device info. (devid=5; dvpp_size=17179869184; support_bar_mem=1; support_dev_read_only=0; support_dev_mem_map_host=0; support_bar_huge_mem=1; allocated_by_malloc=0; host_rw_dev_ro=1)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.457 [devmm_svm.c:218][ascend][curpid:1943756,1943756][drv][devmm][devmm_set_device_info]Device info. (double_pgtable_offset=17592186044416; support_host_pin_pre_register=0; support_host_mem_pool=0; is_support_agent_giant_page=0; is_support_host_giant_page=0; support_remote_mmap=0; support_shmem_map_exbus=0; support_mem_host_uva=0)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.543 [queue_interface.c:681][ascend][curpid:1943756,1943756][drv][queuemng][queueDeviceOpen]queue open finish. (devId=5)
+[INFO] DRV(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.611 [devmm_svm.c:2140][ascend][curpid:1943756,1943756][drv][devmm][svmSupportMemRegisterQueryAndGetAttr]Support query and get attr of mem register.
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.625 [raw_device.cc:560] 1943756 Init: isAddrFlat:0
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.653 [engine.cc:82] 1943756 Engine: Constructor.
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:05.251.658 [direct_hwts_engine.cc:60] 1943756 DirectHwtsEngine: Constructor.
+[INFO] RUNTIME(1943756,orch_deploy_helper):2026-10-29-00:40:05.260.752 [npu_driver_res.cc:269] 1943776 GetDeviceStatus: GetDeviceStatus status=1.
+[INFO] ATRACE(1943756,orch_deploy_helper):2026-10-29-00:40:05.262.938 [tracer_mgr_operate.c:66](tid:1943756) create object RUNTIME_ATRACE_DEV5_TS0 successfully, exitSave(false), noLock(false).
+[INFO] TDT(1943756,orch_deploy_helper):2026-10-29-00:40:05.262.954 [client_manager.cpp:210][SetProfilingCallback][tid:1943756] [TsdClient] set profiling callback successfully

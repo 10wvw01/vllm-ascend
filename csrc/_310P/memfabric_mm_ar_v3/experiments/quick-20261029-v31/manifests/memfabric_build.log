@@ -1,0 +1,408 @@
+BUILD_MODE: RELEASE
+BUILD_PYTHON: OFF
+XPU_TYPE: NPU
+BUILD_TEST: OFF
+BUILD_HCOM: OFF
+BUILD_HCOM_RDMA: ON
+BUILD_HCOM_WITH_UB: OFF
+BUILD_ETCD_BACKEND: OFF
+BUILD_TOOL: cmake
+========= build by ninja ============
+-- The CXX compiler identification is GNU 11.4.0
+-- The C compiler identification is GNU 11.4.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- in memfabric cmakefile BUILD_FROM_MEMCACHE: , version: 1.2.0.
+-- VERSION_MAJOR = 1, VERSION_MINOR = 2, VERSION_FIX = 0
+-- add definition for last commit: db38d75e8485d31451302219eb7a1bfeb1dd107c
+-- BUILD_UT = OFF
+-- BUILD_USE_CXX11_ABI = OFF
+-- ENABLE_CPU_MONOTONIC = OFF
+-- BUILD_GIT_COMMIT = ON
+-- BUILD_PYTHON = OFF
+-- ENABLE_PTRACER = ON
+-- CMAKE_COMPILER = 
+-- CMAKE_CXX_COMPILER = /usr/bin/c++
+-- CMAKE_BUILD_TYPE = RELEASE
+-- XPU_TYPE = NPU
+-- BUILD_TEST = OFF
+-- BUILD_HCOM = OFF
+-- MAKE_CMD = ninja
+-- added compile options for RELEASE
+-- CMAKE_BUILD_TYPE is RELEASE.
+-- CMAKE_INSTALL_PREFIX = /usr/local
+-- TARGET_INSTALL_DIR = /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/
+-- CMAKE_PREFIX_PATH is exist, and append: 
+-- Now CMAKE_PREFIX_PATH: /usr/local/Ascend/cann-9.1.0/toolkit/tools/tikicpulib/lib/cmake:/usr/local/Ascend/cann-9.1.0/lib64/cmake:/usr/local/Ascend/cann-9.1.0/toolkit/tools/tikicpulib/lib/cmake:/usr/local/Ascend/cann-9.1.0/lib64/cmake;
+-- BUILD_HCOM = OFF
+-- BUILD_ETCD_BACKEND = OFF
+CMake Warning (policy) at src/acc_links/csrc/CMakeLists.txt:39 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/acc_links/csrc/CMakeLists.txt:40 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/acc_links/csrc/CMakeLists.txt:40 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/smem/csrc/CMakeLists.txt:60 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/smem/csrc/CMakeLists.txt:61 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/smem/csrc/CMakeLists.txt:64 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/csrc/CMakeLists.txt:69 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/csrc/CMakeLists.txt:75 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/acc_offload/csrc/CMakeLists.txt:61 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/acc_offload/csrc/CMakeLists.txt:63 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+-- [config_slog] Found slog library: /usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libascendalog.so
+-- [config_slog] ASCEND_SLOG_LIB_DIR = /usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64
+==================hybm ai cpu ops compile====================================
+==================hybm ai cpu ops compile done====================================
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:147 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:151 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:156 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:160 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:164 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+CMake Warning (policy) at src/hybm/ops/hybm_kernel/CMakeLists.txt:168 (install):
+  Policy CMP0177 is not set: install() DESTINATION paths are normalized.  Run
+  "cmake --help-policy CMP0177" for policy details.  Use the cmake_policy
+  command to set the policy and suppress this warning.
+This warning is for project developers.  Use -Wno-author or -Wno-policy to
+suppress it.
+
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+CMake Warning (unused-cli):
+  Manually-specified variables were not used by the project:
+
+    BUILD_WITH_RDMA
+    BUILD_WITH_UB
+
+
+-- Build files have been written to: /tmp/opencode/310p-v31-20261029-001/memfabric-src/build
+ninja: Entering directory `build/'
+[1/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_common.cpp.o
+[2/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_http_server.cpp.o
+[3/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_port_util.cpp.o
+[4/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_http_request_context.cpp.o
+[5/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_request_context.cpp.o
+[6/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_http_listener.cpp.o
+[7/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_link_complex_default.cpp.o
+[8/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_http_link_default.cpp.o
+[9/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_listener.cpp.o
+[10/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_shared_buf.cpp.o
+[11/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_server.cpp.o
+[12/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_http_server_default.cpp.o
+[13/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/common/acc_file_validator.cpp.o
+[14/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/under_api/openssl/openssl_util.cpp.o
+[15/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/common/acc_common_util.cpp.o
+[16/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_worker.cpp.o
+[17/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/common/hybm_networks_common.cpp.o
+[18/137] Building CXX object src/util/csrc/ptracer/CMakeFiles/ptracer_object.dir/ptracer.cpp.o
+[19/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/under_api/openssl/openssl_api_dl.cpp.o
+[20/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/security/acc_tcp_ssl_helper.cpp.o
+[21/137] Building CXX object src/acc_links/csrc/CMakeFiles/acc_tcp_net_object.dir/acc_tcp_server_default.cpp.o
+[22/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/common/hybm_rbtree_range_pool.cpp.o
+[23/137] Building CXX object src/util/csrc/ptracer/CMakeFiles/ptracer_object.dir/tracers/ptracer_default.cpp.o
+[24/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/common/hybm_vmm_handle_registry.cpp.o
+[25/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/common/hybm_numa_util.cpp.o
+[26/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_factory.cpp.o
+[27/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_compose_data_op.cpp.o
+[28/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_host_shm.cpp.o
+[29/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_acl_memcpy.cpp.o
+[30/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/driver/hybm_gva.cpp.o
+[31/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/driver/userspace/devmm_ioctl.cpp.o
+[32/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_host_rdma.cpp.o
+[33/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_device_urma.cpp.o
+[34/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_sdma.cpp.o
+[35/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/data_operation/host/hybm_data_op_device_rdma.cpp.o
+[36/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/driver/version/hybm_gva_version.cpp.o
+[37/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/entity/hybm_entity_factory.cpp.o
+[38/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/driver/userspace/devmm_svm_gva.cpp.o
+[39/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/hybm_sdma_capi.cpp.o
+[40/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/entity/hybm_entity_tag_info.cpp.o
+[41/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/entity/hybm_sdma_orchestrator.cpp.o
+[42/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/hybm_big_mem_entry.cpp.o
+[43/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/hybm_data_op_entry.cpp.o
+[44/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/hybm_entry.cpp.o
+[45/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/entity/hybm_entity_default.cpp.o
+[46/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_mem_slice.cpp.o
+[47/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_conn_based_segment.cpp.o
+[48/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_dev_legacy_segment.cpp.o
+[49/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_dev_user_legacy_segment.cpp.o
+[50/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/device_chip_info.cpp.o
+[51/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_mem_segment.cpp.o
+[52/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_host_shm_segment.cpp.o
+[53/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_va_manager.cpp.o
+[54/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/device_qp_manager.cpp.o
+[55/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/compose/compose_transport_manager.cpp.o
+[56/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/device_rdma_helper.cpp.o
+[57/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/aiv_sdma_transport_manager.cpp.o
+[58/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/mm/hybm_vmm_based_segment.cpp.o
+[59/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/indirect/receiver_side_queue.cpp.o
+[60/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/indirect/sender_side_queue.cpp.o
+[61/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/indirect/async_socket_queue.cpp.o
+[62/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/fixed_ranks_qp_manager.cpp.o
+[63/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/device_urma_eid_reader.cpp.o
+[64/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/device_rdma_transport_manager.cpp.o
+[65/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/load_kernel.cpp.o
+[66/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/joinable_ranks_qp_manager.cpp.o
+[67/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/rootinfo_parser.cpp.o
+[68/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/topo_reader.cpp.o
+[69/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/device_rdma_indirect_transport_manager.cpp.o
+[70/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/hcomm_transport_manager.cpp.o
+[71/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/host/host_hcom_helper.cpp.o
+[72/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/host/host_hcom_reconnector.cpp.o
+[73/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/ts_engine/hybm_stream_notify.cpp.o
+[74/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_cuda_api.cpp.o
+[75/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/ts_engine/hybm_stream_manager.cpp.o
+[76/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/hybm_transport_manager.cpp.o
+[77/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_api.cpp.o
+[78/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/ts_engine/hybm_stream.cpp.o
+[79/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/device/urma/device_urma_transport_manager.cpp.o
+[80/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hccl_api.cpp.o
+[81/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_acl_api.cpp.o
+[82/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hybm_copy_extend.cpp.o
+[83/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_op_api.cpp.o
+[84/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hcomm_api.cpp.o
+[85/137] Linking CXX static library src/acc_links/csrc/libacc_tcp_net.a
+[86/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hcom_api.cpp.o
+[87/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hal_api.cpp.o
+[88/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/__/__/util/csrc/mf_fault_injection_point_registry.cpp.o
+[89/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/__/__/util/csrc/mf_fault_injection_point.cpp.o
+[90/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_rt_api.cpp.o
+[91/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/transport/host/host_hcom_transport_manager.cpp.o
+[92/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/backend/smem_external_backend_registry.cpp.o
+[93/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/backend/dl_etcd_api.cpp.o
+[94/137] Building CXX object src/hybm/csrc/CMakeFiles/hybmm_objects.dir/under_api/dl_hccp_api.cpp.o
+[95/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/backend/smem_local_memory_backend.cpp.o
+[96/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/backend/smem_external_backend.cpp.o
+[97/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/tcp_store/smem_message_packer.cpp.o
+[98/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/common/smem_last_error.cpp.o
+[99/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/backend/smem_etcd_store_backend.cpp.o
+[100/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/ha/network_endpoint_util.cpp.o
+[101/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/smem_store_factory.cpp.o
+[102/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/common/smem_thread_pool.cpp.o
+[103/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/common/topology_preflight.cpp.o
+[104/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/ha/smem_ha_config_store.cpp.o
+[105/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem.cpp.o
+[106/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/net/smem_net_common.cpp.o
+[107/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/tcp_store/smem_tcp_config_store.cpp.o
+[108/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_bm/smem_bm.cpp.o
+[109/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_shm/smem_shm_entry_manager.cpp.o
+[110/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_bm/smem_bm_entry.cpp.o
+[111/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_shm/smem_shm_entry.cpp.o
+[112/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_shm/smem_shm.cpp.o
+[113/137] Linking CXX static library src/hybm/csrc/libmf_hybm_core.a
+[114/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_bm/smem_bm_entry_manager.cpp.o
+[115/137] Linking CXX shared library src/hybm/csrc/libmf_hybm_core.so
+[116/137] Building CXX object src/smem/csrc/config_store/CMakeFiles/config_store_object.dir/tcp_store/smem_tcp_config_store_server.cpp.o
+[117/137] Building CXX object src/acc_offload/csrc/CMakeFiles/acc_offload_objects.dir/acc_offload.cpp.o
+[118/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_trans/smem_trans_entry_manager.cpp.o
+[119/137] Building CXX object src/acc_offload/csrc/CMakeFiles/acc_offload_objects.dir/acc_offload_entry_manager.cpp.o
+[120/137] Building CXX object src/acc_offload/csrc/CMakeFiles/acc_offload_objects.dir/launch/acc_offload_launch.cpp.o
+[121/137] Compiling 310P sdma orchestrator kernel (libmf_sdma_orch.so)
+[122/137] Generating libcann_hybm_kernel.json
+[123/137] Copying sdma orchestrator CUST json (deployer mode=1 migration)
+[124/137] Sdma orchestrator launch json (KFCKernel cpuMode=0, v28)
+[125/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/net/smem_net_group_engine.cpp.o
+[126/137] Building CXX object src/acc_offload/csrc/CMakeFiles/acc_offload_objects.dir/acc_offload_local_dram_entry.cpp.o
+[127/137] Linking CXX shared library src/acc_links/csrc/libacc_tcp_net.so
+[128/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_trans/smem_trans.cpp.o
+[129/137] Compiling AICPU kernel shared library with aarch64 cross-compiler
+[130/137] Packaging AICPU kernel into tar.gz (TAR_ROOT_DIR=aicpu_kernels_device)
+[131/137] Building CXX object src/acc_offload/csrc/CMakeFiles/acc_offload_objects.dir/acc_offload_shared_dram_entry.cpp.o
+[132/137] Building CXX object src/smem/csrc/CMakeFiles/smem_objects.dir/smem_trans/smem_trans_entry.cpp.o
+[133/137] Linking CXX static library src/smem/csrc/libmf_smem.a
+[134/137] Linking CXX static library src/acc_offload/csrc/libmf_acc_offload.a
+[135/137] Linking CXX shared library src/smem/csrc/libmf_smem.so
+[136/137] Linking CXX shared library src/acc_offload/csrc/libmf_acc_offload.so
+[136/137] Install the project...
+-- Install configuration: "RELEASE"
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_http_request_context.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_http_server.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_log.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_ref.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_tcp_link.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_tcp_port_util.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_tcp_request_context.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_tcp_server.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/include/acc_tcp_shared_buf.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/lib64/libacc_tcp_net.so
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_links/lib64/libacc_tcp_net.a
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_bm.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_bm_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_shm.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_shm_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_trans.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/host/smem_trans_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_api.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_copy.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_define.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_meta.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_rdma.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_aicore_base_sdma.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/include/device/smem_shm_sdma_layout.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/smem/lib64/libmf_smem.so
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/include/hybm.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/include/hybm_big_mem.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/include/hybm_data_op.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/include/hybm_def.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/lib64/libmf_hybm_core.a
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/lib64/libmf_hybm_core.so
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_offload/include/host/acc_offload.h
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_offload/lib64/libmf_acc_offload.so
+-- Set non-toolchain portion of runtime path of "/tmp/opencode/310p-v31-20261029-001/memfabric-src/output/acc_offload/lib64/libmf_acc_offload.so" to "$ORIGIN"
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/libmf_sdma_orch.so
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/libmf_sdma_orch.json
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/libmf_sdma_orch_v28.json
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/libcann_hybm_kernel.so
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/libcann_hybm_kernel.json
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/cann-hybm-compat.tar.gz
+-- Installing: /tmp/opencode/310p-v31-20261029-001/memfabric-src/output/hybm/aicpu_kernel/install.sh
+========= skip build python ============
+BUILD_TEST is OFF
+XPU_TYPE is NPU
+BUILD_PYTHON is OFF
+BUILD_HCOM is OFF
+BUILD_ETCD_BACKEND is OFF
+it is system of aarch64
+in make_run.sh, XPU_TYPE is NPU
+memfabric_hybrid/
+memfabric_hybrid/include/
+memfabric_hybrid/include/hcom/
+memfabric_hybrid/include/smem/
+memfabric_hybrid/include/smem/host/
+memfabric_hybrid/include/smem/host/smem_trans.h
+memfabric_hybrid/include/smem/host/smem_trans_def.h
+memfabric_hybrid/include/smem/host/smem_bm.h
+memfabric_hybrid/include/smem/host/smem_def.h
+memfabric_hybrid/include/smem/host/smem_shm.h
+memfabric_hybrid/include/smem/host/smem_bm_def.h
+memfabric_hybrid/include/smem/host/smem_shm_def.h
+memfabric_hybrid/include/smem/host/smem.h
+memfabric_hybrid/include/smem/device/
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_rdma.h
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_copy.h
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_sdma.h
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_api.h
+memfabric_hybrid/include/smem/device/smem_shm_sdma_layout.h
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_define.h
+memfabric_hybrid/include/smem/device/smem_shm_aicore_base_meta.h
+memfabric_hybrid/include/hybm/
+memfabric_hybrid/include/hybm/hybm_data_op.h
+memfabric_hybrid/include/hybm/hybm.h
+memfabric_hybrid/include/hybm/hybm_def.h
+memfabric_hybrid/include/hybm/hybm_big_mem.h
+memfabric_hybrid/version.info
+memfabric_hybrid/copy_extend/
+memfabric_hybrid/copy_extend/hybm_copy_kernel.cpp
+memfabric_hybrid/script/
+memfabric_hybrid/script/uninstall.sh
+memfabric_hybrid/script/mem_scan.py
+memfabric_hybrid/script/install.sh
+memfabric_hybrid/aarch64-linux/
+memfabric_hybrid/aarch64-linux/wheel/
+memfabric_hybrid/aarch64-linux/lib64/
+memfabric_hybrid/aarch64-linux/lib64/libmf_hybm_core.so
+memfabric_hybrid/aarch64-linux/lib64/libmf_smem.so
+memfabric_hybrid/accoffload_operators/
+memfabric_hybrid/accoffload_operators/acc_offload_sparse_copy.h
+memfabric_hybrid/accoffload_operators/acc_offload_group_pack_copy.cpp
+memfabric_hybrid/accoffload_operators/acc_offload_operators.h
+memfabric_hybrid/accoffload_operators/acc_offload_operators_launch.cpp
+memfabric_hybrid/accoffload_operators/acc_offload_sparse_copy.cpp
+memfabric_hybrid/accoffload_operators/acc_offload_group_pack_copy.h
