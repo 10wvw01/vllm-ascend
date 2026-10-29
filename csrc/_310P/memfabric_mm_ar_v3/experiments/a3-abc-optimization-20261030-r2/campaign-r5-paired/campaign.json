@@ -1,0 +1,1925 @@
+{
+  "status": "PASS_ATTRIBUTION_ONLY",
+  "completed": [
+    "stock-before",
+    "v2-before",
+    "v3",
+    "a3-c512",
+    "a3-2-c512",
+    "a3-tail-c512",
+    "a3-c1024",
+    "a3-2-c1024",
+    "a3-tail-c1024",
+    "v2-after",
+    "stock-after"
+  ],
+  "order": [
+    [
+      "stock-before",
+      "stock",
+      1024
+    ],
+    [
+      "v2-before",
+      "v2",
+      1024
+    ],
+    [
+      "v3",
+      "v3",
+      1024
+    ],
+    [
+      "a3-c512",
+      "a3",
+      512
+    ],
+    [
+      "a3-2-c512",
+      "a3-2",
+      512
+    ],
+    [
+      "a3-tail-c512",
+      "a3-tail",
+      512
+    ],
+    [
+      "a3-c1024",
+      "a3",
+      1024
+    ],
+    [
+      "a3-2-c1024",
+      "a3-2",
+      1024
+    ],
+    [
+      "a3-tail-c1024",
+      "a3-tail",
+      1024
+    ],
+    [
+      "v2-after",
+      "v2",
+      1024
+    ],
+    [
+      "stock-after",
+      "stock",
+      1024
+    ]
+  ],
+  "formal_performance_go": false,
+  "comparisons": [
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1898.4750000000001,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.6000691110850072
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.2985409604097111
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1810.0456297397614,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.6331984107179565
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.3056786108172149
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1620.465,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.36575724836743495
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.10838445458082013
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1538.8998687267303,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.38854445355608
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.11008728717783711
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1657.1000000000001,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.3966338898215491
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.13344248699347228
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1574.4271129369736,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.42060057293120323
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.13571490788774354
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 3231.45125,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.5329033367478089
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.24802898529734785
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 3138.0404829978943,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.5495398567747389
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.24938413094925194
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2608.6525,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.23746633085227997
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.007495914588960595
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2519.0723836421967,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.2438982485098644
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.002947246183496066
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2605.4575,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.2359507188928207
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.006261963555961092
+        }
+      }
+    },
+    {
+      "arm": "v3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2514.004111289978,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.24139557524694655
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.0009293566494066319
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1612.19125,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.35878398203111805
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.10272527904719975
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1537.9199981689453,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.3876603194705135
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.10938045636227733
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1643.74375,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.3853770004419528
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.12430692413250632
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1564.553752541542,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.4116918712712443
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.1285927473889179
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1784.52,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.5040257733777991
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.2205966971755422
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1708.4536105394363,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.5415322551396278
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.23239508452364444
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2640.4725,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.2525607823546241
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.01978521720869253
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2557.942360639572,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.263091939259134
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.018422996956630966
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2528.83125,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.19960152925009544
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": 0.023332102278898925
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2447.4934935569763,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.20855315220161463
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": 0.025551280163748302
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2653.55125,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.25876494821214435
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.024836402521006384
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2569.153755903244,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.26862803858775663
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.022886718633940095
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1721.37875,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.45080918439964757
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.17740861230928395
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1636.4876329898834,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.47659758264930363
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.1804823393148327
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1690.3249999999998,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.424636521521097
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.15616810803647385
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1605.0556004047394,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.4482365596893061
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.15780880447867895
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1923.085,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.620810864768254
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.31537399378422637
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1833.6392492055893,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.6544868584684225
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.3226978968408061
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2637.045,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.2509348793840307
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": -0.018461471616953773
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2550.2281188964844,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.25928270699764
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": -0.01535163721212185
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2634.1974999999998,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.24958411097884747
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": -0.01736172965561833
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2543.9551174640656,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.2561851479336945
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": -0.012854095040327085
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2849.31625,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.3516299795872686
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.10044342097958125
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2759.4500184059143,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.3625948452433079
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.09865155718141949
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1943.74875,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.6382266474855312
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.3295078252914445
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1867.0020997524261,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.684590052329866
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.34676422955594277
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1989.99625,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.6772048780205151
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.36114072699757616
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1919.4368720054626,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.7319017804448802
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.3845881161303961
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1787.545,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.5065752981600755
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.22266577177765146
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1712.7862572669983,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.5454415884919994
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.23552044449659615
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2951.2275,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.3999736131720675
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.1398028864605736
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2875.0553727149963,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.4196798653789797
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.14467884583785762
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 3052.86375,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.4481867950232665
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.17905614332370212
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2976.6927659511566,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.46986761554071754
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.1851449095831521
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 3307.07375,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.5687763775628949
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.277235389677005
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 512,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 3230.253726243973,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.595074035350968
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.2860980495233518
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1710.6112500000002,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.4417341404019084
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.17004373271318118
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1636.6080045700073,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.47670619354293176
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.18056916950018054
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1482.045,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.24909436560290743
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.013706336754716553
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1406.2435030937195,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.2688490370628489
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.01439545690023647
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1647.2425,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.38832581030376745
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.12670003975701216
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1571.1358785629272,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.41763090263081115
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.13334077197935956
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2821.615,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.33848933927679337
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.08974483379558218
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2738.1931245326996,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.3520983572386951
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.09018830566431513
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2349.79625,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.11467270697724063
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": 0.092477774639796
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2262.9328668117523,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.1174185576409228
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": 0.09903252411291552
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2381.07875,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.12951218463664027
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": 0.08039606159134305
+        }
+      }
+    },
+    {
+      "arm": "a3",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2300.1367449760437,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.13578954181225722
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": 0.08422011642089333
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1605.23875,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.35292428912243134
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.09796982742036842
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1527.7605056762695,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.3784934417299093
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.10205189412799154
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1650.2649999999999,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.3908732280407692
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.12876740438011125
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1562.5326335430145,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.4098682220316714
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.1271348107474679
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1805.8987499999998,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": false,
+          "latency_reduction": -0.5220441710436141
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": false,
+          "latency_reduction": -0.23521958267962262
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1707.3273956775665,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": false,
+          "latency_reduction": -0.5405160750542686
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": false,
+          "latency_reduction": -0.2315826880667997
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2500.1825,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.1860114234211263
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": 0.03439662642808361
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2407.9587757587433,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.1890312176419371
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": 0.04129169183347958
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2365.6575000000003,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.12219680719382042
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": 0.08635195122127837
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2275.4458487033844,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.12359737027040851
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": 0.09405058678898237
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2520.2962500000003,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.19555278180909896
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": 0.026628431564235555
+        }
+      }
+    },
+    {
+      "arm": "a3-2",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2428.265005350113,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.19905827505662854
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": 0.03320693921530049
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 1764.1925,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.48689338824995665
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.2066928578451701
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 1674.3261367082596,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.5107391441223601
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.20777718987476845
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 1766.00625,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.4884220495966851
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.20793344761693056
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 1688.6067539453506,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.5236244996031729
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.2180785304428614
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 1592.7775,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1186.495625,
+          "bracket_drift": 0.032595090875023436,
+          "stable": true,
+          "latency_reduction": -0.34242172195114495
+        },
+        "v2": {
+          "baseline_us": 1462.00625,
+          "bracket_drift": 0.00566233645973635,
+          "stable": true,
+          "latency_reduction": -0.08944643704498523
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 2048,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 1513.3298933506012,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 1108.2827523350716,
+          "bracket_drift": 0.041539709076817255,
+          "stable": true,
+          "latency_reduction": -0.36547274615807623
+        },
+        "v2": {
+          "baseline_us": 1386.2872645258904,
+          "bracket_drift": 0.004940977326192142,
+          "stable": true,
+          "latency_reduction": -0.09164235442079116
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "wall_us",
+      "candidate_us": 2831.3199999999997,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.34309309954801437
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": -0.09349303247328478
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 512,
+      "metric": "event_us",
+      "candidate_us": 2741.832733154297,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.35389556752096585
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": -0.0916373848840788
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "wall_us",
+      "candidate_us": 2617.77125,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": true,
+          "latency_reduction": -0.241791991745963
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": true,
+          "latency_reduction": -0.011017695804035332
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 1024,
+      "metric": "event_us",
+      "candidate_us": 2530.996114015579,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": true,
+          "latency_reduction": -0.24978609334650614
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": true,
+          "latency_reduction": -0.007694578026707255
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "wall_us",
+      "candidate_us": 2894.55,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2108.059375,
+          "bracket_drift": 0.01866288896230439,
+          "stable": false,
+          "latency_reduction": -0.37308751087715475
+        },
+        "v2": {
+          "baseline_us": 2589.24375,
+          "bracket_drift": 0.002242547998501765,
+          "stable": false,
+          "latency_reduction": -0.11791329031884312
+        }
+      }
+    },
+    {
+      "arm": "a3-tail",
+      "compute_rows": 1024,
+      "M": 4096,
+      "comm_rows": 2048,
+      "metric": "event_us",
+      "candidate_us": 2789.8276448249817,
+      "comparisons": {
+        "stock": {
+          "baseline_us": 2025.1434445381165,
+          "bracket_drift": 0.024039809931442058,
+          "stable": false,
+          "latency_reduction": -0.37759507967163786
+        },
+        "v2": {
+          "baseline_us": 2511.669874191284,
+          "bracket_drift": 0.0020343734014591774,
+          "stable": false,
+          "latency_reduction": -0.11074615079470185
+        }
+      }
+    }
+  ],
+  "scope": "unified-boundary operator attribution"
+}
