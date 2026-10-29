@@ -208,6 +208,7 @@ def test_paired_report_accepts_unavailable_device_clock():
         if item["stage"] == "device":
             assert item["device_attribution"] == "UNAVAILABLE_DAV2002_NO_AICORE_CLOCK"
     # Mixed availability inside one case must still fail closed.
-    a["cases"][-1]["samples"][0]["device"] = {"units": "device_counter_ticks"}
+    device_case = next(c for c in a["cases"] if c["stage"] == "device")
+    device_case["samples"][0]["device"] = {"units": "device_counter_ticks"}
     with pytest.raises(ValueError, match="mixed device clock"):
         paired_report(a, b)
