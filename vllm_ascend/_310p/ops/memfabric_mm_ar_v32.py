@@ -8,6 +8,7 @@ No tensor-finalizer heuristic and no caching-allocator ownership of SMEM memory.
 from __future__ import annotations
 
 import ctypes
+import time
 from pathlib import Path
 
 try:
@@ -22,6 +23,8 @@ class V32Session(V3Session):
     def __init__(self, *args, tensor_module, **kwargs):
         super().__init__(*args, **kwargs)
         self.tensor_module = tensor_module
+        # Attribution only: set to a list to record per-wave host phase times.
+        self.phase_log = None
         p, u, q = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint64
         signatures = {
             "mf310p_v32_acquire": [p, u, u, u, p, ctypes.POINTER(u), ctypes.POINTER(u), ctypes.POINTER(q)],
@@ -56,6 +59,7 @@ class V32Session(V3Session):
                 del self.pending[old_count:]
                 raise
             slot, generation, ptr = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
+            stamp = [time.perf_counter_ns()] if self.phase_log is not None else None
             try:
                 rc = self.lib.mf310p_v32_acquire(
                     self.handle,
@@ -79,6 +83,8 @@ class V32Session(V3Session):
                 raise RuntimeError("both ranks must release an output slot, including all aliases, before retry")
             self._check(rc, "pool acquire")
             token = (slot.value, generation.value)
+            if stamp is not None:
+                stamp.append(time.perf_counter_ns())
 
             released = False
 
@@ -97,11 +103,15 @@ class V32Session(V3Session):
             except BaseException as exc:
                 wrap_error = exc
                 release()
+            if stamp is not None:
+                stamp.append(time.perf_counter_ns())
             try:
                 # Always enter prepare on both ranks, even if local wrapping failed.
                 # No peer may launch MM/ADD before this agreement succeeds.
                 rc = self.lib.mf310p_v32_prepare(self.handle, *token, int(wrap_error is None), self.raw_stream)
                 self._check(rc, "output prepare")
+                if stamp is not None:
+                    stamp.append(time.perf_counter_ns())
                 if wrap_error is not None:
                     raise RuntimeError("Storage wrapping failed; stop BOTH ranks") from wrap_error
                 self._check(
@@ -117,6 +127,17 @@ class V32Session(V3Session):
                     ),
                     "Plan A run",
                 )
+                if stamp is not None:
+                    stamp.append(time.perf_counter_ns())
+                    self.phase_log.append(
+                        {
+                            "acquire_us": (stamp[1] - stamp[0]) / 1000,
+                            "wrap_us": (stamp[2] - stamp[1]) / 1000,
+                            "prepare_us": (stamp[3] - stamp[2]) / 1000,
+                            "run_us": (stamp[4] - stamp[3]) / 1000,
+                            "enqueue_us": (stamp[4] - stamp[0]) / 1000,
+                        }
+                    )
             except BaseException:
                 self.failed = True
                 if wrap_error is not None:
