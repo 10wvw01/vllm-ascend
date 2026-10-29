@@ -500,3 +500,17 @@ profile3302拒绝与3301混用，源码/设计/准入单及实际协议故障回
 不逐chunk等源回收，不增加正常Host同步/集合/清零任务；每座位发布缓存行状态有真实开销。
 MemFabric仍锁db38d75e，主线核对54d5518d；工作仅落自有V3短分支，不自动合主线或启用Serving。
 本地CPU/源码验证后交服务器私有编译和门禁，CANN/NPU/新性能NOT_RUN。无新模型/TTFT/Graph测试。
+
+## 44. 2026-10-29｜A3同批三候选服务器私有编译完成，设备阶段因38144被外部租户占用STOP
+
+固定起点81780f342（tree 6b94a0b3）+MemFabric db38d75e，新隔离worktree/克隆，无 tracked 改动。
+CPU全过（V3+V2 UT 135、治理38、静态门、V3范围Ruff、git diff --check）；私有SDK（137步，
+helper与生产验证版逐字节一致）与V3 Host/Device（BiSheng dav-2002，device_compile PASS）、
+TorchNPU Storage适配（冻结进manifest）全部完成；三候选3302/3303/3304的模板实例化、
+Matmul注册/UB NZ2ND预算/双MTE缓冲/IB第二半64B座位标志/Core0独立分支等按席位合同逐项核对通过。
+设备G0预检时38144 dev4被外部租户python进程持续占用（19.8GB、51% DDR带宽，观察18分钟），
+dev5间歇探测——按本轮用户指令（卡忙即STOP、不换卡、不杀租户）与执行单§5停止，
+compare_a3八会话批次NOT_RUN、未触发任何设备Kernel。
+[实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r1-device-stop/README.md)。
+恢复条件：协调38144双Die覆盖整批（约1小时）真实独占窗口后直接用已冻结manifest启动批次；
+KVER28占位自拷贝差异仍在，不签长稳。无修复提交，分支HEAD仍为81780f342。
