@@ -157,3 +157,15 @@ def test_complete_campaign_controls_and_identity(monkeypatch):
             broken["v2-after"]["identity"] = {"manifest": "different"}
         with pytest.raises(ValueError):
             mod.compare(broken)
+
+
+def test_workers_load_tensor_adapter_under_extension_name():
+    """The Storage SO is built with TORCH_EXTENSION_NAME=mf310p_v32_tensor; loading it
+    under any other module name fails on the missing PyInit_<name> export (the exact
+    ImportError that STOPped the first A3 unified session on device)."""
+    here = Path(__file__).resolve().parent
+    unified = (here / "unified_worker.py").read_text()
+    quick = (here / "quick_worker.py").read_text()
+    expected = 'spec_from_file_location("mf310p_v32_tensor"'
+    assert expected in unified, "unified_worker must load the Storage SO under its extension name"
+    assert expected in quick, "quick_worker must load the Storage SO under its extension name"

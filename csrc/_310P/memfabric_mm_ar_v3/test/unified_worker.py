@@ -167,7 +167,9 @@ def main():
                 spec = manifest["tensor_adapter"]
                 if digest(Path(spec["path"])) != spec["sha256"]:
                     raise RuntimeError("Storage SO identity changed")
-                module_spec = importlib.util.spec_from_file_location("unified_storage", spec["path"])
+                # Module name must match TORCH_EXTENSION_NAME in build_tensor.py,
+                # else the extension loader misses PyInit_<name> and import fails.
+                module_spec = importlib.util.spec_from_file_location("mf310p_v32_tensor", spec["path"])
                 module = importlib.util.module_from_spec(module_spec)
                 module_spec.loader.exec_module(module)
                 session = A3Session(manifest["host_so"], rank, a.store_url, tensor_module=module, variant=a.arm)
