@@ -155,3 +155,12 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/quick.py status \
 CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN编译/NPU均NOT_RUN。
 没有设备编译证据前不宣称实机准入已通过；服务器先编译再按G0和门禁执行。
 完整条件与交接见[准入单](V31_ADMISSION.md)。Stock默认不变，不重跑历史V2/Stock性能臂。
+
+## 2026-10-29：V3.1实机编译、门禁、六配置短测与包长诊断完成
+
+[实验记录](experiments/quick-20261029-v31/README.md)：私有编译PASS（dav-2002双UB/NZ2ND/
+MTE事件/Progress数组）；38144双Die四会话五关门禁全PASS；4MiB默认六配置两轮短测
+（两会话复现性≤1.77%）；1/2MiB包长诊断（差异均在噪声级）。执行中修复守护器对
+torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字节不变）。
+**性能未超过历史V2：M2048比V2 D4慢21~22%，M4096打平（漂移带内不可判胜）；
+距真实NZ Stock还差约34%/20%（M2048/M4096）。**相对V3.0内部收益明确。

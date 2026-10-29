@@ -1,0 +1,72 @@
+{"argv": ["/tmp/opencode/310p-v31-20261029-001/venv/bin/python", "-m", "torch.distributed.run", "--standalone", "--nproc-per-node=2", "/tmp/opencode/310p-v31-20261029-001/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py", "--manifest", "/tmp/opencode/310p-v31-20261029-001/v3-build-fix2/manifest.json", "--out", "/tmp/opencode/310p-v31-20261029-001/results-default-r2", "--run-id", "results-default-r2", "--store-url", "tcp://127.0.0.1:8593", "--physical-devices", "4,5", "--samples", "30", "--warmup", "4", "--protocol-reps", "8", "--packet-bytes", "4194304"], "at_utc": "2026-10-29T01:04:10.952277+00:00", "card": 38144, "event": "PREFLIGHT_START"}
+{"at_utc": "2026-10-29T01:04:12.395088+00:00", "cross_card": [], "event": "PREFLIGHT_PASS", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:04:12.402257+00:00", "child_pid": 1961409, "event": "STAGE_STARTED"}
+{"at_utc": "2026-10-29T01:04:13.868451+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:04:17.353051+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:04:20.824020+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:04:24.319420+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:27.758684+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:31.197790+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_TRANSIENT", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483, 24485, 24487]}
+{"at_utc": "2026-10-29T01:04:31.205387+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483, 24485, 24487]}
+{"at_utc": "2026-10-29T01:04:34.651696+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_HEALED", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:34.657988+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:38.103625+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:41.520623+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:44.955480+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:48.402477+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:51.844356+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:55.306394+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:04:58.747649+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:02.197656+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:05.632914+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:09.071208+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:12.518199+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:15.956430+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:19.399170+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:22.873939+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:26.366400+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:29.853002+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:33.311004+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:36.747034+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:40.385963+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:43.830916+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:47.275255+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:50.730847+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:54.314103+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:05:57.949865+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:01.455949+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:04.945671+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:08.599463+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:12.030527+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:15.480498+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:18.914821+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:22.358513+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:25.834206+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:29.278135+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:32.722357+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:36.152278+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:39.585144+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:43.021730+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:46.474857+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:49.915024+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:53.350707+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:06:56.794976+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:00.218481+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:03.643261+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:07.094295+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:10.540769+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:13.959210+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:17.422073+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:20.858824+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:24.290705+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:27.796423+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:31.256724+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:34.693545+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:38.117407+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_TRANSIENT", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483, 42970]}
+{"at_utc": "2026-10-29T01:07:38.123031+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483, 42970]}
+{"at_utc": "2026-10-29T01:07:41.629373+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_HEALED", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:41.635870+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:45.085673+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [23482, 23483]}
+{"at_utc": "2026-10-29T01:07:48.545192+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:07:49.995327+00:00", "cross_card": [], "event": "POST_STAGE_LEASE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:07:50.002185+00:00", "event": "STAGE_EXIT", "exit_code": 0}
