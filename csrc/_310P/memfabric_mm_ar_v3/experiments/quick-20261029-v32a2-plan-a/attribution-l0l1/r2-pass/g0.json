@@ -1,0 +1,16 @@
+{
+  "head": "f8b5b30a9d32b1826cbd413f77bc3f2a34592bd6",
+  "manifest_sha256": "be12bc11b7b837484bba08614a04599cd2b890494a4e5282a57bf42829d40f94",
+  "card": 38144,
+  "physical_devices": "4,5",
+  "cpu": "PASS",
+  "lease_note": "2026-10-29 L0+L1归因轮重试：38144双Die独占，修复部署窗口声明顺序(f8b5b30a9)",
+  "arms": [
+    "ib",
+    "raw_add_1m/2m/4m",
+    "partial_m{2048,4096}_g{512,1024,2048}",
+    "fused_m{2048,4096}_g{512,1024,2048}"
+  ],
+  "timeout_seconds": 900,
+  "scope": "L0 differential + L1 host phase attribution only; no release/performance claim"
+}

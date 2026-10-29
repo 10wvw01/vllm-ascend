@@ -440,3 +440,15 @@ G0/双Die独占成立，六门禁双Rank全PASS（ib/add/输出生命周期含�
 方向性判定A2未达性能目标**；逐波acquire同步+双Host协商+Storage包装的接口成本为主因结构
 （未做独立归因轮，不签同批正式收益）。KVER28自拷贝差异仍在，不签长稳/发布GO；Serving默认不变。
 
+## 40. 2026-10-29｜A2的L0+L1插桩归因：Host双allgather~430µs与传输固定延迟是主成本，MM与IB无罪
+
+用户授权后在同一独占流程下完成归因轮（工具提交`b0bdb2cba`，修复部署窗口顺序`f8b5b30a9`，
+首轮STOP(97)为守护器对无窗口超额进程的正确拦截）。四臂同会话差分+逐波Host相位：
+[实验记录§L0+L1](../../memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)。
+要点：①每波acquire(~250µs)+prepare(~180µs)两次控制allgather是Host接口主成本，
+基线合计~550µs/波，loadavg≈13宿主抖动可抬至~890µs；②Δ(fused−partial)显示8核MM
+与MTE整块拷入同量级（g2048下近零边际），MM不是瓶颈；③裸ADD传输固定成本~500µs
+（控制往返+quiet）+边际~103µs/MiB，定量证实减包减同步方向；④IB~4.8µs/次可忽略。
+M4096 g1024分解：Host 21% + 设备79%。优化去向：砍每波双allgather（最大单项）、
+减控制往返；MM/IB不动。归因结论不构成性能GO；L2内核内分段未做，需另行授权。
+

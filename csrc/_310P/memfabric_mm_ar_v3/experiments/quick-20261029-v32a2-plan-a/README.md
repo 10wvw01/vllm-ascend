@@ -192,3 +192,51 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/quick.py status --out <fresh-result-d
 | 失败轮 B2（SetDesc 未导出） | `r2-tensor-setdesc-stop/` |
 | 环境/健康/前后 npu-smi | `env/` |
 | 性能瓶颈可视化分析（5图，纯SVG自包含） | `bottleneck_analysis.html`（`gen_bottleneck_html.py` 生成） |
+
+## L0+L1 归因轮（`attribution-l0l1/`，2026-10-29 追加）
+
+授权后同日执行。工具：`tools/attribution.py` + `test/attribution_worker.py`（提交 `b0bdb2cba`），
+构建 `v3-build-r5`（HEAD `f8b5b30a9`，修复部署窗口声明顺序后）。同会话四臂：IB探针 →
+裸ADD传输(1/2/4MiB) → partial协议臂 → fused臂（含逐波Host相位记录）。
+统计：配对双Rank max后p50；Host相位另取各Rank p50的min作无宿主抖动基线。
+宿主背景：loadavg≈13（192核，其他租户活跃），已记入 `attr-host-load*.txt`。
+
+### 首轮失败（`r1-guard-window-stop/`）
+
+worker把部署窗口标记写在会话创建之后，建池fork的torch_npu编译基础设施子进程
+（目标卡4进程>2且无窗口）被守护器正确STOP(97)。修复 `f8b5b30a9`：标记先于任何设备算子。
+
+### L1：每波Host接口分解（基线=Rank-min p50）
+
+| 相位 | 基线µs | 抖动峰值µs | 内容 |
+|---|---|---|---|
+| acquire | ~250 | ~460 | 流同步 + 控制allgather + 槽交集 |
+| wrap | ~40 | ~48 | NPUStorageImpl包装 |
+| prepare | ~180 | ~400 | 控制allgather（双方就绪门） |
+| run | ~80 | ~89 | epoch清零 + 入队 |
+| **合计** | **~550** | **~890** | |
+
+两次控制allgather合计~430µs是Host接口的主成本；宿主负载抖动可再抬升150~350µs
+（loadavg 13下rank1在部分配置段膨胀，建议Confirm级测量绑核+错峰）。
+
+### L0：差分与传输原语
+
+- **MM≈拷入**：Δ(fused−partial) = MM − copy_in：M2048为+645/+279/+88µs（g512/1024/2048），
+  M4096为+184/−7/+119µs。8核MM的每行成本与MTE整块拷入同量级——**MM不是瓶颈**，
+  g2048下MM相对拷入几乎零边际。
+- **裸ADD传输**（含3×MTE+2次控制往返+2次quiet+内核固定开销）：1MiB=613 / 2MiB=708 /
+  4MiB=923µs → 固定成本~500µs/次 + 边际~103µs/MiB。小包传递被控制往返与quiet的固定
+  延迟支配——定量证实复核文档"减少包与同步"的方向。
+- **IB**：每三次核间交换14.3µs（~4.8µs/次），可忽略。
+
+### 综合分解（M4096 g1024，fused p50 2670µs，同批）
+
+Host接口 ~570µs（21%）+ 设备侧 ~2100µs（79%）。设备侧=MM(≈copy_in等价) +
+R/G传输(~103µs/MiB量级的MTE+SDMA混合边际) + 每组READY往返/quiet固定延迟。
+主轮fused 2727µs与本轮2670µs差2.1%，同批一致性良好。
+
+### 去向
+
+1. **砍每波双allgather**（~430µs基线）：批量预约/设备侧标志/随内核捎带——最大单项；
+2. 控制邮件往返~250µs级固定延迟是邮箱协议的结构成本，与研发侧"减包减quiet"重排同向；
+3. MM与IB无需优化。以上为归因结论，不构成性能GO；未做L2内核内分段（另行授权）。
