@@ -199,3 +199,12 @@
 CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN编译/NPU均NOT_RUN。
 没有设备编译证据前不宣称实机准入已通过；服务器先编译再按G0和门禁执行。
 完整条件与交接见[准入单](../../memfabric_mm_ar_v3/V31_ADMISSION.md)。Stock默认不变，不重跑历史V2/Stock性能臂。
+
+## ADR-026｜2026-10-29｜V3.2排布从最终输出与源消费依赖反推
+
+采用[单Y输出槽与独立producer设计](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)。
+TP2的ADD完成→Gather天然保护被覆盖源，否决不必要的额外半份S；
+主改动是池内输出Storage持有、去最终copy、按整行带推进及公共非阻塞收件。
+不假设310P支持异步WaitIterateAll/GetTensorC，不照搬GPU warp/TMA。
+保持chunk512/1024/2048、八核MM、完整ND输出及既有数值标准。
+用户要求不新增独立归因设备轮，直接实现后验证完整链；新代码和性能均未验证。

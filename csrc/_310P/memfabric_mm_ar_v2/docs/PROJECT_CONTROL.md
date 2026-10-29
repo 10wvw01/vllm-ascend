@@ -385,3 +385,14 @@ CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN�
   距真实NZ Stock（E3）：M2048慢53.6%、M4096慢24.4%。相对V3.0内部收益明确
   （g1024 M2048 −12.7%、g1024 M4096 −23.9%、g2048 M4096 −12.7%）。
 - 跨批对照与KVER28占位自拷贝限制不变，不签长稳/发布GO；Stock默认不变。
+
+## 36. 2026-10-29｜V3.2单Y输出与融合排布推导完成，尚未编码
+
+用户否决追加独立归因设备轮，要求按inlineReduce重构。
+[完整推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)：单份池内Y承担MM、ADD/Gather和最终输出，
+Gather覆盖旧源严格晚于ADD读完，TP2不需要此前提出的额外半份S。
+核心改动为输出Storage生命周期和去掉最终copy、按64/128行全宽带独立发布而非逐chunk会合。
+保持chunk512/1024/2048和八核MM；官方约束不支持推理AI Core异步WaitIterateAll/GetTensorC，
+不以该能力为前提，Core0在子MM边界pump；MemFabric需补公共非阻塞try_wait。
+600种CPU随机所有权交错通过，只证明抽象依赖/和值，不代表CANN/NPU或性能。
+新Kernel/API/输出适配未实现，不改Serving默认，不追加旧V2/Stock重测或独立设备归因轮。
