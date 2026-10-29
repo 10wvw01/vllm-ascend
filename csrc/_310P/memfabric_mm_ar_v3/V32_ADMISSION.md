@@ -96,3 +96,10 @@ MemFabric仍锁定db38d75e8485d31451302219eb7a1bfeb1dd107c，复用SDK必须完�
 本轮本地验证：V3与V2 CPU/源码合同102项PASS（含新增7项Python故障回归及双Rank Host测试），
 项目治理38项PASS；Ruff、静态项目合同和增量台账检查PASS。
 全量format CI仍受本地缺少pre-commit限制，不代称全仓CI成功。
+
+## 服务器执行结果（2026-10-29，后续更新）
+
+本节上方各"NOT_RUN"均为编码期状态。A2已在38144双Die独占窗口完成私有编译、G0、
+六门禁（双Rank全PASS）与六配置两轮短测；两个编译BUG修复后HEAD `0f638d511`。
+性能方向性未达目标（较历史V3.1/V2 E3-G/Stock均慢，接口成本为主因结构）。
+证据与复现命令见[实验记录](experiments/quick-20261029-v32a2-plan-a/README.md)，结论见控制台§39。

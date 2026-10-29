@@ -4,6 +4,20 @@
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
+## 2026-10-29｜V3.2方案A2服务器准入与短测完成：正确性全过，性能仍不过
+
+OpenCode按[执行单](csrc/_310P/memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)在38144双Die独占窗口完成A2一次性验证，
+[实验记录](csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)。
+起点`213cfcedb`，两个执行BUG修复后HEAD `0f638d511`（CANN ACL头路径；`SetDesc`未从libtorch_npu
+导出，改经torch 2.10 `c10::make_storage_impl`注册工厂+按SetDesc语义填`npu_desc_`，未退回普通
+from_blob）。MemFabric锁定`db38d75e`未改动。CPU102条、私有SDK/SO/Storage适配冻结、
+G0与双Die连续独占、六门禁双Rank全PASS（含单边持有busy close、单chunk排空、环回绕、下游ND消费）。
+六配置两轮短测漂移1.17%~2.69%，最佳M2048/4096均chunk1024：2018.7/2727.1µs（双Rank max、
+完整接口窗口含acquire同步/双Host协商/Storage包装）。**相对历史V3.1最佳慢21.9%/8.4%，
+相对V2 E3-G慢39.1%/28.7%，相对真实NZ Stock慢87.2%/34.8%——A2方向性判定未达性能目标**，
+接口成本为主因结构（未做归因轮）。KVER28自拷贝差异仍在，不签长稳/发布GO；Stock默认不变。
+详见控制台§39。
+
 ## 2026-10-29｜V3实机已完成，性能失败，进入V3.1流水重排
 
 已审核V3分支`6144af16`的[原始R1/R2/R3证据](csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)：

@@ -424,3 +424,19 @@ Host双Rank rendezvous及Python故障注入覆盖上述反例，设备门禁增�
 完整计时包含新增prepare，性能仍UNKNOWN；CANN/Storage/设备门禁仍NOT_RUN。
 B的try_wait仅允许无邮件时继续调度，最终完整性仍依靠每片段MM/READY/ADD/Gather状态、
 最终quiet+DONE及输出可见性；EMPTY绝不代表完成。见[V32准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+
+## 39. 2026-10-29｜A2服务器准入+六门禁+短测完成：正确性全过，性能仍不过
+
+OpenCode在38144双Die独占窗口按[执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)一次性完成A2私有编译与验证，
+[实验记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)：
+起点`213cfcedb`，修复两个编译BUG后HEAD `0f638d511`（CANN ACL头路径缺失；锁定版
+libtorch_npu不导出`StorageDescHelper::SetDesc`，改经torch 2.10 `c10::make_storage_impl`
+注册的PrivateUse1工厂创建NPUStorageImpl并按SetDesc语义填`npu_desc_`，未退回普通from_blob）。
+MemFabric锁定db38d75e未改动，helper指纹与生产验证版一致。
+G0/双Die独占成立，六门禁双Rank全PASS（ib/add/输出生命周期含单边持有busy close/协议含单chunk
+排空与环回绕/融合含下游ND消费/尾块）。六配置两轮短测漂移1.17%~2.69%，
+最佳M2048/chunk1024=2018.7µs、M4096/chunk1024=2727.1µs（双Rank max、完整接口窗口）。
+**相对历史V3.1最佳慢21.9%/8.4%，相对V2 E3-G慢39.1%/28.7%，相对真实NZ Stock慢87.2%/34.8%，
+方向性判定A2未达性能目标**；逐波acquire同步+双Host协商+Storage包装的接口成本为主因结构
+（未做独立归因轮，不签同批正式收益）。KVER28自拷贝差异仍在，不签长稳/发布GO；Serving默认不变。
+
