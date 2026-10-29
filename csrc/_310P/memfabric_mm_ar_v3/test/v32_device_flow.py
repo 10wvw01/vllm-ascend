@@ -26,14 +26,20 @@ def run_flow(
     outputs,
     stage,
 ):
+    def run(x, weight_nz=None, *, group, partial=False, compute_rows=None):
+        if getattr(a, "a3", False):
+            compute = compute_rows or (1024 if x.shape[0] % 1024 == 0 else 512)
+            return session.run_pool(x, weight_nz, compute_rows=compute, comm_rows=group, partial=partial)
+        return session.run_pool(x, weight_nz, group=group, partial=partial)
+
     # Wrap metadata, downstream arithmetic, aliases, slot exhaustion, reuse, close.
-    first = session.run_pool(partials[4096][0], group=1024, partial=True)
+    first = run(partials[4096][0], group=1024, partial=True)
     checked(first, partial_refs[4096][0], "pool wrap")
     alias = first[:17]
     snapshot = outputs[4096]
     snapshot.copy_(first)
     del first
-    second = session.run_pool(partials[4096][1], group=1024, partial=True)
+    second = run(partials[4096][1], group=1024, partial=True)
     checked(second, partial_refs[4096][1], "second live slot")
     if not torch.equal(alias.view(torch.int16), snapshot[:17].view(torch.int16)):
         raise AssertionError("held output alias overwritten")
@@ -42,13 +48,14 @@ def run_flow(
         del alias
         gc.collect()
     dist.barrier()
-    try:
-        session.run_pool(partials[4096][0], group=1024, partial=True)
-    except RuntimeError as exc:
-        if "release an output slot" not in str(exc):
-            raise
-    else:
-        raise AssertionError("asymmetric held slot must reject allocation on both ranks")
+    if not getattr(a, "a3", False):
+        try:
+            run(partials[4096][0], group=1024, partial=True)
+        except RuntimeError as exc:
+            if "release an output slot" not in str(exc):
+                raise
+        else:
+            raise AssertionError("asymmetric held slot must reject allocation on both ranks")
     del second  # only rank0 now holds an alias; rank1 has no live slot
     try:
         session.close()
@@ -68,29 +75,40 @@ def run_flow(
             for i in range(a.protocol_reps):
                 dist.barrier()
                 v = i % 2
-                out = session.run_pool(partials[4096][v][:rows], group=group, partial=True)
+                out = run(partials[4096][v][:rows], group=group, partial=True)
                 checked(out, partial_refs[4096][v][:rows], "Plan A protocol")
                 del out
     # group512 creates 25+ mails/wave; 48 waves crosses the 1024 arrival ring.
     for i in range(48):
-        out = session.run_pool(partials[4096][i % 2], group=512, partial=True)
+        out = run(partials[4096][i % 2], group=512, partial=True)
         checked(out, partial_refs[4096][i % 2], "Plan A wrap")
         del out
+    if getattr(a, "a3", False):
+        for compute in (512, 1024):
+            for group in (512, 1024, 2048):
+                out = run(partials[4096][0], group=group, compute_rows=compute, partial=True)
+                checked(out, partial_refs[4096][0], "A3 crossed production/transfer units")
+                del out
     gate("protocol")
     for m in (2048, 4096):
         for group in (512, 1024, 2048):
-            out = session.run_pool(xs[m][0], weight, group=group)
+            out = run(xs[m][0], weight, group=group)
             checked(out, refs[m][0], "Plan A fused")
             # Force a real downstream op to read format/Storage metadata.
             readback = outputs[m]
             torch.add(out, out, alpha=0, out=readback)
             checked(readback, refs[m][0], "ND consumer")
             del out, readback
+    if getattr(a, "a3", False):
+        for group in (512, 1024, 2048):
+            out = run(xs[4096][0], weight, group=group, compute_rows=512)
+            checked(out, refs[4096][0], "A3 basicM64 NZ MM")
+            del out
     gate("fused")
     # Tail path includes explicit zero padding and output slicing; no hidden copy.
     stage.zero_()
     stage[:2049].copy_(xs[4096][0][:2049])
-    out = session.run_pool(stage, weight, group=1024)
+    out = run(stage, weight, group=1024)
     checked(out[:2049], refs[4096][0][:2049], "Plan A tail")
     del out, stage
     gate("tail")
@@ -105,7 +123,7 @@ def run_flow(
                 v = i % 2
                 start = time.perf_counter_ns()
                 e0.record(session.stream)
-                out = session.run_pool(xs[m][v], weight, group=group)
+                out = run(xs[m][v], weight, group=group)
                 e1.record(session.stream)
                 session.stream.synchronize()
                 wall = (time.perf_counter_ns() - start) / 1000
@@ -121,7 +139,7 @@ def run_flow(
                 "group": group,
                 "pipeline": True,
                 "repeat": repeat,
-                "path": "V32_PLAN_A_POOL_RETURN",
+                "path": "A3_DIRECT_ADD" if getattr(a, "a3", False) else "V32_PLAN_A_POOL_RETURN",
                 "samples": samples,
             }
             measures.append(row)

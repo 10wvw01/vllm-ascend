@@ -75,6 +75,7 @@ def physical_device(cann, logical):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--plan-a", action="store_true")
+    p.add_argument("--a3", action="store_true")
     p.add_argument("--manifest", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--run-id", required=True)
@@ -194,7 +195,7 @@ def main():
         e0, e1 = torch.npu.Event(enable_timing=True), torch.npu.Event(enable_timing=True)
         torch.npu.synchronize()
         dist.barrier()
-        if a.plan_a:
+        if a.plan_a or a.a3:
             import importlib.util
 
             from memfabric_mm_ar_v32 import V32Session
@@ -205,10 +206,16 @@ def main():
             spec = importlib.util.spec_from_file_location("mf310p_v32_tensor", tensor["path"])
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            session = V32Session(
-                manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes, tensor_module=module
-            )
-            config["path"] = "V32_PLAN_A_POOL_RETURN"
+            if a.a3:
+                from memfabric_mm_ar_a3 import A3Session
+
+                Session = A3Session
+            else:
+                Session = V32Session
+            session = Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes, tensor_module=module)
+            config["path"] = "A3_DIRECT_ADD" if a.a3 else "V32_PLAN_A_POOL_RETURN"
+            if a.a3:
+                config["compute_rows"] = 1024
         else:
             session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
         data["loaded_libraries"] = loaded_identity(manifest)
@@ -232,7 +239,9 @@ def main():
             session.probe_add(src, seed, out)
             checked(out, ref, f"raw ADD {size}")
         gate("add")
-        if a.plan_a:
+        if a.plan_a or a.a3:
+            if a.a3:
+                session.initialize()
             from v32_device_flow import run_flow
 
             run_flow(

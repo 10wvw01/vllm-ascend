@@ -452,3 +452,14 @@ G0/双Die独占成立，六门禁双Rank全PASS（ib/add/输出生命周期含�
 M4096 g1024分解：Host 21% + 设备79%。优化去向：砍每波双allgather（最大单项）、
 减控制往返；MM/IB不动。归因结论不构成性能GO；L2内核内分段未做，需另行授权。
 
+
+## 41. A3设计、审核与编码：完整S固定席位 + 独立Y + NZ MM / Direct ADD
+
+用户已定稿并授权设计/审核/编码/实机准入检查。基于最新1aa95969归因证据推进，
+不重新启动独立归因轮，不据fused-partial差分声称单独MM已测最优。
+[A3设计](../../memfabric_mm_ar_v3/A3_DESIGN.md)：会话级完整S不在单波复用，Y独立租约；
+compute512/1024与comm512/1024/2048解耦，八核连续ND生产，显式seed后双向Direct ADD，无Gather。
+Host3301固定槽、冷warm、设备START一致性；正常reserve/run无Host集合或流同步，输入事件回收。
+忙槽/包装失败为终止性START拒绝，禁止覆盖/重试；旧A2可恢复接口仅独立保留，不混用。
+两轮设计源码审查、实际START/调度器FIFO与Host热路径回归详见[A3准入](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。
+新CANN/TorchNPU/设备门禁及性能NOT_RUN；CPU成功不签设备GO，Stock默认不变。

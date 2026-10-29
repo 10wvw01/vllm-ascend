@@ -18,6 +18,10 @@ extern "C" int mf310p_v3_device_raw(uint64_t, uint64_t, uint64_t, uint64_t, uint
     uint32_t, aclrtStream);
 extern "C" int mf310p_v3_device_ib(uint64_t, uint64_t, uint32_t, uint32_t, aclrtStream);
 
+extern "C" int mf310p_a3_device_run(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
+    uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint32_t, uint32_t,
+    uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+
 struct mf310p_v3_context {
     smem_shm_t pool = nullptr;
     bool smem = false, shm = false, ibReady = false;
@@ -34,11 +38,14 @@ struct mf310p_v3_context {
     std::array<uint32_t, 2> generations{}, slotRows{}, slotGroups{}, slotModes{};
     bool poolMode = false, legacyRun = false, failed = false;
     std::array<bool, 16> poolWarmed{};
+    bool a3Warmed = false;
+    std::array<uint32_t, 2> slotComm{};
 };
 
 namespace {
 using namespace mfv3;
-constexpr uint32_t kPlanAProtocol = 3202;
+constexpr uint32_t kPlanAProtocol = 3202, kA3Protocol = 3301;
+constexpr uint64_t kA3SourceOff = 2 * kArenaBytes, kA3CtrlOff = 3 * kArenaBytes;
 enum ControlOp : uint32_t { ACQUIRE_SLOT = 1, PREPARE_WAVE = 2, CLOSE_SESSION = 3 };
 struct ControlInfo {
     uint32_t op, protocol, epoch, flags, rows, group, mode, slot, generation;
@@ -73,6 +80,22 @@ int BindStream(mf310p_v3_context* s, void* raw)
     if (s->stream && s->stream != stream) return Error("single-stream contract", -3);
     s->stream = stream;
     return 0;
+}
+int LaunchA3(mf310p_v3_context* s, uint64_t x, uint64_t w, uint32_t rows, uint32_t compute,
+             uint32_t comm, uint32_t mode, uint32_t slot, uint32_t admit, uint32_t enabled)
+{
+    return mf310p_a3_device_run(s->gva, x, w, s->work + slot * kArenaBytes,
+        s->work + kA3SourceOff, s->peer + slot * kArenaBytes,
+        reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
+        s->work + kA3CtrlOff, s->peer + kA3CtrlOff + 64,
+        s->expectedWork + slot * kArenaBytes, s->expectedWork + kA3CtrlOff + 64,
+        rows, compute, comm, s->rank, s->epoch ? s->epoch : 1, s->packet, mode, slot, admit, enabled, s->stream);
+}
+bool A3Shape(mf310p_v3_context* s, uint32_t rows, uint32_t compute, uint32_t comm, uint32_t mode)
+{
+    return s->protocol == kA3Protocol && s->ibReady && s->a3Warmed && mode <= 1 &&
+        (compute == 512 || compute == 1024) && (comm == 512 || comm == 1024 || comm == 2048) &&
+        ShapeValid(rows, compute) && rows % comm == 0 && PacketCount(comm * kRowBytes, s->packet) <= 64;
 }
 int Launch(mf310p_v3_context* s, uint64_t x, uint64_t w, uint64_t y, uint32_t rows,
            uint32_t group, uint32_t pipeline, uint32_t mode, uint32_t enabled)
@@ -186,6 +209,8 @@ extern "C" int mf310p_v3_create(int rank, const char* url, uint32_t packet, mf31
 { return Create(rank, url, packet, 31, out); }
 extern "C" int mf310p_v32_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
 { return Create(rank, url, packet, kPlanAProtocol, out); }
+extern "C" int mf310p_a3_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
+{ return Create(rank, url, packet, kA3Protocol, out); }
 extern "C" int mf310p_v3_ib_probe(mf310p_v3_context* s, uint32_t reps, void* raw)
 {
     int rc = BindStream(s, raw);
@@ -335,15 +360,70 @@ extern "C" int mf310p_v32_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
     if (rc) s->failed = true;
     return Error("enqueue V3.2 fixed FIFO pool output", rc);
 }
+// Cold-path only. No frame may launch before the symbol/slot prewarm barrier.
+extern "C" int mf310p_a3_warm(mf310p_v3_context* s, void* raw)
+{
+    int rc = BindStream(s, raw);
+    if (rc) return rc;
+    if (s->protocol != kA3Protocol || !s->ibReady || s->poolMode) return -30;
+    if (s->a3Warmed) return 0;
+    for (uint32_t slot = 0; slot < 2 && !rc; ++slot)
+        for (uint32_t compute : {512u, 1024u}) for (uint32_t mode = 0; mode < 2; ++mode)
+            for (uint32_t i = 0; i < 2 && !rc; ++i)
+                rc = LaunchA3(s, 0, 0, compute, compute, compute, mode, slot, 0, 0);
+    if (!rc) rc = aclrtSynchronizeDevice();
+    if (!rc) rc = smem_shm_control_barrier(s->pool);
+    if (!rc) s->a3Warmed = true;
+    else s->failed = true;
+    return Error("A3 cold prewarm", rc);
+}
+// No ACL synchronization or collective call in reserve or launch's hot path.
+extern "C" int mf310p_a3_reserve(mf310p_v3_context* s, uint32_t rows, uint32_t compute,
+    uint32_t comm, uint32_t mode, void* raw, uint32_t* slot, uint32_t* generation, uint64_t* address)
+{
+    int rc = BindStream(s, raw);
+    if (rc || !slot || !generation || !address) return rc ? rc : -1;
+    std::lock_guard<std::mutex> guard(s->leasesMutex);
+    if (!A3Shape(s, rows, compute, comm, mode) || s->epoch == kMaxEpoch) return -30;
+    *generation = s->epoch + 1;
+    *slot = s->epoch % 2;
+    *address = s->work + *slot * kArenaBytes;
+    if (s->leases[*slot]) return -23; // caller must enqueue START ready=0, not silently retry
+    s->leases[*slot] = 1;
+    s->generations[*slot] = *generation;
+    s->slotRows[*slot] = rows; s->slotGroups[*slot] = compute;
+    s->slotModes[*slot] = mode; s->slotComm[*slot] = comm;
+    return 0;
+}
+extern "C" int mf310p_a3_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
+    uint32_t rows, uint32_t compute, uint32_t comm, uint32_t mode,
+    uint32_t slot, uint32_t generation, uint32_t admit, void* raw)
+{
+    int rc = BindStream(s, raw);
+    if (rc) return rc;
+    std::lock_guard<std::mutex> guard(s->leasesMutex);
+    if (!A3Shape(s, rows, compute, comm, mode) || slot > 1 || s->epoch == kMaxEpoch ||
+        generation != s->epoch + 1 || slot != s->epoch % 2) return -30;
+    const bool lease = s->leases[slot] == 1 && s->generations[slot] == generation &&
+        s->slotRows[slot] == rows && s->slotGroups[slot] == compute && s->slotComm[slot] == comm && s->slotModes[slot] == mode;
+    const bool alias = (x >= s->work && x < s->work + 3 * kArenaBytes) ||
+                       (w >= s->work && w < s->work + 3 * kArenaBytes);
+    const uint32_t ready = admit && lease && x && (mode || w) && !alias;
+    rc = NextEpoch(s);
+    if (!rc) { s->poolMode = true; if (ready) s->leases[slot] = 3;
+        rc = LaunchA3(s, x, w, rows, compute, comm, mode, slot, ready, 1); }
+    if (rc || !ready) s->failed = true;
+    return Error("A3 enqueue", rc);
+}
 extern "C" int mf310p_v3_destroy(mf310p_v3_context* s)
 {
     if (!s) return 0;
     if (s->failed) return Error("failed session: preserve evidence, do not destroy/retry", -27);
-    if (s->protocol == kPlanAProtocol && s->ibReady) {
+    if ((s->protocol == kPlanAProtocol || s->protocol == kA3Protocol) && s->ibReady) {
         std::lock_guard<std::mutex> guard(s->leasesMutex);
         bool held = false;
         for (auto lease : s->leases) held |= lease != 0;
-        ControlInfo mine{CLOSE_SESSION, kPlanAProtocol, s->epoch, held ? 1u : 0u, 0, 0, 0, 0, 0};
+        ControlInfo mine{CLOSE_SESSION, s->protocol, s->epoch, held ? 1u : 0u, 0, 0, 0, 0, 0};
         std::array<ControlInfo, 2> peers{};
         const int rc = Exchange(s, mine, peers);
         if (rc) return Error("collective close agreement", rc);

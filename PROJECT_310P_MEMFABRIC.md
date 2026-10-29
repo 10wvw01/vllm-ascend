@@ -120,3 +120,11 @@ V3最新依赖和OpenCode两仓私有构建/部署流程见[固定执行单](csr
 V3.1历史测试通过不覆盖此版新Kernel/TorchNPU Storage；本轮CANN编译/设备/性能NOT_RUN。
 MemFabric公共非阻塞收件仅提供[需求原稿](csrc/_310P/memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)，
 由用户提交给负责团队，非方案A依赖。详见控制台§37，Stock默认不变。
+
+## A3最新研发状态：设计审核与代码交付，设备待准入
+
+用户定稿完整S固定席位、独立Y、NZ MM计算优先及连续就绪批量通信。
+[A3_DESIGN](csrc/_310P/memfabric_mm_ar_v3/A3_DESIGN.md)与
+[A3_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/A3_ADMISSION.md)：profile3301、设备START、
+Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完整计时。
+新设备编译/正确性/性能NOT_RUN；A2证据不能替代A3准入。控制台§41，Stock默认不变。

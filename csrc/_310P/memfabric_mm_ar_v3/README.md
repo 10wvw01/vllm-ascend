@@ -187,3 +187,10 @@ torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字
 
 方案A复核修复已加入：Host协议3202、Storage-ready双端prepare、集体close及完成输入回收。
 新代码必须重编；旧ef72db3b的Host/SO或32协议不能混用。实机准入状态见[V32_ADMISSION](V32_ADMISSION.md)。
+
+## A3：完整S固定席位与Direct ADD
+
+[A3_DESIGN](A3_DESIGN.md) / [A3_ADMISSION](A3_ADMISSION.md)：
+显式A3Session.run_pool(compute_rows=1024, comm_rows=512/1024/2048)，
+initialize为一次性冷路径；完整S、租约Y、设备START、NZ MM+显式seed+Direct ADD，最终quiet/DONE。
+`tools/quick.py start --a3`运行新门禁与六配置；不与--plan-a混用。设备编译/性能仍NOT_RUN。

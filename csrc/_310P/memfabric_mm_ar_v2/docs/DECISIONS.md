@@ -231,3 +231,12 @@ Host版本3202与旧32不兼容；MemFabric版本和设备固定FIFO顺序不变
 任何不确定异常封禁，不发新设备操作或重试ADD；Host控制和prepare开销必须完整计入性能。
 上一波流完成后回收输入，新波输入保持有效。B不依赖EMPTY判断完成，仍以完整片段状态和排空作验收。
 本轮CPU反例回归不替代CANN、Storage或设备准入，不增加独立设备归因测试。
+
+## ADR-029｜A3定稿：固定S席位、NZ计算与连续通信批量解耦
+
+TP2借鉴HCCL DoublingDirect：S全波不变，Y先seed再接对端ADD，取消Gather而非减少跨Die字节数。
+保留现有64/128行NZ权重MM候选，compute与comm独立；完整成本包含seed，不假设免费双写。
+热路径本地固定槽、设备START，同流与最终quiet保护跨调用S复用，不逐chunk等待源回收。
+profile3301禁止旧协议混用；输入事件query回收；跨流/Graph不在本版范围。
+终止性资源失败必须通知peer START ready=0，不默默覆盖；公开wait仍可能等待对端READY，
+不得将A3描述成方案B的非阻塞自驱调度。设备准入仍待服务器编译和完整门禁。

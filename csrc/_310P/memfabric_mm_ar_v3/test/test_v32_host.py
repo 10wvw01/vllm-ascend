@@ -55,6 +55,9 @@ return 0;}
         f'#include "{host}"\n'
         + r"""
 #include <cassert>
+extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
 int enabledLaunches=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,

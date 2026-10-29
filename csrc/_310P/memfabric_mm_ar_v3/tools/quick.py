@@ -127,11 +127,13 @@ def run(a):
             "--packet-bytes",
             str(a.packet_bytes),
         ]
-        if a.plan_a:
+        if a.plan_a or a.a3:
+            if a.plan_a and a.a3:
+                raise ValueError("choose exactly one protocol")
             tensor = manifest.get("tensor_adapter")
             if not tensor or sha(tensor["path"]) != tensor["sha256"]:
                 raise ValueError("build/freeze the V3.2 Tensor adapter before device admission")
-            command.append("--plan-a")
+            command.append("--a3" if a.a3 else "--plan-a")
         result["device_test"] = "STARTED"
         ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
         result["exit_code"] = ret
@@ -173,6 +175,7 @@ def main():
     for name in ("start", "_run"):
         cmd = sub.add_parser(name)
         cmd.add_argument("--plan-a", action="store_true")
+        cmd.add_argument("--a3", action="store_true")
         cmd.add_argument("--manifest", required=True, type=Path)
         cmd.add_argument("--out", required=True, type=Path)
         cmd.add_argument("--card", required=True, type=int)

@@ -211,3 +211,10 @@ CANN/Storage/设备门禁及性能NOT_RUN；继续复用历史V3.1、V2 E3-G及�
 新增Storage-ready prepare Host allgather，计入pool-return事件窗口及Host Wall，
 不得从完整性能口径中删除。引用回收/关闭一致性是可靠性修复，不宣称加速；
 历史基线不变，新增设备性能NOT_RUN。
+
+## A3编码交付：无新增设备性能数值
+
+A3完整计时包括本地资源/Storage、完成事件提交、设备START、NZ MM、显式seed、ADD及排空。
+计算候选compute512/1024与通信comm512/1024/2048分别记录；默认六配置固定compute1024。
+比较历史A2/V3.1/V2/真实NZ Stock，不把新增S/seed成本排除，不签跨批正式性能GO。
+设备编译/数值/生命周期/性能NOT_RUN，见[A3_ADMISSION](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。

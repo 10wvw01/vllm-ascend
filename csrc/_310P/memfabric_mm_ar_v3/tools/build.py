@@ -110,8 +110,11 @@ def dependency(source, home):
 def source_files():
     files = list((PROJECT / "src").rglob("*")) + list((PROJECT / "tools").glob("*.py"))
     files += list((PROJECT / "test").glob("*.py"))
-    files += [REPO / "vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
-              REPO / "vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py"]
+    files += [
+        REPO / "vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        REPO / "vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py",
+        REPO / "vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+    ]
     return {str(p.relative_to(REPO)): sha(p) for p in files if p.is_file()}
 
 

@@ -30,6 +30,15 @@ int mf310p_v32_release(mf310p_v3_context*, uint32_t slot, uint32_t generation);
 int mf310p_v32_prepare(mf310p_v3_context*, uint32_t slot, uint32_t generation, uint32_t ready, void* stream);
 int mf310p_v32_run(mf310p_v3_context*, uint64_t x, uint64_t weight_nz, uint32_t rows,
     uint32_t group, uint32_t mode, uint32_t slot, uint32_t generation, void* stream);
+// A3: cold warm is collective; hot reserve/run are local and asynchronous.
+int mf310p_a3_create(int rank, const char*, uint32_t packet, mf310p_v3_context**);
+int mf310p_a3_warm(mf310p_v3_context*, void* stream);
+int mf310p_a3_reserve(mf310p_v3_context*, uint32_t rows, uint32_t compute, uint32_t comm,
+    uint32_t mode, void* stream, uint32_t* slot, uint32_t* generation, uint64_t* address);
+// reserve busy (-23) still returns a token. Submit admit=0 to stop BOTH ranks at START.
+int mf310p_a3_run(mf310p_v3_context*, uint64_t x, uint64_t weight_nz, uint32_t rows,
+    uint32_t compute, uint32_t comm, uint32_t mode, uint32_t slot, uint32_t generation,
+    uint32_t admit, void* stream);
 // Must be called after stream completion, on the owning device.
 // V3.2: collective close; held output on EITHER rank returns -26 on BOTH ranks.
 int mf310p_v3_destroy(mf310p_v3_context* ctx);
