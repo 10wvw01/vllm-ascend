@@ -1,0 +1,778 @@
+{
+  "schema": "MF_VERSION_CATALOG_V1",
+  "versions": [
+    {
+      "id": "V1-0",
+      "legacy": "公共API批流水 / cooperative MM",
+      "runtime": "v1",
+      "source": "csrc/_310P/memfabric_mm_ar/memfabric310p_device.asc",
+      "flow": [
+        "波credit",
+        "8核M分片MM",
+        "cache clean与generation READY",
+        "Core0提交COPY",
+        "后续MM与前批SDMA交叠",
+        "wait到达与本地FP16 ADD",
+        "quiet与波credit归还",
+        "ND输出"
+      ],
+      "notes": "大M按batch推进，多个用户Kernel完成生产/等待/加法；不是单Kernel。",
+      "config": {
+        "batch_basem_count": 1
+      },
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-0.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V1-1",
+      "legacy": "小M N-split串行分支",
+      "runtime": "v1",
+      "source": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp",
+      "flow": [
+        "NZ权重切片缓存",
+        "按N分给8核MM",
+        "blocked槽结果",
+        "单批COPY",
+        "wait与按N块ADD",
+        "ND输出"
+      ],
+      "notes": "运行时小M条件触发；权重首次切片冷成本单列，热态权重缓存可复用。",
+      "config": {
+        "batch_basem_count": 1
+      },
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-1.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V1-2",
+      "legacy": "中M M-split单波分支",
+      "runtime": "v1",
+      "source": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp",
+      "flow": [
+        "选择单波与必要padding",
+        "8核M分片MM",
+        "整波COPY",
+        "wait与FP16 ADD",
+        "输出整理"
+      ],
+      "notes": "中M单波路径，不把batch流水的流程套到该分支；非整齐M的padding与整理计入调用。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-2.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V1-3",
+      "legacy": "generation READY / 去逐波清零",
+      "runtime": "v1",
+      "source": "csrc/_310P/memfabric_mm_ar/memfabric310p_device.asc",
+      "flow": [
+        "取得credit与generation",
+        "MM",
+        "发布generation READY",
+        "COPY与wait",
+        "FP16 ADD",
+        "quiet与输出"
+      ],
+      "notes": "改进就绪通知，避免热态READY区反复清零；实际独立基线须冻结对应旧/新二进制。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-3.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V1-4",
+      "legacy": "Graph预热与生命周期版本",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp",
+      "flow": [
+        "初始化与预热",
+        "捕获合法槽/credit状态",
+        "重放MM与COPY",
+        "wait与ADD",
+        "输出与生命周期收尾"
+      ],
+      "notes": "Graph专用历史设计；L1 Eager框架不能替代capture/replay真实性验收。",
+      "historical": true,
+      "category": "graph",
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-4.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V1-5",
+      "legacy": "早期standalone o_proj原型",
+      "runtime": "external",
+      "source": "vllm_ascend/_310p/ops/memfabric_o_proj.py",
+      "flow": [
+        "Tensor输入与校验",
+        "本地矩阵乘",
+        "公共传输接口",
+        "TP2归约",
+        "输出交付"
+      ],
+      "notes": "历史实现从feat/310p-memfabric-standalone-op快照恢复，禁止用现版V1冒充该版本。",
+      "historical": true,
+      "snapshot_branch": "feat/310p-memfabric-standalone-op",
+      "document": "csrc/_310P/memfabric_mm_ar/docs/versions/V1-5.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-0",
+      "legacy": "T0 / Tile1024 / D1-A正式基线",
+      "runtime": "v2",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel.asc",
+      "flow": [
+        "IB与固定缓冲准备",
+        "8核NZ MM",
+        "核间就绪",
+        "COPY对端partial",
+        "wait与核间放行",
+        "Vector ADD与输出拷出",
+        "quiet/DONE",
+        "ND输出"
+      ],
+      "notes": "单Kernel融合，计算与协议交错；对应旧AddTile源码必须独立冻结。",
+      "historical": true,
+      "config": {
+        "chunk_rows": 1024,
+        "overlap": 1
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-0.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-1",
+      "legacy": "C2选型→D2设计→D3编码→D4实测 / AddTile2048",
+      "runtime": "v2",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel.asc",
+      "flow": [
+        "持久输出与首写准备",
+        "分组8核NZ MM",
+        "READY与COPY",
+        "wait接收partial",
+        "AddTile2048本地FP16 ADD",
+        "输出写回与排空"
+      ],
+      "notes": "当前D4冻结对照，不自动启用Serving。首写保护在预热期执行且冷启动单列。",
+      "config": {
+        "chunk_rows": 1024,
+        "overlap": 1
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-1.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-2",
+      "legacy": "C3 CleanLines四路展开",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/test/perf/c3_abba_perf.py",
+      "flow": [
+        "NZ MM",
+        "展开cache clean",
+        "COPY与wait",
+        "Vector ADD",
+        "输出"
+      ],
+      "notes": "历史NO-GO；生产源C3改写仅在匹配快照/冻结工件执行，不能覆盖D4。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-2.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-3",
+      "legacy": "F2 Chunk/Overlap扫描",
+      "runtime": "v2",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/test/perf/f2_chunk_overlap_perf.py",
+      "flow": [
+        "按chunk拆分",
+        "NZ MM",
+        "COPY提交",
+        "按overlap策略等待",
+        "Vector ADD",
+        "输出排空"
+      ],
+      "notes": "参数族，chunk_rows/overlap写入每个case；不能把不同参数挑最小值拼成一个臂。",
+      "config": {
+        "chunk_rows": 1024,
+        "overlap": 1
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-3.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-4",
+      "legacy": "T1小M固定成本候选",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_diagnostics.asc",
+      "flow": [
+        "小M本地MM",
+        "SDMA COPY",
+        "等待partial",
+        "本地ADD",
+        "输出"
+      ],
+      "notes": "历史严格Stock对照NO-GO，不以较早不公平初筛的正收益替代。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-4.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-5",
+      "legacy": "B1 原生NZ MM + MemFabric AR-only",
+      "runtime": "v2_b1",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_arm.py",
+      "flow": [
+        "原生NZ MM",
+        "必要生产者流同步",
+        "stage到通信区",
+        "MemFabric COPY与wait",
+        "本地ADD与输出"
+      ],
+      "notes": "完整串行对照而非单Kernel融合；强制同步、stage均在完整调用窗口。",
+      "config": {
+        "chunk_rows": 1024,
+        "overlap": 1
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-5.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-6",
+      "legacy": "B2 full MM后AR",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_b2_full_mm_ar.asc",
+      "flow": [
+        "完整本地MM",
+        "通信区准备",
+        "内部包化COPY",
+        "wait与本地ADD",
+        "排空与输出"
+      ],
+      "notes": "与流水臂区别是先完成本地MM阶段。",
+      "symbol": "mf310p_five_arm_run_private",
+      "kind": 1,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-6.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-7",
+      "legacy": "E1 DCCI_ENTIRE",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_dcci_entire_candidate.asc",
+      "flow": [
+        "分组NZ MM",
+        "整cache处理候选",
+        "COPY提交与交叠",
+        "wait与本地ADD",
+        "输出排空"
+      ],
+      "notes": "cache策略优化候选；保留必要可见性，不将实现名称当性能结论。",
+      "symbol": "mf310p_five_arm_run_private",
+      "kind": 2,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-7.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-8",
+      "legacy": "E2-R",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e2_pipeline.asc",
+      "flow": [
+        "MM生产",
+        "COPY提交",
+        "按E2策略安排接收",
+        "等待与Vector ADD",
+        "输出和尾部排空"
+      ],
+      "notes": "E2重排/预取实验；P曾出现507014，正确性/故障现场限制继续保留。",
+      "symbol": "mf310p_e2_run_private",
+      "kind": 3,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-8.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-9",
+      "legacy": "E2-P",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e2_pipeline.asc",
+      "flow": [
+        "MM生产",
+        "COPY提交",
+        "按E2策略安排接收",
+        "等待与Vector ADD",
+        "输出和尾部排空"
+      ],
+      "notes": "E2重排/预取实验；P曾出现507014，正确性/故障现场限制继续保留。",
+      "symbol": "mf310p_e2_run_private",
+      "kind": 4,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-9.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-10",
+      "legacy": "E2-P512",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e2_pipeline.asc",
+      "flow": [
+        "MM生产",
+        "COPY提交",
+        "按E2策略安排接收",
+        "等待与Vector ADD",
+        "输出和尾部排空"
+      ],
+      "notes": "E2重排/预取实验；P曾出现507014，正确性/故障现场限制继续保留。",
+      "symbol": "mf310p_e2_run_private",
+      "kind": 5,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-10.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-11",
+      "legacy": "E3-G group2048 / 两次1024 MM",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e3_group2048.asc",
+      "flow": [
+        "组内两次1024规模MM",
+        "2048行就绪",
+        "两包COPY",
+        "wait与Vector ADD",
+        "输出排空"
+      ],
+      "notes": "大通信组与MM子调用解耦；不能误写成单次basicM256。",
+      "symbol": "mf310p_e3_run_private",
+      "kind": 3,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-11.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-12",
+      "legacy": "E3-T group2048 / 单次2048 MM",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e3_group2048.asc",
+      "flow": [
+        "单次2048规模MM",
+        "cache与就绪",
+        "两包COPY",
+        "wait与Vector ADD",
+        "输出排空"
+      ],
+      "notes": "曾修复L0C资源溢出，须使用修复后的匹配工件；不复用G版计时。",
+      "symbol": "mf310p_e3_run_private",
+      "kind": 4,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-12.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-13",
+      "legacy": "E4-T2 AddTile2048",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "flow": [
+        "2048行MM生产",
+        "按包提交COPY",
+        "接收就绪",
+        "按AddTile或包级执行Vector ADD",
+        "输出整理与排空"
+      ],
+      "notes": "E4系列独立候选；准确的AddTile/包调度由kind及源码共同锁定，连续M规划不等于设备支持。",
+      "symbol": "mf310p_e4_run_private",
+      "kind": 4,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-13.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-14",
+      "legacy": "E4-T4 AddTile4096",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "flow": [
+        "2048行MM生产",
+        "按包提交COPY",
+        "接收就绪",
+        "按AddTile或包级执行Vector ADD",
+        "输出整理与排空"
+      ],
+      "notes": "E4系列独立候选；准确的AddTile/包调度由kind及源码共同锁定，连续M规划不等于设备支持。",
+      "symbol": "mf310p_e4_run_private",
+      "kind": 5,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-14.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-15",
+      "legacy": "E4-T8 AddTile8192",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "flow": [
+        "2048行MM生产",
+        "按包提交COPY",
+        "接收就绪",
+        "按AddTile或包级执行Vector ADD",
+        "输出整理与排空"
+      ],
+      "notes": "E4系列独立候选；准确的AddTile/包调度由kind及源码共同锁定，连续M规划不等于设备支持。",
+      "symbol": "mf310p_e4_run_private",
+      "kind": 6,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-15.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-16",
+      "legacy": "E4-P packet-ready ADD",
+      "runtime": "v2_private",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "flow": [
+        "2048行MM生产",
+        "按包提交COPY",
+        "接收就绪",
+        "按AddTile或包级执行Vector ADD",
+        "输出整理与排空"
+      ],
+      "notes": "E4系列独立候选；准确的AddTile/包调度由kind及源码共同锁定，连续M规划不等于设备支持。",
+      "symbol": "mf310p_e4_run_private",
+      "kind": 7,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-16.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-17",
+      "legacy": "MM shadow站点诊断",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_mm_shadow.asc",
+      "flow": [
+        "真实站点输入",
+        "MM影子采集",
+        "对照/诊断",
+        "记录输出"
+      ],
+      "notes": "诊断臂不是完整MM+AR L1候选，不能混入正式收益统计。",
+      "category": "diagnostic",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-17.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-18",
+      "legacy": "G1C 阶段进度取证",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_g1c_kernel.asc",
+      "flow": [
+        "MM阶段号",
+        "COPY提交阶段号",
+        "wait进入/退出号",
+        "ADD与quiet阶段号",
+        "Host进度采样"
+      ],
+      "notes": "G1C进度序号，不是可相减的设备时钟；恢复匹配快照运行。",
+      "category": "diagnostic",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-18.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-0",
+      "legacy": "原始V3 SDMA ADD R/S + COPY Gather",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "NZ MM",
+        "READY与ADD Reduce-Scatter",
+        "等待归约半片",
+        "COPY All-Gather",
+        "输出拷出",
+        "quiet/DONE"
+      ],
+      "notes": "历史最初循环版本，必须使用对应原始源码HEAD及工件，不能以现版串行参数冒充。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-0.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-1",
+      "legacy": "V3.1 Reduce/Gather重排",
+      "runtime": "v3",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "分组NZ MM",
+        "提前提交ADD Reduce",
+        "推进旧组Gather",
+        "拷出完整旧组",
+        "排空Reduce/Gather",
+        "ND输出"
+      ],
+      "notes": "独立普通输出Tensor，保留完整输出拷贝成本。",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": true
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-1.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-2",
+      "legacy": "V3.2方案A / A2 prepare版",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md",
+      "flow": [
+        "Host acquire与Storage wrap",
+        "双方prepare",
+        "生产核独立MM",
+        "Core0 Reduce/Gather",
+        "池输出就绪",
+        "完成与生命周期"
+      ],
+      "notes": "历史profile3202，含Host同步/双集合成本，禁止以现版merged接口替代。",
+      "historical": true,
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-2.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-3",
+      "legacy": "A2 merged-wave单控制集合",
+      "runtime": "v32",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "本地推测槽与wrap",
+        "一次prepare控制集合",
+        "NZ MM生产",
+        "Core0 Reduce/Gather",
+        "排空与池输出"
+      ],
+      "notes": "profile3203；推测槽不一致有原实现回退成本，均计入。",
+      "config": {
+        "comm_rows": 1024
+      },
+      "profile": 3203,
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-3.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-4",
+      "legacy": "A3固定S+独立Y START版",
+      "runtime": "external",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/A3_DESIGN.md",
+      "flow": [
+        "START校验",
+        "NZ MM到固定S",
+        "seed到Y",
+        "READY与Direct ADD",
+        "最终排空",
+        "独立Y输出"
+      ],
+      "notes": "历史3301。完整S不覆盖，取消Gather；START固定开销仍在。",
+      "historical": true,
+      "profile": 3301,
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-4.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-5",
+      "legacy": "原A3 首READY合并",
+      "runtime": "a3",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "固定S与独立Y",
+        "NZ MM按座位生产",
+        "seed/可见性并发布就绪",
+        "连续范围齐全",
+        "首READY校验与Direct ADD",
+        "Drain/quiet/DONE",
+        "ND输出"
+      ],
+      "notes": "8核MM，Core0在计算波边界兼调通信；通信512小于计算1024时有整波门槛。",
+      "profile": 3302,
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-5.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-6",
+      "legacy": "A3-2 七核计算+专职通信",
+      "runtime": "a3-2",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "固定S与独立Y",
+        "NZ MM按座位生产",
+        "seed/可见性并发布就绪",
+        "连续范围齐全",
+        "首READY校验与Direct ADD",
+        "Drain/quiet/DONE",
+        "ND输出"
+      ],
+      "notes": "Core1～7步长7分座位；Core0专职调度。少一计算核且有负载取整。",
+      "profile": 3303,
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-6.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V3-7",
+      "legacy": "A3-tail Core0末尾计算",
+      "runtime": "a3-tail",
+      "source": "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "flow": [
+        "固定S与独立Y",
+        "NZ MM按座位生产",
+        "seed/可见性并发布就绪",
+        "连续范围齐全",
+        "首READY校验与Direct ADD",
+        "Drain/quiet/DONE",
+        "ND输出"
+      ],
+      "notes": "Core0持末尾约1/8，提交后算一个末尾tile；下一批先补齐自己的行再等其他核。",
+      "profile": 3304,
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024
+      },
+      "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-7.md",
+      "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-19",
+      "legacy": "G1D minimal forensics",
+      "runtime": "external",
+      "category": "diagnostic",
+      "historical": true,
+      "source": "csrc/_310P/memfabric_mm_ar_v2/test/e2e/g1d_tp2_async_window.py",
+      "flow": [
+        "正式计算/协议路径",
+        "最小进度与首停点记录",
+        "Host收集",
+        "证据归档"
+      ],
+      "notes": "G1D与G1C分开编号；进展取证不计为完整算子加速候选。",
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-19.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    },
+    {
+      "id": "V2-20",
+      "legacy": "LOOP4 串行MM+AR隔离对照",
+      "runtime": "external",
+      "category": "diagnostic",
+      "historical": true,
+      "source": "csrc/_310P/memfabric_mm_ar_v2/test/perf/gate_c_loop4.py",
+      "flow": [
+        "4个Chunk串行推进",
+        "每Chunk MM",
+        "COPY与wait",
+        "本地ADD",
+        "输出"
+      ],
+      "notes": "诊断核对照，不能用LOOP4−正式核当作精确交叠耗时；D1-A为Profiler扰动校准，不是新融合架构。",
+      "document": "csrc/_310P/memfabric_mm_ar_v2/docs/versions/V2-20.md",
+      "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
+      "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
+      "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+    }
+  ],
+  "naming": "VN-M: N is implementation generation; M is documentation ID, not matrix row count. Parameter sweeps stay configurations, not new implementations."
+}

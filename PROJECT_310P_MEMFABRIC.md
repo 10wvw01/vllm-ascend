@@ -143,3 +143,13 @@ MemFabric公共非阻塞收件仅提供[需求原稿](csrc/_310P/memfabric_mm_ar
 [A3_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/A3_ADMISSION.md)：profile3302、首READY参数校验、
 Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完整计时。
 新设备编译/正确性/性能NOT_RUN；A2证据不能替代A3准入。控制台§41，Stock默认不变。
+
+## 2026-10-30｜统一L1框架与VN-M设计文档交付，待设备验证
+
+用户恢复三项工程整理任务。新增[独立Stock/版本对照/统一采集入口](tools/310p_mm_ar/l1/README.md)，
+统一预热、相同N、逐样本双Rank max后算术均值、独占/共享及真实下游残差消费；不恢复算法调优或改Serving默认。
+[V1版本索引](csrc/_310P/memfabric_mm_ar/docs/VERSION_INDEX.md)、
+[V2版本索引](csrc/_310P/memfabric_mm_ar_v2/docs/VERSION_INDEX.md)、
+[V3版本索引](csrc/_310P/memfabric_mm_ar_v3/docs/VERSION_INDEX.md)共35份设计/诊断说明，保留旧名称与来源。
+[历史Host阶段数值与瓶颈证据边界](csrc/_310P/memfabric_mm_ar_v2/docs/L1_PERFORMANCE_EVIDENCE.md)。
+新框架CANN/NPU为NOT_RUN；历史二进制未匹配则阻止执行，不将注册或CPU通过写成实机GO。

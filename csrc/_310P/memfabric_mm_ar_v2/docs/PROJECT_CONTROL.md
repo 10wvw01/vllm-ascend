@@ -561,3 +561,20 @@ b34901ba6d031e46386cbe5f1e7b07e813ac87ba合入主线（上次已归档d59fec7d�
 [增量来源和校验](../../memfabric_history/INCREMENTAL_ARCHIVES.json)。
 主线原始整合历史与旧快照保留。仅归档，不改变算子/协议/Serving；
 用户已暂停的统一L1框架和版本文档工作继续暂停，未混入其未提交草稿。
+
+## 2026-10-30｜统一L1独立Stock、设计版本库与统一采集框架
+
+按用户“继续，不需要查格式”恢复此前三项工具与文档任务；以主线8e8c4def为基底，
+短分支work/310p-l1-framework-20261030交付，不推进MM/协议新优化、不改Stock默认。
+[统一框架合同和操作](../../../../tools/310p_mm_ar/l1/README.md)：独立Stock无需选择融合版本，
+ready/chain包含完整Tensor调用及下游真实残差ADD；W/N/R一致，Stock/候选ABBA独立TP2进程，
+先按样本取双Rank max再算术均值，保留全部N。独占与接受漂移的共享模式明确分开。
+公共Host/Profiler采集有无打点前后控制，按形状/场景隔离CSV；版本适配仅负责本版ABI/状态/生命周期。
+[V1](../../memfabric_mm_ar/docs/VERSION_INDEX.md)、[V2](VERSION_INDEX.md)、
+[V3](../../memfabric_mm_ar_v3/docs/VERSION_INDEX.md)共35份VN-M文档：使用、输入输出、整体图、逐步说明及证据缺口。
+C2/D2/D3/D4统一到相同AddTile2048设计；Graph/诊断不混入完整Eager收益。
+[性能证据](L1_PERFORMANCE_EVIDENCE.md)整理36行历史Host阶段范围，保留p50口径，
+明确AICore时钟不可用、管线并行不作互斥占比、SDMA占用未知、6份CSV与18次采集索引的差别。
+新框架仅CPU验证，私有编译/双Rank设备Smoke/路由与正式性能NOT_RUN。
+历史external适配须恢复匹配源码/工件及冻结工厂，不能用同名新实现替换；注册不表示版本已可上机。
+本轮按用户要求不执行格式检查；验证及两轮复核见[L1框架复核](L1_FRAMEWORK_REVIEW.md)。

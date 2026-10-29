@@ -258,3 +258,12 @@ Host打点存在约+6.3%个例；本整合不重算或替换原始数据，也�
 本次只保全原文与原始数据，不重算、修订或升级其因果结论。管线计数存在并发重叠，
 不能由归档本身证明MM/seed/wait的互斥墙钟占比，也不改变共享卡、未测SDMA及非发布GO限制。
 版本与逐文件Git blob校验见[增量记录](../../memfabric_history/INCREMENTAL_ARCHIVES.json)。
+
+## 2026-10-30｜新统一L1统计合同与历史分段证据整理
+
+新合同L1_TENSOR_IO_V2用完整Tensor输入到ND输出ready，另加真实下游残差ADD的chain场景；
+Stock为NZ FP16 MM+HCCL完整输出。相同W/N/R，逐同下标双Rank max后算术均值，所有样本保留。
+无打点性能与带前后控制的Host/Profiler诊断区分，独占检查跨轮/候选重复漂移，共享保留漂移而不签稳定GO。
+[统一入口](../../../../tools/310p_mm_ar/l1/README.md)、[36行历史Host阶段数值](L1_PERFORMANCE_EVIDENCE.md)。
+后者保持旧合同p50范围，不变成新均值。Device时钟、SDMA真实占用与核内互斥阶段仍UNKNOWN。
+本轮无CANN/NPU新数值，不改写既有性能结论；不能由新CPU工具或文档推导任何新正收益。
