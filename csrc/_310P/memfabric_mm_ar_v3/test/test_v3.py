@@ -198,13 +198,17 @@ def test_guard_runtime_stop_preserves_unrelated_process(tmp_path, monkeypatch):
 
 
 def test_guard_deploy_window_tolerates_transient_helpers_only(tmp_path, monkeypatch):
-    """声明窗口内的瞬态自有助手子进程被有界容忍；持续超额或无标记超额仍STOP。"""
+    """声明窗口内的瞬态自有助手/编译基础设施子进程被有界容忍；持续超额或无标记超额仍STOP。"""
     state = {"phase": 0}
     (tmp_path / "deploy_window_rank0.flag").write_text('{"rank": 0}')
     sequences = [
         snapshot(),  # preflight idle
         snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # ranks only
-        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 333 |\n| 38144 1 | 444 |\n"),  # +2 helpers
+        # +1 torch_npu compile-infra child surfacing before the helpers fork (V3.1 diag STOP form)
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 1 | 333 |\n"),
+        # ranks + 2 deploy helpers + 1 compile-infra child = 5 <= 2+2+2
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 444 |\n| 38144 1 | 555 |\n| 38144 1 | 333 |\n"),
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 444 |\n| 38144 1 | 555 |\n"),  # +2 helpers
         snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # healed
     ]
 
@@ -230,6 +234,33 @@ def test_guard_deploy_window_tolerates_transient_helpers_only(tmp_path, monkeypa
     finally:
         quick.terminate()
         quick.wait(timeout=5)
+
+
+def test_guard_deploy_window_stops_seven_target_processes(tmp_path, monkeypatch):
+    """声明窗口内第 7 个目标卡进程（超出 2+2+2 上限）立即 STOP，不等待持续界限。"""
+    state = {"phase": 0}
+    (tmp_path / "deploy_window_rank0.flag").write_text('{"rank": 0}')
+    seven = snapshot(
+        "| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 333 |\n| 38144 1 | 444 |\n"
+        "| 38144 0 | 555 |\n| 38144 1 | 666 |\n| 38144 1 | 777 |\n"
+    )
+
+    def poll(_card):
+        state["phase"] += 1
+        raw = snapshot() if state["phase"] == 1 else seven
+        return raw, guard.parse_info(raw, 38144)
+
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True)
+    monkeypatch.setattr(guard, "sample", poll)
+    monkeypatch.setattr(guard.subprocess, "Popen", lambda *a, **k: child)
+    try:
+        rc = guard.run_stage(38144, tmp_path / "guard.jsonl", 0.01, ["unused"], 5, deploy_flag_dir=tmp_path)
+        assert rc == 97
+        events = [json.loads(line)["event"] for line in (tmp_path / "guard.jsonl").read_text().splitlines()]
+        assert "STOP" in events
+    finally:
+        child.terminate()
+        child.wait(timeout=5)
 
 
 def test_guard_deploy_window_stops_persistent_and_unflagged_extras(tmp_path, monkeypatch):

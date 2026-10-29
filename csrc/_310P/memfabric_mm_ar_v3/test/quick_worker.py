@@ -138,6 +138,13 @@ def main():
         },
     }
     session = None
+    # 声明启动+部署窗口：窗口必须先于首个设备算子开始——torch_npu 会在首个设备算子处
+    # 初始化异步编译基础设施（fork 出携带继承设备映射的短命子进程，npu-smi 宿主 PID
+    # 无法映射回容器，实测可在驱动进程表短暂浮现）；MemFabric 建池又会 fork+exec 每
+    # Rank 一个 orch_deploy_helper。两类均为自有形态，守护器仅在窗口内有界容忍；
+    # V3Session 返回即撤销标记。
+    deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
+    deploy_flag.write_text(json.dumps({"rank": rank, "phase": "startup+pool-create"}))
     try:
         # Allocate all buffers/references BEFORE a MemFabric epoch can delay device allocation sync.
         torch.manual_seed(41029 + rank)
@@ -186,14 +193,7 @@ def main():
         e0, e1 = torch.npu.Event(enable_timing=True), torch.npu.Event(enable_timing=True)
         torch.npu.synchronize()
         dist.barrier()
-        # 声明部署窗口：池创建期间库会 fork+exec orch_deploy_helper（每 Rank ≤1 个
-        # 短命设备进程），守护器据此容忍有界瞬态超额；窗口结束即撤销标记。
-        deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
-        deploy_flag.write_text(json.dumps({"rank": rank, "phase": "pool-create"}))
-        try:
-            session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
-        finally:
-            deploy_flag.unlink(missing_ok=True)
+        session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
         data["loaded_libraries"] = loaded_identity(manifest)
 
         def checked(out, ref, label):
@@ -283,6 +283,9 @@ def main():
         write(a.out / f"stop_rank{rank}.json", data)
         # Do not synchronize/destroy a suspect device or enter another collective here.
         raise
+    finally:
+        # 窗口结束（含失败/停止路径）即撤销标记；被强杀时残留标记由守护器 60s 界限兜底。
+        deploy_flag.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

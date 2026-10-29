@@ -11,6 +11,14 @@ kernel 部署——两个短命助手子进程与两个 Rank 同卡出现是本�
 宿主 PID 无法映射回容器进程，故以 worker 声明的 `deploy_window_rank*.flag` 标记
 识别该窗口：窗口内允许至多 max+2 个目标卡进程且持续超上限不得超过有界时限；
 无标记或持续超限仍立即 STOP，跨卡/健康/解析失败不受窗口影响。
+
+窗口自有形态扩展（V3.1 2026-10-29，诊断轮 STOP 根因修复）：torch_npu 在进程首个
+设备算子处初始化其异步编译基础设施，会从 worker fork 出携带继承设备映射的短命
+子进程（实测一次在驱动进程表短暂浮现，宿主 PID 4158731，~103MB，存活约8秒），
+同样无法映射回容器。worker 现已把窗口标记提前到首个设备算子之前声明；窗口内容忍
+上限相应为 max_rank_pids + deploy_extra_pids + window_extra_pids（2+2+2=6，覆盖
+两 Rank、两助手与至多两个编译基础设施形态）。超出该上限、无标记超额或持续超时仍
+立即 STOP；60 秒持续界限与全部 fail-closed 检查不变。
 """
 
 from __future__ import annotations
@@ -129,13 +137,14 @@ def run_stage(
     timeout: float = 600,
     deploy_flag_dir: Path | None = None,
     deploy_extra_pids: int = 2,
+    window_extra_pids: int = 2,
     deploy_persist_s: float = 60.0,
 ) -> int:
     if not log.is_absolute() or not log.parent.is_dir() or log.is_symlink():
         raise ValueError("absolute log under an existing directory required")
     if not command:
         raise ValueError("stage command required")
-    if deploy_extra_pids < 0 or not (1.0 <= deploy_persist_s <= 600.0):
+    if deploy_extra_pids < 0 or window_extra_pids < 0 or not (1.0 <= deploy_persist_s <= 600.0):
         raise ValueError("deploy window bounds invalid")
     record(log, "PREFLIGHT_START", argv=command, card=card)
     last_raw = ""
@@ -155,6 +164,10 @@ def run_stage(
     previous_term = signal.getsignal(signal.SIGTERM)
     previous_int = signal.getsignal(signal.SIGINT)
 
+    def window_allowance() -> int:
+        # Declared window tolerance: 2 helpers + bounded torch_npu compile-infra forms.
+        return deploy_extra_pids + window_extra_pids if deploy_window_open(deploy_flag_dir) else 0
+
     def interrupted(signum: int, _frame: object) -> None:
         raise LeaseLost(f"guard received signal {signum}; stop owned stage")
 
@@ -166,10 +179,10 @@ def run_stage(
                 raise LeaseLost("V3 stage wall-clock deadline exceeded")
             last_raw, snapshot = sample(card)
             declared = deploy_window_open(deploy_flag_dir)
-            verified = assess(snapshot, stage_running=True, deploy_allowance=deploy_extra_pids if declared else 0)
+            verified = assess(snapshot, stage_running=True, deploy_allowance=window_allowance())
             if len(snapshot["target"]) > 2:
                 # 分层：无窗口或超额>allowance 已在 assess 内 STOP；此处只剩
-                # "声明窗口内 3~4 个进程"——自有助手子进程形态，仅有界容忍。
+                # "声明窗口内 3~6 个进程"——自有助手/编译基础设施子进程形态，仅有界容忍。
                 if not declared:
                     raise LeaseLost(f"unexpected target process count without deploy window: {verified}")
                 if over_since is None:
@@ -179,7 +192,7 @@ def run_stage(
                     raise LeaseLost(f"deploy window extras persisted >{deploy_persist_s}s: {verified['target_pids']}")
             elif over_since is not None:
                 over_since = None
-                record(log, "DEPLOY_WINDOW_HEALED")
+                record(log, "DEPLOY_WINDOW_HEALED", **verified)
             record(log, "LEASE_SAMPLE", **verified)
             ret = child.poll()
             if ret is not None:
@@ -188,11 +201,7 @@ def run_stage(
                 record(
                     log,
                     "POST_STAGE_LEASE",
-                    **assess(
-                        final,
-                        stage_running=True,
-                        deploy_allowance=deploy_extra_pids if deploy_window_open(deploy_flag_dir) else 0,
-                    ),
+                    **assess(final, stage_running=True, deploy_allowance=window_allowance()),
                 )
                 record(log, "STAGE_EXIT", exit_code=ret)
                 return ret
