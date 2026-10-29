@@ -2,7 +2,7 @@
 
 > **必须先阅读** 自有仓库根目录 `PROJECT_310P_MEMFABRIC.md` 以及本工程 `docs/PROJECT_CONTROL.md`、`docs/BRANCH_GOVERNANCE.md`、`docs/PERFORMANCE_BASELINES.md`、`docs/DECISIONS.md`。优先遵守仓库根的通用`AGENTS.md`，本文件只补充310P定制算子的特有研发规则。
 >
-> GitHub项目主线固定 `10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`；除用户授权的短期任务分支外不得再创建常驻分叉控制线。外部 `HaonanWu1/vllm-ascend` 只能读，**禁止向其提交/推送/PR**。
+> GitHub项目主线固定 `10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`；2026-10-30用户明确要求后续开发、修复、实机实验及数据归档直接在本主线完成，不再默认创建工作分支或等待PR合入；每轮固定主线完整SHA及工件身份，隔离构建/结果目录。外部 `HaonanWu1/vllm-ascend` 只能读，**禁止向其提交/推送/PR**。
 
 ## 你需要先回答的五个问题
 
@@ -10,12 +10,12 @@
 2. 新需求是大M正式Kernel优化、小M同Kernel固定开销优化、DFlash薄适配还是发布级稳定性？**不得改成一般MoE/GDN/Attention全模型优化**。
 3. 本轮性能比较对象是**V2内部**、**当前完整V2 vs原生FP16 Stock MM+HCCL**，还是**Qwen Serving Stock vs融合**？不能混算。
 4. 上次实机是否保留原始Rank0/Rank1日志、SO/KVER/设备物理映射、Stream/Graph路由证据？缺证据写UNKNOWN或Blocked，不能宣称PASS。
-5. 本轮完成后如何更新主线项目控制台、ADR、性能基线与短分支合入状态？
+5. 本轮完成后如何更新主线项目控制台、ADR、性能基线与主线实验归档状态？
 
 ## 工程安全与门禁
 
 - 除非用户明确批准，**Stock维持默认**；不要擅自打开V1 Decode、尚未验收的小M新核、Graph大M融合。大M D4 Tile2048作为参考实现，但必须测最新**完整算子相对Stock**。
-- 310P3 **单卡双Die / TP=2**，K/N=2048、FP16等按验证形状。修改Kernel/Host/协议时至少两轮静态深审，准入必须核对真实装载的Host/Device SO、KVER11和物理设备号修复。
+- 310P3 **单卡双Die / TP=2**，K/N=2048、FP16等按验证形状。修改Kernel/Host/协议时至少两轮静态深审，准入必须核对真实装载的Host/Device SO、按版本冻结的KVER（V2 v11、V3 v28）和物理设备号修复。
 - 不得删除Cache Clean、signal/wait、IB同步、MemFabric credit或MTE3首写防护以创造假性能。跑507014/507899/协议错误/bit-exact失败要停下留双Rank日志。
 - Graph成功必须有真实融合Kernel/路由命中和replay证据；若仅输出正确但实际走Stock，不计融合通过。
 - 普通模型端到端严格使用input4096/output2048/TP2/batch10/Eager、50请求；投机DFlash需使用相同模式Stock对比，跟踪verify宽度、物理M、接受率、Graph实际模式。

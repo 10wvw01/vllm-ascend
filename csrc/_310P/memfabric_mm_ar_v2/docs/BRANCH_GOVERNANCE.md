@@ -1,5 +1,7 @@
 # 310P3 MemFabric MM+AR｜分支治理、代码归属与集成策略
 
+> **2026-10-30用户最新指令：后续直接在`dev/310p-memfabric-mm-ar`开发、修复、执行实机实验并归档。** 实验从主线固定完整SHA，使用隔离构建/结果目录；不再默认创建工作分支或等待PR合并才允许测试。G0、CPU合同、私有编译、短Smoke、正式性能及故障STOP要求继续有效。以下旧分支流转规定仅作历史背景，以本条为准。
+
 > 基准检查：2026-10-25，远程仓库 `10wvw01/vllm-ascend` 原有33个分支；新增 `dev/310p-memfabric-mm-ar` 后为34个（如有后续新建以GitHub实时查询为准）。**不删除、不重写任何历史分支**。当前研发状态只以[PROJECT_CONTROL.md](PROJECT_CONTROL.md)为准。
 
 ## A. 唯一研发主线与分支角色
@@ -10,7 +12,7 @@
 | `main` | vllm-ascend仓库默认通用分支，**不是本项目研发主线** | 禁止无明确发布决议把MemFabric实验推入main |
 | `HaonanWu1/vllm-ascend:dev_v24/feat-310p-dflash` | **外部只读架构对照** | 可以读取、记录SHA、比对差异；**不得push、改写、发PR或在此仓建立工作分支** |
 | 自己仓库 `dev_v24/feat-310p-dflash` | DFlash共同基础的历史参考 | 不作为融合项目主线；需要时只读对照 |
-| `work/310p-mm-ar-<单一任务>` | 由主线派生的**短期**实际工作分支 | 一个任务/一次优化；按合入门槛回主线，不继续在其上派生下一代 |
+| `work/310p-mm-ar-<单一任务>` | 历史短期工作分支 | 保留来源和原始证据；2026-10-30起后续工作直接在项目主线完成 |
 | `perf/` / `diag/` / `docs/` / `fix/` / `feat/` / `merge/` / `backup/` 旧分支 | 既有历史资产 | **冻结作为证据或受控回收来源**；不得将其当成新的稳定主线；不得不经检查整体merge到主线 |
 | `release/310p-mm-ar-<版本>`（**未来**） | 通过正式E2E/Graph/安全门禁后的发布快照 | 现在不存在，不抢先创建 |
 
@@ -61,8 +63,8 @@
 
 ## C. 今后的编码、审核、合入规范
 
-1. 所有任务先核对远程 `origin/dev/310p-memfabric-mm-ar` 和[项目控制台](PROJECT_CONTROL.md)；用户未授权新功能前只创建必要的短期任务分支（最多一个主活跃功能分支；需要并行时有明确独立目标）。
-2. 从主线创建 `work/310p-mm-ar-<topic>`，不要从`perf/`、`feat/`旧分支派生；实验/诊断可以在任务分支追加`test/perf/`和`docs/evidence/`，但不要另建长期控制分支。
+1. 所有任务先核对远程 `origin/dev/310p-memfabric-mm-ar` 和[项目控制台](PROJECT_CONTROL.md)；按已授权任务直接在主线实施，实验前固定完整源码SHA和工件manifest。
+2. 实验、诊断、修复与结果直接追加到主线对应`test/perf/`、`experiments/`或`docs/evidence/`；使用新的私有构建和结果目录，保留每轮源码/二进制身份，不再默认另建任务分支。
 3. 改动分级：
    - **文档/诊断-only**：评审正确、无需NPU也能验证的静态合同，经过至少两轮静态检查，可入主线，状态标注CPU/NPU NOT_RUN；
    - **正式Kernel / Host ABI / 通信协议 / Model Runner适配**：编译、CPU合同、双Rank正确性、已验证不绕过首写/signal/wait/credit、Stock对照，复核环境/设备SO/KVER身份后方可实机GO；实际合入需完成约定回归并记录证据；
@@ -80,8 +82,9 @@ git switch dev/310p-memfabric-mm-ar
 git pull --ff-only
 git status --short
 # 读 PROJECT_310P_MEMFABRIC.md 和 docs/PROJECT_CONTROL.md
-# 开始有代码的任务时：
-git switch -c work/310p-mm-ar-<topic>
+# 开始实验前固定源码：
+git rev-parse HEAD
+# 在主线提交修复和证据；每轮使用新的隔离构建/结果目录
 ```
 
 当服务器还有未提交修改、独立worktree、已部署非当前源码的SO时，**先保全**，不得直接checkout/reset/clean覆盖证据；现场的git状态和二进制SHA不是一回事。
@@ -93,7 +96,7 @@ git switch -c work/310p-mm-ar-<topic>
 
 ## F. 2026-10-25 主线强制交付规则（增量治理）
 
-1. 唯一主线仍是 `dev/310p-memfabric-mm-ar`；所有新Kernel、适配和实机报告从本主线的**短期**任务分支流转，原则上通过 PR 及审查合入；不把旧 `perf/diag/docs` 一键 merge 进主线。
+1. 唯一主线仍是 `dev/310p-memfabric-mm-ar`；2026-10-30起所有新Kernel、适配和实机报告按用户授权直接在本主线实施与归档；本段原有短期分支/PR要求不再作为实验前置条件；不把旧 `perf/diag/docs` 一键 merge 进主线。
 2. 工作流 `.github/workflows/310p_mm_ar_project_gate.yml` 只在本主线的 PR、push 或手动触发；`tools/310p_mm_ar/project_gate.py` 进行项目入口和变更台账检查，`test_project_gate.py` 是其纯CPU测试。对正式源码、目标测试或证据的变更，必须同时更新 `PROJECT_CONTROL.md`；涉及性能证据/报告还必须更新 `PERFORMANCE_BASELINES.md`。新的 ADR 必须同步当前控制台。**这是文件级遗漏检查，不验证报告真假、测试充分性或NPU正确性。**
 3. 核心源码变更还需人工核对新/已有测试覆盖、2轮静态深审、G0设备/SO/KVER合同、冷首写、双Rank正确性、Stock基线、Graph真实命中与回退。具体参阅 [ENGINEERING_GATES.md](ENGINEERING_GATES.md)。
 4. 当前GitHub默认 `main` 仍保留；**GitHub仓库级保护尚须所有者配置**：建议为此分支启用禁止强制推送与删除、PR审查、要求名为 `project-control` 的CI检查通过，并限定管理员绕过；保护的实际生效状态应另行在 GitHub Rulesets / Branch protection 核实。未配置时CI可以报告 FAIL，但不能阻止管理员直接push。
@@ -132,3 +135,12 @@ git switch -c work/310p-mm-ar-<topic>
 阻止本次已获授权的合入。仅合研发资产，不启用历史候选为Serving默认，不复活退役Runner路线。
 54条源分支HEAD及合并历史纳入清单，后续唯一事实来源为主线；不创建新长期研发线、不删除源分支。
 [整合目录/恢复方法](../../memfabric_history/README.md)。算法研发及实机实验保持暂停。
+
+## I. 2026-10-30｜直接在主线进行后续实机实验（用户最新授权）
+
+- PR #23的统一L1框架、35份版本文档和历史Host阶段表直接纳入项目主线；不以草稿PR状态阻止本次授权合入。
+- 后续开发、执行中的修复、测试脚本、实验原始数据和分析直接提交`dev/310p-memfabric-mm-ar`。C/F/H节旧短分支/PR前置流程由本规则覆盖；不再默认新建实验工作分支。
+- 服务器通过SSH获取主线，实验开始时记录主线完整SHA/tree及Host/Device SO、SDK/KVER、物理映射和采样配置。主线推进不追改运行中的manifest；修复后建立新一轮身份与结果目录。
+- 每轮使用隔离构建/结果目录，G0→CPU合同→私有编译/短Smoke→正式性能和异常STOP继续执行。独占/共享模式按明确选择，实验模式不因分支改变。
+- 原始双Rank日志、失败现场、Profiler/路由与数据同批回主线，更新控制台/基线/ADR；并发更新先核对，不强推、不覆盖其他提交。
+- 本规则不启用未验收Serving默认，不删除历史分支，不更改外部HaonanWu1或MemFabric上游仓库规则。

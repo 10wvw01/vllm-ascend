@@ -267,3 +267,9 @@ Stock为NZ FP16 MM+HCCL完整输出。相同W/N/R，逐同下标双Rank max后�
 [统一入口](../../../../tools/310p_mm_ar/l1/README.md)、[36行历史Host阶段数值](L1_PERFORMANCE_EVIDENCE.md)。
 后者保持旧合同p50范围，不变成新均值。Device时钟、SDMA真实占用与核内互斥阶段仍UNKNOWN。
 本轮无CANN/NPU新数值，不改写既有性能结论；不能由新CPU工具或文档推导任何新正收益。
+
+## 2026-10-30｜统一L1框架已直接纳入主线，无新增实机数值
+
+按用户指令将PR #23内容纳入`dev/310p-memfabric-mm-ar`，后续实验直接从主线固定SHA执行并归档。
+428项CPU测试及36个子测试不代表设备性能；新框架CANN/NPU仍NOT_RUN，既有历史数值与限制保持不变。
+新的性能记录仍必须保全双Rank原始样本、运行身份、独占/共享标签、完整输入输出合同及前后控制。

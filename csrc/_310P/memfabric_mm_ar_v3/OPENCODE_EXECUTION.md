@@ -1,7 +1,9 @@
 # OpenCode执行单：V3依赖同步、私有编译部署和一次快速验证
 
+> **2026-10-30用户最新指令：后续直接在`dev/310p-memfabric-mm-ar`开发、修复、执行实机实验并归档。** 实验从主线固定完整SHA，使用隔离构建/结果目录；不再默认创建工作分支或等待PR合并才允许测试。G0、CPU合同、私有编译、短Smoke、正式性能及故障STOP要求继续有效。以下旧分支流转规定仅作历史背景，以本条为准。
+
 本单由研发侧制定。OpenCode负责执行、执行中的BUG定位与修复、实验结果汇总、数据及证据采集，
-并将修复代码和实验记录提交远程工作分支。研发侧负责方案、算法与协议决策、结果审查和后续推进。
+并将修复代码和实验记录直接提交远程主线`dev/310p-memfabric-mm-ar`。研发侧负责方案、算法与协议决策、结果审查和后续推进。
 编译或设备门禁失败先停止当前轮并保存现场；允许修复实现BUG后重编、重新验证，
 不得通过删除检查、放宽精度或切回旧实现使测试通过。涉及方案变更的事项交回研发侧决策。
 
@@ -10,7 +12,7 @@
 - OpenCode可修复本方案范围内的编译、接口适配、资源管理、同步及数值实现BUG，并解释根因。
   不自行改变SDMA ADD归约方案、通信协议设计、性能目标、采样口径或精度标准。
 - 固定SHA是首轮起点；修复后记录新HEAD/tree、diff和构建manifest，禁止仍以旧SHA标记修复产物。
-  V3修复提交到本次V3工作分支；推送前检查远程HEAD，有并发更新先核对，不强推或覆盖他人提交。
+  V3修复与实机证据直接提交项目主线；推送前检查远程HEAD，有并发更新先核对，不强推或覆盖他人提交。
 - 若确需修复MemFabric依赖，从锁定提交创建独立工作分支，提交到`10wvw01/memfabric_hybrid`，
   不直接改`dev-v1.2.0`或权威上游。同步更新V3依赖锁定、来源记录和私有SDK证据，重新构建；
   不禁用commit/tree/哈希校验。方案或协议变更先回报研发侧。
@@ -30,7 +32,7 @@
 |---|---|---|---|
 | `gitcode.com/GDD_ESCC/memfabric_hybrid` | 权威上游，只读来源 | `dev-v1.2.0`；`ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4` | 不修改，不必再克隆 |
 | `github.com/10wvw01/memfabric_hybrid` | V3部署修复SDK源码 | `fix/310p-v3-orch-deploy-helper-20261029`；`db38d75e8485d31451302219eb7a1bfeb1dd107c` | 新克隆，detached HEAD固定提交 |
-| `github.com/10wvw01/vllm-ascend` | V3算子、适配器和执行工具 | `work/310p-mm-ar-v3-sdma-add-20261029`；完整SHA以本次交接消息为准 | 新克隆，detached HEAD固定该SHA |
+| `github.com/10wvw01/vllm-ascend` | V3算子、适配器和执行工具 | `dev/310p-memfabric-mm-ar`；完整SHA以本次主线交接消息为准 | SSH新克隆主线，核对HEAD等于本次固定SHA |
 
 不更新vLLM主框架、现有Serving worktree、已安装vllm-ascend wheel、模型权重或DFlash。
 不更新/提交`HaonanWu1/vllm-ascend`。不把V3 merge进研发主线或切换为生产默认。
@@ -76,13 +78,13 @@ if ! "$V3_PYTHON" -c 'import pytest' >/dev/null 2>&1; then
   "$V3_PYTHON" -m pip install pytest==9.2.0
 fi
 
-git clone --single-branch --branch work/310p-mm-ar-v3-sdma-add-20261029 \
-  https://github.com/10wvw01/vllm-ascend.git "$V3_RUN_ROOT/vllm-ascend"
-git -C "$V3_RUN_ROOT/vllm-ascend" checkout --detach "$V3_EXPECTED_SHA"
+git clone --single-branch --branch dev/310p-memfabric-mm-ar \
+  git@github.com:10wvw01/vllm-ascend.git "$V3_RUN_ROOT/vllm-ascend"
+git -C "$V3_RUN_ROOT/vllm-ascend" merge-base --is-ancestor "$V3_EXPECTED_SHA" origin/dev/310p-memfabric-mm-ar
 test "$(git -C "$V3_RUN_ROOT/vllm-ascend" rev-parse HEAD)" = "$V3_EXPECTED_SHA"
 
 git clone --single-branch --branch fix/310p-v3-orch-deploy-helper-20261029 \
-  https://github.com/10wvw01/memfabric_hybrid.git "$V3_RUN_ROOT/memfabric-src"
+  git@github.com:10wvw01/memfabric_hybrid.git "$V3_RUN_ROOT/memfabric-src"
 git -C "$V3_RUN_ROOT/memfabric-src" checkout --detach db38d75e8485d31451302219eb7a1bfeb1dd107c
 test "$(git -C "$V3_RUN_ROOT/memfabric-src" rev-parse HEAD)" = \
   db38d75e8485d31451302219eb7a1bfeb1dd107c

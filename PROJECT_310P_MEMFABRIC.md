@@ -1,5 +1,7 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
+> **2026-10-30用户最新指令：后续直接在`dev/310p-memfabric-mm-ar`开发、修复、执行实机实验并归档。** 实验从主线固定完整SHA，使用隔离构建/结果目录；不再默认创建工作分支或等待PR合并才允许测试。G0、CPU合同、私有编译、短Smoke、正式性能及故障STOP要求继续有效。以下旧分支流转规定仅作历史背景，以本条为准。
+
 > **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-28（UTC+8）。
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
@@ -153,3 +155,11 @@ Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完�
 [V3版本索引](csrc/_310P/memfabric_mm_ar_v3/docs/VERSION_INDEX.md)共35份设计/诊断说明，保留旧名称与来源。
 [历史Host阶段数值与瓶颈证据边界](csrc/_310P/memfabric_mm_ar_v2/docs/L1_PERFORMANCE_EVIDENCE.md)。
 新框架CANN/NPU为NOT_RUN；历史二进制未匹配则阻止执行，不将注册或CPU通过写成实机GO。
+
+## 2026-10-30｜统一L1框架已纳入主线，后续直接在主线实机
+
+PR #23内容（1415d479）按用户最新指令直接纳入`dev/310p-memfabric-mm-ar`。
+后续开发、实机执行中的修复、实验数据和报告直接提交本主线，不再默认另起工作分支或等待PR合入。
+实验服务器使用SSH获取主线，核对并固定每轮完整SHA，保留隔离构建/结果目录和原始双Rank证据。
+详见[最新治理规则](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)。
+G0→CPU→私有编译/短Smoke→正式性能及故障STOP要求继续执行；新框架设备验证仍NOT_RUN。
