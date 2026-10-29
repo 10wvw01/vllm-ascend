@@ -30,8 +30,9 @@ class V32Session(V3Session):
         # Attribution only: set to a list to record per-wave host phase times.
         self.phase_log = None
         # Interface optimization Phase 1, default since the r3 A/B evidence
-        # (experiments/quick-20261029-v32a2-plan-a, section 41): one control
-        # allgather per wave. Set False to force the classic two-allgather path.
+        # (experiments/quick-20261029-v32a2-plan-a, console section 42): one
+        # control allgather per wave. Set False to force the classic
+        # two-allgather path.
         self.merged_wave = True
         p, u, q = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint64
         signatures = {
