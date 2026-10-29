@@ -396,3 +396,8 @@ Gather覆盖旧源严格晚于ADD读完，TP2不需要此前提出的额外半�
 不以该能力为前提，Core0在子MM边界pump；MemFabric需补公共非阻塞try_wait。
 600种CPU随机所有权交错通过，只证明抽象依赖/和值，不代表CANN/NPU或性能。
 新Kernel/API/输出适配未实现，不改Serving默认，不追加旧V2/Stock重测或独立设备归因轮。
+
+**2026-10-29接口约束追加**：MemFabric由其他团队维护。V3.2主方案A仅使用现有signal/wait/quiet，
+采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
+公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
+详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。

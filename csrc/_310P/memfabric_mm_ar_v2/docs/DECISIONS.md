@@ -208,3 +208,8 @@ TP2的ADD完成→Gather天然保护被覆盖源，否决不必要的额外半�
 不假设310P支持异步WaitIterateAll/GetTensorC，不照搬GPU warp/TMA。
 保持chunk512/1024/2048、八核MM、完整ND输出及既有数值标准。
 用户要求不新增独立归因设备轮，直接实现后验证完整链；新代码和性能均未验证。
+
+**2026-10-29接口约束追加**：MemFabric由其他团队维护。V3.2主方案A仅使用现有signal/wait/quiet，
+采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
+公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
+详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。

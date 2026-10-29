@@ -171,3 +171,8 @@ torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字
 不额外分配S。按各核整行带独立发布、Core0子MM边界pump与就绪范围合包，
 新增公共try_wait及具有Tensor生命周期的输出Storage。保留512/1024/2048及八核MM。
 新Kernel/API/输出适配未实现，600场CPU抽象交错不能代替设备正确性或性能。
+
+**2026-10-29接口约束追加**：MemFabric由其他团队维护。V3.2主方案A仅使用现有signal/wait/quiet，
+采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
+公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
+详见[V3.2排布推导](V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。

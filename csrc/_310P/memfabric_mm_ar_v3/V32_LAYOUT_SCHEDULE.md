@@ -96,29 +96,65 @@ FP16参考为round_fp16(round_fp16(local_MM)+round_fp16(peer_MM))，保持完整
 邮件校验epoch/slot_generation/phase/range/dst/len/status；bitmap拒绝重复ADD或重复完成。
 不对未确认是否执行的ADD重试，错误双Rank停止并保留现场。
 
-## 调度：不阻塞下一份独立工作
+## 主方案A：现有阻塞API，固定有序流水
 
-Core0唯一mail生产/消费；其他核仅写自己的64B隔离就绪单元。
-标志由生产核写完成后clean，Core0读取前invalidate；每个字段携带epoch，拒绝旧值。
-Core0在本核子MM之间以及本核MM完成后执行有界pump：
+MemFabric由其他团队负责；主方案不新增API、不改库、不假设提供异步收件。
+单Y布局、输出Storage生命周期、各核独立producer和完整数值合同保持不变。
+core1~7按自己的行带顺序继续后续MM，不参加每chunk反复的全核会合。
+Core0每到chunk g，先完成本核该chunk的MM，并确认该chunk本地各行带已发布就绪，
+保证接下来阻塞不会阻止本chunk任何必要本地数据的生成。工作核无需等Core0放行。
 
-- 消费已到邮件，先标记新完成的ADD/Gather；ADD完成即可产生Gather候选。
-- 扫描已完成owner行带并发布TARGET_READY。
-- 合并同时满足本地SOURCE_READY及远端TARGET_READY的连续片段，提交ADD。
-- 提交已完成Reduce的Gather；在有READY消息待发时不能因数据队列优先级而使其饿死。
-- 若无通信工作且本核有MM任务，则继续本核MM；其他核持续独立计算。
-- 所有本地MM完成后，pump直到本波发送、接收和结果状态全部闭合。
+两端严格使用同一发送顺序；每个阶段按固定地址顺序发完该组所有包，包数由几何唯一决定。
+以下R表示READY，D表示ADD Reduce，G表示COPY Gather：
 
-底层是单SDMA FIFO，ADD和Gather不声称在同一队列内同时执行。
-先提交早已可用的任务以填满传输队列，不能把大批晚片段ADD全部排在最早Gather之前。
-每轮限制发送批次，采用老片段优先及READY公平调度。
+```text
+for g = 0 .. chunks-1:
+    完成本地chunk g的必要MM及写出可见性
+    send R(g)
+    if g >= 2: receive G(g-2)
+    if g >= 1:
+        receive D(g-1)
+        send G(g-1)
+    receive R(g)
+    send D(g)
 
-需要在MemFabric独立工作分支新增公共smem_shm_sdma_try_wait_at：
-EMPTY时立即返回、不推进head；READY时消费恰好一封；溢出/错误保持原有语义。
-算子只调用公开接口。没有try_wait时，不能用阻塞wait假装pump可随时返回MM。
-signal仍可能背压，限制本波在途量并由库公开合同核定上限，不使用私有槽数假设。
+if chunks >= 2: receive G(chunks-2)
+receive D(chunks-1)
+send G(chunks-1)
+receive G(chunks-1)
+final quiet + DONE + 输出完成
+```
 
-## 为什么不能每个小tile一封消息
+其中receive是调用现有wait_at接收预期包数，每封严格核对epoch/phase/chunk/packet/dst/len。
+chunks=1也有完整排空路径，不构造不存在的负序号。
+
+发送FIFO为`R0,D0,R1,G0,D1,R2,G1,D2,...,Glast`。
+因此g>=2时未收邮件的顺序恰好是`G(g-2),D(g-1),R(g)`，与上述阻塞收件顺序一致。
+双方均先发本轮R；等待D(g-1)前，D(g-1)已经由双方上一轮提交；
+等待G(g-2)前，G(g-2)已在上一轮D(g-2)收齐后提交。因此没有互相等未发任务的循环。
+
+G(g-1)在提交D(g)之前入队，可与后续MM及队列传输交叠。
+不声称Core0阻塞MM期间能处理邮件，也不声称单SDMA FIFO的两项数据任务能同时执行。
+这是协议顺序约束换取兼容性，允许head-of-line等待，但不依赖额外MemFabric能力。
+相较异步方案，主方案仍保留Core0对本chunk本地就绪的汇总等待；不能把它称为逐tile完全自驱。
+主要收益来源为单Y去最终copy、减少反复全核会合和确定的Gather提前提交。
+
+本地验证了1/2/4/8个chunk×256种随机rank/网络进度，共1024场FIFO协议调度，
+全部按预期收件且完整排空。这不是CANN/NPU正确性或吞吐证明。
+
+## 备选方案B：团队提供公共try_wait后，逐片段自驱
+
+仅在上游明确提供并完成接口合同审核后启用，不作为A的交付依赖。
+Core0在子MM边界pump已到消息与本地行带标志，owner行带可独立发TARGET_READY，
+本地SOURCE_READY及远端TARGET_READY成立即可发ADD，ADD完成即可发Gather。
+仍保留唯一mail消费者、合法交错分发、就绪范围合包和无饿死调度。
+
+期望的公共try_wait：EMPTY立即返回且不推进head；有邮件时消费一封；保留错误/溢出语义。
+不读取私有环、不缩短阻塞wait预算伪造轮询、不用TIMEOUT替代EMPTY；不另开第二个收件核。
+A/B在会话启动前固定协议模式，双方交换并验证一致；一波中不切换顺序，不能混用两套消息流。
+B提供更细推进的潜力，也增加小消息和状态机开销，不能默认比A快。
+
+## 备选B的范围合包；A保持固定分包
 
 库内每封signal仍有数据/到达戳/完成戳SQE及游标维护，小片段越多越可能损失收益。
 行带是就绪和正确性单位，传输范围可合并：仅合并两端连续Y地址、同owner且全已就绪的片段。
@@ -158,12 +194,12 @@ MM每Rank写Y一份，逻辑结果存储每活跃槽为一份；多输出槽、�
 
 仍不能数学证明快于V2：控制消息、Core0 pump开销及MM受扰动可能抵消copy节省。
 但这是围绕inlineReduce和最终结果落点的完整数据流重构，不是继续堆叠V2后处理流水。
-所有新Kernel、try_wait和输出适配均未实现，性能UNKNOWN。
+A/B新Kernel及输出适配均未实现；B的公共接口也未获上游承诺，性能UNKNOWN。
 
 ## 实施边界与验收
 
-两个我方仓库：vllm-ascend实现单Y输出槽布局、独立producer、Core0 scheduler、Tensor槽与门禁；
-MemFabric修复分支仅增加公共非阻塞收件及必要合同测试，不改ADD SQE/KVER或现有部署助手。
+两个我方仓库：vllm-ascend实现单Y输出槽布局、独立producer、Core0固定顺序调度、Tensor槽与门禁；
+A沿用现有MemFabric锁定版本；B须由负责团队提供公共非阻塞收件并验收，不擅自修改其私有协议。
 保持旧接口可用，保存V3.1原始证据，新路径显式选择，不启Serving默认。
 实现完成后直接进行输出持有/别名/连续波、各种chunk、数值与协议门禁及完整性能短测，
 不加独立设备归因轮，不重跑V2/Stock。继续以完整ND可消费输出为终点，报告pool-return和out-copy差别。
