@@ -85,19 +85,23 @@ int BindStream(mf310p_v3_context* s, void* raw)
     s->stream = stream;
     return 0;
 }
+bool IsA3(uint32_t p) { return p == 3302 || p == 3303 || p == 3304; }
 int LaunchA3(mf310p_v3_context* s, uint64_t x, uint64_t w, uint32_t rows, uint32_t compute,
              uint32_t comm, uint32_t mode, uint32_t slot, uint32_t admit, uint32_t enabled)
 {
+    // Public admit remains boolean; role is only encoded on the private device ABI.
+    const uint32_t role = s->protocol == 3303 ? 1u : s->protocol == 3304 ? 2u : 0u;
     return mf310p_a3_device_run(s->gva, x, w, s->work + slot * kArenaBytes,
         s->work + kA3SourceOff, s->peer + slot * kArenaBytes,
         reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
         s->work + kA3CtrlOff, s->peer + kA3CtrlOff + 64,
         s->expectedWork + slot * kArenaBytes, s->expectedWork + kA3CtrlOff + 64,
-        rows, compute, comm, s->rank, s->epoch ? s->epoch : 1, s->packet, mode, slot, admit, enabled, s->stream);
+        rows, compute, comm, s->rank, s->epoch ? s->epoch : 1, s->packet, mode, slot,
+        admit | (role << 1), enabled, s->stream);
 }
 bool A3Shape(mf310p_v3_context* s, uint32_t rows, uint32_t compute, uint32_t comm, uint32_t mode)
 {
-    return s->protocol == kA3Protocol && s->ibReady && s->a3Warmed && mode <= 1 &&
+    return IsA3(s->protocol) && s->ibReady && s->a3Warmed && mode <= 1 &&
         (compute == 512 || compute == 1024) && (comm == 512 || comm == 1024 || comm == 2048) &&
         ShapeValid(rows, compute) && rows % comm == 0 && PacketCount(comm * kRowBytes, s->packet) <= 64;
 }
@@ -216,6 +220,10 @@ extern "C" int mf310p_v32_create(int rank, const char* url, uint32_t packet, mf3
 { return Create(rank, url, packet, kPlanAProtocol, out); }
 extern "C" int mf310p_a3_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
 { return Create(rank, url, packet, kA3Protocol, out); }
+extern "C" int mf310p_a3_2_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
+{ return Create(rank, url, packet, 3303, out); }
+extern "C" int mf310p_a3_tail_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
+{ return Create(rank, url, packet, 3304, out); }
 extern "C" int mf310p_v3_ib_probe(mf310p_v3_context* s, uint32_t reps, void* raw)
 {
     int rc = BindStream(s, raw);
@@ -433,7 +441,7 @@ extern "C" int mf310p_a3_warm(mf310p_v3_context* s, void* raw)
 {
     int rc = BindStream(s, raw);
     if (rc) return rc;
-    if (s->protocol != kA3Protocol || !s->ibReady || s->poolMode) return -30;
+    if (!IsA3(s->protocol) || !s->ibReady || s->poolMode) return -30;
     if (s->a3Warmed) return 0;
     for (uint32_t slot = 0; slot < 2 && !rc; ++slot)
         for (uint32_t compute : {512u, 1024u}) for (uint32_t mode = 0; mode < 2; ++mode)
@@ -487,7 +495,7 @@ extern "C" int mf310p_v3_destroy(mf310p_v3_context* s)
 {
     if (!s) return 0;
     if (s->failed) return Error("failed session: preserve evidence, do not destroy/retry", -27);
-    if ((s->protocol == kPlanAProtocol || s->protocol == kA3Protocol) && s->ibReady) {
+    if ((s->protocol == kPlanAProtocol || IsA3(s->protocol)) && s->ibReady) {
         std::lock_guard<std::mutex> guard(s->leasesMutex);
         bool held = false;
         for (auto lease : s->leases) held |= lease != 0;

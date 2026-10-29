@@ -32,6 +32,8 @@ int mf310p_v32_run(mf310p_v3_context*, uint64_t x, uint64_t weight_nz, uint32_t 
     uint32_t group, uint32_t mode, uint32_t slot, uint32_t generation, void* stream);
 // A3: cold warm is collective; hot reserve/run are local and asynchronous.
 int mf310p_a3_create(int rank, const char*, uint32_t packet, mf310p_v3_context**);
+int mf310p_a3_2_create(int rank, const char*, uint32_t packet, mf310p_v3_context**);
+int mf310p_a3_tail_create(int rank, const char*, uint32_t packet, mf310p_v3_context**);
 int mf310p_a3_warm(mf310p_v3_context*, void* stream);
 int mf310p_a3_reserve(mf310p_v3_context*, uint32_t rows, uint32_t compute, uint32_t comm,
     uint32_t mode, void* stream, uint32_t* slot, uint32_t* generation, uint64_t* address);

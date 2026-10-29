@@ -83,7 +83,10 @@ def test_enabled_records_one_entry_with_all_phases(session):
     assert set(entry) == {"acquire_us", "wrap_us", "prepare_us", "run_us", "enqueue_us", "fallback"}
     assert entry["fallback"] is False
     assert all(isinstance(v, float) and v >= 0 for k, v in entry.items() if k != "fallback")
-    assert entry["enqueue_us"] >= sum(entry[k] for k in ("acquire_us", "wrap_us", "prepare_us", "run_us"))
+    # Contiguous integer-ns intervals telescope; float conversion may round their sum up.
+    assert entry["enqueue_us"] == pytest.approx(
+        sum(entry[k] for k in ("acquire_us", "wrap_us", "prepare_us", "run_us")), abs=1e-9
+    )
 
 
 def test_busy_acquire_records_nothing(session):

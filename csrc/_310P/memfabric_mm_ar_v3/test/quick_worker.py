@@ -76,6 +76,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--plan-a", action="store_true")
     p.add_argument("--a3", action="store_true")
+    p.add_argument("--compute-rows", type=int, choices=[512, 1024], default=1024)
+    p.add_argument("--a3-variant", choices=["a3", "a3-2", "a3-tail"], default="a3")
     p.add_argument("--manifest", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--run-id", required=True)
@@ -212,10 +214,15 @@ def main():
                 Session = A3Session
             else:
                 Session = V32Session
-            session = Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes, tensor_module=module)
+            options = {"variant": a.a3_variant} if a.a3 else {}
+            session = Session(
+                manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes, tensor_module=module, **options
+            )
             config["path"] = "A3_DIRECT_ADD" if a.a3 else "V32_PLAN_A_POOL_RETURN"
             if a.a3:
-                config["compute_rows"] = 1024
+                config["compute_rows"] = a.compute_rows
+                config["mm_tile_rows"] = a.compute_rows // 8
+                config["variant"] = a.a3_variant
         else:
             session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
         data["loaded_libraries"] = loaded_identity(manifest)

@@ -5,8 +5,13 @@ import importlib.util
 import subprocess
 from pathlib import Path
 
+import pytest
 
-def test_actual_a3_host_no_hot_sync_or_collective(tmp_path):
+
+@pytest.mark.parametrize(
+    "creator,role", [("mf310p_a3_create", 0), ("mf310p_a3_2_create", 1), ("mf310p_a3_tail_create", 2)]
+)
+def test_actual_a3_host_no_hot_sync_or_collective(tmp_path, creator, role):
     path = Path(__file__).with_name("test_v32_host.py")
     spec = importlib.util.spec_from_file_location("a3_host_platform", path)
     helper = importlib.util.module_from_spec(spec)
@@ -64,6 +69,12 @@ assert(lastAdmit==0&&s->failed&&a3Launches==3);
 assert(sync==syncCalls&&ctl==controlCalls&&clears==asyncClears);
 assert(mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr)==-27);delete s;}
 """
+    )
+    source.write_text(
+        source.read_text()
+        .replace("mf310p_a3_create(0", creator + "(0")
+        .replace("assert(lastAdmit==1)", f"assert(lastAdmit=={1 | role << 1})")
+        .replace("assert(lastAdmit==0&&", f"assert(lastAdmit=={role << 1}&&")
     )
     binary = tmp_path / "a3_host"
     subprocess.run(["g++", "-std=c++17", "-pthread", f"-I{tmp_path}", str(source), "-o", str(binary)], check=True)

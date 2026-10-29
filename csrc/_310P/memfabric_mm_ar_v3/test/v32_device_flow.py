@@ -28,7 +28,8 @@ def run_flow(
 ):
     def run(x, weight_nz=None, *, group, partial=False, compute_rows=None):
         if getattr(a, "a3", False):
-            compute = compute_rows or (1024 if x.shape[0] % 1024 == 0 else 512)
+            preferred = getattr(a, "compute_rows", 1024)
+            compute = compute_rows or (preferred if x.shape[0] % preferred == 0 else 512)
             return session.run_pool(x, weight_nz, compute_rows=compute, comm_rows=group, partial=partial)
         return session.run_pool(x, weight_nz, group=group, partial=partial)
 

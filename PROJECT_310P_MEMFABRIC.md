@@ -4,6 +4,12 @@
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
+## A3-2 / A3-tail新候选：同批对照待实机
+
+新增7核MM+Core0专职通信与Core0末尾席位实现，保留原A3首READY版为同批基线。
+S/Y按ND完整行连续，NZ为权重格式。[设计与八会话执行入口](csrc/_310P/memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+当前设备编译/正确性/性能NOT_RUN；不启用Serving，MemFabric依赖不变。
+
 ## 2026-10-29｜V3.2方案A2服务器准入与短测完成：正确性全过，性能仍不过
 
 OpenCode按[执行单](csrc/_310P/memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)在38144双Die独占窗口完成A2一次性验证，

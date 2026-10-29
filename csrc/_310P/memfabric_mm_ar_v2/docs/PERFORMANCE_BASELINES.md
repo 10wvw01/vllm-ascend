@@ -224,3 +224,11 @@ A3完整计时包括本地资源/Storage、完成事件提交、设备START、NZ
 profile3302减少一封正常控制消息、计算前跨Rank等待、本地fan-out和独立ACL memset任务。
 首READY由8B扩为64B携带必要校验；其余数据、seed、事件及最终排空全部计入完整窗口。
 实际节省微秒数未测量，不承诺收益；新设备编译/门禁/性能NOT_RUN。
+
+
+## A3-2/A3-tail候选：无新设备数值
+
+同批原A3前/七核专职/末尾席位/原A3后，各64/128行MM一组，共八会话。
+维持完整pool-return窗口、双Rank配对max及Host Wall；每臂跨轮和A3前后漂移>5%不签稳定收益。
+历史Stock仍只作跨批方向比较，不重跑旧性能臂；当前设备编译/数值/性能全部NOT_RUN。
+详见[席位设计和执行合同](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。

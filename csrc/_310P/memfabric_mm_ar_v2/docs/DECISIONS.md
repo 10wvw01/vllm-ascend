@@ -247,3 +247,13 @@ profile3301禁止旧协议混用；输入事件query回收；跨流/Graph不在�
 正常MM无需先等peer，首READY严格校验前不得提交任何ADD。失败端不覆盖S/Y，错误通知先送出再Trap。
 取消初始fan-out和独立ACL状态清零任务；保留数据完成及输出生命周期所需操作。
 profile3302替代3301。核内清状态不改变错误终止合同，成功普通路径不增加quiet或Host同步。
+
+
+## ADR-031｜七核专职通信与Core0末尾席位同批评估
+
+保留原A3 profile3302，新增A3-2/3303与A3-tail/3304独立会话候选。
+连续通信范围为ND输出完整行；每MM座位独占S行并完成seed后发布epoch。
+Core0末尾候选必须先生产被当前批次覆盖的自有行，避免等待自身；不宣称完全无阻塞。
+7核负载取整可能显著增加最忙核工作，因此两种64/128行MM粒度均同批前后A3对照。
+既有首READY/ADD/最终排空/输出租约不变，不修改MemFabric，不增加Host热态同步。
+新设备编译与性能NOT_RUN，见[A3_SEAT_SCHEDULE](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。

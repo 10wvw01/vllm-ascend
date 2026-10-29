@@ -134,6 +134,8 @@ def run(a):
             if not tensor or sha(tensor["path"]) != tensor["sha256"]:
                 raise ValueError("build/freeze the V3.2 Tensor adapter before device admission")
             command.append("--a3" if a.a3 else "--plan-a")
+            if a.a3:
+                command.extend(["--a3-variant", a.a3_variant, "--compute-rows", str(a.compute_rows)])
         result["device_test"] = "STARTED"
         ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
         result["exit_code"] = ret
@@ -176,6 +178,8 @@ def main():
         cmd = sub.add_parser(name)
         cmd.add_argument("--plan-a", action="store_true")
         cmd.add_argument("--a3", action="store_true")
+        cmd.add_argument("--compute-rows", type=int, choices=[512, 1024], default=1024)
+        cmd.add_argument("--a3-variant", choices=["a3", "a3-2", "a3-tail"], default="a3")
         cmd.add_argument("--manifest", required=True, type=Path)
         cmd.add_argument("--out", required=True, type=Path)
         cmd.add_argument("--card", required=True, type=int)

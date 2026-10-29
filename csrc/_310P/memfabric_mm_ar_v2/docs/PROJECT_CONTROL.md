@@ -489,3 +489,14 @@ merged默认翻转见后续提交；L2内核分段仍未做，需另行授权。
 profile3302拒绝与3301混用，源码/设计/准入单及实际协议故障回归同步更新。
 保留现有数据可见性、READY、精确完成、最终quiet/DONE及租约/事件；没有借减开销删除数据依赖。
 新CANN/设备门禁及性能NOT_RUN；不改A2 merged-wave实现或历史实验证据。
+
+
+## 42. A3-2专职通信与A3-tail末尾席位候选（设备NOT_RUN）
+
+以A3首READY版970a0c414e9786b9106f7032e6c5da6ffd0ea978为基底，原3302保持对照；
+新增3303七核MM+Core0专职通信、3304 Core0计算末尾席位。S/Y ND连续行、NZ只描述权重。
+详见[A3席位设计/同批执行](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+同批包含两种MM粒度下各A3前/七核/末尾/A3后，共八会话；沿用六门禁及失败STOP。
+不逐chunk等源回收，不增加正常Host同步/集合/清零任务；每座位发布缓存行状态有真实开销。
+MemFabric仍锁db38d75e，主线核对54d5518d；工作仅落自有V3短分支，不自动合主线或启用Serving。
+本地CPU/源码验证后交服务器私有编译和门禁，CANN/NPU/新性能NOT_RUN。无新模型/TTFT/Graph测试。

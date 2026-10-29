@@ -194,3 +194,10 @@ torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字
 显式A3Session.run_pool(compute_rows=1024, comm_rows=512/1024/2048)，
 initialize为一次性冷路径；完整S、租约Y、首READY参数校验、NZ MM+显式seed+Direct ADD，最终quiet/DONE。
 `tools/quick.py start --a3`运行新门禁与六配置；不与--plan-a混用。设备编译/性能仍NOT_RUN。
+
+
+## A3-2与A3-tail同批候选
+
+新增profile3303七核计算/专职通信、3304 Core0末尾计算，原3302保留。
+布局、风险、两轮审核与八会话执行入口见[A3_SEAT_SCHEDULE](A3_SEAT_SCHEDULE.md)。
+新增设备编译与实测NOT_RUN；原六门禁逐候选通过后才短测，不签设备GO。

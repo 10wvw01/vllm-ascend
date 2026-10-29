@@ -19,7 +19,12 @@ class A3Session(V3Session):
     _create_symbol = "mf310p_a3_create"
     MAX_PENDING = 64
 
-    def __init__(self, *args, tensor_module, **kwargs):
+    def __init__(self, *args, tensor_module, variant="a3", **kwargs):
+        symbols = {"a3": "mf310p_a3_create", "a3-2": "mf310p_a3_2_create", "a3-tail": "mf310p_a3_tail_create"}
+        if variant not in symbols:
+            raise ValueError("unknown A3 variant")
+        self.variant = variant
+        self._create_symbol = symbols[variant]
         super().__init__(*args, **kwargs)
         self.tensor_module = tensor_module
         self.initialized = False
