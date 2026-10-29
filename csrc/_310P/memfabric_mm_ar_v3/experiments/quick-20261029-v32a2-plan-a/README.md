@@ -191,3 +191,4 @@ python csrc/_310P/memfabric_mm_ar_v3/tools/quick.py status --out <fresh-result-d
 | 失败轮 B1（ACL include） | `r1-tensor-include-stop/` |
 | 失败轮 B2（SetDesc 未导出） | `r2-tensor-setdesc-stop/` |
 | 环境/健康/前后 npu-smi | `env/` |
+| 性能瓶颈可视化分析（5图，纯SVG自包含） | `bottleneck_analysis.html`（`gen_bottleneck_html.py` 生成） |
