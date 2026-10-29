@@ -2,8 +2,8 @@
   "schema": "MF_PROJECT_CONSOLIDATION_V1",
   "date": "2026-10-30",
   "mainline_before": "54d5518d486c638b3707b08064eac5f6fc7a50ee",
-  "latest_v3": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
-  "blob_count": 4862,
+  "latest_v3": "b34901ba6d031e46386cbe5f1e7b07e813ac87ba",
+  "blob_count": 4873,
   "history_store": "csrc/_310P/memfabric_history/blobs/{sha_first_hex}/{git_blob_sha}",
   "default_policy": "Existing V1/V2/Serving/build files retained from latest V3 descendant of mainline. Legacy same-path versions are immutable snapshots, never auto-activated.",
   "canonical_addition_count": 6040,
@@ -298,9 +298,16 @@
     },
     {
       "branch": "work/310p-mm-ar-v3-sdma-add-20261029",
-      "head": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
-      "snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029.json.gz",
-      "file_count": 1447
+      "head": "b34901ba6d031e46386cbe5f1e7b07e813ac87ba",
+      "snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029__20261030_b34901ba.json.gz",
+      "file_count": 1457,
+      "previous_snapshots": [
+        {
+          "head": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
+          "snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029.json.gz",
+          "file_count": 1447
+        }
+      ]
     },
     {
       "branch": "work/310p-r1b-evidence-archive-20261025",
@@ -331,6 +338,13 @@
       "head": "3e97ded6f7c6923561cb13f158e87adbe6323adb",
       "snapshot": "snapshots/work__310p-v2-triton-free-gate-20261025.json.gz",
       "file_count": 536
+    }
+  ],
+  "incremental_archives": [
+    {
+      "head": "b34901ba6d031e46386cbe5f1e7b07e813ac87ba",
+      "record": "INCREMENTAL_ARCHIVES.json",
+      "date": "2026-10-30"
     }
   ]
 }

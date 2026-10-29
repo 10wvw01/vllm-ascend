@@ -63,3 +63,13 @@ V2全部当前测试（含perf/g3工具测试）、V3测试、项目治理及快
 另36个subtest PASS。新恢复工具Ruff通过；项目入口/增量台账检查及保护文件SHA核对另见审计记录。
 旧源码、历史报告和实验数据按原SHA保留，不批量重格式化。全仓format.sh ci若环境缺少
 pre-commit则未完成（本次实际未安装）；本轮不把CPU通过冒充CANN、设备或发布GO。
+
+
+## 2026-10-30增量归档：A3管线Profiler证据
+
+V3工作分支新增b34901ba（基于d59fec7d）已纳入主线：6份Rank CSV、索引、两份采集脚本、
+归因摘要及实验README更新，合计11个文件。原始内容按Git blob逐项核对，未改写。
+来源及文件校验见[增量记录](INCREMENTAL_ARCHIVES.json)。manifest中的V3入口指向新完整快照，
+旧d59fec7d快照仍保留在previous_snapshots；上方30987/4862与INTEGRATION_AUDIT.json为首次整合统计。
+归档保留原报告结论，不把管线计数升级为互斥阶段时长或新的性能GO。
+本次只归档已存在证据，暂停中的L1统一框架/版本文档草稿未合入，也未执行新实机实验。

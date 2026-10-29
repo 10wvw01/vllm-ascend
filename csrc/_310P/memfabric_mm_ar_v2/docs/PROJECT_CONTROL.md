@@ -550,3 +550,14 @@ NZ-aware U1工具、测试、原始实验与数据；冲突及废止实现按原
 历史源码特定的五个测试文件与废止R2计划归入legacy，匹配源分支可完整恢复；未删除原件。
 407 CPU测试及36 subtest通过；无CANN/设备新实验、无生产启用、无外部仓库或SDK变更。
 所有源分支保留；本轮不删除分支、不强推、不以归档恢复算法推进。
+
+
+## 2026-10-30｜V3新Profiler证据增量归档
+
+按用户要求，将work/310p-mm-ar-v3-sdma-add-20261029的新提交
+b34901ba6d031e46386cbe5f1e7b07e813ac87ba合入主线（上次已归档d59fec7d）。
+新增A3/A3-2/A3-tail硬件Profiler的6份CSV、采集脚本、索引和摘要；原始文件不重编码。
+[原报告](../../memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/README.md)、
+[增量来源和校验](../../memfabric_history/INCREMENTAL_ARCHIVES.json)。
+主线原始整合历史与旧快照保留。仅归档，不改变算子/协议/Serving；
+用户已暂停的统一L1框架和版本文档工作继续暂停，未混入其未提交草稿。

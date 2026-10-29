@@ -77,3 +77,26 @@ $V3_PY csrc/_310P/memfabric_mm_ar_v3/tools/unified_campaign.py start \
   --manifest <v3-build-r7>/manifest.json --out <新目录> --card 16384 --devices 2,3 --allow-shared-card
 $V3_PY csrc/_310P/memfabric_mm_ar_v3/tools/unified_campaign.py status --out <该目录>
 ```
+
+## 追加：A3 管线级硬件归因（用户授权 Profiler 采集，2026-10-29 晚）
+
+用户单独授权 msprof/硬件 Profiler 采集。用 `torch_npu.profiler` + `_ExperimentalConfig(Level1, AiCMetrics.PipeUtilization)`
+对三 A3 变体（cr1024）各 3×comm×2M×10 样本独立采集（守护器共享模式，独立会话）。数据与脚本：`pipe-profiler/`。
+
+**管线占比（aicore_time 归一，管线并发重叠，不可相加）——c1024/M2048 中位：**
+
+| 变体 | kernel 时长 | mac(MM) | scalar(等待/协议) | mte2(拷贝/轮询缓存) | mte1(装数) | vec | cube_util |
+|---|---|---|---|---|---|---|---|
+| a3 | ~1200µs | **229µs (21%)** | **728µs (69–73%)** | 803µs (73%) | 146µs | 51µs | 91% |
+| a3-2 | ~1319µs | 229µs (19%) | 913µs (75%) | 849µs (70%) | 146µs | 51µs | 92% |
+| a3-tail | ~1501µs | 229µs (17%) | 1081µs (78%) | 1015µs (73%) | 146µs | 51µs | 92% |
+
+**结论：**
+1. **MM 不是瓶颈也不是变体差异来源**：三变体 mac_time 完全一致（229µs/M2048，460µs/M4096，×2 精确缩放）；cube_utilization 91–92%，候选 tiling 本身高效。
+2. **scalar 管线（就绪等待+协议轮询+提交循环）是主导与差异来源**：a3 728 < a3-2 913 < a3-tail 1081µs；增量 +185/+353µs 与批次 wall 差（+157/+353µs）吻合——**变体排名几乎 100% 由等待/协议开销解释**，否定了"A3-2 损失 MM 吞吐"假说（mac 不变）。
+3. **MTE2 稳定 ~70–73%**：seed/输出拷贝与轮询缓存操作混合，无法进一步分离（相位缺失）。
+4. M2048→M4096：mac/mte1 ×2.0，scalar ×1.5，mte2 ×1.7——更大 M 摊薄等待，与 M4096 更接近 Stock 一致。
+5. **SDMA 跨 Die 链路占用仍未测得**（本 Profiler 级无 AICPU/orch 任务明细）；核内相位墙钟仍不可得。
+6. 优化指向：等待/协议路径的优化空间（~700–1100µs scalar）是 MM 路径（≤229µs）的 3–4 倍。
+
+方法学提醒：kernel Duration（Profiler 开启）与批次 Event−空档吻合（~1200 vs 1388−~180µs），扰动可接受；占比为管线重叠口径，不代表互斥时间分段。

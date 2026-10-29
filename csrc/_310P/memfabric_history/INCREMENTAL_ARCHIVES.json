@@ -1,0 +1,112 @@
+{
+  "schema": "MF_INCREMENTAL_ARCHIVES_V1",
+  "records": [
+    {
+      "date": "2026-10-30",
+      "mainline_before": "ece910bf4725175446363bcbe153471e993500ee",
+      "source_branch": "work/310p-mm-ar-v3-sdma-add-20261029",
+      "source_base": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
+      "source_head": "b34901ba6d031e46386cbe5f1e7b07e813ac87ba",
+      "source_commits": [
+        "b34901ba6d031e46386cbe5f1e7b07e813ac87ba"
+      ],
+      "changed_files": [
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/README.md",
+          "mode": "100644",
+          "git_blob_sha": "b95e4116d6841f4c1d4ba7f2422e8d3c4c9be0cc",
+          "bytes": 7625
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3-2_cr1024_rank0.csv",
+          "mode": "100644",
+          "git_blob_sha": "c7176e59625381ec43d624837661a9b3bb205235",
+          "bytes": 15328,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3-2_cr1024_rank1.csv",
+          "mode": "100644",
+          "git_blob_sha": "7781808c3c16e547e0efd277adb96a28be831684",
+          "bytes": 15341,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3-tail_cr1024_rank0.csv",
+          "mode": "100644",
+          "git_blob_sha": "ec9a7b6cd3e0354a8c946980bda77766955412b6",
+          "bytes": 15349,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3-tail_cr1024_rank1.csv",
+          "mode": "100644",
+          "git_blob_sha": "f7c7c73d0e5082a13154c1b1112b13ad5eed4b64",
+          "bytes": 15342,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3_cr1024_rank0.csv",
+          "mode": "100644",
+          "git_blob_sha": "8317b0bafc1c42e32d5621c1d33175262f726933",
+          "bytes": 14984,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_a3_cr1024_rank1.csv",
+          "mode": "100644",
+          "git_blob_sha": "e903a2df3caec8ab38f25565612a1297806d745a",
+          "bytes": 15007,
+          "csv_rows": 40,
+          "csv_columns": 36
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/kernel_details_index.txt",
+          "mode": "100644",
+          "git_blob_sha": "bc66e0091ea82aa97d0e5a87368652b458a9ef98",
+          "bytes": 2040
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/launch_probe.py",
+          "mode": "100644",
+          "git_blob_sha": "9bdb5fb12839294ee5c07cee93c14910a53f19af",
+          "bytes": 1660
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/pipe_attribution_summary.txt",
+          "mode": "100644",
+          "git_blob_sha": "66aa7ad45fce92d13e2a4b76ef4837585fa3a028",
+          "bytes": 3773
+        },
+        {
+          "path": "csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/pipe-profiler/probe_a3_prof.py",
+          "mode": "100644",
+          "git_blob_sha": "da9c60261321490bab1d0ad2364a006575c72770",
+          "bytes": 5951
+        }
+      ],
+      "added_history_blobs": 11,
+      "previous_snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029.json.gz",
+      "snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029__20261030_b34901ba.json.gz",
+      "scope": "Archive existing profiler evidence only. Paused L1 framework drafts excluded; no runtime/kernel changes.",
+      "evidence_status": "Original source claims preserved, no new causal attribution or performance GO asserted by archiving.",
+      "validation": {
+        "project_static_and_changed_paths_gate": "PASS",
+        "governance_and_restore_unit_tests": "40 passed",
+        "source_file_blob_identity": "11/11 PASS",
+        "full_snapshot_source_mapping": "1457/1457 PASS",
+        "snapshot_restore": "1457 files restored with Git blob checks",
+        "new_probe_python_syntax": "2/2 PASS",
+        "new_metadata_diff_check": "PASS",
+        "repository_format_ci": "NOT_RUN: pre-commit is not installed",
+        "npu_or_cann_execution": "NOT_RUN (archive-only)",
+        "paused_l1_drafts": "excluded"
+      }
+    }
+  ]
+}

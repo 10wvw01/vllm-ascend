@@ -249,3 +249,12 @@ profile3302减少一封正常控制消息、计算前跨Rank等待、本地fan-o
 索引见[整合清单](../../memfabric_history/manifest.json)。算法及实机推进已按用户要求暂停。
 最新共享卡统一计时报告的摘要应结合配对JSON阅读：原A3对A3-2实际9/12配置更快，
 Host打点存在约+6.3%个例；本整合不重算或替换原始数据，也不签正式稳定收益GO。
+
+
+## 2026-10-30｜A3管线Profiler原始证据归档（b34901ba）
+
+新增来源为用户现场授权采集后提交的A3管线计数，包含双Rank CSV与脚本；
+[原始报告及数据](../../memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1/README.md)。
+本次只保全原文与原始数据，不重算、修订或升级其因果结论。管线计数存在并发重叠，
+不能由归档本身证明MM/seed/wait的互斥墙钟占比，也不改变共享卡、未测SDMA及非发布GO限制。
+版本与逐文件Git blob校验见[增量记录](../../memfabric_history/INCREMENTAL_ARCHIVES.json)。
