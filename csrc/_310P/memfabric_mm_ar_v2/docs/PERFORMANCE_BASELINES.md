@@ -205,3 +205,9 @@ E4 attempt2 `attempt2_e4_screen_summary.json`及本表R2 D4 Screen记录，保�
 Kernel和最终完成；保留Host Wall与配对Rank max分位数。不将无末尾copy的结果冒充旧out接口收益。
 CANN/Storage/设备门禁及性能NOT_RUN；继续复用历史V3.1、V2 E3-G及真实NZ Stock，
 不重跑旧性能臂，不增加独立归因轮。[准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+
+## 方案A2修复：无新增实机数据
+
+新增Storage-ready prepare Host allgather，计入pool-return事件窗口及Host Wall，
+不得从完整性能口径中删除。引用回收/关闭一致性是可靠性修复，不宣称加速；
+历史基线不变，新增设备性能NOT_RUN。

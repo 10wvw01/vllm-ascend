@@ -32,12 +32,31 @@ struct mf310p_v3_context {
     std::mutex leasesMutex;
     std::array<uint32_t, 2> leases{};
     std::array<uint32_t, 2> generations{}, slotRows{}, slotGroups{}, slotModes{};
-    bool poolMode = false, legacyRun = false;
+    bool poolMode = false, legacyRun = false, failed = false;
     std::array<bool, 16> poolWarmed{};
 };
 
 namespace {
 using namespace mfv3;
+constexpr uint32_t kPlanAProtocol = 3202;
+enum ControlOp : uint32_t { ACQUIRE_SLOT = 1, PREPARE_WAVE = 2, CLOSE_SESSION = 3 };
+struct ControlInfo {
+    uint32_t op, protocol, epoch, flags, rows, group, mode, slot, generation;
+};
+// Identical envelope size for every collective prevents acquire/close/prepare
+// mismatches from accidentally being interpreted as another control operation.
+int Exchange(mf310p_v3_context* s, const ControlInfo& mine, std::array<ControlInfo, 2>& peers)
+{
+    int rc = smem_shm_control_allgather(s->pool, reinterpret_cast<const char*>(&mine), sizeof(mine),
+                                      reinterpret_cast<char*>(peers.data()), sizeof(peers));
+    if (!rc) for (const auto& p : peers) {
+        if (p.op != mine.op || p.protocol != mine.protocol || p.epoch != mine.epoch ||
+            p.rows != mine.rows || p.group != mine.group || p.mode != mine.mode ||
+            p.slot != mine.slot || p.generation != mine.generation) { rc = -22; break; }
+    }
+    if (rc) s->failed = true;
+    return rc;
+}
 int Error(const char* op, int rc)
 {
     if (rc) std::fprintf(stderr, "[mf310p-v3] %s failed rc=%d\n", op, rc);
@@ -46,6 +65,7 @@ int Error(const char* op, int rc)
 int BindStream(mf310p_v3_context* s, void* raw)
 {
     if (!s || !raw) return Error("null context/stream", -1);
+    if (s->failed) return Error("failed session; no further device operations", -27);
     int32_t device = -1;
     const int rc = aclrtGetDevice(&device);
     if (rc || device != s->device) return Error("owning device mismatch", rc ? rc : -2);
@@ -165,7 +185,7 @@ static int Create(int rank, const char* url, uint32_t packet, uint32_t protocol,
 extern "C" int mf310p_v3_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
 { return Create(rank, url, packet, 31, out); }
 extern "C" int mf310p_v32_create(int rank, const char* url, uint32_t packet, mf310p_v3_context** out)
-{ return Create(rank, url, packet, 32, out); }
+{ return Create(rank, url, packet, kPlanAProtocol, out); }
 extern "C" int mf310p_v3_ib_probe(mf310p_v3_context* s, uint32_t reps, void* raw)
 {
     int rc = BindStream(s, raw);
@@ -190,7 +210,7 @@ extern "C" int mf310p_v3_run(mf310p_v3_context* s, uint64_t x, uint64_t w, uint6
     using namespace mfv3;
     int rc = BindStream(s, raw);
     if (rc) return rc;
-    if (s->poolMode) return Error("cannot mix V3.1 and V3.2 sessions", -20);
+    if (s->poolMode || s->protocol != 31) return Error("cannot mix V3.1 and V3.2 sessions", -20);
     if (!s->ibReady || !x || !y || x == y || (mode == MATMUL && !w) || mode > PARTIAL ||
         pipeline > 1 || !ShapeValid(rows, group) || PacketCount(group * kRowBytes / 2, s->packet) > 64)
         return Error("run contract", -1);
@@ -225,25 +245,20 @@ extern "C" int mf310p_v32_acquire(mf310p_v3_context* s, uint32_t rows, uint32_t 
 {
     int rc = BindStream(s, raw);
     if (rc || !slot || !generation || !address) return rc ? rc : -1;
-    if (!s->ibReady || s->protocol != 32 || s->legacyRun || !mfv3::ShapeValid(rows, group) || group == 256 || mode > 1 ||
+    if (s->failed) return Error("failed session", -27);
+    if (!s->ibReady || s->protocol != kPlanAProtocol || s->legacyRun || !mfv3::ShapeValid(rows, group) || group == 256 || mode > 1 ||
         mfv3::PacketCount(group * mfv3::kRowBytes / 2, s->packet) > 64)
         return Error("pool acquire contract", -21);
     rc = aclrtSynchronizeStream(s->stream);
-    if (rc) return Error("pool reuse stream completion", rc);
+    if (rc) { s->failed = true; return Error("pool reuse stream completion", rc); }
     std::lock_guard<std::mutex> guard(s->leasesMutex);
-    struct Info { uint32_t freeMask, rows, group, mode, epoch, packet, protocol; };
     uint32_t freeMask = 0;
     for (uint32_t i = 0; i < 2; ++i) if (!s->leases[i] && s->generations[i] != UINT32_MAX) freeMask |= 1u << i;
-    Info mine{freeMask, rows, group, mode, s->epoch, s->packet, 32};
-    std::array<Info, 2> peers{};
-    rc = smem_shm_control_allgather(s->pool, reinterpret_cast<const char*>(&mine), sizeof(mine),
-                                  reinterpret_cast<char*>(peers.data()), sizeof(peers));
-    if (rc) return Error("slot collective", rc);
-    for (const auto& p : peers) {
-        if (p.rows != rows || p.group != group || p.mode != mode || p.epoch != s->epoch ||
-            p.packet != s->packet || p.protocol != 32) return Error("pool peer configuration", -22);
-        freeMask &= p.freeMask;
-    }
+    ControlInfo mine{ACQUIRE_SLOT, kPlanAProtocol, s->epoch, freeMask, rows, group, mode, 0, 0};
+    std::array<ControlInfo, 2> peers{};
+    rc = Exchange(s, mine, peers);
+    if (rc) return Error("slot collective/configuration", rc);
+    for (const auto& p : peers) freeMask &= p.flags;
     if (!freeMask) return Error("pool slots held on either rank; release outputs/aliases", -23);
     *slot = (freeMask & 1) ? 0 : 1;
     s->leases[*slot] = 1;
@@ -263,13 +278,32 @@ extern "C" int mf310p_v32_release(mf310p_v3_context* s, uint32_t slot, uint32_t 
     s->leases[slot] = 0; // no device call in a Storage destructor
     return 0;
 }
+// Called on BOTH ranks even if local Tensor wrapping failed. No ADD may
+// launch until every rank has an output Storage and a matching live lease.
+extern "C" int mf310p_v32_prepare(mf310p_v3_context* s, uint32_t slot, uint32_t generation,
+                                   uint32_t ready, void* raw)
+{
+    int rc = BindStream(s, raw);
+    if (rc) return rc;
+    std::lock_guard<std::mutex> guard(s->leasesMutex);
+    if (s->failed || slot >= 2 || s->protocol != kPlanAProtocol) return -27;
+    const bool local = ready && s->leases[slot] == 1 && s->generations[slot] == generation;
+    ControlInfo mine{PREPARE_WAVE, kPlanAProtocol, s->epoch, local ? 1u : 0u,
+                     s->slotRows[slot], s->slotGroups[slot], s->slotModes[slot], slot, generation};
+    std::array<ControlInfo, 2> peers{};
+    rc = Exchange(s, mine, peers);
+    if (!rc) for (const auto& p : peers) if (!p.flags) { rc = -27; break; }
+    if (rc) { s->failed = true; return Error("wave prepare failed; stop BOTH ranks", rc); }
+    s->leases[slot] = 2; // prepared exactly once
+    return 0;
+}
 extern "C" int mf310p_v32_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
     uint32_t rows, uint32_t group, uint32_t mode, uint32_t slot, uint32_t generation, void* raw)
 {
     int rc = BindStream(s, raw);
     if (rc) return rc;
     std::lock_guard<std::mutex> guard(s->leasesMutex);
-    if (!s->poolMode || slot >= 2 || s->leases[slot] != 1 || s->generations[slot] != generation ||
+    if (s->failed || !s->poolMode || slot >= 2 || s->leases[slot] != 2 || s->generations[slot] != generation ||
         s->slotRows[slot] != rows || s->slotGroups[slot] != group || s->slotModes[slot] != mode ||
         !x || (mode == 0 && !w) || mode > 1 || group == 256 || !mfv3::ShapeValid(rows, group)) return -24;
     const uint64_t off = uint64_t{slot} * mfv3::kArenaBytes;
@@ -292,18 +326,29 @@ extern "C" int mf310p_v32_run(mf310p_v3_context* s, uint64_t x, uint64_t w,
         if (!rc) rc = smem_shm_control_barrier(s->pool);
         s->poolWarmed[warmIndex] = rc == 0;
     }
-    if (!rc) { s->leases[slot] = 2; rc = NextEpoch(s); }
+    if (!rc) { s->leases[slot] = 3; rc = NextEpoch(s); }
     if (!rc) rc = mf310p_v3_device_run(s->gva, x, w, y, y, s->peer + off,
         reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
         s->work + mfv3::kCtrlSrcOff, s->peer + mfv3::kCtrlDstOff,
         s->expectedWork + off, s->expectedCtrl, rows, group, s->rank, s->epoch,
         s->packet, 2, mode, 1, s->stream);
+    if (rc) s->failed = true;
     return Error("enqueue V3.2 fixed FIFO pool output", rc);
 }
 extern "C" int mf310p_v3_destroy(mf310p_v3_context* s)
 {
     if (!s) return 0;
-    for (auto held : s->leases) if (held) return Error("live output Storage prevents close", -26);
+    if (s->failed) return Error("failed session: preserve evidence, do not destroy/retry", -27);
+    if (s->protocol == kPlanAProtocol && s->ibReady) {
+        std::lock_guard<std::mutex> guard(s->leasesMutex);
+        bool held = false;
+        for (auto lease : s->leases) held |= lease != 0;
+        ControlInfo mine{CLOSE_SESSION, kPlanAProtocol, s->epoch, held ? 1u : 0u, 0, 0, 0, 0, 0};
+        std::array<ControlInfo, 2> peers{};
+        const int rc = Exchange(s, mine, peers);
+        if (rc) return Error("collective close agreement", rc);
+        for (const auto& p : peers) if (p.flags) return Error("live output on either rank prevents close", -26);
+    } else for (auto held : s->leases) if (held) return Error("live output Storage prevents close", -26);
     int rc = 0;
     // Caller must finish its stream first. Stop the MemFabric pool before freeing its backing data.
     if (s->pool) rc = smem_shm_destroy(s->pool, 0);

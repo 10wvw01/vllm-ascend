@@ -26,9 +26,12 @@ int mf310p_v32_acquire(mf310p_v3_context*, uint32_t rows, uint32_t group, uint32
     void* stream, uint32_t* slot, uint32_t* generation, uint64_t* address);
 // release only marks a Storage lease free; it never touches the device.
 int mf310p_v32_release(mf310p_v3_context*, uint32_t slot, uint32_t generation);
+// Collective prepare after Storage wrapping, ready=0 if wrapping failed.
+int mf310p_v32_prepare(mf310p_v3_context*, uint32_t slot, uint32_t generation, uint32_t ready, void* stream);
 int mf310p_v32_run(mf310p_v3_context*, uint64_t x, uint64_t weight_nz, uint32_t rows,
     uint32_t group, uint32_t mode, uint32_t slot, uint32_t generation, void* stream);
 // Must be called after stream completion, on the owning device.
+// V3.2: collective close; held output on EITHER rank returns -26 on BOTH ranks.
 int mf310p_v3_destroy(mf310p_v3_context* ctx);
 #ifdef __cplusplus
 }

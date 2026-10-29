@@ -184,3 +184,6 @@ torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字
 实现与剩余准入条件见[V32_ADMISSION](V32_ADMISSION.md)，公共非阻塞接口仅有
 [需求说明](MEMFABRIC_TRY_WAIT_REQUEST.md)，A不依赖此接口。
 本地检查不代表新Kernel、TorchNPU Storage或设备性能PASS，Stock默认不变。
+
+方案A复核修复已加入：Host协议3202、Storage-ready双端prepare、集体close及完成输入回收。
+新代码必须重编；旧ef72db3b的Host/SO或32协议不能混用。实机准入状态见[V32_ADMISSION](V32_ADMISSION.md)。

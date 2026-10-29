@@ -49,6 +49,7 @@ def run_flow(
             raise
     else:
         raise AssertionError("asymmetric held slot must reject allocation on both ranks")
+    del second  # only rank0 now holds an alias; rank1 has no live slot
     try:
         session.close()
     except RuntimeError as exc:
@@ -58,7 +59,7 @@ def run_flow(
         raise AssertionError("close destroyed live output")
     if rank == 0:
         del alias
-    del second, snapshot
+    del snapshot
     gc.collect()
     gate("output_lifetime")
     for group in (512, 1024, 2048):

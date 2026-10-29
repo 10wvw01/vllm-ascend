@@ -414,3 +414,13 @@ A不新增MemFabric接口、不修改其仓库；B仍为备选。
 **CANN/TorchNPU编译、真实Storage/缓存/数值/性能NOT_RUN，不签设备GO**。
 由用户委托OpenCode后先私有编译，再G0/设备门禁，门禁通过才短测；Stock默认不变。
 [MemFabric需求原稿](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)已整理，尚未代发。
+
+## 38. 方案A复核修复，B非阻塞收件目的澄清
+
+A2新增输出包装后的双端prepare；任一端失败均封禁且不得启动数据波。
+collective close按双方租约决定busy，避免单边关闭；同步异常封禁，旧波完成后回收输入引用。
+控制信封统一校验操作/epoch/token，Host协议3202拒绝旧版本混用。
+Host双Rank rendezvous及Python故障注入覆盖上述反例，设备门禁增加真正的单边持有close。
+完整计时包含新增prepare，性能仍UNKNOWN；CANN/Storage/设备门禁仍NOT_RUN。
+B的try_wait仅允许无邮件时继续调度，最终完整性仍依靠每片段MM/READY/ADD/Gather状态、
+最终quiet+DONE及输出可见性；EMPTY绝不代表完成。见[V32准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。

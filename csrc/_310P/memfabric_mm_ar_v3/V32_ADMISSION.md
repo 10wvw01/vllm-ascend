@@ -65,3 +65,34 @@ MemFabric仍锁定db38d75e8485d31451302219eb7a1bfeb1dd107c，复用SDK必须完�
   不能把定点Ruff和项目合同代称全仓格式CI通过。
 - TorchNPU适配参考官方StorageDescHelper/SetDesc与cpp_extension安装include路径；
   仍必须使用现场锁定版本编译并验证，不以master源码兼容性取代实测。
+
+## 复核修复：方案A2 / Host协议3202
+
+已修复上一版ef72db3b复核发现的异常封禁、双Rank关闭和输入引用累积问题：
+
+- `acquire → Storage wrap → prepare(双方) → run`。任一Rank包装失败也必须进入ready=0的prepare，
+  双方失败封禁，均不得启动MM/ADD。包装构造早期/接管回调后的异常均精确释放一次租约。
+- acquire、prepare、close使用相同控制信封，校验op/protocol/epoch/geometry/token。
+  两端调用不同操作时均失败封禁；不能将一次close错误解释为一次acquire。
+- 任一端仍持有输出或别名，collective close均返回busy，两端均不销毁；全部释放后双方再次close。
+- Python close同步失败立即封禁，不再进入销毁或其它集体操作；C++失败状态同样阻止后续设备调用。
+- acquire确认旧波流完成后回收旧输入，保留新波输入；busy时回收全部已完成引用。
+- Host版本改为3202，建池时拒绝混用旧32实现。MemFabric版本及设备R/D/G协议不变。
+
+新增真实Host代码的双线程Rank rendezvous测试：单边Storage失败阻止两端启动、
+仅一端持有输出时双方close busy、acquire/close操作错位时双方拒绝。
+新增Python故障注入覆盖包装两类异常、对端失败、close同步失败及连续输入弱引用回收。
+设备门禁修正为一端持有别名、另一端完全无槽时尝试close，验证双方busy。
+
+该修复新增prepare Host allgather，必须纳入完整窗口；逐次流同步/Host控制开销的性能风险仍在，
+不能用正确性修复声称端到端性能已经改善。
+本轮仅CPU/静态验证，CANN、TorchNPU Storage、真实双Rank缓存/数值/生命周期和性能仍NOT_RUN。
+没有修改MemFabric，没有新增独立设备归因轮。
+
+调用合同：两端按相同顺序调用acquire/prepare/close，close是集体操作；本地参数校验异常、
+进程崩溃或设备错误应由执行控制器停止双方。进程已消失或设备异常时，不承诺通过新集体操作恢复，
+也不重试ADD。仅支持拥有流，跨流consumer/Graph仍不在本版准入范围。
+
+本轮本地验证：V3与V2 CPU/源码合同102项PASS（含新增7项Python故障回归及双Rank Host测试），
+项目治理38项PASS；Ruff、静态项目合同和增量台账检查PASS。
+全量format CI仍受本地缺少pre-commit限制，不代称全仓CI成功。

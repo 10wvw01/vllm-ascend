@@ -223,3 +223,11 @@ TP2的ADD完成→Gather天然保护被覆盖源，否决不必要的额外半�
 新增TorchNPU格式描述与Storage、别名/单边释放/槽耗尽/下游ND消费设备门禁。
 方案B接口[需求](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)供负责团队审核，未代发，
 不修改对方库或以短超时伪造非阻塞。设备准入仍待新CANN与Storage验证，性能UNKNOWN。
+
+## ADR-028｜A复核缺陷修复：准备、关闭一致性与引用回收
+
+采用双方Storage-ready prepare后才启动数据波、双方无输出租约后才close，统一Host控制信封，
+Host版本3202与旧32不兼容；MemFabric版本和设备固定FIFO顺序不变。
+任何不确定异常封禁，不发新设备操作或重试ADD；Host控制和prepare开销必须完整计入性能。
+上一波流完成后回收输入，新波输入保持有效。B不依赖EMPTY判断完成，仍以完整片段状态和排空作验收。
+本轮CPU反例回归不替代CANN、Storage或设备准入，不增加独立设备归因测试。

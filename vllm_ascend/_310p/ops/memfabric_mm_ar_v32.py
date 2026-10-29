@@ -26,6 +26,7 @@ class V32Session(V3Session):
         signatures = {
             "mf310p_v32_acquire": [p, u, u, u, p, ctypes.POINTER(u), ctypes.POINTER(u), ctypes.POINTER(q)],
             "mf310p_v32_release": [p, u, u],
+            "mf310p_v32_prepare": [p, u, u, u, p],
             "mf310p_v32_run": [p, q, q, u, u, u, u, u, p],
         }
         for name, args in signatures.items():
@@ -41,50 +42,86 @@ class V32Session(V3Session):
                 raise ValueError("Plan A requires [M,2048], chunk512/1024/2048")
             if not 0 < x.shape[0] <= 4096 or x.shape[0] % group:
                 raise ValueError("pad input explicitly; include padding cost in full timings")
-            self._tensor(x)
-            if torch_npu.get_npu_format(x) != 2:
-                raise ValueError("Plan A input must have native ND format2")
-            if not partial:
-                self._tensor(weight_nz, contiguous=False)
-                if tuple(weight_nz.shape) != (2048, 2048) or torch_npu.get_npu_format(weight_nz) != 29:
-                    raise ValueError("native NZ weight format29 required")
+            old_count = len(self.pending)
+            try:
+                self._tensor(x)
+                if torch_npu.get_npu_format(x) != 2:
+                    raise ValueError("Plan A input must have native ND format2")
+                if not partial:
+                    self._tensor(weight_nz, contiguous=False)
+                    if tuple(weight_nz.shape) != (2048, 2048) or torch_npu.get_npu_format(weight_nz) != 29:
+                        raise ValueError("native NZ weight format29 required")
+            except BaseException:
+                # Invalid local arguments have not entered a device wave.
+                del self.pending[old_count:]
+                raise
             slot, generation, ptr = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
-            rc = self.lib.mf310p_v32_acquire(
-                self.handle,
-                x.shape[0],
-                group,
-                int(partial),
-                self.raw_stream,
-                ctypes.byref(slot),
-                ctypes.byref(generation),
-                ctypes.byref(ptr),
-            )
+            try:
+                rc = self.lib.mf310p_v32_acquire(
+                    self.handle,
+                    x.shape[0],
+                    group,
+                    int(partial),
+                    self.raw_stream,
+                    ctypes.byref(slot),
+                    ctypes.byref(generation),
+                    ctypes.byref(ptr),
+                )
+            except BaseException:
+                self.failed = True
+                raise
+            if rc in (0, -23):
+                # acquire drained the owning stream, including previous inputs.
+                # The just-validated inputs are still needed by the NEW wave.
+                del self.pending[:old_count]
             if rc == -23:
+                self.pending.clear()  # no new wave started; both ranks agreed busy
                 raise RuntimeError("both ranks must release an output slot, including all aliases, before retry")
             self._check(rc, "pool acquire")
             token = (slot.value, generation.value)
 
-            def release():
-                # Storage destructor is host-only; reuse waits for the owning stream.
-                with self.lock:
-                    self._check(self.lib.mf310p_v32_release(self.handle, *token), "Storage release")
+            released = False
 
-            # Wrap BEFORE enqueue: failure releases an unused slot, never an uncertain ADD.
-            # Wrap owns the callback once invoked, including exceptions inside C++.
-            out = self.tensor_module.wrap(ptr.value, x.shape[0], self.device, self, release)
-            self._check(
-                self.lib.mf310p_v32_run(
-                    self.handle,
-                    x.data_ptr(),
-                    0 if partial else weight_nz.data_ptr(),
-                    x.shape[0],
-                    group,
-                    int(partial),
-                    *token,
-                    self.raw_stream,
-                ),
-                "Plan A run",
-            )
+            def release():
+                nonlocal released
+                # Idempotent at the Python boundary, including a wrap constructor
+                # that failed before/after taking ownership of the callback.
+                with self.lock:
+                    if not released:
+                        self._check(self.lib.mf310p_v32_release(self.handle, *token), "Storage release")
+                        released = True
+
+            out, wrap_error = None, None
+            try:
+                out = self.tensor_module.wrap(ptr.value, x.shape[0], self.device, self, release)
+            except BaseException as exc:
+                wrap_error = exc
+                release()
+            try:
+                # Always enter prepare on both ranks, even if local wrapping failed.
+                # No peer may launch MM/ADD before this agreement succeeds.
+                rc = self.lib.mf310p_v32_prepare(self.handle, *token, int(wrap_error is None), self.raw_stream)
+                self._check(rc, "output prepare")
+                if wrap_error is not None:
+                    raise RuntimeError("Storage wrapping failed; stop BOTH ranks") from wrap_error
+                self._check(
+                    self.lib.mf310p_v32_run(
+                        self.handle,
+                        x.data_ptr(),
+                        0 if partial else weight_nz.data_ptr(),
+                        x.shape[0],
+                        group,
+                        int(partial),
+                        *token,
+                        self.raw_stream,
+                    ),
+                    "Plan A run",
+                )
+            except BaseException:
+                self.failed = True
+                if wrap_error is not None:
+                    raise RuntimeError("Storage wrapping failed; prepare aborted BOTH ranks") from wrap_error
+                raise
             return out
 
     def run(self, *args, **kwargs):
@@ -96,10 +133,18 @@ class V32Session(V3Session):
             if not self.handle.value:
                 return
             self._ready()
-            self.stream.synchronize()
-            rc = self.lib.mf310p_v3_destroy(self.handle)
+            try:
+                self.stream.synchronize()
+            except BaseException:
+                self.failed = True
+                raise
+            try:
+                rc = self.lib.mf310p_v3_destroy(self.handle)
+            except BaseException:
+                self.failed = True
+                raise
             if rc == -26:
-                raise RuntimeError("release all outputs and Storage aliases before close")
+                raise RuntimeError("release all outputs and Storage aliases on BOTH ranks before close")
             self._check(rc, "destroy")
             self.handle = ctypes.c_void_p()
             self.outputs.clear()
