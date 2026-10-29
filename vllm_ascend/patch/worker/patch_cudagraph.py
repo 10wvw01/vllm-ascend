@@ -1,12 +1,9 @@
 from vllm.config import CUDAGraphMode
 from vllm.forward_context import BatchDescriptor
-from vllm.logger import init_logger
+from vllm.logger import logger
 from vllm.v1.cudagraph_dispatcher import CudagraphDispatcher
 
-logger = init_logger(__name__)
-_original_initialize_cudagraph_keys = (
-    CudagraphDispatcher.initialize_cudagraph_keys
-)
+_original_initialize_cudagraph_keys = CudagraphDispatcher.initialize_cudagraph_keys
 
 
 def _create_padded_batch_descriptor(
@@ -56,8 +53,7 @@ def _initialize_cudagraph_keys(
     )
     explicit_portfolio = (
         isinstance(ascend_compilation_config, dict)
-        and "dflash_full_and_piecewise_capture_config"
-        in ascend_compilation_config
+        and "dflash_full_and_piecewise_capture_config" in ascend_compilation_config
     )
     if not explicit_portfolio:
         return _original_initialize_cudagraph_keys(
@@ -76,15 +72,11 @@ def _initialize_cudagraph_keys(
         uniform_decode_query_len,
     ):
         inventory = {
-            mode.name: sorted(
-                descriptor.num_tokens
-                for descriptor in descriptors
-            )
+            mode.name: sorted(descriptor.num_tokens for descriptor in descriptors)
             for mode, descriptors in self.cudagraph_keys.items()
         }
         logger.info(
-            "[310p-dflash-full-and-piecewise/portfolio] mode=%s "
-            "inventory=%s",
+            "[310p-dflash-full-and-piecewise/portfolio] mode=%s inventory=%s",
             cudagraph_mode.name,
             inventory,
         )
