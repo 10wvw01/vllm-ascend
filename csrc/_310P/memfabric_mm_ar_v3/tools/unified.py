@@ -108,8 +108,6 @@ def run(a):
             str(a.manifest),
             "--out",
             str(a.out),
-            "--run-id",
-            a.out.name,
             "--store-url",
             a.store_url,
             "--physical-devices",
