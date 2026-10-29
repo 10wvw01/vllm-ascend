@@ -17,6 +17,10 @@ except ImportError:  # isolated quick worker imports without loading vLLM
     from memfabric_mm_ar_v3 import V3Session
 
 
+class _WaveBusy(RuntimeError):
+    """Both ranks agreed all slots are held; recoverable, the session stays usable."""
+
+
 class V32Session(V3Session):
     _create_symbol = "mf310p_v32_create"
 
@@ -25,9 +29,13 @@ class V32Session(V3Session):
         self.tensor_module = tensor_module
         # Attribution only: set to a list to record per-wave host phase times.
         self.phase_log = None
+        # Interface optimization Phase 1: one control allgather per wave.
+        # Speculative acquire without negotiation; prepare reconciles slots.
+        self.merged_wave = False
         p, u, q = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint64
         signatures = {
             "mf310p_v32_acquire": [p, u, u, u, p, ctypes.POINTER(u), ctypes.POINTER(u), ctypes.POINTER(q)],
+            "mf310p_v32_wave_acquire": [p, u, u, u, p, ctypes.POINTER(u), ctypes.POINTER(u), ctypes.POINTER(q)],
             "mf310p_v32_release": [p, u, u],
             "mf310p_v32_prepare": [p, u, u, u, p],
             "mf310p_v32_run": [p, q, q, u, u, u, u, u, p],
@@ -60,8 +68,9 @@ class V32Session(V3Session):
                 raise
             slot, generation, ptr = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
             stamp = [time.perf_counter_ns()] if self.phase_log is not None else None
+            acquire_fn = self.lib.mf310p_v32_wave_acquire if self.merged_wave else self.lib.mf310p_v32_acquire
             try:
-                rc = self.lib.mf310p_v32_acquire(
+                rc = acquire_fn(
                     self.handle,
                     x.shape[0],
                     group,
@@ -105,10 +114,43 @@ class V32Session(V3Session):
                 release()
             if stamp is not None:
                 stamp.append(time.perf_counter_ns())
+            fallback = False
             try:
                 # Always enter prepare on both ranks, even if local wrapping failed.
                 # No peer may launch MM/ADD before this agreement succeeds.
                 rc = self.lib.mf310p_v32_prepare(self.handle, *token, int(wrap_error is None), self.raw_stream)
+                if rc == -29 and self.merged_wave and wrap_error is None:
+                    # Speculative picks diverged (asymmetric free masks). Drop the
+                    # speculative output and redo this wave with the classic
+                    # collective intersection; both ranks take the same branch.
+                    del out
+                    out = None
+                    release()
+                    # release() consumed the speculative token; re-arm it for the
+                    # fallback wrap so the new lease is releasable exactly once.
+                    released = False
+                    fallback = True
+                    rc = self.lib.mf310p_v32_acquire(
+                        self.handle,
+                        x.shape[0],
+                        group,
+                        int(partial),
+                        self.raw_stream,
+                        ctypes.byref(slot),
+                        ctypes.byref(generation),
+                        ctypes.byref(ptr),
+                    )
+                    if rc == -23:
+                        self.pending.clear()  # no new wave started; both ranks agreed busy
+                        raise _WaveBusy("both ranks must release an output slot, including all aliases, before retry")
+                    self._check(rc, "pool acquire")
+                    token = (slot.value, generation.value)
+                    try:
+                        out = self.tensor_module.wrap(ptr.value, x.shape[0], self.device, self, release)
+                    except BaseException as exc:
+                        wrap_error = exc
+                        release()
+                    rc = self.lib.mf310p_v32_prepare(self.handle, *token, int(wrap_error is None), self.raw_stream)
                 self._check(rc, "output prepare")
                 if stamp is not None:
                     stamp.append(time.perf_counter_ns())
@@ -136,12 +178,17 @@ class V32Session(V3Session):
                             "prepare_us": (stamp[3] - stamp[2]) / 1000,
                             "run_us": (stamp[4] - stamp[3]) / 1000,
                             "enqueue_us": (stamp[4] - stamp[0]) / 1000,
+                            "fallback": fallback,
                         }
                     )
-            except BaseException:
-                self.failed = True
+            except BaseException as exc:
+                # Classic busy and fallback busy are the only recoverable paths;
+                # every other failure means at least one rank skipped a launch.
                 if wrap_error is not None:
+                    self.failed = True
                     raise RuntimeError("Storage wrapping failed; prepare aborted BOTH ranks") from wrap_error
+                if not isinstance(exc, _WaveBusy):
+                    self.failed = True
                 raise
             return out
 

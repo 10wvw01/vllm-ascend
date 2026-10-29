@@ -58,7 +58,7 @@ def main():
     torch.npu.set_compile_mode(jit_compile=False)
     device = torch.device(f"npu:{selected}")
     dist.init_process_group("gloo", timeout=timedelta(seconds=120))
-    arms = {"ib": {}, "raw_add": {}, "partial": [], "fused": []}
+    arms = {"ib": {}, "raw_add": {}, "partial": [], "fused": [], "fused_merged": []}
     data = {
         "schema": "MF310P_V3_ATTRIBUTION_RANK_V1",
         "rank": rank,
@@ -200,6 +200,16 @@ def main():
             lambda m, g, v: session.run_pool(xs[m][v], weight_nz, group=g),
             lambda out, m, g, v: checked(out, refs[m][v], f"fused m{m} g{g}"),
         )
+        # ---- arm 4: merged single-allgather wave (interface Phase 1) ----
+        # Speculative acquire without negotiation; prepare is the only control
+        # allgather. Same session and inputs as the fused arm for a direct A/B.
+        session.merged_wave = True
+        timed_arm(
+            "fused_merged",
+            lambda m, g, v: session.run_pool(xs[m][v], weight_nz, group=g),
+            lambda out, m, g, v: checked(out, refs[m][v], f"fused_merged m{m} g{g}"),
+        )
+        session.merged_wave = False
         data["loaded_libraries_after"] = loaded_identity(manifest)
         if data["loaded_libraries"] != data["loaded_libraries_after"]:
             raise RuntimeError("loaded libraries changed")

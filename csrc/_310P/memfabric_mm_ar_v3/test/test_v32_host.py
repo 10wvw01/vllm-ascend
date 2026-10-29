@@ -184,3 +184,72 @@ assert(enabledLaunches==2&&destroyed==2&&rounds.empty());}
     binary = tmp_path / "two_rank_host"
     subprocess.run(["g++", "-std=c++17", "-pthread", f"-I{tmp_path}", str(source), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=15)
+
+
+def test_real_host_merged_wave_fallback(tmp_path):
+    # Interface Phase 1: speculative wave acquire (no allgather) plus the
+    # single reconciling prepare; -29 falls back to the classic intersection.
+    test_real_host_slots_and_generation(tmp_path)
+    header = tmp_path / "smem_shm.h"
+    text = header.read_text()
+    text = text.replace(
+        "unsigned peerMask=3,peerReady=1,peerHeld=0,peerOp=0;",
+        "unsigned peerMask=3,peerReady=1,peerHeld=0,peerOp=0,peerSlotOv=0;",
+    )
+    text = text.replace("if(peerOp)p[0]=peerOp;}", "if(peerOp)p[0]=peerOp;if(peerSlotOv)p[7]=peerSlotOv;}")
+    header.write_text(text)
+    host = (Path(__file__).parents[1] / "src/op_host/mf310p_v3_host.cpp").resolve()
+    source = tmp_path / "wave.cpp"
+    source.write_text(
+        f'#include "{host}"\n'
+        + r"""
+#include <cassert>
+int enabledLaunches=0;
+extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,uint32_t,
+uint32_t,uint32_t pipeline,uint32_t,uint32_t enabled,aclrtStream){
+if(enabled){assert(pipeline==2 && y==work);enabledLaunches++;}return 0;}
+extern "C" int mf310p_v3_device_raw(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
+uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+extern "C" int mf310p_v3_device_ib(uint64_t,uint64_t result,uint32_t reps,uint32_t enabled,aclrtStream){
+if(enabled)for(unsigned c=0;c<8;c++)reinterpret_cast<unsigned*>(result)[c*16]=reps;return 0;}
+int main(){mf310p_v3_context* s=nullptr;
+assert(!mf310p_v32_create(0,"mock",4<<20,&s));assert(!mf310p_v3_ib_probe(s,64,(void*)1));
+unsigned slotA,genA,slotB,genB,slotC,genC;uint64_t addrA,addrB,addrC;
+// Happy path: speculative pick agrees (fake mirrors both peers); no acquire allgather.
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slotA,&genA,&addrA));
+assert(slotA==0);
+assert(!mf310p_v32_prepare(s,slotA,genA,1,(void*)1));
+assert(!mf310p_v32_run(s,4096,8192,4096,1024,0,slotA,genA,(void*)1));
+assert(!mf310p_v32_release(s,slotA,genA));
+// Divergent speculative picks: recoverable -29, session alive, lease releasable.
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slotB,&genB,&addrB));
+peerSlotOv=1-slotB;
+assert(mf310p_v32_prepare(s,slotB,genB,1,(void*)1)==-29);
+peerSlotOv=0;
+assert(!s->failed);
+assert(!mf310p_v32_release(s,slotB,genB));
+// Classic intersection acquire still works after a burned speculation.
+assert(!mf310p_v32_acquire(s,4096,1024,0,(void*)1,&slotC,&genC,&addrC));
+assert(!mf310p_v32_prepare(s,slotC,genC,1,(void*)1));
+assert(!mf310p_v32_run(s,4096,8192,4096,1024,0,slotC,genC,(void*)1));
+assert(!mf310p_v32_release(s,slotC,genC));
+// Local exhaustion is busy without any negotiation.
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slotA,&genA,&addrA));
+assert(!mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slotB,&genB,&addrB));
+assert(slotA!=slotB);
+assert(mf310p_v32_wave_acquire(s,4096,1024,0,(void*)1,&slotC,&genC,&addrC)==-23);
+assert(!mf310p_v32_release(s,slotA,genA));
+assert(!mf310p_v32_release(s,slotB,genB));
+assert(!mf310p_v3_destroy(s));assert(destroyed==1 && enabledLaunches==2);
+}
+"""
+    )
+    binary = tmp_path / "wave_host"
+    subprocess.run(
+        ["g++", "-std=c++17", "-Wall", "-Wextra", "-pthread", f"-I{tmp_path}", str(source), "-o", str(binary)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    subprocess.run([str(binary)], check=True, timeout=10)

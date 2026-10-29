@@ -84,6 +84,7 @@ def session(monkeypatch):
     s.lib = Lib()
     s.tensor_module = types.SimpleNamespace(wrap=lambda *args: Output(args[-1]))
     s.phase_log = None
+    s.merged_wave = False
     s.stream = types.SimpleNamespace(synchronize=lambda: None)
     s._tensor = lambda x: s.pending.append(x)
 

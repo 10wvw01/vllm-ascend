@@ -66,6 +66,7 @@ def session(monkeypatch):
     s._tensor = lambda x: s.pending.append(x)
     s._ready = lambda: None
     s.phase_log = None
+    s.merged_wave = False
     return s
 
 
@@ -79,8 +80,9 @@ def test_enabled_records_one_entry_with_all_phases(session):
     session.run_pool(Input(), partial=True)
     assert len(session.phase_log) == 1
     entry = session.phase_log[0]
-    assert set(entry) == {"acquire_us", "wrap_us", "prepare_us", "run_us", "enqueue_us"}
-    assert all(isinstance(v, float) and v >= 0 for v in entry.values())
+    assert set(entry) == {"acquire_us", "wrap_us", "prepare_us", "run_us", "enqueue_us", "fallback"}
+    assert entry["fallback"] is False
+    assert all(isinstance(v, float) and v >= 0 for k, v in entry.items() if k != "fallback")
     assert entry["enqueue_us"] >= sum(entry[k] for k in ("acquire_us", "wrap_us", "prepare_us", "run_us"))
 
 

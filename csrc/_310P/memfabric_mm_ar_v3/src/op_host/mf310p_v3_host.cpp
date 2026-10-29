@@ -44,7 +44,7 @@ struct mf310p_v3_context {
 
 namespace {
 using namespace mfv3;
-constexpr uint32_t kPlanAProtocol = 3202, kA3Protocol = 3301;
+constexpr uint32_t kPlanAProtocol = 3203, kA3Protocol = 3301;
 constexpr uint64_t kA3SourceOff = 2 * kArenaBytes, kA3CtrlOff = 3 * kArenaBytes;
 enum ControlOp : uint32_t { ACQUIRE_SLOT = 1, PREPARE_WAVE = 2, CLOSE_SESSION = 3 };
 struct ControlInfo {
@@ -52,14 +52,16 @@ struct ControlInfo {
 };
 // Identical envelope size for every collective prevents acquire/close/prepare
 // mismatches from accidentally being interpreted as another control operation.
-int Exchange(mf310p_v3_context* s, const ControlInfo& mine, std::array<ControlInfo, 2>& peers)
+// Slot and generation are reconciliation payloads since 3203 (merged wave):
+// the speculative acquire path may disagree before prepare converges them.
+int Exchange(mf310p_v3_context* s, const ControlInfo& mine, std::array<ControlInfo, 2>& peers, bool strictSlot)
 {
     int rc = smem_shm_control_allgather(s->pool, reinterpret_cast<const char*>(&mine), sizeof(mine),
                                       reinterpret_cast<char*>(peers.data()), sizeof(peers));
     if (!rc) for (const auto& p : peers) {
         if (p.op != mine.op || p.protocol != mine.protocol || p.epoch != mine.epoch ||
             p.rows != mine.rows || p.group != mine.group || p.mode != mine.mode ||
-            p.slot != mine.slot || p.generation != mine.generation) { rc = -22; break; }
+        (strictSlot && p.slot != mine.slot)) { rc = -22; break; }
     }
     if (rc) s->failed = true;
     return rc;
@@ -281,7 +283,7 @@ extern "C" int mf310p_v32_acquire(mf310p_v3_context* s, uint32_t rows, uint32_t 
     for (uint32_t i = 0; i < 2; ++i) if (!s->leases[i] && s->generations[i] != UINT32_MAX) freeMask |= 1u << i;
     ControlInfo mine{ACQUIRE_SLOT, kPlanAProtocol, s->epoch, freeMask, rows, group, mode, 0, 0};
     std::array<ControlInfo, 2> peers{};
-    rc = Exchange(s, mine, peers);
+    rc = Exchange(s, mine, peers, true);
     if (rc) return Error("slot collective/configuration", rc);
     for (const auto& p : peers) freeMask &= p.flags;
     if (!freeMask) return Error("pool slots held on either rank; release outputs/aliases", -23);
@@ -303,8 +305,41 @@ extern "C" int mf310p_v32_release(mf310p_v3_context* s, uint32_t slot, uint32_t 
     s->leases[slot] = 0; // no device call in a Storage destructor
     return 0;
 }
+// Merged-wave speculative acquire: takes the lease and picks the slot without
+// any control allgather. Both ranks use the same deterministic rule (lowest
+// free index), so picks agree whenever the free sets allow it; prepare is the
+// single allgather that reconciles them and falls back classically (-29) when
+// asymmetric holds made the picks diverge.
+extern "C" int mf310p_v32_wave_acquire(mf310p_v3_context* s, uint32_t rows, uint32_t group,
+    uint32_t mode, void* raw, uint32_t* slot, uint32_t* generation, uint64_t* address)
+{
+    int rc = BindStream(s, raw);
+    if (rc || !slot || !generation || !address) return rc ? rc : -1;
+    if (s->failed) return Error("failed session", -27);
+    if (!s->ibReady || s->protocol != kPlanAProtocol || s->legacyRun || !mfv3::ShapeValid(rows, group) || group == 256 || mode > 1 ||
+        mfv3::PacketCount(group * mfv3::kRowBytes / 2, s->packet) > 64)
+        return Error("pool acquire contract", -21);
+    rc = aclrtSynchronizeStream(s->stream);
+    if (rc) { s->failed = true; return Error("pool reuse stream completion", rc); }
+    std::lock_guard<std::mutex> guard(s->leasesMutex);
+    uint32_t freeMask = 0;
+    for (uint32_t i = 0; i < 2; ++i) if (!s->leases[i] && s->generations[i] != UINT32_MAX) freeMask |= 1u << i;
+    if (!freeMask) return Error("pool slots held on either rank; release outputs/aliases", -23);
+    *slot = (freeMask & 1) ? 0 : 1;
+    s->leases[*slot] = 1;
+    s->slotRows[*slot] = rows;
+    s->slotGroups[*slot] = group;
+    s->slotModes[*slot] = mode;
+    *generation = ++s->generations[*slot];
+    *address = s->work + uint64_t{*slot} * mfv3::kArenaBytes;
+    s->poolMode = true;
+    return 0;
+}
 // Called on BOTH ranks even if local Tensor wrapping failed. No ADD may
 // launch until every rank has an output Storage and a matching live lease.
+// Since 3203 this is the single control allgather of a merged wave: ranks
+// that speculated different slots (asymmetric free masks) get a recoverable
+// -29 and fall back to the classic intersection acquire for this wave.
 extern "C" int mf310p_v32_prepare(mf310p_v3_context* s, uint32_t slot, uint32_t generation,
                                    uint32_t ready, void* raw)
 {
@@ -316,9 +351,17 @@ extern "C" int mf310p_v32_prepare(mf310p_v3_context* s, uint32_t slot, uint32_t 
     ControlInfo mine{PREPARE_WAVE, kPlanAProtocol, s->epoch, local ? 1u : 0u,
                      s->slotRows[slot], s->slotGroups[slot], s->slotModes[slot], slot, generation};
     std::array<ControlInfo, 2> peers{};
-    rc = Exchange(s, mine, peers);
-    if (!rc) for (const auto& p : peers) if (!p.flags) { rc = -27; break; }
+    rc = Exchange(s, mine, peers, false);
     if (rc) { s->failed = true; return Error("wave prepare failed; stop BOTH ranks", rc); }
+    for (const auto& p : peers) if (!p.flags) { rc = -27; break; }
+    if (rc) { s->failed = true; return Error("wave prepare failed; stop BOTH ranks", rc); }
+    if (peers[0].slot != peers[1].slot) {
+        // Speculative picks diverged. Keep the speculative lease so the caller's
+        // Storage deleter releases it cleanly; the wave restarts classically.
+        // Generation stays a local lease token: speculation may burn it
+        // asymmetrically, so it is never compared across ranks.
+        return Error("slot speculation mismatch; retry with collective intersection", -29);
+    }
     s->leases[slot] = 2; // prepared exactly once
     return 0;
 }
@@ -425,7 +468,7 @@ extern "C" int mf310p_v3_destroy(mf310p_v3_context* s)
         for (auto lease : s->leases) held |= lease != 0;
         ControlInfo mine{CLOSE_SESSION, s->protocol, s->epoch, held ? 1u : 0u, 0, 0, 0, 0, 0};
         std::array<ControlInfo, 2> peers{};
-        const int rc = Exchange(s, mine, peers);
+        const int rc = Exchange(s, mine, peers, true);
         if (rc) return Error("collective close agreement", rc);
         for (const auto& p : peers) if (p.flags) return Error("live output on either rank prevents close", -26);
     } else for (auto held : s->leases) if (held) return Error("live output Storage prevents close", -26);

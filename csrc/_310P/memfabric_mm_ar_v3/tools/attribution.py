@@ -57,6 +57,7 @@ def run(a):
                     "raw_add_1m/2m/4m",
                     "partial_m{2048,4096}_g{512,1024,2048}",
                     "fused_m{2048,4096}_g{512,1024,2048}",
+                    "fused_merged_m{2048,4096}_g{512,1024,2048}",
                 ],
                 "timeout_seconds": a.timeout,
                 "scope": "L0 differential + L1 host phase attribution only; no release/performance claim",
