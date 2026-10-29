@@ -240,3 +240,34 @@ R/G传输(~103µs/MiB量级的MTE+SDMA混合边际) + 每组READY往返/quiet固
 1. **砍每波双allgather**（~430µs基线）：批量预约/设备侧标志/随内核捎带——最大单项；
 2. 控制邮件往返~250µs级固定延迟是邮箱协议的结构成本，与研发侧"减包减quiet"重排同向；
 3. MM与IB无需优化。以上为归因结论，不构成性能GO；未做L2内核内分段（另行授权）。
+
+---
+
+## 接口优化Phase1轮（r3，协议3203）：合并acquire+prepare单allgather实机A/B
+
+提交`6fb54e09d`，构建r6（SO+tensor），产物登记manifest后以新增`fused_merged`臂
+（`merged_wave=True`，投机wave_acquire+对账prepare，-29回退经典）与同批`fused`臂
+背靠背A/B。目录`attribution-l0l1/r3-interface-phase1-pass/`。
+
+- **正确性**：双Rank全PASS，逐配置FP16位等值校验全过；**fused_merged 180波×2Rank零回退**
+  （确定性最低空闲规则在稳态对称释放下完全命中；回退路径由UT覆盖）。
+- **设备事件时间p50**（e0→e1，含流同步）：
+
+| 配置 | fused µs | merged µs | Δµs | Δ% |
+|---|---|---|---|---|
+| M2048 g512 | 2296.3 | 2014.5 | -281.8 | -12.3% |
+| M2048 g1024 | 1993.4 | 1790.3 | -203.1 | -10.2% |
+| M2048 g2048 | 2159.1 | 1902.8 | -256.3 | -11.9% |
+| M4096 g512 | 3360.2 | 3130.8 | -229.4 | -6.8% |
+| M4096 g1024 | 2781.5 | 2573.3 | -208.3 | -7.5% |
+| M4096 g2048 | 2831.8 | 2662.0 | -169.8 | -6.0% |
+
+- **Host相位p50**（merged臂，括号内为fused臂）：acquire 52µs（253-277µs）——控制
+  allgather消失后仅剩流同步+簿记；prepare 199-228µs（194-215µs，不变，仍是唯一
+  allgather）；wrap ~27µs、run ~78µs不变；enqueue合计-177~-249µs/波。
+- **与§L0+L1去向①对账**：预测省~200µs/波（acquire allgather），实测吻合；
+  设备事件时间额外下移表明该allgather此前部分落在流关键路径上。
+- 首轮STOP：manifest漏登tensor适配器（KeyError 'tensor_adapter'），补跑
+  `build_tensor.py`登记后PASS；守护器/部署窗口无异常。
+- 结论：接口优化Phase1成立；M4096 g1024达2573µs（对照主轮fused 2727µs、
+  §39 V2D4 2539.8µs、Stock 2022.6µs）。仍不构成性能GO；L2内核分段未做。

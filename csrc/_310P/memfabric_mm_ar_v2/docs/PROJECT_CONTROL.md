@@ -452,7 +452,6 @@ G0/双Die独占成立，六门禁双Rank全PASS（ib/add/输出生命周期含�
 M4096 g1024分解：Host 21% + 设备79%。优化去向：砍每波双allgather（最大单项）、
 减控制往返；MM/IB不动。归因结论不构成性能GO；L2内核内分段未做，需另行授权。
 
-
 ## 41. A3设计、审核与编码：完整S固定席位 + 独立Y + NZ MM / Direct ADD
 
 用户已定稿并授权设计/审核/编码/实机准入检查。基于最新1aa95969归因证据推进，
@@ -463,3 +462,19 @@ Host3301固定槽、冷warm、设备START一致性；正常reserve/run无Host集
 忙槽/包装失败为终止性START拒绝，禁止覆盖/重试；旧A2可恢复接口仅独立保留，不混用。
 两轮设计源码审查、实际START/调度器FIFO与Host热路径回归详见[A3准入](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。
 新CANN/TorchNPU/设备门禁及性能NOT_RUN；CPU成功不签设备GO，Stock默认不变。
+
+## 42. 2026-10-29｜接口优化Phase1实机A/B：合并acquire+prepare单allgather，事件时间-6%~-12%，360波零回退
+
+依据§40去向①实施（提交`6fb54e09d`，协议3202→3203）：`wave_acquire`无协商投机占槽
+（最低空闲确定性规则，双方命中即一致），`prepare`成为每波唯一控制allgather并对账
+槽位，分歧返回可恢复-29回退经典交集路径；generation降级为本地租约令牌不再跨Rank比较
+（投机不对称烧代次会活锁）。先打tag备份（`backup/v32a2-pre-ifaceopt-20261029`→`1aa95969c`，
+另存git bundle于`/home/w00804146/310P/backups/`，SHA256 `e58e4df6098a0b4730532d9cc1b57bec8c24d2f63d1bcf4f9f01383e83e632b2`）。
+r6私有构建后同会话五臂A/B（新增fused_merged臂，`merged_wave`默认False作为opt-in）：
+**双Rank全PASS（含逐配置FP16位等值校验），fused_merged 180波×2Rank零回退**。
+设备事件时间：M2048 -10.2%~-12.3%（最佳g1024 1993→1790µs），M4096 -6.0%~-7.5%
+（g1024 2782→2573µs）。Host相位：acquire 253-277µs→52µs（省~200µs/波），prepare不变
+（仍单allgather），enqueue合计-177~-249µs/波。首次STOP为manifest漏登tensor适配器
+（KeyError），补跑build_tensor.py登记后PASS。回退路径已由Host打桩UT+Python注入UT
+（`test_v32_wave.py`5项+`test_v32_host.py`1项）覆盖；CPU套件57项全过。不构成性能GO；
+merged默认翻转见后续提交；L2内核分段仍未做，需另行授权。
