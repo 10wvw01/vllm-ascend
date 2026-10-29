@@ -514,3 +514,18 @@ compare_a3八会话批次NOT_RUN、未触发任何设备Kernel。
 [实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r1-device-stop/README.md)。
 恢复条件：协调38144双Die覆盖整批（约1小时）真实独占窗口后直接用已冻结manifest启动批次；
 KVER28占位自拷贝差异仍在，不签长稳。无修复提交，分支HEAD仍为81780f342。
+
+## 45. 2026-10-29｜A3同批六会话PASS后遭外部租户干扰STOP：c512组完整对照成立，原A3占优
+
+用户授权换卡16384/dev2,3。批次HEAD 4d5ce62e8（docs提交后按工具合同重建；Device SO与
+起点逐字节一致）。11:42–12:06独占窗口内六会话全部PASS_QUICK_SCREEN_ONLY（六门禁双Rank、
+24计时文件、全样本correct）：a3-before/a3-2/a3-tail/a3-after-c512 + a3-before/a3-2-c1024。
+首次在dev2/3部署v28（部署窗口3.6秒自愈）。**同批c512组（完整夹逼，六配置全稳定，
+漂移0.12%–3.06%）**：原A3六配置全快于A3-2（2.5%–7.3%）、5/6快于A3-tail（13.5%–25.3%），
+唯一例外M2048/comm2048 A3-tail +1.70%但夹逼漂移2.19%，不判稳定收益。
+c1024组2/4会话方向不一致，不签。12:06:42外部跨卡进程（同占5664+16384）触发守护器STOP，
+第7会话死于池创建（无门禁/ADD执行）；重试批次preflight遇vLLM EngineCore占用再STOP；
+终态全服务器无独占窗口（16384 dev2被vLLM serving 20+分钟、38144原租户未走、43520 dev7 Alarm）。
+未杀租户、失败现场全保留、未重试ADD；不签整批GO。
+[实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r2-card16384/README.md)。
+恢复：manifest已冻结，约20分钟独占窗口即可补完整批次（compare_a3.py start --card 16384 --devices 2,3）。

@@ -1,0 +1,1543 @@
+{
+  "schema": "MF310P_V3_HISTORICAL_SCREEN_V1",
+  "status": "HISTORICAL_COMPARISON_ONLY",
+  "same_batch_controls_run": false,
+  "formal_performance_go": false,
+  "scope": "operator_only; no model/TTFT/Graph or release stability claim",
+  "paired_sessions": [
+    {
+      "M": 2048,
+      "group": 512,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 1588.1115198135376,
+      "p90_us": 1610.192847251892,
+      "p99_us": 2414.1206669807443,
+      "wall_p50_us": 1684.31
+    },
+    {
+      "M": 2048,
+      "group": 1024,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 1469.518005847931,
+      "p90_us": 1587.4685406684875,
+      "p99_us": 1647.343317270279,
+      "wall_p50_us": 1559.1100000000001
+    },
+    {
+      "M": 2048,
+      "group": 2048,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 1633.0595016479492,
+      "p90_us": 1749.4868516921997,
+      "p99_us": 1783.303518295288,
+      "wall_p50_us": 1730.0349999999999
+    },
+    {
+      "M": 4096,
+      "group": 512,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 2526.0159969329834,
+      "p90_us": 2593.757700920105,
+      "p99_us": 2629.428572654724,
+      "wall_p50_us": 2638.44
+    },
+    {
+      "M": 4096,
+      "group": 1024,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 2240.2995824813843,
+      "p90_us": 2386.9446516036987,
+      "p99_us": 2424.04452085495,
+      "wall_p50_us": 2338.9300000000003
+    },
+    {
+      "M": 4096,
+      "group": 2048,
+      "pipeline": true,
+      "repeat": 0,
+      "samples": 30,
+      "p50_us": 2350.4295349121094,
+      "p90_us": 2448.48735332489,
+      "p99_us": 2468.849277496338,
+      "wall_p50_us": 2450.44
+    },
+    {
+      "M": 4096,
+      "group": 2048,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 2371.6665506362915,
+      "p90_us": 2463.6353969573975,
+      "p99_us": 2471.30601644516,
+      "wall_p50_us": 2470.6499999999996
+    },
+    {
+      "M": 4096,
+      "group": 1024,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 2239.3105030059814,
+      "p90_us": 2406.210732460022,
+      "p99_us": 2426.820297241211,
+      "wall_p50_us": 2340.06
+    },
+    {
+      "M": 4096,
+      "group": 512,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 2538.5674238204956,
+      "p90_us": 2620.3771829605103,
+      "p99_us": 2630.8889484405518,
+      "wall_p50_us": 2640.16
+    },
+    {
+      "M": 2048,
+      "group": 2048,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 1640.9245133399963,
+      "p90_us": 1759.971833229065,
+      "p99_us": 1787.5237560272217,
+      "wall_p50_us": 1730.12
+    },
+    {
+      "M": 2048,
+      "group": 1024,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 1500.0784993171692,
+      "p90_us": 1597.799575328827,
+      "p99_us": 1634.1314113140106,
+      "wall_p50_us": 1582.49
+    },
+    {
+      "M": 2048,
+      "group": 512,
+      "pipeline": true,
+      "repeat": 1,
+      "samples": 30,
+      "p50_us": 1563.6849999427795,
+      "p90_us": 1621.604573726654,
+      "p99_us": 1643.8168919086456,
+      "wall_p50_us": 1652.135
+    }
+  ],
+  "comparisons": [
+    {
+      "M": 2048,
+      "group": 512,
+      "pipeline": true,
+      "v3_p50_us": 1575.8982598781586,
+      "v3_session_drift": 0.015621125656159585,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1078.412,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -31.568424976662,
+          "latency_reduction_pct": -46.13137278499855
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1222.611,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -22.418151531271636,
+          "latency_reduction_pct": -28.896129666603553
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1451.002,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -7.925401217703931,
+          "latency_reduction_pct": -8.607587024563612
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1088.372,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -30.93640448056919,
+          "latency_reduction_pct": -44.79408326180372
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1279.596,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -18.802118602571927,
+          "latency_reduction_pct": -23.15592264106472
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1457.929,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -7.4858423847285245,
+          "latency_reduction_pct": -8.09156412130896
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 2048,
+          "p50_us": 1438.49,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -8.71936110195225,
+          "latency_reduction_pct": -9.552256872008735
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 2048,
+          "p50_us": 1447.239,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -8.164185668185574,
+          "latency_reduction_pct": -8.889980153807242
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 2048,
+          "p50_us": 1461.406,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -7.265206313953964,
+          "latency_reduction_pct": -7.8343909822567115
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 2048,
+          "p50_us": 1451.106,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -7.918801806901355,
+          "latency_reduction_pct": -8.599803176208942
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 2048,
+          "p50_us": 1367.878,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": -13.200107213408675,
+          "latency_reduction_pct": -15.207515573622699
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 2048,
+          "p50_us": 1878.9129853248596,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 19.228063965888808,
+          "latency_reduction_pct": 16.127129239798755
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 2048,
+          "p50_us": 1655.9502482414246,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 5.079768815117247,
+          "latency_reduction_pct": 4.834202503866225
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 2048,
+          "p50_us": 1670.0845062732697,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 5.976670499172521,
+          "latency_reduction_pct": 5.6396096150418185
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 2048,
+          "p50_us": 2314.6159648895264,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 46.87597694717185,
+          "latency_reduction_pct": 31.915346485853256
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 2048,
+          "p50_us": 2034.1342687606812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 29.077766030273523,
+          "latency_reduction_pct": 22.527323585266966
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 2048,
+          "p50_us": 2062.0700120925903,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 30.850453014144485,
+          "latency_reduction_pct": 23.576879027548834
+        }
+      ]
+    },
+    {
+      "M": 2048,
+      "group": 1024,
+      "pipeline": true,
+      "v3_p50_us": 1484.79825258255,
+      "v3_session_drift": 0.02079627016996266,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1078.412,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -27.369795989166292,
+          "latency_reduction_pct": -37.68376581330233
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1222.611,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -17.658106219246996,
+          "latency_reduction_pct": -21.444862886277804
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1451.002,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -2.276151155469597,
+          "latency_reduction_pct": -2.329166505804281
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1088.372,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -26.698997785930512,
+          "latency_reduction_pct": -36.42378273077127
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1279.596,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -13.820211077541089,
+          "latency_reduction_pct": -16.036487499378715
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1457.929,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -1.8096231279781994,
+          "latency_reduction_pct": -1.8429740119409121
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 2048,
+          "p50_us": 1438.49,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -3.118824560980238,
+          "latency_reduction_pct": -3.2192265905602424
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 2048,
+          "p50_us": 1447.239,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -2.5295862597643937,
+          "latency_reduction_pct": -2.5952349668955765
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 2048,
+          "p50_us": 1461.406,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -1.5754498998004185,
+          "latency_reduction_pct": -1.6006676161552713
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 2048,
+          "p50_us": 1451.106,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -2.269146836881586,
+          "latency_reduction_pct": -2.321832628529563
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 2048,
+          "p50_us": 1367.878,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": -7.874487485366277,
+          "latency_reduction_pct": -8.54756437215527
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 2048,
+          "p50_us": 1878.9129853248596,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 26.543318734165734,
+          "latency_reduction_pct": 20.975677736037788
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 2048,
+          "p50_us": 1655.9502482414246,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 11.52695292853323,
+          "latency_reduction_pct": 10.3355759534825
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 2048,
+          "p50_us": 1670.0845062732697,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 12.478884142572655,
+          "latency_reduction_pct": 11.094423844705847
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 2048,
+          "p50_us": 2314.6159648895264,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 55.88757333621936,
+          "latency_reduction_pct": 35.851204903729354
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 2048,
+          "p50_us": 2034.1342687606812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 36.997350665159786,
+          "latency_reduction_pct": 27.005887694563057
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 2048,
+          "p50_us": 2062.0700120925903,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 38.878801110250215,
+          "latency_reduction_pct": 27.99477011569672
+        }
+      ]
+    },
+    {
+      "M": 2048,
+      "group": 2048,
+      "pipeline": true,
+      "v3_p50_us": 1636.9920074939728,
+      "v3_session_drift": 0.004816120713366789,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1078.412,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -34.12234176690257,
+          "latency_reduction_pct": -51.796531148946116
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1222.611,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -25.31356326707651,
+          "latency_reduction_pct": -33.893119519943184
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1451.002,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": false,
+          "v3_speedup_pct": -11.361693071348588,
+          "latency_reduction_pct": -12.818039361349797
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 2048,
+          "p50_us": 1088.372,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -33.51390874130414,
+          "latency_reduction_pct": -50.407398159266556
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 2048,
+          "p50_us": 1279.596,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -21.832483351039734,
+          "latency_reduction_pct": -27.93037861121579
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 2048,
+          "p50_us": 1457.929,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -10.938538897822447,
+          "latency_reduction_pct": -12.28201150357615
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 2048,
+          "p50_us": 1438.49,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -12.12602178784331,
+          "latency_reduction_pct": -13.799331764139676
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 2048,
+          "p50_us": 1447.239,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -11.591565910236824,
+          "latency_reduction_pct": -13.11138018627005
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 2048,
+          "p50_us": 1461.406,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -10.726137127741552,
+          "latency_reduction_pct": -12.014868386606658
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 2048,
+          "p50_us": 1451.106,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -11.355339955418643,
+          "latency_reduction_pct": -12.809953752101698
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 2048,
+          "p50_us": 1367.878,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": -16.439543153662207,
+          "latency_reduction_pct": -19.673831108766482
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 2048,
+          "p50_us": 1878.9129853248596,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 14.778384788893216,
+          "latency_reduction_pct": 12.87558177097059
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 2048,
+          "p50_us": 1655.9502482414246,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 1.1581144355417239,
+          "latency_reduction_pct": 1.1448556964549494
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 2048,
+          "p50_us": 1670.0845062732697,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 2.0215430880421437,
+          "latency_reduction_pct": 1.9814864849648561
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 2048,
+          "p50_us": 2314.6159648895264,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 41.39445729077871,
+          "latency_reduction_pct": 29.27586984944588
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 2048,
+          "p50_us": 2034.1342687606812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 24.260488716416084,
+          "latency_reduction_pct": 19.52389610488553
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 2048,
+          "p50_us": 2062.0700120925903,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 25.967017716192654,
+          "latency_reduction_pct": 20.61414026225269
+        }
+      ]
+    },
+    {
+      "M": 4096,
+      "group": 512,
+      "pipeline": true,
+      "v3_p50_us": 2532.2917103767395,
+      "v3_session_drift": 0.00496886278739006,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2022.553,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -20.12954148560173,
+          "latency_reduction_pct": -25.202736856672693
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2271.836,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -10.285375468768198,
+          "latency_reduction_pct": -11.464547193403906
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2119.506,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -16.300875159257533,
+          "latency_reduction_pct": -19.475562247841705
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2037.734,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -19.53004499245319,
+          "latency_reduction_pct": -24.26998373569562
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2261.888,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -10.678221204480053,
+          "latency_reduction_pct": -11.954778944701939
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2133.945,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -15.730680187610602,
+          "latency_reduction_pct": -18.667149827045183
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 4096,
+          "p50_us": 2131.745,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -15.8175580141653,
+          "latency_reduction_pct": -18.78961650557358
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 4096,
+          "p50_us": 2112.513,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -16.57702817793797,
+          "latency_reduction_pct": -19.871059272853685
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 4096,
+          "p50_us": 2076.211,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -18.010591295932755,
+          "latency_reduction_pct": -21.96697302811419
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 4096,
+          "p50_us": 2105.325,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -16.86088173124486,
+          "latency_reduction_pct": -20.280323008406764
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 4096,
+          "p50_us": 2539.831,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 0.29772595283419356,
+          "latency_reduction_pct": 0.29684217663540347
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 4096,
+          "p50_us": 3136.1460089683533,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 23.846158644249392,
+          "latency_reduction_pct": 19.254661513360272
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 4096,
+          "p50_us": 2560.3187680244446,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 1.106786296888962,
+          "latency_reduction_pct": 1.094670632334227
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 4096,
+          "p50_us": 2516.0677433013916,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": -0.6406831807277968,
+          "latency_reduction_pct": -0.6448143981234722
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 4096,
+          "p50_us": 3385.3317499160767,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 33.68648390877633,
+          "latency_reduction_pct": 25.1981224457687
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 4096,
+          "p50_us": 2756.77752494812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 8.864927119237098,
+          "latency_reduction_pct": 8.143051535346702
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 4096,
+          "p50_us": 2776.8815755844116,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 9.658834493885514,
+          "latency_reduction_pct": 8.808076921904629
+        }
+      ]
+    },
+    {
+      "M": 4096,
+      "group": 1024,
+      "pipeline": true,
+      "v3_p50_us": 2239.805042743683,
+      "v3_session_drift": 0.0004416892941265793,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2022.553,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -9.699596107595,
+          "latency_reduction_pct": -10.741475884373997
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2271.836,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": 1.4300779150439036,
+          "latency_reduction_pct": 1.4099150315567188
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2119.506,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -5.370960438428196,
+          "latency_reduction_pct": -5.6758057181099275
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2037.734,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -9.02181390288116,
+          "latency_reduction_pct": -9.916458318096621
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2261.888,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": 0.9859321161839185,
+          "latency_reduction_pct": 0.976306397855109
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2133.945,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -4.726306116982748,
+          "latency_reduction_pct": -4.960767158651347
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 4096,
+          "p50_us": 2131.745,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -4.824528951471296,
+          "latency_reduction_pct": -5.06908859848072
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 4096,
+          "p50_us": 2112.513,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -5.683175111872895,
+          "latency_reduction_pct": -6.025621747354126
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 4096,
+          "p50_us": 2076.211,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -7.303941174419625,
+          "latency_reduction_pct": -7.879451690781103
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 4096,
+          "p50_us": 2105.325,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -6.0040959001927074,
+          "latency_reduction_pct": -6.387614394152119
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 4096,
+          "p50_us": 2539.831,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 13.395181791750765,
+          "latency_reduction_pct": 11.812831533134183
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 4096,
+          "p50_us": 3136.1460089683533,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 40.01870471399083,
+          "latency_reduction_pct": 28.580970517999738
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 4096,
+          "p50_us": 2560.3187680244446,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 14.309893904343717,
+          "latency_reduction_pct": 12.518508604616907
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 4096,
+          "p50_us": 2516.0677433013916,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 12.334229778288952,
+          "latency_reduction_pct": 10.979938886510975
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 4096,
+          "p50_us": 3385.3317499160767,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 51.14403643672325,
+          "latency_reduction_pct": 33.837945341717
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 4096,
+          "p50_us": 2756.77752494812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 23.08113752486083,
+          "latency_reduction_pct": 18.752782098880694
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 4096,
+          "p50_us": 2776.8815755844116,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 23.978717905859725,
+          "latency_reduction_pct": 19.340995221508418
+        }
+      ]
+    },
+    {
+      "M": 4096,
+      "group": 2048,
+      "pipeline": true,
+      "v3_p50_us": 2361.0480427742004,
+      "v3_session_drift": 0.009035376474273438,
+      "direction_usable": true,
+      "historical_comparisons": [
+        {
+          "batch": "E3",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2022.553,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -14.33664358546779,
+          "latency_reduction_pct": -16.73602831541128
+        },
+        {
+          "batch": "E3",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2271.836,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -3.778493328300836,
+          "latency_reduction_pct": -3.926869843342584
+        },
+        {
+          "batch": "E3",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2119.506,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+          "source_sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724",
+          "original_status": "INCONCLUSIVE_DRIFT",
+          "shape_stable": true,
+          "v3_speedup_pct": -10.23028919353932,
+          "latency_reduction_pct": -11.396148101217962
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "stock",
+          "M": 4096,
+          "p50_us": 2037.734,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -13.6936664107144,
+          "latency_reduction_pct": -15.866351681534518
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e1",
+          "M": 4096,
+          "p50_us": 2261.888,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -4.199831641616614,
+          "latency_reduction_pct": -4.38395016792168
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e3g",
+          "M": 4096,
+          "p50_us": 2133.945,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -9.618738740587307,
+          "latency_reduction_pct": -10.64240375333949
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t2",
+          "M": 4096,
+          "p50_us": 2131.745,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -9.711917700106287,
+          "latency_reduction_pct": -10.756588746505823
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t4",
+          "M": 4096,
+          "p50_us": 2112.513,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -10.526471222592114,
+          "latency_reduction_pct": -11.764900039630554
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4t8",
+          "M": 4096,
+          "p50_us": 2076.211,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -12.064008762800139,
+          "latency_reduction_pct": -13.719079745469065
+        },
+        {
+          "batch": "E4_attempt2",
+          "arm": "e4p",
+          "M": 4096,
+          "p50_us": 2105.325,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+          "source_sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060",
+          "original_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+          "shape_stable": null,
+          "v3_speedup_pct": -10.8309122957841,
+          "latency_reduction_pct": -12.146487728697508
+        },
+        {
+          "batch": "R2_screen",
+          "arm": "v2_d4",
+          "M": 4096,
+          "p50_us": 2539.831,
+          "source": "csrc/_310P/memfabric_mm_ar_v2/docs/PERFORMANCE_BASELINES.md",
+          "source_sha256": "eeff0a8a1dc0689cb5caacab07e26a1f2deef2add10169222c3f6c42f8f7190c",
+          "original_status": "SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 7.57218633364749,
+          "latency_reduction_pct": 7.039167457433182
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g512",
+          "M": 4096,
+          "p50_us": 3136.1460089683533,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 32.82855546147307,
+          "latency_reduction_pct": 24.71498342161449
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g1024",
+          "M": 4096,
+          "p50_us": 2560.3187680244446,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 8.439926746094661,
+          "latency_reduction_pct": 7.783043570156789
+        },
+        {
+          "batch": "V3.1_default_r2",
+          "arm": "v31_g2048",
+          "M": 4096,
+          "p50_us": 2516.0677433013916,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank0.json": "eaee1440be3068fa296b436557964fed3321176f8045008671baa169f6de9a96",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass/rank1.json": "0c54f813e56c223f63a0385b12b5e6854e3d7e5454918308255ebf399d5af8c8"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 6.56571563639361,
+          "latency_reduction_pct": 6.161189456838157
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g512",
+          "M": 4096,
+          "p50_us": 3385.3317499160767,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 43.382586401687796,
+          "latency_reduction_pct": 30.256523815347446
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g1024",
+          "M": 4096,
+          "p50_us": 2756.77752494812,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 16.760755181793876,
+          "latency_reduction_pct": 14.354784838191359
+        },
+        {
+          "batch": "A2_fixed_session",
+          "arm": "a2_g2048",
+          "M": 4096,
+          "p50_us": 2776.8815755844116,
+          "source": "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass",
+          "source_sha256": {
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank0.json": "ef868901dea63a4640fe03c01adffda4fa449849737db1ebd9d6f054ad1107dd",
+            "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/pass/rank1.json": "b5805387eb2927183d563e95ebd0fcccd2b578b2171dc6612a1daaf4445216ae"
+          },
+          "original_status": "HISTORICAL_SCREEN_ONLY",
+          "shape_stable": null,
+          "v3_speedup_pct": 17.612243600160383,
+          "latency_reduction_pct": 14.974838555104618
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Historical binaries, MemFabric KVER, card, workload and launch overhead can differ",
+    "Small improvements inside the historical/session variation remain inconclusive",
+    "No V2/Stock performance arm is automatically scheduled"
+  ],
+  "dependency_findings": [
+    "KVER28_PADDING_SELF_COPY_PRESENT: quick screen cannot certify long-run stability"
+  ]
+}
