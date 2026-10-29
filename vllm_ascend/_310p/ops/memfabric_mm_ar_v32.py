@@ -151,18 +151,33 @@ class V32Session(V3Session):
             self.pending.clear()
 
 
-def load_tensor_module(build_directory):
+def load_tensor_module(build_directory, cann_home=None):
     """Explicit private build; run before timing/device admission, never in serving."""
+    import os
+
     import torch_npu
     from torch.utils.cpp_extension import load
 
     root = Path(__file__).resolve().parents[3]
     source = root / "csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/pool_tensor.cpp"
     home = Path(torch_npu.__file__).resolve().parent
+    if cann_home is None:
+        cann_home = os.environ.get("ASCEND_HOME_PATH")
+    if not cann_home:
+        raise RuntimeError("CANN home required: pass it explicitly or set ASCEND_HOME_PATH")
+    # torch_npu's bundled acl_base.h pulls "acl/acl_base_rt.h" and "error_codes/..."
+    # with CANN-relative prefixes, so the installed CANN include dir is mandatory.
+    acl_include = Path(cann_home) / "aarch64-linux" / "include"
+    if not (acl_include / "acl" / "acl_base_rt.h").is_file():
+        raise RuntimeError(f"CANN ACL headers missing under {acl_include}")
     return load(
         name="mf310p_v32_tensor",
         sources=[str(source)],
-        extra_include_paths=[str(home / "include"), str(home / "include/third_party/hccl/inc")],
+        extra_include_paths=[
+            str(home / "include"),
+            str(home / "include/third_party/hccl/inc"),
+            str(acl_include),
+        ],
         extra_ldflags=[f"-L{home / 'lib'}", "-ltorch_npu", f"-Wl,-rpath,{home / 'lib'}"],
         build_directory=str(build_directory),
         verbose=True,

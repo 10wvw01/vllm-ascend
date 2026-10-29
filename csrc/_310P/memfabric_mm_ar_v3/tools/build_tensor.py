@@ -25,7 +25,7 @@ def main():
     import torch_npu  # noqa: F401 - initializes the NPU Storage factory
     from memfabric_mm_ar_v32 import load_tensor_module
 
-    module = load_tensor_module(a.out)
+    module = load_tensor_module(a.out, cann_home=Path(m["cann"]))
     so = Path(module.__file__).resolve()
     m["tensor_adapter"] = {"path": str(so), "sha256": sha(so), "compile": "PASS", "storage_device_gate": "NOT_RUN"}
     a.manifest.write_text(json.dumps(m, indent=2) + "\n")
