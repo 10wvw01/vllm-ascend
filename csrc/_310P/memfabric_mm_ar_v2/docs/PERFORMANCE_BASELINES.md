@@ -198,3 +198,10 @@ E4 attempt2 `attempt2_e4_screen_summary.json`及本表R2 D4 Screen记录，保�
 研发裁决为当前V3无收益、停止推进集成，按chunk512/1024/2048重排流水；
 新设计详见[复核报告](../../memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)，V3.1性能UNKNOWN。
 用户明确旧V2/真实NZ Stock不重跑，继续复用以上历史数据；Stock默认不变。
+
+## 2026-10-29｜V3.2方案A编码，无新增实机数值
+
+新路径为单Y pool-return，完整窗口必须包含原流同步、双Rank输出槽协商、Tensor包装、
+Kernel和最终完成；保留Host Wall与配对Rank max分位数。不将无末尾copy的结果冒充旧out接口收益。
+CANN/Storage/设备门禁及性能NOT_RUN；继续复用历史V3.1、V2 E3-G及真实NZ Stock，
+不重跑旧性能臂，不增加独立归因轮。[准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。

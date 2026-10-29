@@ -19,6 +19,15 @@ int mf310p_v3_probe_add(mf310p_v3_context* ctx, uint64_t src, uint64_t seed, uin
 // Mandatory one-time official IB fan-in/fan-out probe before data launches.
 int mf310p_v3_ib_probe(mf310p_v3_context* ctx, uint32_t repetitions, void* stream);
 int mf310p_v3_status(mf310p_v3_context* ctx, uint64_t* status);
+int mf310p_v32_create(int rank, const char* store_url, uint32_t packet_bytes, mf310p_v3_context** out);
+// V3.2 Plan A: two collective output slots, fixed stream and TP2 only.
+// acquire is collective and synchronizes prior consumers before slot reuse.
+int mf310p_v32_acquire(mf310p_v3_context*, uint32_t rows, uint32_t group, uint32_t mode,
+    void* stream, uint32_t* slot, uint32_t* generation, uint64_t* address);
+// release only marks a Storage lease free; it never touches the device.
+int mf310p_v32_release(mf310p_v3_context*, uint32_t slot, uint32_t generation);
+int mf310p_v32_run(mf310p_v3_context*, uint64_t x, uint64_t weight_nz, uint32_t rows,
+    uint32_t group, uint32_t mode, uint32_t slot, uint32_t generation, void* stream);
 // Must be called after stream completion, on the owning device.
 int mf310p_v3_destroy(mf310p_v3_context* ctx);
 #ifdef __cplusplus

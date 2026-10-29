@@ -74,6 +74,35 @@ def baselines():
                 "shape_stable": None,
             }
         )
+    # V3.1 default 4MiB fixed session: recompute from paired raw samples,
+    # never select a minimum across different runs.
+    archived = REPO / "csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v31/default-r2-pass"
+    files = [archived / f"rank{r}.json" for r in (0, 1)]
+    ranks = [json.loads(p.read_text()) for p in files]
+    paired = {}
+    for a, b in zip(ranks[0]["measurements"], ranks[1]["measurements"], strict=True):
+        key = (a["M"], a["group"])
+        if any(a[k] != b[k] for k in ("M", "group", "repeat")):
+            raise ValueError("archived V3.1 rank case mismatch")
+        samples = []
+        for x, y in zip(a["samples"], b["samples"], strict=True):
+            if x["i"] != y["i"] or not x["correct"] or not y["correct"]:
+                raise ValueError("archived V3.1 sample mismatch")
+            samples.append(max(x["event_us"], y["event_us"]))
+        paired.setdefault(key, []).append(percentile(samples, 0.5))
+    for (m, group), times in paired.items():
+        rows.append(
+            {
+                "batch": "V3.1_default_r2",
+                "arm": f"v31_g{group}",
+                "M": m,
+                "p50_us": statistics.median(times),
+                "source": str(archived.relative_to(REPO)),
+                "source_sha256": {str(p.relative_to(REPO)): digest(p) for p in files},
+                "original_status": "HISTORICAL_SCREEN_ONLY",
+                "shape_stable": None,
+            }
+        )
     return rows
 
 
@@ -92,8 +121,11 @@ def assess(rank0, rank1):
     for key in ("run_id", "build_manifest_sha256", "configuration"):
         if rank0[key] != rank1[key]:
             raise ValueError(f"rank-pair {key} mismatch")
+    required_gates = {"ib", "add", "protocol", "fused", "tail"}
+    if rank0["configuration"].get("path") == "V32_PLAN_A_POOL_RETURN":
+        required_gates.add("output_lifetime")
     for r in (rank0, rank1):
-        if r.get("status") != "PASS" or set(r.get("gates", {})) != {"ib", "add", "protocol", "fused", "tail"}:
+        if r.get("status") != "PASS" or set(r.get("gates", {})) != required_gates:
             raise ValueError("incomplete or failed V3 prerequisites")
         if not all(v == "PASS" for v in r["gates"].values()):
             raise ValueError("failed V3 gate")

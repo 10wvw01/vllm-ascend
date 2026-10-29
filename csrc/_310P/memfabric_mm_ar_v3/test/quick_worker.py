@@ -74,6 +74,7 @@ def physical_device(cann, logical):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--plan-a", action="store_true")
     p.add_argument("--manifest", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--run-id", required=True)
@@ -193,7 +194,23 @@ def main():
         e0, e1 = torch.npu.Event(enable_timing=True), torch.npu.Event(enable_timing=True)
         torch.npu.synchronize()
         dist.barrier()
-        session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
+        if a.plan_a:
+            import importlib.util
+
+            from memfabric_mm_ar_v32 import V32Session
+
+            tensor = manifest["tensor_adapter"]
+            if digest(Path(tensor["path"])) != tensor["sha256"]:
+                raise RuntimeError("Tensor adapter fingerprint mismatch")
+            spec = importlib.util.spec_from_file_location("mf310p_v32_tensor", tensor["path"])
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            session = V32Session(
+                manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes, tensor_module=module
+            )
+            config["path"] = "V32_PLAN_A_POOL_RETURN"
+        else:
+            session = V3Session(manifest["host_so"], rank, a.store_url, packet_bytes=a.packet_bytes)
         data["loaded_libraries"] = loaded_identity(manifest)
 
         def checked(out, ref, label):
@@ -215,59 +232,85 @@ def main():
             session.probe_add(src, seed, out)
             checked(out, ref, f"raw ADD {size}")
         gate("add")
-        # Serial and pipeline; multiple packets/groups, alternate data to expose stale accumulation.
-        for group in (512, 1024, 2048):
-            for pipeline in (False, True):
-                for i in range(a.protocol_reps):
-                    dist.barrier()
-                    v = i % 2
-                    session.run(partials[4096][v], None, outputs[4096], group=group, pipeline=pipeline, partial=True)
-                    checked(outputs[4096], partial_refs[4096][v], "protocol")
-        # Cheap explicit arrival-ring wrap: 49 outgoing mails/wave * 24 waves >1024.
-        for i in range(24):
-            dist.barrier()
-            v = i % 2
-            session.run(partials[4096][v], None, outputs[4096], group=256, partial=True)
-            checked(outputs[4096], partial_refs[4096][v], "protocol ring wrap")
-        gate("protocol")
-        for m in (2048, 4096):
+        if a.plan_a:
+            from v32_device_flow import run_flow
+
+            run_flow(
+                session,
+                a,
+                dist,
+                torch,
+                xs,
+                refs,
+                partials,
+                partial_refs,
+                weight_nz,
+                checked,
+                gate,
+                measures,
+                e0,
+                e1,
+                rank,
+                outputs,
+                tail_stage,
+            )
+        else:
+            # Serial and pipeline; multiple packets/groups, alternate data to expose stale accumulation.
             for group in (512, 1024, 2048):
                 for pipeline in (False, True):
-                    dist.barrier()
-                    session.run(xs[m][0], weight_nz, outputs[m], group=group, pipeline=pipeline)
-                    checked(outputs[m], refs[m][0], "fused smoke")
-        gate("fused")
-        dist.barrier()
-        tail_out = session.run_exact(tail_x, weight_nz, tail_output, input_stage=tail_stage, group=1024)
-        checked(tail_out, tail_ref, "odd M padding")
-        gate("tail")
-        for repeat in range(2):
-            order = [(m, g) for m in (2048, 4096) for g in (512, 1024, 2048)]
-            if repeat:
-                order.reverse()
-            for m, group in order:
-                samples = []
-                for i in range(a.warmup + a.samples):
-                    v = i % 2
-                    dist.barrier()  # outside measured window
-                    start = time.perf_counter_ns()
-                    e0.record(session.stream)
-                    session.run(xs[m][v], weight_nz, outputs[m], group=group, pipeline=True)
-                    e1.record(session.stream)
-                    session.stream.synchronize()
-                    wall = (time.perf_counter_ns() - start) / 1000
-                    event = e0.elapsed_time(e1) * 1000
-                    checked(outputs[m], refs[m][v], "timed fused")
-                    if i >= a.warmup:
-                        samples.append(
-                            {"i": i - a.warmup, "variant": v, "event_us": event, "wall_us": wall, "correct": True}
+                    for i in range(a.protocol_reps):
+                        dist.barrier()
+                        v = i % 2
+                        session.run(
+                            partials[4096][v], None, outputs[4096], group=group, pipeline=pipeline, partial=True
                         )
-                row = {"M": m, "group": group, "pipeline": True, "repeat": repeat, "samples": samples}
-                measures.append(row)
-                write(a.out / f"timing_r{repeat}_m{m}_g{group}_rank{rank}.json", row)
-                print(
-                    json.dumps({"rank": rank, "M": m, "group": group, "repeat": repeat, "status": "PASS"}), flush=True
-                )
+                        checked(outputs[4096], partial_refs[4096][v], "protocol")
+            # Cheap explicit arrival-ring wrap: 49 outgoing mails/wave * 24 waves >1024.
+            for i in range(24):
+                dist.barrier()
+                v = i % 2
+                session.run(partials[4096][v], None, outputs[4096], group=256, partial=True)
+                checked(outputs[4096], partial_refs[4096][v], "protocol ring wrap")
+            gate("protocol")
+            for m in (2048, 4096):
+                for group in (512, 1024, 2048):
+                    for pipeline in (False, True):
+                        dist.barrier()
+                        session.run(xs[m][0], weight_nz, outputs[m], group=group, pipeline=pipeline)
+                        checked(outputs[m], refs[m][0], "fused smoke")
+            gate("fused")
+            dist.barrier()
+            tail_out = session.run_exact(tail_x, weight_nz, tail_output, input_stage=tail_stage, group=1024)
+            checked(tail_out, tail_ref, "odd M padding")
+            gate("tail")
+            for repeat in range(2):
+                order = [(m, g) for m in (2048, 4096) for g in (512, 1024, 2048)]
+                if repeat:
+                    order.reverse()
+                for m, group in order:
+                    samples = []
+                    for i in range(a.warmup + a.samples):
+                        v = i % 2
+                        dist.barrier()  # outside measured window
+                        start = time.perf_counter_ns()
+                        e0.record(session.stream)
+                        session.run(xs[m][v], weight_nz, outputs[m], group=group, pipeline=True)
+                        e1.record(session.stream)
+                        session.stream.synchronize()
+                        wall = (time.perf_counter_ns() - start) / 1000
+                        event = e0.elapsed_time(e1) * 1000
+                        checked(outputs[m], refs[m][v], "timed fused")
+                        if i >= a.warmup:
+                            samples.append(
+                                {"i": i - a.warmup, "variant": v, "event_us": event, "wall_us": wall, "correct": True}
+                            )
+                    row = {"M": m, "group": group, "pipeline": True, "repeat": repeat, "samples": samples}
+                    measures.append(row)
+                    write(a.out / f"timing_r{repeat}_m{m}_g{group}_rank{rank}.json", row)
+                    print(
+                        json.dumps({"rank": rank, "M": m, "group": group, "repeat": repeat, "status": "PASS"}),
+                        flush=True,
+                    )
         data["loaded_libraries_after"] = loaded_identity(manifest)
         if data["loaded_libraries"] != data["loaded_libraries_after"]:
             raise RuntimeError("loaded libraries changed")

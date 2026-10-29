@@ -21,6 +21,8 @@ def padded_rows(rows: int, group: int) -> int:
 class V3Session:
     """PyTorch thin adapter to the public C ABI; no implicit HCCL or fallback."""
 
+    _create_symbol = "mf310p_v3_create"
+
     def __init__(self, library: str | Path, rank: int, store_url: str, *, packet_bytes: int = 4 << 20):
         import torch
 
@@ -40,7 +42,8 @@ class V3Session:
         if self.lib.mf310p_v3_abi() != 1:
             raise RuntimeError("V3 C ABI mismatch")
         self._check(
-            self.lib.mf310p_v3_create(rank, store_url.encode(), packet_bytes, ctypes.byref(self.handle)), "create"
+            getattr(self.lib, self._create_symbol)(rank, store_url.encode(), packet_bytes, ctypes.byref(self.handle)),
+            "create",
         )
 
     def _bind(self):
@@ -54,6 +57,8 @@ class V3Session:
             "mf310p_v3_status": ([p, ctypes.POINTER(q)], ctypes.c_int),
             "mf310p_v3_destroy": ([p], ctypes.c_int),
         }
+        if self._create_symbol != "mf310p_v3_create":
+            signatures[self._create_symbol] = signatures["mf310p_v3_create"]
         for name, (args, result) in signatures.items():
             fn = getattr(self.lib, name)
             fn.argtypes, fn.restype = args, result

@@ -401,3 +401,16 @@ Gather覆盖旧源严格晚于ADD读完，TP2不需要此前提出的额外半�
 采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
 公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
 详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。
+
+## 37. 2026-10-29｜V3.2方案A编码，设备准入待服务器编译
+
+用户授权实现A，并索取供MemFabric团队评估的公共非阻塞收件需求。
+已实现固定FIFO OrderedProgress、八核独立producer、单Y直接输出、双槽集体选择及Storage持有；
+协议31/32建池协商，epoch/slot generation与每代一次run，拒绝活跃输出覆盖/关闭。
+A不新增MemFabric接口、不修改其仓库；B仍为备选。
+实际C++调度/Transport 480场异步FIFO和Host mock槽管理已通过；全套CPU/静态结果见
+[V3.2准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+新增`quick --plan-a`和Storage/单边释放/下游消费门禁；完整计时包含acquire的流同步与allgather。
+**CANN/TorchNPU编译、真实Storage/缓存/数值/性能NOT_RUN，不签设备GO**。
+由用户委托OpenCode后先私有编译，再G0/设备门禁，门禁通过才短测；Stock默认不变。
+[MemFabric需求原稿](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)已整理，尚未代发。

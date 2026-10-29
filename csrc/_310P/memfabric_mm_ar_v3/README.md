@@ -176,3 +176,11 @@ torch_npu编译基础设施子进程的误报STOP（`2a5f3b37e`，设备so逐字
 采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
 公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
 详见[V3.2排布推导](V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。
+
+## V3.2方案A实现（2026-10-29）
+
+显式`V32Session.run_pool`：固定阻塞收件、独立producer、SMEM Y零拷贝Storage及双槽生命周期。
+使用`tools/build_tensor.py`私有编译格式描述适配后，`tools/quick.py start --plan-a`进入新设备门禁。
+实现与剩余准入条件见[V32_ADMISSION](V32_ADMISSION.md)，公共非阻塞接口仅有
+[需求说明](MEMFABRIC_TRY_WAIT_REQUEST.md)，A不依赖此接口。
+本地检查不代表新Kernel、TorchNPU Storage或设备性能PASS，Stock默认不变。

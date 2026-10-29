@@ -204,3 +204,11 @@ A沿用现有MemFabric锁定版本；B须由负责团队提供公共非阻塞收
 实现完成后直接进行输出持有/别名/连续波、各种chunk、数值与协议门禁及完整性能短测，
 不加独立设备归因轮，不重跑V2/Stock。继续以完整ND可消费输出为终点，报告pool-return和out-copy差别。
 通过实际服务器CANN编译、NPU Storage有效性、全部数值/生命周期门禁后才签设备准入。
+
+## 2026-10-29方案A编码更新
+
+A已编码，见[V32_ADMISSION](V32_ADMISSION.md)。实现为按核完整chunk发布独占缓存行，
+Core0逐chunk汇总，其他核持续向前；B的逐行带自驱未实现。
+两输出槽复用前执行原流同步与双Rank空闲交集allgather，该完整接口成本必须进入时延。
+Storage包装采用通用from_blob并补TorchNPU StorageDescHelper描述；仅普通from_blob不算可用。
+新设备编译/Storage/数值/性能仍NOT_RUN，上文“尚未编码”仅描述推导时点。

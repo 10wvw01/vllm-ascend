@@ -98,3 +98,11 @@ V3最新依赖和OpenCode两仓私有构建/部署流程见[固定执行单](csr
 ### 2026-10-26｜新增四卡动态择优实机原则（ADR-014）
 
 310P3服务器共有4张卡，实机应优先选**健康且独占的一张双Die卡**；卡级Alarm/占用则记录并换卡重新G0，运行中507014/507899/IB/KFC/错算则STOP保全现场，不自动轮测四卡。换卡需核查`ASCEND_RT_VISIBLE_DEVICES`逻辑/物理映射、双Host SO的SetAccess物理DeviceID修复和KVER11；**KFC由MemFabric在获准首次建池时自动按需部署，G0只读阶段不预部署**。同一Stock/V2 ABBA不得跨卡混合。详见[310P3四卡动态选卡与KFC标准](csrc/_310P/memfabric_mm_ar_v2/docs/310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。未进行新实机测试。
+
+## 2026-10-29｜V3.2方案A编码交付，尚未完成服务器准入
+
+最新实现及准入见[V32_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/V32_ADMISSION.md)：
+现有阻塞API、单Y pool-return、独立producer、双槽Storage生命周期。
+V3.1历史测试通过不覆盖此版新Kernel/TorchNPU Storage；本轮CANN编译/设备/性能NOT_RUN。
+MemFabric公共非阻塞收件仅提供[需求原稿](csrc/_310P/memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)，
+由用户提交给负责团队，非方案A依赖。详见控制台§37，Stock默认不变。

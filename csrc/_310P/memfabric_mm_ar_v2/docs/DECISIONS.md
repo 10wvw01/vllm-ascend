@@ -213,3 +213,13 @@ TP2的ADD完成→Gather天然保护被覆盖源，否决不必要的额外半�
 采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
 公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
 详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。
+
+## ADR-027｜V3.2主方案A编码，公共try_wait仅提交需求
+
+保留现有MemFabric版本及signal/wait/quiet。独立producer采用每group/core独占缓存行，
+避免将IB事件错误视为可累加通知。Core0按固定FIFO收发，取消工作核逐chunk放行等待。
+双槽Y由Storage持有，下一次acquire在双方流完成后协商空闲交集；完整计时必须包含该成本。
+协议模式在create协商，禁止混用31/32；generation每次只允许run一次。
+新增TorchNPU格式描述与Storage、别名/单边释放/槽耗尽/下游ND消费设备门禁。
+方案B接口[需求](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)供负责团队审核，未代发，
+不修改对方库或以短超时伪造非阻塞。设备准入仍待新CANN与Storage验证，性能UNKNOWN。
