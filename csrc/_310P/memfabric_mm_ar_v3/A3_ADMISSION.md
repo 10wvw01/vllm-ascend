@@ -15,11 +15,12 @@ A3资源不足/包装失败为终止错误：失败端提交首READY ready=0且�
 
 ## 两轮设计与源码审核
 
-第一轮（依赖和地址）：逐行席位不重叠，两个Y和一个S位于用户区48MiB内，
+第一轮（依赖和地址）：逐行席位不重叠，两个Y、两个S（每槽一份）位于用户区80MiB内，
 控制cacheline紧随其后；单独的IB/标志分配不接触SDK私有环。
 正常计算不等对端；第0范围的READY携带参数及admit，比较一致后才允许ADD。
 取消计算前本地fan-out，拒绝端在任何Matmul初始化/seed前走错误通知路径。
-seed写入完成早于READY，入站ADD只写Y，S全波不变；最终quiet保护下一调用复用S。
+seed写入完成早于READY，入站ADD只写Y，S全波不变；S按槽轮换，尾部不再有最终quiet——
+DONE交换证明对端已Drain全部入站ADD（含本端出站读完成），下一调用seed另一槽。
 
 第二轮（交错、边界和生命周期）：MM完成范围到通信范围的覆盖检查；compute大于或小于comm；
 最多8范围、每范围64包，整波READY+DATA+DONE最多521封小于1024到达槽；
@@ -76,16 +77,15 @@ A2的设备通过仅支持复用其已锁定Storage工厂适配，不能代替A3
 
 移除独立START及其wait、移除计算前7次IB放行；正常波少一封控制报文和一次前置跨Rank等待。
 每波状态清零改由Kernel Core0执行，Host不再提交独立aclrtMemsetAsync任务。
-保留首READY校验、数据就绪、所有ADD完成、quiet/DONE、输出生命周期和输入完成事件。
+保留首READY校验、数据就绪、所有ADD完成、Drain/quiet/DONE（无最终quiet）、输出生命周期和输入完成事件。
+等待自旋的cacheline失效按8圈摊销：标志只写一次不清零，最多引入7次陈旧读，不会漏检。
 Host和Device必须同版重编；旧3301会话不能混用。无新增设备性能数据，不签设备GO。
-
 
 ## A3-2与A3-tail同批候选
 
 新增profile3303七核计算/专职通信、3304 Core0末尾计算，原3302保留。
 布局、风险、两轮审核与八会话执行入口见[A3_SEAT_SCHEDULE](A3_SEAT_SCHEDULE.md)。
 新增设备编译与实测NOT_RUN；原六门禁逐候选通过后才短测，不签设备GO。
-
 
 ## 统一I/O计时与三A3阶段打点
 

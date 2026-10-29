@@ -81,6 +81,9 @@ def session(monkeypatch):
     s.pending, s.inflight = [], []
     s.free_events = [Event() for _ in range(64)]
     s.lib = Lib()
+    s._fn = {name: getattr(s.lib, name) for name in ("mf310p_a3_reserve", "mf310p_a3_run", "mf310p_v32_release")}
+    s._slot_cell, s._gen_cell, s._addr_cell = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
+    s._torch_npu = sys.modules["torch_npu"]
     s.tensor_module = types.SimpleNamespace(wrap=lambda *args: Output(args[-1]))
     s._tensor = lambda x: s.pending.append(x)
 

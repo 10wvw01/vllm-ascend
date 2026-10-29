@@ -12,12 +12,13 @@
 
 ## 地址、席位与生命周期
 
-每Rank最大Arena=16MiB。Y0=[0,16MiB)，Y1=[16,32MiB)，S=[32,48MiB)。
-A3控制源/目的各独占64B，位于48MiB之后，与旧控制及SDK reserved tail不重叠。
-保留64MiB对称申请，初始化核查有效几何；地址上限不得接触reserved tail。
+每Rank最大Arena=16MiB。Y0=[0,16MiB)，Y1=[16,32MiB)，S0=[32,48MiB)，S1=[48,64MiB)。
+A3控制源/目的各独占64B，位于64MiB之后，与旧控制及SDK reserved tail不重叠。
+保留80MiB对称申请，初始化核查有效几何；地址上限不得接触reserved tail。
 S一次Kernel中每行只生产一次，不是环形区；chunk/后续通信不能覆盖其它席位。
 Y由Storage及切片持有，最终输出不copy到另一完整缓冲。
-后续Kernel复用S前由拥有流顺序及前波最终quiet保证源已读完，不新增Host流同步。
+S按槽轮换（S_slot与Y_slot同槽位）；下一调用seed另一槽，复用安全由流顺序加
+DONE交换（对端已Drain全部入站ADD）保证，不新增Host流同步，也不需要前波最终quiet。
 Y槽=(下一epoch-1)%2，不做Host求空闲交集；只在本地租约为空时创建本次持有者。
 
 普通路径是异步返回Tensor；若槽忙、包装失败或输入在途容量耗尽，仍提交ready=0的首READY。
@@ -45,7 +46,7 @@ Core0将(epoch,slot,rows,compute,comm,mode,ready,profile3302)写入本波独占�
 第0范围的READY为64B：同时证明本范围S/Y就绪并携带帧参数；后续READY为8B。
 首次READY接收完成后比较双方所有参数、mail及admit，校验通过才允许任何ADD。
 后续READY重复写目的控制行的首8B，但该值始终是本波同一profile，不能修改其余首报文字段。
-发送header整波保持不变，最终quiet后才允许下波复用，避免异步读源被覆盖。
+发送header整波保持不变；S按槽轮换，DONE交换后才允许两波后复用同槽，避免异步读源被覆盖。
 本地拒绝时Core0发送首READY ready=0，错误路径quiet确认送出后Trap，其余核不写S/Y。
 正常路径不增加该quiet，不等待peer才开始MM；只有既有READY依赖后才可ADD。
 
@@ -59,11 +60,13 @@ peer READY成立后只提交一次完整S范围到对端Y的ADD；不为回收S�
 ## 完成条件
 
 每核全部MM和seed完成；每个通信范围已提交一次ADD、收到全部期望ADD完成；
-出站quiet->双方DONE->最终quiet->全核放行及输出可见性，之后Kernel结束。
+出站quiet->双方DONE->全核放行及输出可见性，之后Kernel结束。
 ADD读S但写Y，S不被任何ADD修改；Y首次ADD前已有本地种子，之后不再被MM或seed重写。
+DONE交换证明对端Drain了含本端出站的全部ADD，故无需最终quiet即可安全复用S的另一槽。
 不在不确定ADD后重试；任何会话/协议/设备失败停止双方。
 缓存：结果发布保持必要全局数据可见性；独占标志读取/写入仅做单cacheline维护并渐进退避，
-不得每次poll整缓存。不能用volatile取代可见性和跨引擎完成。
+失效按8圈摊销（标志只写一次不清零，最多7次陈旧读，不漏检），不得每次poll整缓存。
+不能用volatile取代可见性和跨引擎完成。
 
 ## 审核与验收
 

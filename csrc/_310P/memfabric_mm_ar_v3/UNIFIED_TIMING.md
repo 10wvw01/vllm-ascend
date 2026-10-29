@@ -46,7 +46,7 @@ Device有独立TRACE=false/true模板实例；关闭路径不读取设备时钟�
 | 16+core×8 | 各核独占cacheline | 入口、最终核间会合前、会合后、输出可见后 |
 | 80+seat×8 | 每座位生产核独占cacheline | 生产开始、MM结束、S可见、seed/Y可见、epoch发布结束 |
 | 592+g×16 | Core0 | 就绪等待前后、READY提交前后、peer READY确认、ADD提交完成、最后观察到的入站ADD完成；tail另记强制补算前 |
-| 720..724 | Core0 | Drain前后、quiet后、DONE后、最终quiet后 |
+| 720..724 | Core0 | Drain前后、quiet后、DONE后、尾部（最终quiet已移除，退出前） |
 
 最多64座位、8通信批次；每核和每座位独占64B，避免trace本身出现cacheline共享写回覆盖。
 座位trace在完成时写回，Core0控制区与各核末尾区在退出前写回；不改SDK私有队列。
@@ -64,7 +64,7 @@ READY等待包含消费穿插消息，ADD提交包含可能的环背压；Drain�
 设备计数未经频率校准仅标ticks，不猜微秒。不同核/不同Die时钟未校准，不直接相减。
 所有核累计MM与SDMA重叠，不相加画100%饼图，不用fused−partial估计MM本体。
 已有原始时间戳可观察同核先后和暴露尾部；跨核绝对时间线/真实链路占用仍需独立校准或硬件Profiler，
-本工具不宣称已经测得它们。最后入站完成只代表本端观察时间；出站全部完成由quiet保证。
+本工具不宣称已经测得它们。最后入站完成只代表本端观察时间；出站全部完成由quiet与DONE交换保证。
 
 ## 服务器操作
 

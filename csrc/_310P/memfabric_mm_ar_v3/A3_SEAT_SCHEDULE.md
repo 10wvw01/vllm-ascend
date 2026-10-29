@@ -10,7 +10,7 @@ K=N=2048、FP16，每行4096字节。第r行地址为base+r×4096，连续h行�
 每座位按次序完成MM→S可见→seed S到本地Y→Y可见→发布epoch标志。
 Core0确认该批所有座位齐全才发READY。双方相同范围READY及首帧校验通过后才ADD S→peerY。
 因此“连续”是地址无空洞且数据全部就绪，不要求不同核按行号顺序完成。
-S全波只写一次，无逐chunk源回收；最终Drain/quiet/DONE和核间完成放行不变。
+S全波只写一次，无逐chunk源回收；最终Drain/quiet/DONE（无最终quiet）和核间完成放行不变。
 
 ## 三个独立候选
 

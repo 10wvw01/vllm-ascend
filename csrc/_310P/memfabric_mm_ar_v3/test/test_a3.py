@@ -174,3 +174,21 @@ def test_first_ready_replaces_start_without_initial_fanout():
     assert body.index("if (!admit)") < body.index("REGIST_MATMUL_OBJ")
     assert "g == 0 ? 64 : 8" in text
     assert "kA3Protocol = 3302" in (HERE.parent / "src/op_host/mf310p_v3_host.cpp").read_text()
+
+
+def test_a3_tail_single_quiet_per_slot_source_and_amortized_invalidation():
+    kernel = (HERE.parent / "src/op_kernel/mf310p_v3_kernel.asc").read_text()
+    a3 = kernel[kernel.index("// A3 first READY") : kernel.index("__global__ __aicore__ void V3RawAddKernel")]
+    # Every A3 tail keeps Drain -> quiet -> DONE but drops the final quiet:
+    # the DONE exchange proves the peer drained our outbound ADDs, and the
+    # next call seeds the other S slot anyway.
+    assert "status, 106" not in a3
+    assert a3.count("status, 105") == 3
+    # Amortized invalidation on both wait families: bounded staleness, never unbounded.
+    assert a3.count("(spins & 7u) == 0) FlushLine") == 2
+    # The inbound READY header tracks the ctrl arena, not the (now per-slot) S arena.
+    assert a3.count("ctrlSrc + 64") == 2
+    host = (HERE.parent / "src/op_host/mf310p_v3_host.cpp").read_text()
+    assert "kA3CtrlOff = 4 * kArenaBytes" in host
+    assert "s->work + kA3SourceOff + slot * kArenaBytes" in host
+    assert "kPoolBytes = 5 * kArenaBytes" in (HERE.parent / "src/mf310p_v3_protocol.h").read_text()

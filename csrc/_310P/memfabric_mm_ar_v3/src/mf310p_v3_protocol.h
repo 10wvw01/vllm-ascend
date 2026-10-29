@@ -9,7 +9,9 @@ constexpr uint32_t kWidth = 2048;
 constexpr uint32_t kMaxRows = 4096;
 constexpr uint64_t kRowBytes = kWidth * 2ULL;
 constexpr uint64_t kArenaBytes = kMaxRows * kRowBytes;
-constexpr uint64_t kPoolBytes = 64ULL << 20;
+// A3 sessions lay the pool out as [Y slot0 | Y slot1 | S slot0 | S slot1 | ctrl];
+// V2/V3 paths only touch the first three arenas, leaving the layout compatible.
+constexpr uint64_t kPoolBytes = 5 * kArenaBytes;
 // User control lines are disjoint from data and from MemFabric's reserved tail.
 constexpr uint64_t kCtrlSrcOff = 2 * kArenaBytes;
 constexpr uint64_t kCtrlDstOff = kCtrlSrcOff + 64;

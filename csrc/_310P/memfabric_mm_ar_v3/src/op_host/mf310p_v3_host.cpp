@@ -47,7 +47,9 @@ struct mf310p_v3_context {
 namespace {
 using namespace mfv3;
 constexpr uint32_t kPlanAProtocol = 3203, kA3Protocol = 3302;
-constexpr uint64_t kA3SourceOff = 2 * kArenaBytes, kA3CtrlOff = 3 * kArenaBytes;
+// A3 pool layout: [Y slot0 | Y slot1 | S slot0 | S slot1 | ctrl]. Per-slot S
+// removes S-reuse from the critical tail: the next call seeds the other slot.
+constexpr uint64_t kA3SourceOff = 2 * kArenaBytes, kA3CtrlOff = 4 * kArenaBytes;
 enum ControlOp : uint32_t { ACQUIRE_SLOT = 1, PREPARE_WAVE = 2, CLOSE_SESSION = 3 };
 struct ControlInfo {
     uint32_t op, protocol, epoch, flags, rows, group, mode, slot, generation;
@@ -92,7 +94,7 @@ int LaunchA3(mf310p_v3_context* s, uint64_t x, uint64_t w, uint32_t rows, uint32
     // Public admit remains boolean; role is only encoded on the private device ABI.
     const uint32_t role = s->protocol == 3303 ? 1u : s->protocol == 3304 ? 2u : 0u;
     return mf310p_a3_device_run(s->gva, x, w, s->work + slot * kArenaBytes,
-        s->work + kA3SourceOff, s->peer + slot * kArenaBytes,
+        s->work + kA3SourceOff + slot * kArenaBytes, s->peer + slot * kArenaBytes,
         reinterpret_cast<uint64_t>(s->ib), reinterpret_cast<uint64_t>(s->status),
         s->work + kA3CtrlOff, s->peer + kA3CtrlOff + 64,
         s->expectedWork + slot * kArenaBytes, s->expectedWork + kA3CtrlOff + 64,

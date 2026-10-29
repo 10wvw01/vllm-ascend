@@ -39,9 +39,16 @@ class A3Session(V3Session):
             "mf310p_a3_run": [p, q, q, u, u, u, u, u, u, u, p],
             "mf310p_v32_release": [p, u, u],
         }
+        self._fn = {}
         for name, args in signatures.items():
             fn = getattr(self.lib, name)
             fn.argtypes, fn.restype = args, ctypes.c_int
+            self._fn[name] = fn
+        # Reused per-call output cells; every call runs under self.lock.
+        self._slot_cell = ctypes.c_uint32()
+        self._gen_cell = ctypes.c_uint32()
+        self._addr_cell = ctypes.c_uint64()
+        self._torch_npu = None
 
     def initialize(self):
         import torch
@@ -52,7 +59,10 @@ class A3Session(V3Session):
                 return
             self.synchronize_check()
             try:
-                self._check(self.lib.mf310p_a3_warm(self.handle, self.raw_stream), "A3 cold warm")
+                import torch_npu
+
+                self._torch_npu = torch_npu
+                self._check(self._fn["mf310p_a3_warm"](self.handle, self.raw_stream), "A3 cold warm")
                 self.free_events = [torch.npu.Event() for _ in range(self.MAX_PENDING)]
                 for event in self.free_events:
                     event.record(self.stream)
@@ -72,13 +82,14 @@ class A3Session(V3Session):
             raise
 
     def run_pool(self, x, weight_nz=None, *, compute_rows=1024, comm_rows=1024, partial=False):
-        import torch_npu
-
+        torch_npu = self._torch_npu
         with self.lock:
             stamps = [time.perf_counter_ns()] if getattr(self, "phase_log", None) is not None else None
             self._ready()
             if not self.initialized:
                 raise RuntimeError("call initialize collectively after IB/ADD probes")
+            if torch_npu is None:
+                raise RuntimeError("A3 initialize must run before run_pool")
             if compute_rows not in (512, 1024) or comm_rows not in (512, 1024, 2048):
                 raise ValueError("A3 compute_rows=512/1024, comm_rows=512/1024/2048")
             if x.ndim != 2 or x.shape[1] != 2048 or not 0 < x.shape[0] <= 4096:
@@ -89,20 +100,21 @@ class A3Session(V3Session):
             self._tensor(x)
             if torch_npu.get_npu_format(x) != 2:
                 raise ValueError("A3 input requires native ND")
-            if not partial:
+            partial_int = int(partial)
+            if not partial_int:
                 self._tensor(weight_nz, contiguous=False)
                 if tuple(weight_nz.shape) != (2048, 2048) or torch_npu.get_npu_format(weight_nz) != 29:
                     raise ValueError("A3 weight requires native NZ")
             inputs, self.pending = self.pending, []
-            slot, generation, address = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
+            slot, generation, address = self._slot_cell, self._gen_cell, self._addr_cell
             if stamps is not None:
                 stamps.append(time.perf_counter_ns())
-            rc = self.lib.mf310p_a3_reserve(
+            rc = self._fn["mf310p_a3_reserve"](
                 self.handle,
                 x.shape[0],
                 compute_rows,
                 comm_rows,
-                int(partial),
+                partial_int,
                 self.raw_stream,
                 ctypes.byref(slot),
                 ctypes.byref(generation),
@@ -121,7 +133,7 @@ class A3Session(V3Session):
                 nonlocal released
                 with self.lock:
                     if not released:
-                        self._check(self.lib.mf310p_v32_release(self.handle, *token), "A3 Storage release")
+                        self._check(self._fn["mf310p_v32_release"](self.handle, *token), "A3 Storage release")
                         released = True
 
             out = None
@@ -137,14 +149,14 @@ class A3Session(V3Session):
                 admitted, reason = False, RuntimeError("A3 pending input capacity exhausted; stop BOTH ranks")
             try:
                 self._check(
-                    self.lib.mf310p_a3_run(
+                    self._fn["mf310p_a3_run"](
                         self.handle,
                         x.data_ptr(),
-                        0 if partial else weight_nz.data_ptr(),
+                        0 if partial_int else weight_nz.data_ptr(),
                         x.shape[0],
                         compute_rows,
                         comm_rows,
-                        int(partial),
+                        partial_int,
                         *token,
                         int(admitted),
                         self.raw_stream,

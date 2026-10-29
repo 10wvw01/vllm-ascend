@@ -38,7 +38,7 @@ inline int smem_shm_init(const char*,int,int,uint16_t,smem_shm_config_t*){return
 inline void smem_shm_uninit(int){}
 inline void* smem_shm_create(int,int,int,uint64_t,int,int,void** p){*p=(void*)0x10000000;return (void*)1;}
 inline void* smem_shm_sdma_get_workspace(void*){return (void*)1;}
-inline uint64_t smem_shm_get_symmetric_size(void*){return 64ULL<<20;}
+inline uint64_t smem_shm_get_symmetric_size(void*){return 128ULL<<20;}
 inline int smem_shm_control_barrier(void*){return 0;}
 unsigned peerMask=3,peerReady=1,peerHeld=0,peerOp=0;int destroyed=0;
 inline int smem_shm_destroy(void*,int){destroyed++;return 0;}

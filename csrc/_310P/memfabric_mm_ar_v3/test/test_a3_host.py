@@ -47,8 +47,8 @@ extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64
 uint64_t,uint64_t,uint64_t ctrl,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
 uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t admit,uint32_t enabled,uint64_t trace,aclrtStream){
 lastTrace=trace;
-if(enabled){a3Launches++;lastAdmit=admit;assert(s==0x10000000+2*mfv3::kArenaBytes);
-assert(ctrl==s+mfv3::kArenaBytes);assert(y==0x10000000||y==0x10000000+mfv3::kArenaBytes);}return 0;}
+if(enabled){a3Launches++;lastAdmit=admit;assert(y==0x10000000||y==0x10000000+mfv3::kArenaBytes);
+assert(s==y+2*mfv3::kArenaBytes);assert(ctrl==0x10000000+4*mfv3::kArenaBytes);}return 0;}
 """
         + text[b:]
     )
