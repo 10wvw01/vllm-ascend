@@ -1,0 +1,336 @@
+{
+  "schema": "MF_PROJECT_CONSOLIDATION_V1",
+  "date": "2026-10-30",
+  "mainline_before": "54d5518d486c638b3707b08064eac5f6fc7a50ee",
+  "latest_v3": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
+  "blob_count": 4862,
+  "history_store": "csrc/_310P/memfabric_history/blobs/{sha_first_hex}/{git_blob_sha}",
+  "default_policy": "Existing V1/V2/Serving/build files retained from latest V3 descendant of mainline. Legacy same-path versions are immutable snapshots, never auto-activated.",
+  "canonical_addition_count": 6040,
+  "branches": [
+    {
+      "branch": "backup/310p-memfabric-public-api-before-dflash-merge-20260930",
+      "head": "18aab551bcdcb805dde69540f3f0a41ddfdad9b5",
+      "snapshot": "snapshots/backup__310p-memfabric-public-api-before-dflash-merge-20260930.json.gz",
+      "file_count": 138
+    },
+    {
+      "branch": "backup/310p-memfabric-public-api-before-reset-20260930",
+      "head": "c1cc2ca45f3e0b5ef1b50cacfaed6c700fab5379",
+      "snapshot": "snapshots/backup__310p-memfabric-public-api-before-reset-20260930.json.gz",
+      "file_count": 123
+    },
+    {
+      "branch": "design/310p-g1c-first-stop-20261020",
+      "head": "d87bacfbcb3a943d0f5cea2cf0a1079f1eb0f8a8",
+      "snapshot": "snapshots/design__310p-g1c-first-stop-20261020.json.gz",
+      "file_count": 305
+    },
+    {
+      "branch": "dev/310p-memfabric-mm-ar",
+      "head": "54d5518d486c638b3707b08064eac5f6fc7a50ee",
+      "snapshot": "snapshots/dev__310p-memfabric-mm-ar.json.gz",
+      "file_count": 691
+    },
+    {
+      "branch": "diag/310p-v2-gate-c-controlled-isolation-20261022",
+      "head": "edebac40d226a8aeb08460b5a33a3283a842bba5",
+      "snapshot": "snapshots/diag__310p-v2-gate-c-controlled-isolation-20261022.json.gz",
+      "file_count": 355
+    },
+    {
+      "branch": "diag/310p-v2-mte2-scalar-gate-ab-20261022",
+      "head": "7a1a089307f9c603c35a7453763e230906434c69",
+      "snapshot": "snapshots/diag__310p-v2-mte2-scalar-gate-ab-20261022.json.gz",
+      "file_count": 335
+    },
+    {
+      "branch": "diag/310p3-g1c-device-first-stop-20261020",
+      "head": "86e660edc1c1011a7ca23ac9bb29787fbe079271",
+      "snapshot": "snapshots/diag__310p3-g1c-device-first-stop-20261020.json.gz",
+      "file_count": 331
+    },
+    {
+      "branch": "diag/310p3-g1d-minimal-forensics-20261021",
+      "head": "c6ad3dffbbd79db1fd2a37e52f6f232aaf42cf0a",
+      "snapshot": "snapshots/diag__310p3-g1d-minimal-forensics-20261021.json.gz",
+      "file_count": 422
+    },
+    {
+      "branch": "diag/310p3-gate-e-forensics-20261020",
+      "head": "8f1eef3b4e55f4e661a2cf34e99af9685e214b07",
+      "snapshot": "snapshots/diag__310p3-gate-e-forensics-20261020.json.gz",
+      "file_count": 304
+    },
+    {
+      "branch": "diag/310p3-hccl-cache-probe-20261021",
+      "head": "f9698d20715f89f45c4f394b82201e3798d4462e",
+      "snapshot": "snapshots/diag__310p3-hccl-cache-probe-20261021.json.gz",
+      "file_count": 298
+    },
+    {
+      "branch": "docs/310p-a1-r2-results-20261027",
+      "head": "974b69501c2166ece8b7bb791d18a0c16fad9596",
+      "snapshot": "snapshots/docs__310p-a1-r2-results-20261027.json.gz",
+      "file_count": 566
+    },
+    {
+      "branch": "docs/310p-a1-reentry-control-20261027",
+      "head": "b99c7f788e5514eb27293ec3ae490a194d9eeae2",
+      "snapshot": "snapshots/docs__310p-a1-reentry-control-20261027.json.gz",
+      "file_count": 564
+    },
+    {
+      "branch": "docs/310p-large-m-ttft-master-ledger-20261027",
+      "head": "2418bff98ce643dcfa6e7cb4a9e7f12d422bf114",
+      "snapshot": "snapshots/docs__310p-large-m-ttft-master-ledger-20261027.json.gz",
+      "file_count": 564
+    },
+    {
+      "branch": "docs/310p-mainline-direction-adr015-20261027",
+      "head": "07f03dc4124c88db5e95e4fa3032bb13f93ce907",
+      "snapshot": "snapshots/docs__310p-mainline-direction-adr015-20261027.json.gz",
+      "file_count": 563
+    },
+    {
+      "branch": "docs/310p-o-proj-ai-native",
+      "head": "911e4b1927e136d2204e5426ad1e723ecc87dbfe",
+      "snapshot": "snapshots/docs__310p-o-proj-ai-native.json.gz",
+      "file_count": 131
+    },
+    {
+      "branch": "docs/310p-one-batch-l1-l3-20261027",
+      "head": "9ff33cbcd5b57f0119fe2e13297d1db0b0b919d0",
+      "snapshot": "snapshots/docs__310p-one-batch-l1-l3-20261027.json.gz",
+      "file_count": 565
+    },
+    {
+      "branch": "docs/310p-r0-acceptance-20261027",
+      "head": "383dc9e113d9e7284bee3594d3b5b0e40364c1ff",
+      "snapshot": "snapshots/docs__310p-r0-acceptance-20261027.json.gz",
+      "file_count": 565
+    },
+    {
+      "branch": "docs/310p-r1-source-restored-20261027",
+      "head": "60e7a579c78d2d38c1b158db973d2b113dcb5d7e",
+      "snapshot": "snapshots/docs__310p-r1-source-restored-20261027.json.gz",
+      "file_count": 565
+    },
+    {
+      "branch": "docs/310p-repository-branch-map-20261020",
+      "head": "f839ed630c581dd20dbc287bbf43a68e7f52d501",
+      "snapshot": "snapshots/docs__310p-repository-branch-map-20261020.json.gz",
+      "file_count": 305
+    },
+    {
+      "branch": "docs/310p-v1-v2-perf-stability-ledger-20261023",
+      "head": "6355601ae87c9f0d1e5e8a67e2ce223cdfee78a3",
+      "snapshot": "snapshots/docs__310p-v1-v2-perf-stability-ledger-20261023.json.gz",
+      "file_count": 302
+    },
+    {
+      "branch": "docs/310p-v2-code-explain-20261022",
+      "head": "9ee0d71b09838d49e781bbd86949c9e49bf9844a",
+      "snapshot": "snapshots/docs__310p-v2-code-explain-20261022.json.gz",
+      "file_count": 297
+    },
+    {
+      "branch": "docs/a1-r1-results-20261027",
+      "head": "23419d092f2ec79312e81505319e7391ecb078c4",
+      "snapshot": "snapshots/docs__a1-r1-results-20261027.json.gz",
+      "file_count": 566
+    },
+    {
+      "branch": "feat/310p-g1c-phase-trace-20261020",
+      "head": "a249f5b487326622a78c84800271fbbcb38b2dd6",
+      "snapshot": "snapshots/feat__310p-g1c-phase-trace-20261020.json.gz",
+      "file_count": 318
+    },
+    {
+      "branch": "feat/310p-g1c-v2-flight-recorder-20261020",
+      "head": "8afdb2cc245f0ce3fa5ad94bd7b2c675498296f3",
+      "snapshot": "snapshots/feat__310p-g1c-v2-flight-recorder-20261020.json.gz",
+      "file_count": 314
+    },
+    {
+      "branch": "feat/310p-memfabric-public-api",
+      "head": "fa1c42179818f5516b390d8bce3d39a9d280808f",
+      "snapshot": "snapshots/feat__310p-memfabric-public-api.json.gz",
+      "file_count": 296
+    },
+    {
+      "branch": "feat/310p-memfabric-standalone-op",
+      "head": "c1cc2ca45f3e0b5ef1b50cacfaed6c700fab5379",
+      "snapshot": "snapshots/feat__310p-memfabric-standalone-op.json.gz",
+      "file_count": 123
+    },
+    {
+      "branch": "feat/310p-w8a8-o-proj-memfabric-ar",
+      "head": "1058cd87bb5fd92d92c96d920df4afafd093eadc",
+      "snapshot": "snapshots/feat__310p-w8a8-o-proj-memfabric-ar.json.gz",
+      "file_count": 131
+    },
+    {
+      "branch": "fix/310p-gate-e-verdict-20261020",
+      "head": "8405f389736518547f88d6d3e492a46ad1eedf9a",
+      "snapshot": "snapshots/fix__310p-gate-e-verdict-20261020.json.gz",
+      "file_count": 307
+    },
+    {
+      "branch": "fix/310p-memfabric-graph-prewarm",
+      "head": "d66257dab3608f6b81fd3972e479d2682f5cd6ca",
+      "snapshot": "snapshots/fix__310p-memfabric-graph-prewarm.json.gz",
+      "file_count": 241
+    },
+    {
+      "branch": "merge/310p-memfabric-on-dflash-20260930",
+      "head": "90a4d1f8fd0ce0100d032bafa484bbd9a20dcbc9",
+      "snapshot": "snapshots/merge__310p-memfabric-on-dflash-20260930.json.gz",
+      "file_count": 240
+    },
+    {
+      "branch": "perf/310p-c4-decode-cost-attribution-20261024",
+      "head": "bc786761bc3f65bc453ddf258905314b74a9fdb1",
+      "snapshot": "snapshots/perf__310p-c4-decode-cost-attribution-20261024.json.gz",
+      "file_count": 474
+    },
+    {
+      "branch": "perf/310p-f1-smallm-fixed-cost-20261024",
+      "head": "b14fbe2f863e835407e2ce9b3841a576c6bee958",
+      "snapshot": "snapshots/perf__310p-f1-smallm-fixed-cost-20261024.json.gz",
+      "file_count": 422
+    },
+    {
+      "branch": "perf/310p-f1c-stock-fp16-hccl-vs-memfabric-abba-20261025",
+      "head": "bd422330a003e91206ddff56e0887fe24a0b1e95",
+      "snapshot": "snapshots/perf__310p-f1c-stock-fp16-hccl-vs-memfabric-abba-20261025.json.gz",
+      "file_count": 497
+    },
+    {
+      "branch": "perf/310p-f2-mm-sdma-overlap-sweep-20261024",
+      "head": "b711a756ca0016913fdd15a62d5543b39df35552",
+      "snapshot": "snapshots/perf__310p-f2-mm-sdma-overlap-sweep-20261024.json.gz",
+      "file_count": 464
+    },
+    {
+      "branch": "perf/310p-sel01-three-arm-eager-c2-audit-20261024",
+      "head": "5e71462d2eacfa214094095700e38d7138804c5a",
+      "snapshot": "snapshots/perf__310p-sel01-three-arm-eager-c2-audit-20261024.json.gz",
+      "file_count": 471
+    },
+    {
+      "branch": "perf/310p-u1-fullchain-attribution-20261025",
+      "head": "d0d57b94df061aa45306cbe8c5dadada211d2143",
+      "snapshot": "snapshots/perf__310p-u1-fullchain-attribution-20261025.json.gz",
+      "file_count": 508
+    },
+    {
+      "branch": "perf/310p-v2-c3-cleanlines-unroll4-20261024",
+      "head": "4b66b77ab47c5376f9545e040bd74b1e671c98b4",
+      "snapshot": "snapshots/perf__310p-v2-c3-cleanlines-unroll4-20261024.json.gz",
+      "file_count": 449
+    },
+    {
+      "branch": "perf/310p-v2-d3-add-tile2048-20261023",
+      "head": "33e3f2cfc81e2b89b62b82498ad132406bbf9cd0",
+      "snapshot": "snapshots/perf__310p-v2-d3-add-tile2048-20261023.json.gz",
+      "file_count": 414
+    },
+    {
+      "branch": "perf/310p-v2-prefill-attribution-20261021",
+      "head": "5701ec3f999cbeff1a92f59b1348ef264879f38a",
+      "snapshot": "snapshots/perf__310p-v2-prefill-attribution-20261021.json.gz",
+      "file_count": 319
+    },
+    {
+      "branch": "perf/310p-v2-sync-async-value-20261021",
+      "head": "c12b2e8a1140a630f663b19a13d8887319838529",
+      "snapshot": "snapshots/perf__310p-v2-sync-async-value-20261021.json.gz",
+      "file_count": 354
+    },
+    {
+      "branch": "work/310p-a1-cpu-g0-acceptance-20261026",
+      "head": "f71b41c094b8ab5eaf8252f1e8ddea9b9e63ba87",
+      "snapshot": "snapshots/work__310p-a1-cpu-g0-acceptance-20261026.json.gz",
+      "file_count": 582
+    },
+    {
+      "branch": "work/310p-mm-ar-e2-pipeline-20261028",
+      "head": "6b2408b4d18d55e60c44708a4f4534bfed72722b",
+      "snapshot": "snapshots/work__310p-mm-ar-e2-pipeline-20261028.json.gz",
+      "file_count": 1782
+    },
+    {
+      "branch": "work/310p-mm-ar-e3-chunk2048-20261028",
+      "head": "78a95d6e6c60f017b7769e8030b33a58f063f062",
+      "snapshot": "snapshots/work__310p-mm-ar-e3-chunk2048-20261028.json.gz",
+      "file_count": 1191
+    },
+    {
+      "branch": "work/310p-mm-ar-e4-layered-pipeline-20261028",
+      "head": "5cff1b2d79e28c588607dbacb5bdeec098087349",
+      "snapshot": "snapshots/work__310p-mm-ar-e4-layered-pipeline-20261028.json.gz",
+      "file_count": 2629
+    },
+    {
+      "branch": "work/310p-mm-ar-five-arm-dcci-20261028",
+      "head": "bf28f01e6f2226771b86101da908033e00a2d1af",
+      "snapshot": "snapshots/work__310p-mm-ar-five-arm-dcci-20261028.json.gz",
+      "file_count": 882
+    },
+    {
+      "branch": "work/310p-mm-ar-large-m-a1-20261026",
+      "head": "a6805031f04b28a0ad9d0c4e47e3091a73725ef9",
+      "snapshot": "snapshots/work__310p-mm-ar-large-m-a1-20261026.json.gz",
+      "file_count": 3364
+    },
+    {
+      "branch": "work/310p-mm-ar-r1-g0-nogo-20261025",
+      "head": "45056500a8254787733ffb9d05e0c8efbbcb05d4",
+      "snapshot": "snapshots/work__310p-mm-ar-r1-g0-nogo-20261025.json.gz",
+      "file_count": 535
+    },
+    {
+      "branch": "work/310p-mm-ar-r1b-integration-20261025",
+      "head": "75104dadac1348e1cb56a59c272cb769d28d4e93",
+      "snapshot": "snapshots/work__310p-mm-ar-r1b-integration-20261025.json.gz",
+      "file_count": 535
+    },
+    {
+      "branch": "work/310p-mm-ar-v3-sdma-add-20261029",
+      "head": "d59fec7dfd2a89bdc3de56dbd7052ed07701fc5c",
+      "snapshot": "snapshots/work__310p-mm-ar-v3-sdma-add-20261029.json.gz",
+      "file_count": 1447
+    },
+    {
+      "branch": "work/310p-r1b-evidence-archive-20261025",
+      "head": "cc1b22dd1402b82a7f6f66e3970ed49f0d8e8380",
+      "snapshot": "snapshots/work__310p-r1b-evidence-archive-20261025.json.gz",
+      "file_count": 560
+    },
+    {
+      "branch": "work/310p-r1b-stock-eager-smoke-nogo-20261025",
+      "head": "f51aa689411a21ebb2b98919052a5e52b299b59f",
+      "snapshot": "snapshots/work__310p-r1b-stock-eager-smoke-nogo-20261025.json.gz",
+      "file_count": 558
+    },
+    {
+      "branch": "work/310p-v2-r2-implementation-20261025",
+      "head": "529b5e1b72625f3e9d58c1770663213ae2117c8c",
+      "snapshot": "snapshots/work__310p-v2-r2-implementation-20261025.json.gz",
+      "file_count": 652
+    },
+    {
+      "branch": "work/310p-v2-runner-r2-plan-lock-20261025",
+      "head": "7a50fe9fb5548205b5ab4429dea66157dc8be411",
+      "snapshot": "snapshots/work__310p-v2-runner-r2-plan-lock-20261025.json.gz",
+      "file_count": 537
+    },
+    {
+      "branch": "work/310p-v2-triton-free-gate-20261025",
+      "head": "3e97ded6f7c6923561cb13f158e87adbe6323adb",
+      "snapshot": "snapshots/work__310p-v2-triton-free-gate-20261025.json.gz",
+      "file_count": 536
+    }
+  ]
+}

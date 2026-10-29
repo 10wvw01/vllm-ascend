@@ -171,3 +171,81 @@
 ## 2026-10-28｜E4 Attempt3b换卡38144受守护Screen（4/7场，方向性，不签正式性能）
 
 > 卡38144（用户授权换卡）、全程受守护、单场×30样本。M4096配对p50/p90/p99（µs）：stock 2025.8/2053.9/2058.6、e1 2340.7/2395.8/2426.4、e3g 2142.3/2197.8/2227.2、e4t2 2175.4/2236.2/2264.5；M2048 e3g落后Stock 33.6%（跨卡复证单组结构性劣势）。**守护器无性能扰动**：vs attempt2（16384、无守护）stock锚+0.58%、e3g锚+0.40%、p99近乎逐值复现。同构对照e4t2-vs-e3g差−1.55%（attempt2 −0.10%）标定单场噪声带±1.5%→e4t8的−2.71%（attempt2）仅约1.8倍噪声带，**正式裁决必须十四场Confirm**。e4t8/e4t4/e4p三场因外部调度扩散至38144未跑成，e4t8方向维持attempt2原判。详见[attempt3b报告（E4分支）](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)。
+
+
+## 2026-10-29｜V3-only短测使用历史对照：无新增设备数值
+
+用户要求不重复运行V2和真实NZ Stock性能臂。V3工具读取E3 `e3_assessment.json`、
+E4 attempt2 `attempt2_e4_screen_summary.json`及本表R2 D4 Screen记录，保留来源SHA、
+`INCONCLUSIVE_DRIFT`/`SCREEN_ONLY`标签，输出每个V3形状相对每份历史基线的独立差值。
+双Rank逐样本取max后计算V3 p50/p90/p99，前后两轮检查漂移；不同版本/卡/KVER的差值仅供方向筛选。
+**V3 CANN编译/实机/性能NOT_RUN，没有任何V3收益数字或正式GO。**
+历史数据不得被重新归类为本次同批对照；脚本不自动重跑旧臂，不启动模型/TTFT。
+
+## 2026-10-29｜V3首次实机：功能通过，性能目标失败
+
+来源：V3分支`6144af16`的[完整原始记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)；
+执行`f2c3eaf0`，MemFabric`db38d75e`/KVER28，38144 dev4/5。
+正确性五关双RankPASS，4配置×2轮×30样本，先逐样本取Rank max再算分位数，复算一致。
+
+| M | V3 group1024 | V3 group2048（较快） | 历史E4/E3-G | 历史E4/NZ Stock | 最佳V3时延增加：V2 / Stock |
+|---|---|---|---|---|---|
+| 2048 | 1897.604 | 1709.941 | 1457.929 | 1088.372 | 17.29% / 57.11% |
+| 4096 | 3343.041 | 2883.197 | 2133.945 | 2037.734 | 35.11% / 41.49% |
+
+单位微秒；V3列为两场配对p50的平均，跨轮漂移0.28%～1.37%。
+时延增加不等于吞吐下降同一百分比，来源为跨批Screen，不升级历史原判定或签同批正式GO。
+研发裁决为当前V3无收益、停止推进集成，按chunk512/1024/2048重排流水；
+新设计详见[复核报告](../../memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)，V3.1性能UNKNOWN。
+用户明确旧V2/真实NZ Stock不重跑，继续复用以上历史数据；Stock默认不变。
+
+## 2026-10-29｜V3.2方案A编码，无新增实机数值
+
+新路径为单Y pool-return，完整窗口必须包含原流同步、双Rank输出槽协商、Tensor包装、
+Kernel和最终完成；保留Host Wall与配对Rank max分位数。不将无末尾copy的结果冒充旧out接口收益。
+CANN/Storage/设备门禁及性能NOT_RUN；继续复用历史V3.1、V2 E3-G及真实NZ Stock，
+不重跑旧性能臂，不增加独立归因轮。[准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+
+## 方案A2修复：无新增实机数据
+
+新增Storage-ready prepare Host allgather，计入pool-return事件窗口及Host Wall，
+不得从完整性能口径中删除。引用回收/关闭一致性是可靠性修复，不宣称加速；
+历史基线不变，新增设备性能NOT_RUN。
+
+## A3编码交付：无新增设备性能数值
+
+A3完整计时包括本地资源/Storage、完成事件提交、设备START、NZ MM、显式seed、ADD及排空。
+计算候选compute512/1024与通信comm512/1024/2048分别记录；默认六配置固定compute1024。
+比较历史A2/V3.1/V2/真实NZ Stock，不把新增S/seed成本排除，不签跨批正式性能GO。
+设备编译/数值/生命周期/性能NOT_RUN，见[A3_ADMISSION](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。
+
+## A3首READY修订：无新增性能数值
+
+profile3302减少一封正常控制消息、计算前跨Rank等待、本地fan-out和独立ACL memset任务。
+首READY由8B扩为64B携带必要校验；其余数据、seed、事件及最终排空全部计入完整窗口。
+实际节省微秒数未测量，不承诺收益；新设备编译/门禁/性能NOT_RUN。
+
+
+## A3-2/A3-tail候选：无新设备数值
+
+同批原A3前/七核专职/末尾席位/原A3后，各64/128行MM一组，共八会话。
+维持完整pool-return窗口、双Rank配对max及Host Wall；每臂跨轮和A3前后漂移>5%不签稳定收益。
+历史Stock仍只作跨批方向比较，不重跑旧性能臂；当前设备编译/数值/性能全部NOT_RUN。
+详见[席位设计和执行合同](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+
+
+## 统一计时/归因代码：无新增实机数字
+
+新合同ND_X_NZ_W_TO_READY_ND_Y_V1，统一Stock/V2/V3/A3 Tensor调用至输出完成，
+所有每次必需成本保留；无打点性能与Host/Device打点分别报告。旧历史结果不重标为新合同。
+11会话同批对照与V2冻结见[UNIFIED_TIMING](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)。
+打点扰动与漂移检查、每核ticks占比不等于全局串行分解；新设备编译/测量NOT_RUN。
+
+
+## 2026-10-30｜历史实验与数据集中整合，无新增性能结论
+
+各分支V1/V2/V3、E1～E4、G1取证、A1真实模型、A3系列的脚本及数据进入主线；
+原始blob、来源HEAD和NO-GO/共享卡/漂移/NOT_RUN限制保留，不改写旧报告。
+索引见[整合清单](../../memfabric_history/manifest.json)。算法及实机推进已按用户要求暂停。
+最新共享卡统一计时报告的摘要应结合配对JSON阅读：原A3对A3-2实际9/12配置更快，
+Host打点存在约+6.3%个例；本整合不重算或替换原始数据，也不签正式稳定收益GO。

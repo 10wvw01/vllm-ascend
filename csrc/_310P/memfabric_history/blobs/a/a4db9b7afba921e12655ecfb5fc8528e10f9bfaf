@@ -1,0 +1,177 @@
+{
+  "schema": "MF310P_V3_ATTRIBUTION_SUMMARY_V1",
+  "method": "paired-rank max p50; kernel=event-host(enqueue path)",
+  "ib_per_round_us": {
+    "rank0": 14347.77,
+    "rank1": 14349.6
+  },
+  "raw_add": {
+    "1048576": {
+      "p50": 613.2
+    },
+    "2097152": {
+      "p50": 708.3
+    },
+    "4194304": {
+      "p50": 923.3
+    }
+  },
+  "configs": [
+    {
+      "M": 2048,
+      "group": 512,
+      "fused_event_p50": 2527.6,
+      "fused_event_p90": 2641.9,
+      "partial_event_p50": 1882.9,
+      "delta_fused_partial": 644.7,
+      "acquire_us": {
+        "p50": 407.7,
+        "p90": 480.8
+      },
+      "wrap_us": {
+        "p50": 45.2,
+        "p90": 49.4
+      },
+      "prepare_us": {
+        "p50": 354.0,
+        "p90": 390.7
+      },
+      "run_us": {
+        "p50": 80.8,
+        "p90": 98.0
+      },
+      "host_sum_p50": 887.7,
+      "kernel_residual_est": 1639.9
+    },
+    {
+      "M": 2048,
+      "group": 1024,
+      "fused_event_p50": 2229.7,
+      "fused_event_p90": 2328.1,
+      "partial_event_p50": 1950.9,
+      "delta_fused_partial": 278.9,
+      "acquire_us": {
+        "p50": 434.7,
+        "p90": 495.3
+      },
+      "wrap_us": {
+        "p50": 40.4,
+        "p90": 47.2
+      },
+      "prepare_us": {
+        "p50": 349.7,
+        "p90": 410.0
+      },
+      "run_us": {
+        "p50": 82.7,
+        "p90": 91.6
+      },
+      "host_sum_p50": 907.5,
+      "kernel_residual_est": 1322.2
+    },
+    {
+      "M": 2048,
+      "group": 2048,
+      "fused_event_p50": 2006.3,
+      "fused_event_p90": 2063.3,
+      "partial_event_p50": 1918.7,
+      "delta_fused_partial": 87.6,
+      "acquire_us": {
+        "p50": 269.3,
+        "p90": 286.6
+      },
+      "wrap_us": {
+        "p50": 40.1,
+        "p90": 42.6
+      },
+      "prepare_us": {
+        "p50": 192.4,
+        "p90": 222.8
+      },
+      "run_us": {
+        "p50": 77.5,
+        "p90": 80.2
+      },
+      "host_sum_p50": 579.3,
+      "kernel_residual_est": 1427.0
+    },
+    {
+      "M": 4096,
+      "group": 512,
+      "fused_event_p50": 3305.0,
+      "fused_event_p90": 3488.9,
+      "partial_event_p50": 3120.8,
+      "delta_fused_partial": 184.2,
+      "acquire_us": {
+        "p50": 265.6,
+        "p90": 283.7
+      },
+      "wrap_us": {
+        "p50": 39.8,
+        "p90": 41.9
+      },
+      "prepare_us": {
+        "p50": 192.1,
+        "p90": 222.6
+      },
+      "run_us": {
+        "p50": 76.7,
+        "p90": 82.9
+      },
+      "host_sum_p50": 574.2,
+      "kernel_residual_est": 2730.8
+    },
+    {
+      "M": 4096,
+      "group": 1024,
+      "fused_event_p50": 2670.5,
+      "fused_event_p90": 2804.1,
+      "partial_event_p50": 2677.1,
+      "delta_fused_partial": -6.6,
+      "acquire_us": {
+        "p50": 269.8,
+        "p90": 281.8
+      },
+      "wrap_us": {
+        "p50": 37.7,
+        "p90": 40.2
+      },
+      "prepare_us": {
+        "p50": 187.6,
+        "p90": 220.7
+      },
+      "run_us": {
+        "p50": 76.0,
+        "p90": 80.3
+      },
+      "host_sum_p50": 571.1,
+      "kernel_residual_est": 2099.4
+    },
+    {
+      "M": 4096,
+      "group": 2048,
+      "fused_event_p50": 2713.2,
+      "fused_event_p90": 2822.7,
+      "partial_event_p50": 2594.2,
+      "delta_fused_partial": 119.0,
+      "acquire_us": {
+        "p50": 269.2,
+        "p90": 279.0
+      },
+      "wrap_us": {
+        "p50": 38.3,
+        "p90": 41.0
+      },
+      "prepare_us": {
+        "p50": 185.5,
+        "p90": 214.3
+      },
+      "run_us": {
+        "p50": 78.8,
+        "p90": 83.2
+      },
+      "host_sum_p50": 571.8,
+      "kernel_residual_est": 2141.4
+    }
+  ]
+}

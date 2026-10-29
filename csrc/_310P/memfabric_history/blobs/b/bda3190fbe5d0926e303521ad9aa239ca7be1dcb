@@ -1,0 +1,957 @@
+// SPDX-License-Identifier: Apache-2.0
+// One AICore kernel: MM -> SDMA ADD reduce-scatter -> COPY all-gather -> MTE output.
+// Core0 alone owns public MemFabric calls. Never access its ring/SQE/layout.
+#include "../mf310p_v3_protocol.h"
+#include "acl/acl_rt.h"
+#include "kernel_operator.h"
+#include "lib/matmul/matmul_intf.h"
+#include "smem_shm_aicore_base_sdma.h"
+
+namespace {
+using namespace AscendC;
+using namespace mfv3;
+using AT = MatmulType<TPosition::GM, CubeFormat::ND, float16_t, false>;
+using BT = MatmulType<TPosition::GM, CubeFormat::NZ, float16_t, true>;
+using CT = MatmulType<TPosition::GM, CubeFormat::ND, float16_t, false>;
+using BiasT = MatmulType<TPosition::GM, CubeFormat::ND, float, false>;
+constexpr MatmulQuantParams kQuant = {false, false};
+constexpr MatmulBatchParams kBatch = {false, BatchMode::NONE};
+constexpr MatmulFuncParams kFunc = {false, true, false, false, 0,
+    IterateOrder::UNDEF, ScheduleType::INNER_PRODUCT, true, true};
+#define V3_TILING(ROWS, BASIC) \
+    constexpr MatmulShapeParams shape##ROWS = {ROWS / kCores, kWidth, kWidth, BASIC, 256, 64}; \
+    constexpr MatmulConfig cfg##ROWS = GetMMConfig<MatmulConfigMode::CONFIG_NORM>(shape##ROWS, kQuant, kBatch, kFunc); \
+    constexpr static MatmulApiStaticTiling tiling##ROWS = GetMatmulApiTiling<AT, BT, CT, BiasT>(cfg##ROWS, Impl::L1_SIZE);
+V3_TILING(256, 32)
+V3_TILING(512, 64)
+V3_TILING(1024, 128)
+#undef V3_TILING
+constexpr uint32_t kCopyBytes = 16 * 1024;
+constexpr uint32_t kReady = 0, kCopyDone = 1;
+constexpr uint32_t kSubmitted = 2, kCopyRelease = 10, kCopyConsumed = 18;
+
+// Device-qualified counterpart of the portable 40-bit wire contract.
+__aicore__ inline uint64_t DeviceTag(uint32_t phase, uint32_t epoch, uint32_t group, uint32_t packet)
+{
+    return (uint64_t{phase} << 36) | (uint64_t{epoch} << 12) | (uint64_t{group} << 6) | packet;
+}
+
+__aicore__ inline void Flush(__gm__ uint8_t* valid)
+{
+    GlobalTensor<int32_t> fence;
+    fence.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valid), 16);
+    DataCacheCleanAndInvalid<int32_t, CacheLine::ENTIRE_DATA_CACHE>(fence);
+}
+__aicore__ inline void FlushLine(__gm__ uint8_t* valid)
+{
+    GlobalTensor<int32_t> fence;
+    fence.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(valid), 16);
+    DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE>(fence);
+}
+__aicore__ inline void Check(bool ok, __gm__ uint8_t* status, uint64_t code)
+{
+    if (ok) return;
+    *reinterpret_cast<__gm__ volatile uint64_t*>(status) = code;
+    Flush(status);
+    Trap();
+}
+__aicore__ inline void FanIn(const GlobalTensor<int32_t>& gm, const LocalTensor<int32_t>& ub,
+                            uint32_t core, uint32_t event)
+{
+    if (core != 0) IBSet<true>(gm, ub, core, event);
+    else for (uint32_t c = 1; c < kCores; ++c) IBWait<true>(gm, ub, c, event);
+}
+__aicore__ inline void FanOut(const GlobalTensor<int32_t>& gm, const LocalTensor<int32_t>& ub,
+                             uint32_t core, uint32_t base)
+{
+    if (core == 0) for (uint32_t c = 1; c < kCores; ++c) IBSet<true>(gm, ub, 0, base + c);
+    else IBWait<true>(gm, ub, 0, base + core);
+}
+// Two UB slots: MTE2 of tile n overlaps MTE3 of tile n-1; events protect reuse.
+__aicore__ inline void Copy(__gm__ uint8_t* dst, __gm__ uint8_t* src, uint64_t bytes,
+                           const LocalTensor<uint16_t>& ub)
+{
+    GlobalTensor<uint16_t> in, out;
+    in.SetGlobalBuffer(reinterpret_cast<__gm__ uint16_t*>(src), bytes / 2);
+    out.SetGlobalBuffer(reinterpret_cast<__gm__ uint16_t*>(dst), bytes / 2);
+    auto* pipe = GetTPipePtr();
+    const auto read0 = pipe->FetchEventID(HardEvent::MTE2_MTE3);
+    const auto read1 = pipe->FetchEventID(HardEvent::MTE2_MTE3);
+    const auto write0 = pipe->FetchEventID(HardEvent::MTE3_MTE2);
+    const auto write1 = pipe->FetchEventID(HardEvent::MTE3_MTE2);
+    const uint64_t tiles = (bytes + kCopyBytes - 1) / kCopyBytes;
+    for (uint64_t i = 0; i < tiles; ++i) {
+        const bool odd = i & 1;
+        const auto r = odd ? read1 : read0;
+        const auto w = odd ? write1 : write0;
+        if (i >= 2) WaitFlag<HardEvent::MTE3_MTE2>(w);
+        const uint64_t off = i * kCopyBytes;
+        const uint32_t elems = static_cast<uint32_t>((bytes - off < kCopyBytes ? bytes - off : kCopyBytes) / 2);
+        auto tile = ub[odd ? kCopyBytes / 2 : 0];
+        DataCopy(tile, in[off / 2], elems);
+        SetFlag<HardEvent::MTE2_MTE3>(r);
+        WaitFlag<HardEvent::MTE2_MTE3>(r);
+        DataCopy(out[off / 2], tile, elems);
+        SetFlag<HardEvent::MTE3_MTE2>(w);
+    }
+    if (tiles) WaitFlag<HardEvent::MTE3_MTE2>(write0);
+    if (tiles > 1) WaitFlag<HardEvent::MTE3_MTE2>(write1);
+    pipe->ReleaseEventID<HardEvent::MTE2_MTE3>(read0);
+    pipe->ReleaseEventID<HardEvent::MTE2_MTE3>(read1);
+    pipe->ReleaseEventID<HardEvent::MTE3_MTE2>(write0);
+    pipe->ReleaseEventID<HardEvent::MTE3_MTE2>(write1);
+}
+
+struct Transport {
+    __gm__ uint8_t *res, *work, *peer, *status, *ctrlSrc, *peerCtrl;
+    uint64_t expectedWork, expectedCtrl;
+    uint32_t rank, epoch, packet;
+
+    __aicore__ inline void Wait(uint32_t phase, uint32_t group, uint32_t part, uint64_t dst, uint64_t len)
+    {
+        const auto mail = smem_shm_sdma_wait_at(res);
+        Check(mail.status == SMEM_SHM_SDMA_MAIL_OK && mail.dst == dst && mail.len == len &&
+              mail.imm == DeviceTag(phase, epoch, group, part), status, (uint64_t{phase} << 32) | group);
+    }
+    __aicore__ inline void Control(uint32_t phase, uint32_t group)
+    {
+        Check(smem_shm_sdma_signal_at(res, ctrlSrc, peerCtrl, 8, DeviceTag(phase, epoch, group, 0)), status, 101);
+        Wait(phase, group, 0, expectedCtrl, 8); // both peers send before waiting
+    }
+    __aicore__ inline void Send(uint32_t phase, uint32_t group, uint64_t off, uint64_t bytes,
+                               smem_shm_sdma_op_t op)
+    {
+        for (uint64_t b = 0; b < bytes; b += packet) {
+            const uint64_t n = bytes - b < packet ? bytes - b : packet;
+            Check(smem_shm_sdma_signal_at(res, work + off + b, peer + off + b, n,
+                  DeviceTag(phase, epoch, group, static_cast<uint32_t>(b / packet)), op), status, 102);
+        }
+    }
+    __aicore__ inline void Receive(uint32_t phase, uint32_t group, uint64_t off, uint64_t bytes)
+    {
+        // A single sender submits packets in order. Validate every packet exactly once.
+        for (uint64_t b = 0; b < bytes; b += packet) {
+            const uint64_t n = bytes - b < packet ? bytes - b : packet;
+            Wait(phase, group, static_cast<uint32_t>(b / packet), expectedWork + off + b, n);
+        }
+    }
+
+};
+
+// One mailbox consumer accepts legal cross-group arrivals. GM sources remain
+// disjoint for the entire wave; only the final quiet/DONE permits reuse.
+struct Progress {
+    Transport* t;
+    uint64_t bytes;
+    uint32_t groups, published = 0, ready = 0, sentGather = 0;
+    uint64_t reduced[16] = {}, gathered[16] = {};
+
+    __aicore__ inline uint64_t Mask()
+    {
+        const uint32_t n = static_cast<uint32_t>((bytes / 2 + t->packet - 1) / t->packet);
+        return n == 64 ? ~uint64_t{0} : (uint64_t{1} << n) - 1;
+    }
+    __aicore__ inline void Publish(uint32_t g)
+    {
+        published |= 1u << g;
+        Check(smem_shm_sdma_signal_at(t->res, t->ctrlSrc, t->peerCtrl, 8,
+              DeviceTag(READY, t->epoch, g, 0)), t->status, 120);
+    }
+    __aicore__ inline void Pump()
+    {
+        const auto m = smem_shm_sdma_wait_at(t->res);
+        const uint32_t phase = static_cast<uint32_t>(m.imm >> 36);
+        const uint32_t epoch = static_cast<uint32_t>((m.imm >> 12) & 0xffffff);
+        const uint32_t g = static_cast<uint32_t>((m.imm >> 6) & 63);
+        const uint32_t part = static_cast<uint32_t>(m.imm & 63);
+        Check(m.status == SMEM_SHM_SDMA_MAIL_OK && epoch == t->epoch &&
+              g < groups && g < 16 && m.imm < (uint64_t{1} << 40), t->status, 121);
+        if (phase == READY) {
+            Check(part == 0 && m.dst == t->expectedCtrl && m.len == 8 &&
+                  !(ready & (1u << g)), t->status, 122);
+            ready |= 1u << g;
+            return;
+        }
+        Check((published & (1u << g)) && (phase == REDUCE || phase == GATHER), t->status, 123);
+        const uint64_t b = uint64_t{part} * t->packet;
+        Check(b < bytes / 2, t->status, 124);
+        const uint64_t n = bytes / 2 - b < t->packet ? bytes / 2 - b : t->packet;
+        const uint64_t half = phase == REDUCE ? t->rank : 1 - t->rank;
+        Check(m.dst == t->expectedWork + g * bytes + half * bytes / 2 + b && m.len == n,
+              t->status, 125);
+        const uint64_t bit = uint64_t{1} << part;
+        if (phase == REDUCE) {
+            Check(!(reduced[g] & bit), t->status, 126);
+            reduced[g] |= bit;
+            if (reduced[g] == Mask()) {
+                // Receipt proves peer's non-owner source has been consumed.
+                t->Send(GATHER, g, g * bytes + uint64_t{t->rank} * bytes / 2,
+                        bytes / 2, SMEM_SHM_SDMA_OP_COPY);
+                sentGather |= 1u << g;
+            }
+        } else {
+            Check(!(gathered[g] & bit), t->status, 127);
+            gathered[g] |= bit;
+        }
+    }
+    __aicore__ inline void Submit(uint32_t g)
+    {
+        Publish(g);
+        while (!(ready & (1u << g))) Pump();
+        t->Send(REDUCE, g, g * bytes + uint64_t{1 - t->rank} * bytes / 2,
+                bytes / 2, SMEM_SHM_SDMA_OP_ADD_FP16);
+    }
+    __aicore__ inline void Complete(uint32_t g)
+    {
+        while (reduced[g] != Mask() || gathered[g] != Mask()) Pump();
+        Check(sentGather & (1u << g), t->status, 128);
+    }
+};
+
+__aicore__ inline void FinishGroup(Transport& t, Progress& progress, uint32_t group, uint64_t groupBytes,
+                                  uint32_t core, __gm__ uint8_t* y,
+                                  const GlobalTensor<int32_t>& ib, const LocalTensor<int32_t>& sync,
+                                  const LocalTensor<uint16_t>& copy)
+{
+    if (core == 0) progress.Complete(group);
+    FanOut(ib, sync, core, kCopyRelease);
+    const uint64_t bytes = groupBytes / kCores;
+    const uint64_t off = group * groupBytes + core * bytes;
+    Flush(t.work + off); // SDMA -> AICore/MTE visibility, including repeated addresses
+    Copy(y + off, t.work + off, bytes, copy);
+    FanIn(ib, sync, core, kCopyDone);
+    FanOut(ib, sync, core, kCopyConsumed); // event drained before any reuse
+}
+
+template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, uint32_t GROUP, bool MM>
+__global__ __aicore__ void V3Kernel(
+    __gm__ uint8_t* gva, __gm__ uint8_t* x, __gm__ uint8_t* w, __gm__ uint8_t* y,
+    __gm__ uint8_t* work, __gm__ uint8_t* peer, __gm__ uint8_t* ibPtr, __gm__ uint8_t* status,
+    __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrl, uint64_t expectedWork, uint64_t expectedCtrl,
+    uint32_t rows, uint32_t rank, uint32_t epoch, uint32_t packet, uint32_t pipeline, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    TPipe pipe;
+    TBuf<> syncBuf, copyBuf, mmBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    pipe.InitBuffer(copyBuf, 2 * kCopyBytes);
+    // Fixed MM tiling. Two 16KiB MTE buffers replace Add queues; reserve
+    // both slots explicitly, preserving the Matmul NZ2ND temporary budget.
+    static_assert(TOTAL_UB_SIZE > 2 * kCopyBytes + 32 + 128 * 256 * 2 * 2,
+                  "Insufficient UB for the fixed basicM128 Matmul and MTE copy buffer");
+    pipe.InitBuffer(mmBuf, TOTAL_UB_SIZE - 2 * kCopyBytes - 32);
+    auto sync = syncBuf.Get<int32_t>();
+    auto copy = copyBuf.Get<uint16_t>();
+    GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    TCubeTiling runtime{};
+    runtime.usedCoreNum = kCores;
+    Matmul<AT, BT, CT, BiasT, TILING> mm;
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), mm, &runtime);
+    mm.SetLocalWorkspace(mmBuf.Get<uint8_t>());
+    GlobalTensor<float16_t> wg;
+    if constexpr (MM) wg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(w), kWidth * kWidth);
+    Transport t{smem_shm_sdma_reserved(gva), work, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, rank, epoch, packet};
+    constexpr uint64_t groupBytes = GROUP * kRowBytes;
+    constexpr uint64_t coreBytes = groupBytes / kCores;
+    constexpr uint32_t mmCoreRows = MM_ROWS / kCores;
+    Progress progress{&t, groupBytes, rows / GROUP};
+    for (uint32_t g = 0; g < rows / GROUP; ++g) {
+        const uint64_t off = g * groupBytes + core * coreBytes;
+        if constexpr (MM) {
+            for (uint32_t j = 0; j < GROUP / MM_ROWS; ++j) {
+                const uint64_t sub = off + j * mmCoreRows * kRowBytes;
+                GlobalTensor<float16_t> ag, cg;
+                ag.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(x + sub), mmCoreRows * kWidth);
+                cg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(work + sub), mmCoreRows * kWidth);
+                mm.SetTensorA(ag, false);
+                mm.SetTensorB(wg, true);
+                mm.SetOrgShape(mmCoreRows, kWidth, kWidth, kWidth, kWidth);
+                mm.IterateAll(cg);
+            }
+        } else Copy(work + off, x + off, coreBytes, copy);
+        Flush(work + off);
+        FanIn(ib, sync, core, kReady);
+        // Submit current REDUCE before draining an older GATHER/output.
+        // Pump can advance older REDUCE to GATHER while waiting for READY.
+        if (core == 0) progress.Submit(g);
+        FanOut(ib, sync, core, kSubmitted);
+        if (!pipeline) FinishGroup(t, progress, g, groupBytes, core, y, ib, sync, copy);
+        else if (g >= 2) FinishGroup(t, progress, g - 2, groupBytes, core, y, ib, sync, copy);
+    }
+    if (pipeline) {
+        const uint32_t count = rows / GROUP;
+        for (uint32_t g = count > 2 ? count - 2 : 0; g < count; ++g)
+            FinishGroup(t, progress, g, groupBytes, core, y, ib, sync, copy);
+    }
+    if (core == 0) {
+        Check(smem_shm_sdma_quiet_at(t.res), status, 105);
+        t.Control(DONE, 0);
+        Check(smem_shm_sdma_quiet_at(t.res), status, 106);
+    }
+}
+
+// L2 attribution: segment stamps for the Plan A pool schedule. The CPU
+// schedule harness in test_v32.py defines TRACE_NOW before extracting this
+// block; on device the AICore system cycle counter is the time source.
+#ifndef TRACE_NOW
+#define TRACE_NOW() static_cast<uint64_t>(GetSystemCycle())
+#endif
+// Plan A: executable fixed FIFO schedule shared with the CPU transport harness.
+struct OrderedProgress {
+    Transport* t;
+    uint64_t bytes;
+    uint32_t groups;
+    __gm__ volatile uint64_t* trace = nullptr; // L2 attribution; null disables
+
+    __aicore__ inline void Stamp(uint32_t slot)
+    {
+        if (trace) trace[slot] = TRACE_NOW();
+    }
+    __aicore__ inline void Receive(uint32_t phase, uint32_t g) {
+        const uint32_t half = phase == REDUCE ? t->rank : 1 - t->rank;
+        t->Receive(phase, g, g * bytes + uint64_t{half} * bytes / 2, bytes / 2);
+    }
+    __aicore__ inline void Gather(uint32_t g) {
+        t->Send(GATHER, g, g * bytes + uint64_t{t->rank} * bytes / 2,
+                bytes / 2, SMEM_SHM_SDMA_OP_COPY);
+    }
+    __aicore__ inline void Step(uint32_t g) {
+        Check(smem_shm_sdma_signal_at(t->res, t->ctrlSrc, t->peerCtrl, 8,
+              DeviceTag(READY, t->epoch, g, 0)), t->status, 130);
+        Stamp(mfv3::kTraceSubBase + 5 * g + 0); // READY submitted
+        if (g >= 2) Receive(GATHER, g - 2);
+        Stamp(mfv3::kTraceSubBase + 5 * g + 1); // peer gather of g-2 received
+        if (g >= 1) { Receive(REDUCE, g - 1); Gather(g - 1); }
+        Stamp(mfv3::kTraceSubBase + 5 * g + 2); // peer reduce of g-1 received, own gather sent
+        t->Wait(READY, g, 0, t->expectedCtrl, 8);
+        Stamp(mfv3::kTraceSubBase + 5 * g + 3); // peer READY handshake done
+        t->Send(REDUCE, g, g * bytes + uint64_t{1 - t->rank} * bytes / 2,
+                bytes / 2, SMEM_SHM_SDMA_OP_ADD_FP16);
+        Stamp(mfv3::kTraceSubBase + 5 * g + 4); // reduce of g submitted
+    }
+    __aicore__ inline void Drain() {
+        if (groups >= 2) Receive(GATHER, groups - 2);
+        Receive(REDUCE, groups - 1);
+        Gather(groups - 1);
+        Receive(GATHER, groups - 1);
+    }
+};
+
+template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, uint32_t GROUP, bool MM>
+__global__ __aicore__ void V32Kernel(
+    __gm__ uint8_t* gva, __gm__ uint8_t* x, __gm__ uint8_t* w, __gm__ uint8_t* y,
+    __gm__ uint8_t* work, __gm__ uint8_t* peer, __gm__ uint8_t* ibPtr, __gm__ uint8_t* status,
+    __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrl, uint64_t expectedWork, uint64_t expectedCtrl,
+    uint32_t rows, uint32_t rank, uint32_t epoch, uint32_t packet, uint32_t pipeline,
+    __gm__ uint8_t* trace, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    auto* tr = reinterpret_cast<__gm__ volatile uint64_t*>(trace);
+    const uint32_t cbase = kTraceHeader + core * kTraceStride;
+    if (tr) tr[cbase] = TRACE_NOW();
+    if (core == 0 && tr) {
+        tr[0] = kTraceMagic;
+        tr[1] = rows;
+        tr[2] = GROUP;
+        tr[3] = MM ? 0 : 1;
+        tr[4] = rank;
+        tr[5] = epoch;
+        tr[6] = rows / GROUP;
+    }
+    TPipe pipe;
+    TBuf<> syncBuf, copyBuf, mmBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    pipe.InitBuffer(copyBuf, 2 * kCopyBytes);
+    // Fixed MM tiling. Two 16KiB MTE buffers replace Add queues; reserve
+    // both slots explicitly, preserving the Matmul NZ2ND temporary budget.
+    static_assert(TOTAL_UB_SIZE > 2 * kCopyBytes + 32 + 128 * 256 * 2 * 2,
+                  "Insufficient UB for the fixed basicM128 Matmul and MTE copy buffer");
+    pipe.InitBuffer(mmBuf, TOTAL_UB_SIZE - 2 * kCopyBytes - 32);
+    auto sync = syncBuf.Get<int32_t>();
+    auto copy = copyBuf.Get<uint16_t>();
+    GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    TCubeTiling runtime{};
+    runtime.usedCoreNum = kCores;
+    Matmul<AT, BT, CT, BiasT, TILING> mm;
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), mm, &runtime);
+    mm.SetLocalWorkspace(mmBuf.Get<uint8_t>());
+    GlobalTensor<float16_t> wg;
+    if constexpr (MM) wg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(w), kWidth * kWidth);
+    Transport t{smem_shm_sdma_reserved(gva), work, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, rank, epoch, packet};
+    constexpr uint64_t groupBytes = GROUP * kRowBytes;
+    constexpr uint64_t coreBytes = groupBytes / kCores;
+    constexpr uint32_t mmCoreRows = MM_ROWS / kCores;
+    OrderedProgress progress{&t, groupBytes, rows / GROUP};
+    // One final fan-out keeps all producers resident through SDMA completion.
+    for (uint32_t g = 0; g < rows / GROUP; ++g) {
+        const uint64_t off = g * groupBytes + core * coreBytes;
+        if constexpr (MM) {
+            for (uint32_t j = 0; j < GROUP / MM_ROWS; ++j) {
+                const uint64_t sub = off + j * mmCoreRows * kRowBytes;
+                GlobalTensor<float16_t> ag, cg;
+                ag.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(x + sub), mmCoreRows * kWidth);
+                cg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(work + sub), mmCoreRows * kWidth);
+                mm.SetTensorA(ag, false);
+                mm.SetTensorB(wg, true);
+                mm.SetOrgShape(mmCoreRows, kWidth, kWidth, kWidth, kWidth);
+                mm.IterateAll(cg);
+            }
+        } else Copy(work + off, x + off, coreBytes, copy);
+        Flush(work + off);
+        // Each group/core owns a distinct cache line: fast workers cannot
+        // overwrite a notification before Core0 observes it. IB flags are not counters.
+        auto* published = ibPtr + kIbBytes + (g * kCores + core) * 64;
+        *reinterpret_cast<__gm__ volatile uint32_t*>(published) = epoch;
+        Flush(published);
+        if (tr) tr[cbase + 2 + g] = TRACE_NOW(); // production of g complete
+        if (core != 0) continue;
+        for (uint32_t c = 1; c < kCores; ++c) {
+            auto* flag = ibPtr + kIbBytes + (g * kCores + c) * 64;
+            uint32_t spins = 0;
+            do {
+                Flush(flag);
+                if (*reinterpret_cast<__gm__ volatile uint32_t*>(flag) == epoch) break;
+                Check(++spins < 100000000, status, 131);
+            } while (true);
+        }
+        if (tr) tr[cbase + 10 + g] = TRACE_NOW(); // all producer flags observed
+        progress.Step(g);
+        if (tr) tr[cbase + 18 + g] = TRACE_NOW(); // protocol step of g complete
+    }
+    if (core == 0) progress.Drain();
+    if (tr && core == 0) tr[cbase + 26] = TRACE_NOW(); // drain complete
+    if (core == 0) {
+        Check(smem_shm_sdma_quiet_at(t.res), status, 105);
+        if (tr) tr[cbase + 27] = TRACE_NOW(); // first quiet complete
+        t.Control(DONE, 0);
+        if (tr) tr[cbase + 28] = TRACE_NOW(); // DONE handshake complete
+        Check(smem_shm_sdma_quiet_at(t.res), status, 106);
+        if (tr) tr[cbase + 29] = TRACE_NOW(); // final quiet complete
+    }
+    FanOut(ib, sync, core, kCopyRelease);
+    Flush(work); // SDMA writes visible before any downstream consumer
+    if (tr) {
+        tr[cbase + 1] = TRACE_NOW(); // kernel end on this core
+        Flush(trace); // stamps pushed to L2 for the host D2H copy
+    }
+}
+
+__aicore__ inline void A3FlushTrace(__gm__ volatile uint64_t* tr, uint32_t core)
+{
+    FlushLine((__gm__ uint8_t*)(tr + 16 + core * 8));
+    if (core == 0) {
+        FlushLine((__gm__ uint8_t*)tr);
+        for (uint32_t i = 592; i < 728; i += 8) FlushLine((__gm__ uint8_t*)(tr + i));
+    }
+}
+// A3 first READY carries frame validation: no standalone START request/wait.
+__aicore__ inline void A3PrepareHeader(Transport& t, uint32_t rows, uint32_t compute,
+    uint32_t commRows, uint32_t mode, uint32_t slot, uint32_t admit, uint32_t profile = 3302)
+{
+    auto* h = reinterpret_cast<__gm__ volatile uint64_t*>(t.ctrlSrc);
+    h[0] = profile; h[1] = t.epoch; h[2] = slot; h[3] = rows;
+    h[4] = compute; h[5] = commRows; h[6] = mode; h[7] = admit;
+    FlushLine(t.ctrlSrc);
+}
+__aicore__ inline void A3ValidateHeader(Transport& t, __gm__ uint8_t* localCtrl)
+{
+    FlushLine(localCtrl);
+    auto* peer = reinterpret_cast<__gm__ volatile uint64_t*>(localCtrl);
+    auto* local = reinterpret_cast<__gm__ volatile uint64_t*>(t.ctrlSrc);
+    for (uint32_t i = 0; i < 7; ++i) Check(peer[i] == local[i], t.status, 302 + i);
+    Check(local[7] == 1 && peer[7] == 1, t.status, 310);
+}
+// A3 has no source recycling and no Gather. Receipt of a peer READY is
+// required before ADD, but local S seats remain immutable until final quiet.
+struct A3Progress {
+    Transport* t;
+    uint64_t bytes;
+    uint32_t groups;
+    __gm__ uint8_t* localCtrl;
+    uint32_t published = 0, ready = 0, submitted = 0;
+    uint64_t reduced[8] = {};
+    __gm__ volatile uint64_t* trace = nullptr;
+    __aicore__ inline void Stamp(uint32_t slot) { if (trace) trace[slot] = TRACE_NOW(); }
+    __aicore__ inline uint64_t Mask() {
+        const uint32_t n = (bytes + t->packet - 1) / t->packet;
+        return n == 64 ? ~uint64_t{0} : (uint64_t{1} << n) - 1;
+    }
+    __aicore__ inline void Pump() {
+        const auto m = smem_shm_sdma_wait_at(t->res);
+        const uint32_t phase = m.imm >> 36;
+        const uint32_t epoch = (m.imm >> 12) & 0xffffff;
+        const uint32_t g = (m.imm >> 6) & 63;
+        const uint32_t part = m.imm & 63;
+        Check(m.status == SMEM_SHM_SDMA_MAIL_OK && m.imm < (uint64_t{1} << 40) &&
+              epoch == t->epoch && g < groups && g < 8, t->status, 320);
+        if (phase == READY) {
+            Check(part == 0 && m.dst == t->expectedCtrl && m.len == (g == 0 ? 64u : 8u) && !(ready & (1u << g)), t->status, 321);
+            if (g == 0) A3ValidateHeader(*t, localCtrl);
+            else Check(ready & 1u, t->status, 328);
+            ready |= 1u << g;
+            return;
+        }
+        Check(phase == REDUCE && (ready & 1u) && (published & (1u << g)), t->status, 322);
+        const uint64_t off = uint64_t{part} * t->packet;
+        Check(off < bytes, t->status, 323);
+        const uint64_t n = bytes - off < t->packet ? bytes - off : t->packet;
+        Check(m.dst == t->expectedWork + g * bytes + off && m.len == n &&
+              !(reduced[g] & (uint64_t{1} << part)), t->status, 324);
+        reduced[g] |= uint64_t{1} << part;
+        Stamp(592 + g * 16 + 7); // last observed incoming ADD completion
+    }
+    __aicore__ inline void Submit(uint32_t g) {
+        Check(g < groups && !(published & (1u << g)), t->status, 325);
+        Stamp(592 + g * 16 + 2);
+        published |= 1u << g;
+        Check(smem_shm_sdma_signal_at(t->res, t->ctrlSrc, t->peerCtrl, g == 0 ? 64 : 8,
+              DeviceTag(READY, t->epoch, g, 0)), t->status, 326);
+        Stamp(592 + g * 16 + 3);
+        while (!(ready & (1u << g))) Pump();
+        Stamp(592 + g * 16 + 4);
+        t->Send(REDUCE, g, g * bytes, bytes, SMEM_SHM_SDMA_OP_ADD_FP16);
+        Stamp(592 + g * 16 + 5);
+        submitted |= 1u << g;
+    }
+    __aicore__ inline void Drain() {
+        Check(submitted == ((1u << groups) - 1), t->status, 327);
+        for (uint32_t g = 0; g < groups; ++g) while (reduced[g] != Mask()) Pump();
+    }
+};
+
+template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM, bool TRACE = false>
+__global__ __aicore__ void A3Kernel(
+    __gm__ uint8_t* gva, __gm__ uint8_t* x, __gm__ uint8_t* w, __gm__ uint8_t* y,
+    __gm__ uint8_t* work, __gm__ uint8_t* peer, __gm__ uint8_t* ibPtr, __gm__ uint8_t* status,
+    __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrl, uint64_t expectedWork, uint64_t expectedCtrl,
+    uint32_t rows, uint32_t commRows, uint32_t rank, uint32_t epoch, uint32_t packet,
+    uint32_t slot, uint32_t admit, uint32_t enabled, __gm__ uint64_t* tracePtr)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    auto* tr = TRACE ? reinterpret_cast<__gm__ volatile uint64_t*>(tracePtr) : nullptr;
+    if (tr) {
+        // Each core owns its slots; unused fields are ignored by geometry, not old contents.
+        tr[16 + core * 8] = TRACE_NOW();
+        if (core == 0) { tr[0] = 0x41335432; tr[1] = rows; tr[2] = MM_ROWS;
+            tr[3] = commRows; tr[4] = epoch; tr[5] = rank; tr[6] = 3302; }
+    }
+    if (core == 0) {
+        *reinterpret_cast<__gm__ volatile uint64_t*>(status) = 0;
+        FlushLine(status);
+    }
+    if (!admit) {
+        if (core == 0) {
+            Transport failed{smem_shm_sdma_reserved(gva), work, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, rank, epoch, packet};
+            A3PrepareHeader(failed, rows, MM_ROWS, commRows, MM ? 0 : 1, slot, 0);
+            Check(smem_shm_sdma_signal_at(failed.res, ctrlSrc, peerCtrl, 64,
+                  DeviceTag(READY, epoch, 0, 0)), status, 301);
+            // Error path only: deliver refusal before Trap; never retry ADD.
+            Check(smem_shm_sdma_quiet_at(failed.res), status, 329);
+            Check(false, status, 310);
+        }
+        return;
+    }
+    TPipe pipe;
+    TBuf<> syncBuf, copyBuf, mmBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    pipe.InitBuffer(copyBuf, 2 * kCopyBytes);
+    // Fixed MM tiling. Two 16KiB MTE buffers replace Add queues; reserve
+    // both slots explicitly, preserving the Matmul NZ2ND temporary budget.
+    static_assert(TOTAL_UB_SIZE > 2 * kCopyBytes + 32 + 128 * 256 * 2 * 2,
+                  "Insufficient UB for the fixed basicM128 Matmul and MTE copy buffer");
+    pipe.InitBuffer(mmBuf, TOTAL_UB_SIZE - 2 * kCopyBytes - 32);
+    auto sync = syncBuf.Get<int32_t>();
+    auto copy = copyBuf.Get<uint16_t>();
+    GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    TCubeTiling runtime{};
+    runtime.usedCoreNum = kCores;
+    Matmul<AT, BT, CT, BiasT, TILING> mm;
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), mm, &runtime);
+    mm.SetLocalWorkspace(mmBuf.Get<uint8_t>());
+    GlobalTensor<float16_t> wg;
+    if constexpr (MM) wg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(w), kWidth * kWidth);
+    Transport t{smem_shm_sdma_reserved(gva), work, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, rank, epoch, packet};
+    if (core == 0) A3PrepareHeader(t, rows, MM_ROWS, commRows, MM ? 0 : 1, slot, admit);
+    constexpr uint64_t groupBytes = MM_ROWS * kRowBytes;
+    constexpr uint64_t coreBytes = groupBytes / kCores;
+    constexpr uint32_t mmCoreRows = MM_ROWS / kCores;
+    A3Progress progress{&t, uint64_t{commRows} * kRowBytes, rows / commRows, work + kArenaBytes + 64};
+    progress.trace = tr;
+    uint32_t publishedGroups = 0;
+    // One final fan-out keeps all producers resident through SDMA completion.
+    for (uint32_t g = 0; g < rows / MM_ROWS; ++g) {
+        const uint32_t seat = g * kCores + core;
+        if (tr) tr[80 + seat * 8] = TRACE_NOW();
+        const uint64_t off = g * groupBytes + core * coreBytes;
+        if constexpr (MM) {
+            for (uint32_t j = 0; j < 1; ++j) {
+                const uint64_t sub = off + j * mmCoreRows * kRowBytes;
+                GlobalTensor<float16_t> ag, cg;
+                ag.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(x + sub), mmCoreRows * kWidth);
+                cg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(work + sub), mmCoreRows * kWidth);
+                mm.SetTensorA(ag, false);
+                mm.SetTensorB(wg, true);
+                mm.SetOrgShape(mmCoreRows, kWidth, kWidth, kWidth, kWidth);
+                mm.IterateAll(cg);
+            }
+        } else Copy(work + off, x + off, coreBytes, copy);
+        if (tr) tr[80 + seat * 8 + 1] = TRACE_NOW();
+        Flush(work + off);
+        if (tr) tr[80 + seat * 8 + 2] = TRACE_NOW();
+        Copy(y + off, work + off, coreBytes, copy); // explicit seed cost
+        Flush(y + off);
+        if (tr) tr[80 + seat * 8 + 3] = TRACE_NOW();
+        // Each group/core owns a distinct cache line: fast workers cannot
+        // overwrite a notification before Core0 observes it. IB flags are not counters.
+        auto* published = ibPtr + kIbBytes + (g * kCores + core) * 64;
+        *reinterpret_cast<__gm__ volatile uint32_t*>(published) = epoch;
+        FlushLine(published);
+        if (tr) { tr[80 + seat * 8 + 4] = TRACE_NOW(); FlushLine((__gm__ uint8_t*)(tr + 80 + seat * 8)); }
+        if (core != 0) continue;
+        if (tr) tr[592 + g * 16] = TRACE_NOW();
+        for (uint32_t c = 1; c < kCores; ++c) {
+            auto* flag = ibPtr + kIbBytes + (g * kCores + c) * 64;
+            uint32_t spins = 0, delay = 32;
+            do {
+                FlushLine(flag);
+                if (*reinterpret_cast<__gm__ volatile uint32_t*>(flag) == epoch) break;
+                Check(++spins < 100000000, status, 131);
+                for (uint32_t i = 0; i < delay; ++i) __asm__ __volatile__("" ::: "memory");
+                if ((spins & 255u) == 0 && delay < 1024) delay <<= 1;
+            } while (true);
+        }
+        if (tr) tr[592 + g * 16 + 1] = TRACE_NOW();
+        const uint32_t available = (g + 1) * MM_ROWS;
+        while (publishedGroups < rows / commRows && (publishedGroups + 1) * commRows <= available) {
+            progress.Submit(publishedGroups++);
+        }
+    }
+    if (core == 0) { progress.Stamp(720); progress.Drain(); progress.Stamp(721); }
+    if (core == 0) {
+        Check(smem_shm_sdma_quiet_at(t.res), status, 105); progress.Stamp(722);
+        t.Control(DONE, 0); progress.Stamp(723);
+        Check(smem_shm_sdma_quiet_at(t.res), status, 106); progress.Stamp(724);
+    }
+    if (tr) tr[16 + core * 8 + 1] = TRACE_NOW();
+    FanOut(ib, sync, core, kCopyRelease);
+    if (tr) tr[16 + core * 8 + 2] = TRACE_NOW();
+    Flush(y); if (tr) { tr[16 + core * 8 + 3] = TRACE_NOW(); A3FlushTrace(tr, core); } // SDMA writes visible before any downstream consumer
+}
+
+__aicore__ inline uint32_t A3LeadingSeats(uint32_t bands, bool tail)
+{ return bands - (tail ? (bands + 7) / 8 : 0); }
+
+template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM>
+__aicore__ inline void A3ProduceSeat(Matmul<AT, BT, CT, BiasT, TILING>& mm,
+    GlobalTensor<float16_t>& wg, __gm__ uint8_t* x, __gm__ uint8_t* source,
+    __gm__ uint8_t* y, __gm__ uint8_t* flags, uint32_t band, uint32_t epoch,
+    const LocalTensor<uint16_t>& copy, __gm__ volatile uint64_t* tr)
+{
+    constexpr uint32_t h = MM_ROWS / kCores;
+    constexpr uint64_t bytes = h * kRowBytes;
+    const uint64_t off = uint64_t{band} * bytes;
+    if (tr) tr[80 + band * 8] = TRACE_NOW();
+    if constexpr (MM) {
+        GlobalTensor<float16_t> ag, cg;
+        ag.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(x + off), h * kWidth);
+        cg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(source + off), h * kWidth);
+        mm.SetTensorA(ag, false); mm.SetTensorB(wg, true);
+        mm.SetOrgShape(h, kWidth, kWidth, kWidth, kWidth); mm.IterateAll(cg);
+    } else Copy(source + off, x + off, bytes, copy);
+    if (tr) tr[80 + band * 8 + 1] = TRACE_NOW();
+    Flush(source + off);
+    if (tr) tr[80 + band * 8 + 2] = TRACE_NOW();
+    Copy(y + off, source + off, bytes, copy);
+    Flush(y + off);
+    if (tr) tr[80 + band * 8 + 3] = TRACE_NOW();
+    auto* flag = flags + uint64_t{band} * 64;
+    *reinterpret_cast<__gm__ volatile uint32_t*>(flag) = epoch;
+    FlushLine(flag);
+    if (tr) { tr[80 + band * 8 + 4] = TRACE_NOW(); FlushLine((__gm__ uint8_t*)(tr + 80 + band * 8)); }
+}
+__aicore__ inline void A3WaitSeats(__gm__ uint8_t* flags, uint32_t begin, uint32_t end,
+                                  uint32_t epoch, __gm__ uint8_t* status)
+{
+    for (uint32_t band = begin; band < end; ++band) {
+        auto* flag = flags + uint64_t{band} * 64;
+        uint32_t spins = 0, delay = 32;
+        do {
+            FlushLine(flag);
+            if (*reinterpret_cast<__gm__ volatile uint32_t*>(flag) == epoch) break;
+            Check(++spins < 100000000, status, 341);
+            for (uint32_t i = 0; i < delay; ++i) __asm__ __volatile__("" ::: "memory");
+            if ((spins & 255u) == 0 && delay < 1024) delay <<= 1;
+        } while (true);
+    }
+}
+template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM, bool TAIL, bool TRACE = false>
+__global__ __aicore__ void A3SeatKernel(
+    __gm__ uint8_t* gva, __gm__ uint8_t* x, __gm__ uint8_t* w, __gm__ uint8_t* y,
+    __gm__ uint8_t* source, __gm__ uint8_t* peer, __gm__ uint8_t* ibPtr, __gm__ uint8_t* status,
+    __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrl, uint64_t expectedWork, uint64_t expectedCtrl,
+    uint32_t rows, uint32_t commRows, uint32_t rank, uint32_t epoch, uint32_t packet,
+    uint32_t slot, uint32_t admit, uint32_t enabled, __gm__ uint64_t* tracePtr)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    auto* tr = TRACE ? reinterpret_cast<__gm__ volatile uint64_t*>(tracePtr) : nullptr;
+    if (tr) {
+        // Each core owns its slots; unused fields are ignored by geometry, not old contents.
+        tr[16 + core * 8] = TRACE_NOW();
+        if (core == 0) { tr[0] = 0x41335432; tr[1] = rows; tr[2] = MM_ROWS;
+            tr[3] = commRows; tr[4] = epoch; tr[5] = rank; tr[6] = 3302; }
+    }
+    Transport t{smem_shm_sdma_reserved(gva), source, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, rank, epoch, packet};
+    constexpr uint32_t profile = TAIL ? 3304 : 3303;
+    if (tr && core == 0) tr[6] = profile;
+    if (core == 0) {
+        *reinterpret_cast<__gm__ volatile uint64_t*>(status) = 0; FlushLine(status);
+        A3PrepareHeader(t, rows, MM_ROWS, commRows, MM ? 0 : 1, slot, admit, profile);
+        if (!admit) {
+            Check(smem_shm_sdma_signal_at(t.res, ctrlSrc, peerCtrl, 64,
+                DeviceTag(READY, epoch, 0, 0)), status, 301);
+            Check(smem_shm_sdma_quiet_at(t.res), status, 329); Check(false, status, 310);
+        }
+    }
+    if (!admit) return;
+    TPipe pipe; TBuf<> syncBuf; pipe.InitBuffer(syncBuf, 32);
+    auto sync = syncBuf.Get<int32_t>(); GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    auto* flags = ibPtr + kIbBytes;
+    constexpr uint32_t h = MM_ROWS / kCores;
+    const uint32_t bands = rows / h;
+    const uint32_t leading = A3LeadingSeats(bands, TAIL);
+    A3Progress progress{&t, uint64_t{commRows} * kRowBytes, rows / commRows, source + kArenaBytes + 64};
+    progress.trace = tr;
+    if constexpr (!TAIL) {
+        if (core == 0) {
+            // Dedicated scheduler: no Matmul registration/compute on Core0.
+            for (uint32_t g = 0; g < rows / commRows; ++g) {
+                progress.Stamp(592 + g * 16);
+                A3WaitSeats(flags, g * commRows / h, (g + 1) * commRows / h, epoch, status);
+                progress.Stamp(592 + g * 16 + 1);
+                progress.Submit(g);
+            }
+            progress.Stamp(720); progress.Drain(); progress.Stamp(721); Check(smem_shm_sdma_quiet_at(t.res), status, 105); progress.Stamp(722);
+            t.Control(DONE, 0); progress.Stamp(723); Check(smem_shm_sdma_quiet_at(t.res), status, 106); progress.Stamp(724);
+            if (tr) tr[16 + core * 8 + 1] = TRACE_NOW();
+    FanOut(ib, sync, core, kCopyRelease);
+    if (tr) tr[16 + core * 8 + 2] = TRACE_NOW(); Flush(y); if (tr) { tr[16 + core * 8 + 3] = TRACE_NOW(); A3FlushTrace(tr, core); } return;
+        }
+    }
+    TBuf<> copyBuf, mmBuf; pipe.InitBuffer(copyBuf, 2 * kCopyBytes);
+    static_assert(TOTAL_UB_SIZE > 2 * kCopyBytes + 32 + 128 * 256 * 2 * 2, "A3 seat UB budget");
+    pipe.InitBuffer(mmBuf, TOTAL_UB_SIZE - 2 * kCopyBytes - 32);
+    auto copy = copyBuf.Get<uint16_t>(); TCubeTiling runtime{}; runtime.usedCoreNum = kCores;
+    Matmul<AT, BT, CT, BiasT, TILING> mm;
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), mm, &runtime);
+    mm.SetLocalWorkspace(mmBuf.Get<uint8_t>());
+    GlobalTensor<float16_t> wg;
+    if constexpr (MM) wg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(w), kWidth * kWidth);
+    if (core != 0) {
+        for (uint32_t band = core - 1; band < leading; band += 7)
+            A3ProduceSeat<TILING, MM_ROWS, MM>(mm, wg, x, source, y, flags, band, epoch, copy, tr);
+    } else {
+        // Tail candidate: never wait for a seat which only Core0 can produce.
+        uint32_t nextTail = leading;
+        for (uint32_t g = 0; g < rows / commRows; ++g) {
+            progress.Stamp(592 + g * 16 + 8); // includes compulsory Core0 tail production
+            const uint32_t end = (g + 1) * commRows / h;
+            while (nextTail < end) {
+                A3ProduceSeat<TILING, MM_ROWS, MM>(mm, wg, x, source, y, flags, nextTail++, epoch, copy, tr);
+            }
+            progress.Stamp(592 + g * 16);
+            A3WaitSeats(flags, g * commRows / h, end, epoch, status);
+            progress.Stamp(592 + g * 16 + 1);
+            progress.Submit(g);
+            // Once the early ADD is in flight, spend a MM slot on a tail seat.
+            if (nextTail < bands)
+                A3ProduceSeat<TILING, MM_ROWS, MM>(mm, wg, x, source, y, flags, nextTail++, epoch, copy, tr);
+        }
+        progress.Stamp(720); progress.Drain(); progress.Stamp(721); Check(smem_shm_sdma_quiet_at(t.res), status, 105); progress.Stamp(722);
+        t.Control(DONE, 0); progress.Stamp(723); Check(smem_shm_sdma_quiet_at(t.res), status, 106); progress.Stamp(724);
+    }
+    if (tr) tr[16 + core * 8 + 1] = TRACE_NOW();
+    FanOut(ib, sync, core, kCopyRelease);
+    if (tr) tr[16 + core * 8 + 2] = TRACE_NOW(); Flush(y); if (tr) { tr[16 + core * 8 + 3] = TRACE_NOW(); A3FlushTrace(tr, core); }
+}
+
+__global__ __aicore__ void V3RawAddKernel(
+    __gm__ uint8_t* gva, __gm__ uint8_t* src, __gm__ uint8_t* seed, __gm__ uint8_t* y,
+    __gm__ uint8_t* work, __gm__ uint8_t* source, __gm__ uint8_t* peer, __gm__ uint8_t* ibPtr,
+    __gm__ uint8_t* status, __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrl,
+    uint64_t expectedWork, uint64_t expectedCtrl, uint32_t bytes, uint32_t epoch, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    TPipe pipe;
+    TBuf<> syncBuf, copyBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    pipe.InitBuffer(copyBuf, 2 * kCopyBytes);
+    auto sync = syncBuf.Get<int32_t>();
+    auto copy = copyBuf.Get<uint16_t>();
+    GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    const uint32_t n = bytes / kCores;
+    Copy(work + core * n, seed + core * n, n, copy);
+    Copy(source + core * n, src + core * n, n, copy);
+    Flush(work);
+    FanIn(ib, sync, core, kReady);
+    Transport t{smem_shm_sdma_reserved(gva), work, peer, status, ctrlSrc, peerCtrl,
+                expectedWork, expectedCtrl, 0, epoch, bytes};
+    if (core == 0) {
+        t.Control(READY, 0);
+        Check(smem_shm_sdma_signal_at(t.res, source, peer, bytes, DeviceTag(RAW_ADD, epoch, 0, 0),
+              SMEM_SHM_SDMA_OP_ADD_FP16), status, 107);
+        t.Wait(RAW_ADD, 0, 0, expectedWork, bytes);
+        Check(smem_shm_sdma_quiet_at(t.res), status, 108);
+    }
+    FanOut(ib, sync, core, kCopyRelease);
+    Flush(work);
+    Copy(y + core * n, work + core * n, n, copy);
+    FanIn(ib, sync, core, kCopyDone);
+    if (core == 0) {
+        t.Control(DONE, 0);
+        Check(smem_shm_sdma_quiet_at(t.res), status, 109);
+    }
+}
+
+__global__ __aicore__ void V3IbKernel(__gm__ uint8_t* ibPtr, __gm__ uint8_t* result,
+                                   uint32_t repetitions, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= kCores) return;
+    const uint32_t core = GetBlockIdx();
+    TPipe pipe;
+    TBuf<> syncBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    auto sync = syncBuf.Get<int32_t>();
+    GlobalTensor<int32_t> ib;
+    ib.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibPtr), kIbBytes / 4);
+    for (uint32_t i = 0; i < repetitions; ++i) {
+        FanIn(ib, sync, core, kReady);
+        FanOut(ib, sync, core, kSubmitted);
+        FanIn(ib, sync, core, kCopyDone);
+        FanOut(ib, sync, core, kCopyConsumed);
+    }
+    *reinterpret_cast<__gm__ volatile uint32_t*>(result + core * 64) = repetitions;
+    Flush(result + core * 64);
+}
+} // namespace
+
+extern "C" int mf310p_v3_device_run(uint64_t gva, uint64_t x, uint64_t w, uint64_t y,
+    uint64_t work, uint64_t peer, uint64_t ib, uint64_t status, uint64_t ctrl, uint64_t peerCtrl,
+    uint64_t expectedWork, uint64_t expectedCtrl, uint32_t rows, uint32_t group, uint32_t rank,
+    uint32_t epoch, uint32_t packet, uint32_t pipeline, uint32_t mode, uint64_t trace,
+    uint32_t enabled, aclrtStream stream)
+{
+    if (!stream || rank > 1 || pipeline > 2 || mode > 1 || !mfv3::ShapeValid(rows, group) ||
+        !mfv3::PacketValid(packet) || mfv3::PacketCount(group * mfv3::kRowBytes / 2, packet) > 64 ||
+        epoch > mfv3::kMaxEpoch) return -1;
+#define V3_LAUNCH(G, M, MM) \
+    V3Kernel<tiling##M, M, G, MM><<<8, 0, stream>>>( \
+        reinterpret_cast<uint8_t*>(gva), reinterpret_cast<uint8_t*>(x), reinterpret_cast<uint8_t*>(w), \
+        reinterpret_cast<uint8_t*>(y), reinterpret_cast<uint8_t*>(work), reinterpret_cast<uint8_t*>(peer), \
+        reinterpret_cast<uint8_t*>(ib), reinterpret_cast<uint8_t*>(status), reinterpret_cast<uint8_t*>(ctrl), \
+        reinterpret_cast<uint8_t*>(peerCtrl), expectedWork, expectedCtrl, rows, rank, epoch, packet, pipeline, enabled)
+#define V3_CASE(G, M) case G: if (mode == 0) { V3_LAUNCH(G, M, true); } else { V3_LAUNCH(G, M, false); } return 0;
+    if (pipeline == 2) {
+#define V32_CASE(G, M) case G: if (mode == 0) { V32_LAUNCH(G, M, true); } else { V32_LAUNCH(G, M, false); } return 0;
+#define V32_LAUNCH(G, M, MM) \
+    V32Kernel<tiling##M, M, G, MM><<<8, 0, stream>>>( \
+        reinterpret_cast<uint8_t*>(gva), reinterpret_cast<uint8_t*>(x), reinterpret_cast<uint8_t*>(w), \
+        reinterpret_cast<uint8_t*>(y), reinterpret_cast<uint8_t*>(work), reinterpret_cast<uint8_t*>(peer), \
+        reinterpret_cast<uint8_t*>(ib), reinterpret_cast<uint8_t*>(status), reinterpret_cast<uint8_t*>(ctrl), \
+        reinterpret_cast<uint8_t*>(peerCtrl), expectedWork, expectedCtrl, rows, rank, epoch, packet, pipeline, \
+        reinterpret_cast<uint8_t*>(trace), enabled)
+        switch (group) { V32_CASE(512, 512) V32_CASE(1024, 1024) V32_CASE(2048, 1024) default: return -1; }
+#undef V32_CASE
+#undef V32_LAUNCH
+    }
+    switch (group) {
+        V3_CASE(256, 256)
+        V3_CASE(512, 512)
+        V3_CASE(1024, 1024)
+        V3_CASE(2048, 1024)
+        default: return -1;
+    }
+#undef V3_CASE
+#undef V3_LAUNCH
+}
+extern "C" int mf310p_v3_device_raw(uint64_t gva, uint64_t src, uint64_t seed, uint64_t y,
+    uint64_t work, uint64_t source, uint64_t peer, uint64_t ib, uint64_t status, uint64_t ctrl,
+    uint64_t peerCtrl, uint64_t expectedWork, uint64_t expectedCtrl, uint32_t bytes,
+    uint32_t epoch, uint32_t enabled, aclrtStream stream)
+{
+    if (!stream || !mfv3::PacketValid(bytes)) return -1;
+    V3RawAddKernel<<<8, 0, stream>>>(reinterpret_cast<uint8_t*>(gva), reinterpret_cast<uint8_t*>(src),
+        reinterpret_cast<uint8_t*>(seed), reinterpret_cast<uint8_t*>(y), reinterpret_cast<uint8_t*>(work),
+        reinterpret_cast<uint8_t*>(source), reinterpret_cast<uint8_t*>(peer), reinterpret_cast<uint8_t*>(ib),
+        reinterpret_cast<uint8_t*>(status), reinterpret_cast<uint8_t*>(ctrl), reinterpret_cast<uint8_t*>(peerCtrl),
+        expectedWork, expectedCtrl, bytes, epoch, enabled);
+    return 0;
+}
+extern "C" int mf310p_v3_device_ib(uint64_t ib, uint64_t result, uint32_t reps, uint32_t enabled,
+                                 aclrtStream stream)
+{
+    V3IbKernel<<<8, 0, stream>>>(reinterpret_cast<uint8_t*>(ib), reinterpret_cast<uint8_t*>(result), reps, enabled);
+    return 0;
+}
+
+extern "C" int mf310p_a3_device_run(uint64_t gva, uint64_t x, uint64_t w, uint64_t y,
+    uint64_t source, uint64_t peerY, uint64_t ib, uint64_t status, uint64_t ctrl, uint64_t peerCtrl,
+    uint64_t expectedY, uint64_t expectedCtrl, uint32_t rows, uint32_t compute, uint32_t comm,
+    uint32_t rank, uint32_t epoch, uint32_t packet, uint32_t mode, uint32_t slot,
+    uint32_t admit, uint32_t enabled, uint64_t trace, aclrtStream stream)
+{
+    const uint32_t role = admit >> 1; admit &= 1u;
+    if (role > 2) return -1;
+    if (!stream || rank > 1 || slot > 1 || mode > 1 || !epoch || epoch > mfv3::kMaxEpoch ||
+        (compute != 512 && compute != 1024) || (comm != 512 && comm != 1024 && comm != 2048) ||
+        !mfv3::ShapeValid(rows, compute) || rows % comm || !mfv3::PacketValid(packet) ||
+        mfv3::PacketCount(uint64_t{comm} * mfv3::kRowBytes, packet) > 64) return -1;
+#define A3_LAUNCH_T(M, MM, TR) \
+    A3Kernel<tiling##M, M, MM, TR><<<8, 0, stream>>>( \
+        reinterpret_cast<uint8_t*>(gva), reinterpret_cast<uint8_t*>(x), reinterpret_cast<uint8_t*>(w), \
+        reinterpret_cast<uint8_t*>(y), reinterpret_cast<uint8_t*>(source), reinterpret_cast<uint8_t*>(peerY), \
+        reinterpret_cast<uint8_t*>(ib), reinterpret_cast<uint8_t*>(status), reinterpret_cast<uint8_t*>(ctrl), \
+        reinterpret_cast<uint8_t*>(peerCtrl), expectedY, expectedCtrl, rows, comm, rank, epoch, packet, slot, admit, enabled, reinterpret_cast<uint64_t*>(trace))
+#define A3_SEAT_T(M, MM, TAIL, TR) \
+    A3SeatKernel<tiling##M, M, MM, TAIL, TR><<<8, 0, stream>>>( \
+        reinterpret_cast<uint8_t*>(gva), reinterpret_cast<uint8_t*>(x), reinterpret_cast<uint8_t*>(w), \
+        reinterpret_cast<uint8_t*>(y), reinterpret_cast<uint8_t*>(source), reinterpret_cast<uint8_t*>(peerY), \
+        reinterpret_cast<uint8_t*>(ib), reinterpret_cast<uint8_t*>(status), reinterpret_cast<uint8_t*>(ctrl), \
+        reinterpret_cast<uint8_t*>(peerCtrl), expectedY, expectedCtrl, rows, comm, rank, epoch, packet, slot, admit, enabled, reinterpret_cast<uint64_t*>(trace))
+#define A3_LAUNCH(M, MM) if (trace) { A3_LAUNCH_T(M, MM, true); } else { A3_LAUNCH_T(M, MM, false); }
+#define A3_SEAT(M, MM, TAIL) if (trace) { A3_SEAT_T(M, MM, TAIL, true); } else { A3_SEAT_T(M, MM, TAIL, false); }
+    if (role) {
+#define SEAT_CASE(M) if (mode == 0) { if (role == 1) { A3_SEAT(M, true, false); } else { A3_SEAT(M, true, true); } } \
+    else { if (role == 1) { A3_SEAT(M, false, false); } else { A3_SEAT(M, false, true); } }
+        if (compute == 512) { SEAT_CASE(512) } else { SEAT_CASE(1024) }
+#undef SEAT_CASE
+        return 0;
+    }
+    if (compute == 512) { if (mode == 0) { A3_LAUNCH(512, true); } else { A3_LAUNCH(512, false); } }
+    else { if (mode == 0) { A3_LAUNCH(1024, true); } else { A3_LAUNCH(1024, false); } }
+#undef A3_LAUNCH
+#undef A3_SEAT
+#undef A3_LAUNCH_T
+#undef A3_SEAT_T
+    return 0;
+}

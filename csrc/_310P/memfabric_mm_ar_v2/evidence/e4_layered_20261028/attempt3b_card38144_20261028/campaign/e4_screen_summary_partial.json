@@ -1,0 +1,62 @@
+{
+  "schema": "E4_SCREEN_ONLY_V1",
+  "card": 38144,
+  "guarded": true,
+  "arms_completed": [
+    "stock",
+    "e1",
+    "e3g",
+    "e4t2"
+  ],
+  "arms_blocked": {
+    "e4t4": "mid-run external PID 2932134 -> guard STOP at 15:42 UTC",
+    "e4t8": "not started (STOP discipline, no retry)",
+    "e4p": "not started (STOP discipline, no retry)"
+  },
+  "rank_pair_p50_us": {
+    "stock": {
+      "4096": 2025.8,
+      "2048": 1106.3
+    },
+    "e1": {
+      "4096": 2340.7,
+      "2048": 1269.2
+    },
+    "e3g": {
+      "4096": 2142.3,
+      "2048": 1478.4
+    },
+    "e4t2": {
+      "4096": 2175.4,
+      "2048": 1459.1
+    }
+  },
+  "p90_p99_us": {
+    "stock": {
+      "4096": [
+        2053.9,
+        2058.6
+      ]
+    },
+    "e1": {
+      "4096": [
+        2395.8,
+        2426.4
+      ]
+    },
+    "e3g": {
+      "4096": [
+        2197.8,
+        2227.2
+      ]
+    },
+    "e4t2": {
+      "4096": [
+        2236.2,
+        2264.5
+      ]
+    }
+  },
+  "campaign_process": "e4_detached campaign STOP/1 at screen_03 preflight (external 2884891); screens 03-04 completed by manual continuation with identical guarded invocation; screen_05 stopped mid-run by guard on external 2932134",
+  "status": "SCREEN_PARTIAL_4_OF_7_NO_SIGNED_PERFORMANCE"
+}

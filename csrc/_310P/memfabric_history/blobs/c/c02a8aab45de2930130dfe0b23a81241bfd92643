@@ -1,0 +1,27 @@
+Device_id,Level,API Name,Time(us),Count,Avg(us),Min(us),Max(us),Variance
+2,communication,Memcpy,179.12,6,29.853,20.24,64.04,243.038
+2,communication,Notify_Record,119.68,12,9.973,7.69,17.4,6.873
+2,communication,Notify_Wait,150.68,12,12.557,9.47,20.47,8.459
+2,communication,Reduce_Inline,80.33,6,13.388,10.29,18.17,7.138
+2,acl,aclmdlRICaptureGetInfo,36.02,132,0.273,0.15,3.12,0.119
+2,acl,aclnnEqual,111.91,6,18.652,12.65,28.02,41.558
+2,acl,aclnnMatmulWeightNz,143.31,6,23.885,10.5,67.3,409.028
+2,acl,aclrtCreateEventExWithFlag,35.44,12,2.953,0.8,6.91,3.079
+2,acl,aclrtCtxGetFloatOverflowAddr,15.45,18,0.858,0.36,4.63,0.865
+2,acl,aclrtDestroyEvent,6.39,6,1.065,0.92,1.27,0.013
+2,acl,aclrtGetCurrentContext,4.65,6,0.775,0.53,1.47,0.116
+2,acl,aclrtGetDeviceCount,3.53,2,1.765,1.28,2.25,0.235
+2,acl,aclrtGetStreamAttribute,11.38,12,0.948,0.32,4.03,1.008
+2,acl,aclrtLaunchKernelWithHostArgs,122.58,12,10.215,5.13,33.66,59.172
+2,acl,aclrtMemcpy,242.71,6,40.452,32.41,69.37,174.297
+2,acl,aclrtMemcpyAsync,68.08,6,11.347,8.05,21.07,20.189
+2,acl,aclrtRecordEvent,212.6,18,11.811,5.35,24.11,32.683
+2,acl,aclrtRecordNotify,50.01,12,4.167,2.86,7.56,1.874
+2,acl,aclrtReduceAsync,34.73,6,5.788,4.2,9.46,3.823
+2,acl,aclrtStreamGetId,5.7,6,0.95,0.55,1.88,0.275
+2,acl,aclrtStreamWaitEvent,58.97,12,4.914,3.99,9.77,2.381
+2,acl,aclrtSynchronizeDeviceWithTimeout,694.87,1,694.87,694.87,694.87,0.0
+2,acl,aclrtSynchronizeStreamWithTimeout,13703.78,12,1141.982,563.59,1768.36,330081.009
+2,acl,aclrtWaitAndResetNotify,75.15,12,6.263,4.66,10.01,2.346
+2,acl,hcom_allReduce_,1012.04,6,168.673,129.03,305.65,4012.164
+2,node,launch,1192.03,18,66.224,7.48,305.65,6659.258

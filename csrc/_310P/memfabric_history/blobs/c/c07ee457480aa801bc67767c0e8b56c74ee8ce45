@@ -1,0 +1,18 @@
+===== B2.1 private dir with fixed SO =====
+1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30  /tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so
+expected: 1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30
+
+===== B2.2 libmf_smem.so DT_NEEDED (resolution chain) =====
+ 0x0000000000000001 (NEEDED)             Shared library: [libmf_hybm_core.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]
+
+===== B2.3 CPU-only dlopen resolution test (private dir prepended) =====
+mapped: /tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so
+mapped: /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_smem.so
+RESOLUTION-OK: fixed libmf_hybm_core.so wins from private dir
+
+===== B2.4 control: WITHOUT private dir (production resolves) =====
+mapped: /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so

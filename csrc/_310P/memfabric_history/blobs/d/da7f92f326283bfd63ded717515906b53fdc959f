@@ -1,0 +1,148 @@
+{
+  "note": "Independent 2026-10-22 offline recomputation from committed per-site CSV; not direct runtime or device-clock calibration",
+  "source_branch": "perf/310p-v2-prefill-attribution-20261021",
+  "shapes": {
+    "M": 4096,
+    "chunk": 1024,
+    "sites_per_forward": 40,
+    "steps": 5
+  },
+  "stats": {
+    "stock_r0": {
+      "n": 200,
+      "step_site_sums_ms": [
+        77.8656,
+        77.9044,
+        77.822,
+        77.8466,
+        77.8237
+      ],
+      "step_anchor_ms": [
+        0,
+        2366.8835,
+        4726.7822,
+        7097.761,
+        9457.524
+      ],
+      "period_ms": [
+        2366.8835,
+        2359.8987,
+        2370.9788,
+        2359.763
+      ],
+      "allstep_mean_site_sum_ms": 77.8525
+    },
+    "stock_r1": {
+      "n": 200,
+      "step_site_sums_ms": [
+        93.0484,
+        91.3432,
+        93.8221,
+        93.6386,
+        94.1717
+      ],
+      "step_anchor_ms": [
+        0,
+        2382.493,
+        4756.9212,
+        7143.0322,
+        9517.9638
+      ],
+      "period_ms": [
+        2382.493,
+        2374.4282,
+        2386.111,
+        2374.9316
+      ],
+      "allstep_mean_site_sum_ms": 93.2048
+    },
+    "v2_r0": {
+      "n": 200,
+      "step_site_sums_ms": [
+        176.6536,
+        107.2629,
+        105.8316,
+        105.1869,
+        105.3782
+      ],
+      "step_anchor_ms": [
+        0,
+        2473.4485,
+        4869.023,
+        7266.2898,
+        9660.5978
+      ],
+      "period_ms": [
+        2473.4485,
+        2395.5745,
+        2397.2668,
+        2394.308
+      ],
+      "allstep_mean_site_sum_ms": 120.0626,
+      "outliers": [
+        {
+          "site_idx": 8,
+          "step": 0,
+          "kernel_us": 74231.7
+        }
+      ],
+      "clean_complete_steps": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "clean_mean_site_sum_ms": 105.9149,
+      "note": "Excluded entire outlier-containing step, not one kernel divided by five steps"
+    },
+    "v2_r1": {
+      "n": 200,
+      "step_site_sums_ms": [
+        182.8488,
+        109.587,
+        109.7597,
+        110.9119,
+        109.6824
+      ],
+      "step_anchor_ms": [
+        0,
+        2489.011,
+        4899.7618,
+        7312.373,
+        9722.812
+      ],
+      "period_ms": [
+        2489.011,
+        2410.7508,
+        2412.6112,
+        2410.439
+      ],
+      "allstep_mean_site_sum_ms": 124.558,
+      "outliers": [
+        {
+          "site_idx": 8,
+          "step": 0,
+          "kernel_us": 74827.4
+        }
+      ],
+      "clean_complete_steps": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "clean_mean_site_sum_ms": 109.9853,
+      "note": "Excluded entire outlier-containing step, not one kernel divided by five steps"
+    }
+  },
+  "deltas": {
+    "r0_v2_minus_stock_site_sum_ms": 28.0624,
+    "r1_v2_minus_stock_site_sum_ms": 16.7805
+  },
+  "qualifications": [
+    "site kernel duration sums not necessarily critical path",
+    "cross-rank wall clock not calibrated",
+    "input copy net delta not independently validated",
+    "host SO difference across W1/W4 vs prefill"
+  ]
+}

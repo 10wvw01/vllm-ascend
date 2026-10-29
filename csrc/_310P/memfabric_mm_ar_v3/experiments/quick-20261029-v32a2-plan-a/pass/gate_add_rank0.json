@@ -1,0 +1,46 @@
+{
+  "schema": "MF310P_V3_QUICK_RANK_V1",
+  "rank": 0,
+  "run_id": "results",
+  "build_manifest_sha256": "bcae42de84812af79a1f1aed15e54632803ea31f47530fbe5cc956e6b9daa875",
+  "configuration": {
+    "M": [
+      2048,
+      4096
+    ],
+    "groups": [
+      512,
+      1024,
+      2048
+    ],
+    "pipeline": true,
+    "samples": 30,
+    "warmup": 4,
+    "repeats": 2,
+    "K": 2048,
+    "N": 2048,
+    "dtype": "fp16",
+    "packet_bytes": 4194304,
+    "baseline_execution": "NONE",
+    "path": "V32_PLAN_A_POOL_RETURN"
+  },
+  "physical_device": 4,
+  "gates": {
+    "ib": "PASS",
+    "add": "PASS"
+  },
+  "measurements": [],
+  "status": "GATE_PASS",
+  "event_semantics": "stream completion window; includes host enqueue gaps",
+  "runtime": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "device_name": "Ascend310P3"
+  },
+  "loaded_libraries": {
+    "/tmp/opencode/310p-v32a2-20261029-001/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "747d9d1ab30dcee356df60a941472d3b58caba3e7067757235410c559796013e",
+    "/tmp/opencode/310p-v32a2-20261029-001/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "be799e775af3381c0befddba445ccead868e3709d6f5b64be142137f7fff6907",
+    "/tmp/opencode/310p-v32a2-20261029-001/v3-build-r3/libmf310p_v3_device.so": "141ac6065e835332fdafeef5203ca3b65948004ac648c2243bdf1576c44557b4",
+    "/tmp/opencode/310p-v32a2-20261029-001/v3-build-r3/libmf310p_v3_host.so": "9c719a631390d5a5c322da7c32028f1be7850473d82bc3148845531199bd9f6c"
+  }
+}

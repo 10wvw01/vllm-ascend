@@ -1,0 +1,56 @@
+=== [A] S4-A G0 gates that PASSED (before the anomaly) ===
+[PASS] devices health: card 16384 9x OK samples (3 rounds x card+dies)
+[PASS] ports 8000/8581 free; no vllm/bench/guardian/watcher leftovers
+[PASS] production hashes: libmf_hybm_core=88d39285... (lib64), orch_deploy_helper=849f93c0... (X_OK), cust set db7134b8/74ad4668/25e16b0a
+[PASS] fixed SO copy: 1dc46d7d... intact
+[PASS] isolated worktree porcelain=0; libmf310p_v2_trial_device=b8ca96f0, libmf310p_device=8447a55a, vllm_ascend_C=07c831f0
+[PASS] npu-smi 26.1.1 / cann-9.1.0 version consistency
+
+=== [B] ANOMALY: dev 2 foreign allocation timeline ===
+16:58Z  S3-R2 recovery check: card 16384 dies near-clean (0/0, 23/23 hugepages)
+17:0xZ  S4 G0 first reading: die -c 0 (logical dev 2) = 17622/17622 hugepages (100%), DDR 84%
+17:18-17:20Z  4x samples stable at 84%/100%; npu-smi proc-mem attributes 35327 MB to pid 1304688 (python3)
+           pid 1304688 ABSENT from host /proc (container PID namespace, like all box service processes)
+           dmesg: [317980] python3:1304688 Map address failed ret=-95 addr_type=2 devid=2 (17:08Z)
+17:21Z  dmesg: [318815] python3:1351010 Map address failed ret=-3 devid=0 (~17:21Z, last storm gasp)
+17:22Z  dev 2 DRAINED: DDR 4%, hugepages 0% (= historical G0 baseline ~1930MB)
+17:23Z  dev 2 stable clean 4%/0%
+
+=== [C] devmm error storm (kernel dmesg, host-level) ===
+storm-era first error: uptime 300238 = 2026-10-26T12:09:23Z (pid 594508, python, devid=0)
+total storm-era errors (since 12:09Z): 119
+per-device: dev0=62, dev2=38, dev5=6, dev3=4, dev7=2, dev6=2
+pattern: transient python3 pids repeatedly attempting devmm map_dev_reserve, failing ret=-95/-3, exiting
+=> predates S3-R2 (16:50-16:58Z) by 4.5 hours; S3-R2 itself ran clean mid-storm
+
+=== [D] box topology observed at hold time ===
+card 5664 / dev 0: llama-server pid 895887, 13017 MB
+card 5664 / dev 1: VLLM::EngineCore pid 3589835, 42753 MB (newly restarted ~17:21Z; dev 1 at 43693/43693 MB = 100%)
+card 16384 / dev 2: drained clean at 17:22Z (was 35327 MB foreign, pid 1304688, gone)
+card 16384 / dev 3: idle (2%/0)
+card 38144 (dev 4,5): no processes
+card 43520 (dev 6,7): pids 11744/12149, ~36.8 GB each
+
+=== [E] S4 HOLD rationale ===
+- G0 exclusivity FAILED transiently at check time (dev 2 84% DDR / 100% hugepages foreign-held)
+- environment in active incident: 5h devmm storm + container vllm crash-restart cycle touching dev 0/2
+- single-attempt constraint: launching mid-instability risks burning the authorized S4 on contaminated attribution
+- S4 NOT launched; attempt preserved; config frozen and ready (S3-R2 + GATE_E_DURATION_S=620)
+=== [F] final state snapshot at work stop (2026-10-26T17:25:46Z) ===
+--- dev 2/3 current ---
+die 0:
+	DDR Usage Rate(%)              : 4
+	DDR Hugepages Usage Rate(%)    : 0
+die 1:
+	DDR Usage Rate(%)              : 2
+	DDR Hugepages Usage Rate(%)    : 0
+--- our processes: none expected ---
+--- ports ---
+8000/8581 free
+--- worktree ---
+0
+--- production untouched ---
+88d392850733d7f1
+849f93c0b4a96877
+--- new devmm errors since 17:21Z (uptime 318815)? ---
+3

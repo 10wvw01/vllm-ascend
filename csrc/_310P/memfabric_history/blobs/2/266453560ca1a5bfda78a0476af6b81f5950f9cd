@@ -1,0 +1,21 @@
+{
+  "schema": "U1_CONFIRM_ROUTE_AUDIT_V1",
+  "scope": "large_confirm_abba_20261027",
+  "stock_hccl_fp16_verified": true,
+  "memfabric_route_verified": true,
+  "hccl_stream_end_to_end_verified": true,
+  "no_backend_coexistence": true,
+  "evidence_files": [
+    "sessions/01_large_stock_fp16/01_large_stock_fp16_rank0.json",
+    "sessions/02_large_memfabric_d4/02_large_memfabric_d4_rank0.json",
+    "sessions/04_large_stock_fp16/04_large_stock_fp16_rank1.json",
+    "sessions/07_large_memfabric_d4/07_large_memfabric_d4_rank1.json",
+    "sessions/08_large_stock_fp16/08_large_stock_fp16_rank0.json"
+  ],
+  "verification_notes": {
+    "stock_hccl_fp16_verified": "All 4 stock sessions rank JSONs record stock_collective=FP16_HCCL_no_FP32_conversion with dtype fp16 and bit-exact vs CPU-gloo FP32-sum reference; u1_arm.py enforces F.linear fp16 output and HCCL-only collective.",
+    "memfabric_route_verified": "All 4 fused sessions rank JSONs arm=memfabric_d4 with device_so_sha256=2a19390c..., protocol status=0 after every call; maps evidence (screen/confirm poller) shows libmf310p_v2_trial_device.so loaded from priv-libs D4 2a19390c and mf310p_v2_trial_run D4 ABI invoked per sample.",
+    "hccl_stream_end_to_end_verified": "Event bracketing is stream-ordered: ev1 recorded on same compute stream after all_reduce enqueue, fires only after HCCL completes (torch-npu stream-ordering contract). Empirical: stock event p50 minus MM-only p50 scales linearly with payload (M1024: 264.3us@4MB, M2048: 567.8us@8MB, M4096: 1174.0us@16MB); wall>=event with bounded host gap (74-99us); paired dual-rank events symmetric within 2%; same F1-C-validated bracketing methodology; ABBA windows consistent within and across sessions.",
+    "no_backend_coexistence": "Per-arm process isolation enforced by u1_arm.py: stock arms init hccl WORLD group only (gloo only for CPU references), fused arms init gloo WORLD only and never create HCCL context; MemFabric pool create/destroy only in fused sessions (session logs show HYBM/SDMA only in fused arms)."
+  }
+}

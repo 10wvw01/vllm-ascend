@@ -312,3 +312,241 @@
 - **受守护Screen 4/7场后STOP**：stock/e1（campaign内）、e3g/e4t2（手动续跑，同一守护调用）完成；screen_05_e4t4运行中外部进程2932134入侵→守护器3>2检测→STOP清理我方进程组（第5次实机保护实证）；e4t8/e4p按no-retry合同未启动。守护审计10阶段零跨卡/零超额PID。
 - **守护器无性能扰动实证**：38144受守护 vs attempt2的16384无守护——stock锚2025.8 vs 2037.7µs（+0.58%）、e3g锚2142.3 vs 2133.9（+0.40%）、**p99近乎逐值复现**（e3g 2227.2 vs 2228.2、e1 2426.4 vs 2408.8）；同构对照e4t2-vs-e3g本轮−1.55%（attempt2 −0.10%）标定单场Screen噪声带±1.5%→**e4t8的−2.71%仅约1.8倍噪声带，Screen只筛方向、正式裁决必须十四场Confirm**。
 - **当前状态**：e4t8/e4t4/e4p三场Screen因外部调度扩散至38144未跑成，e4t8方向维持attempt2原判（对Stock差距38.5µs）待Confirm；四卡均无稳定独占窗口，**管理员连续双Die独占租约仍是进入Confirm的P0前置**。attempt3b零Kernel/Serving/Stock/共享SO改动、未杀租户、未清KFC。[attempt3b报告（E4分支）](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e4-layered-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/A1_E4_attempt3b_换卡38144报告_20261028.md)、[主线归档新增12文件](../evidence/e4_layered_20261028/attempt2_3_mainline_archive/)。
+
+
+## 31. 2026-10-29｜V3 SDMA ADD代码开发与一次快速算子验证合同
+
+用户已批准完整V3方案，并进一步指定不重跑V2/真实NZ Stock性能臂，只测V3并复用历史数据。
+从本主线`54d5518d`派生`work/310p-mm-ar-v3-sdma-add-20261029`，新增[独立V3工程](../../memfabric_mm_ar_v3/README.md)：
+公共signal_at ADD_FP16执行分片Reduce，COPY All-Gather恢复完整结果，MTE输出搬运；不含本地Vector Add。
+MM保持已有1024子调用/basicM，支持256/512/1024/2048组、串行/一组前瞻、显式尾块padding及Torch C ABI薄适配。
+私有构建不修改现有V2/Serving/共享安装，依赖冻结MemFabric `beaf490b`/KVER28，公共头与全部SO需重核身份。
+快测在单次有界会话逐关推进IB→FP16 ADD→协议/回绕→融合/尾块→V3 M2048/4096双组长两短轮。
+对照由归档JSON/性能表生成，保留历史漂移与Screen标签；不同卡/SDK/批次不能签为正式因果收益。
+设备选择使用未重映射的直接DeviceID并经CANN验证；守护仅停止自有进程，独占窗口由现场协调。
+**CPU合同与两轮静审已完成；CANN编译、V3实机正确性及性能均NOT_RUN。**
+Opencode可先私有编译，成功且G0满足后按脚本执行短测；失败STOP，无自动重试或旧性能臂补测。
+不更改E4历史裁决；不启用生产默认或DFlash/Graph，不触发L3/L4。
+
+
+## 32. 2026-10-29｜上游MemFabric源码树同步与V3执行单固定
+
+用户明确授权推送我方V3工作分支，并要求研发侧完成全部仓库/分支/编译部署规划，OpenCode只执行。
+GitCode `dev-v1.2.0`最新`ba3e7f42`相对旧镜像增加SetAccess物理号修复；
+GitHub镜像同步为`b9d46f97`，完整tree均`59f1fb6f`。使用插件快照提交保留GitHub历史，提交号不相同但源码树相同。
+V3依赖改锁镜像`b9d46f97`，ADD/公共头/KVER28不变；上游占位自拷贝差异仍未改变。
+执行规划见[V3 OpenCode执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)，来源证据见[同步JSON](../../memfabric_mm_ar_v3/UPSTREAM_SYNC.json)。
+新增prepare_sdk.py：新隔离克隆调用上游wrapper，关闭Python/HCOM/测试包，显式收集Host/头/AICPU三件套；
+避免上游run包漏复制AICPU目录导致现场自行拼包。之后只编私有V3直调库，不替换共享SDK/Serving。
+默认固定38144 dev4/5，在真实独占/G0成立后一次V3-only有界快测；失败STOP回传，由研发修复源码。
+本轮没有服务器CANN编译或NPU结果；不能把镜像同步或CPU检查写为实机PASS。
+
+## 33. 2026-10-29｜V3 R3全门禁通过但性能失败；chunk512/1024/2048重排（ADR-024）
+
+- 证据归档在V3分支`6144af16`的[三轮记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)。
+  执行`f2c3eaf0`、MemFabric`db38d75e`/KVER28：修复fork+exec助手缺失和守护器助手窗口误杀，
+  CPU87、CANN、IB/ADD/协议/融合/尾块双Rank全部PASS，4配置×2轮×30样本完成。
+- 逐样本max双Rank复算8场p50与原JSON一致。最佳group2048的M2048/4096为
+  1709.941/2883.197微秒，较历史E4/E3-G慢17.29%/35.11%，较历史真实NZ Stock慢57.11%/41.49%；
+  轮间漂移0.28%～1.37%。接受用户要求：当前V3性能目标失败，重新设计，不能以功能PASS替代收益。
+- [V3.1复核与设计](../../memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)：
+  chunk仅512/1024/2048，保留V2 MM tiling；将MM/Reduce/Gather分段推进，
+  不再Finish上一组后才提交当前Reduce；验证1/2/4MiB包与双UB MTE，
+  单Core0邮件分发器处理合法跨tile消息，保持DCCI/首写/精确一次ADD/最终quiet+DONE。
+- 历史跨批对照仍不签正式性能GO；不重跑V2/Stock、不启模型或TTFT。
+  本次只做证据审查和设计，V3.1实现/编译/设备均NOT_RUN。
+- 职责更正：OpenCode负责执行及执行BUG修复、汇总采样/证据并提交远程；
+  研发负责方案/协议、实现审查、结果归因和后续推进，覆盖§32旧“只执行不修复”的交接限制。
+
+## 34. V3.1实现交付与编译准入
+
+实现三段推进、合法交错邮件分发、双UB copy与4MiB包，chunk固定512/1024/2048。
+CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN编译/NPU均NOT_RUN。
+没有设备编译证据前不宣称实机准入已通过；服务器先编译再按G0和门禁执行。
+完整条件与交接见[准入单](../../memfabric_mm_ar_v3/V31_ADMISSION.md)。Stock默认不变，不重跑历史V2/Stock性能臂。
+
+## 35. 2026-10-29｜V3.1实机：编译/门禁/短测完成，性能未超V2
+
+- 证据归档在V3分支的[quick-20261029-v31实验记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-v31/README.md)。
+  前缀`632370a`（用户交接锁定）+执行中守护器修复`2a5f3b37e`（设备so逐字节不变），
+  MemFabric`db38d75e`/KVER28。CPU 88→89项PASS（新增守护窗口回归）。
+- 私有CANN编译PASS（dav-2002）：双UB、NZ2ND临时区、MTE2_MTE3/MTE3_MTE2双事件对、
+  Progress数组全部通过。38144双Die四会话：ib/add/protocol/fused/tail双Rank全PASS。
+- 4MiB默认六配置（M2048/4096×chunk512/1024/2048）两会话各两轮完成，
+  跨会话复现性≤1.77%、轮内漂移≤3.8%（多数≤1.5%）。1/2MiB包长诊断（4预热+10样本×2轮，
+  独立目录）差异≤~1.5%，包长在[1,4]MiB对本组形状无实质影响。
+- 执行BUG（已修复留证）：1MiB诊断轮守护器STOP(97)。根因：torch_npu在worker首个设备算子处
+  fork异步编译基础设施子进程（~8s存活，继承~103MB设备映射，宿主PID无法映射回容器），
+  在部署窗口内浮现在驱动进程表，超过守护器窗口容忍上限。修复对齐V3.0 R2→R3守护器
+  演进先例：worker窗口标记提前到首个设备算子前；窗口容忍2+2→2+2+2=6；
+  60s持续界限与全部fail-closed检查不变。无外部租户/设备故障/协议错误。
+- **性能结论：V3.1未超过历史V2。** 最佳配置M2048/chunk1024=1656.0µs（V2 D4 1367.9，
+  慢21.1%）；M4096/chunk2048=2516.1µs（V2 D4 2539.8，−0.9%在漂移带内，不可判胜）。
+  距真实NZ Stock（E3）：M2048慢53.6%、M4096慢24.4%。相对V3.0内部收益明确
+  （g1024 M2048 −12.7%、g1024 M4096 −23.9%、g2048 M4096 −12.7%）。
+- 跨批对照与KVER28占位自拷贝限制不变，不签长稳/发布GO；Stock默认不变。
+
+## 36. 2026-10-29｜V3.2单Y输出与融合排布推导完成，尚未编码
+
+用户否决追加独立归因设备轮，要求按inlineReduce重构。
+[完整推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)：单份池内Y承担MM、ADD/Gather和最终输出，
+Gather覆盖旧源严格晚于ADD读完，TP2不需要此前提出的额外半份S。
+核心改动为输出Storage生命周期和去掉最终copy、按64/128行全宽带独立发布而非逐chunk会合。
+保持chunk512/1024/2048和八核MM；官方约束不支持推理AI Core异步WaitIterateAll/GetTensorC，
+不以该能力为前提，Core0在子MM边界pump；MemFabric需补公共非阻塞try_wait。
+600种CPU随机所有权交错通过，只证明抽象依赖/和值，不代表CANN/NPU或性能。
+新Kernel/API/输出适配未实现，不改Serving默认，不追加旧V2/Stock重测或独立设备归因轮。
+
+**2026-10-29接口约束追加**：MemFabric由其他团队维护。V3.2主方案A仅使用现有signal/wait/quiet，
+采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
+公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
+详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。
+
+## 37. 2026-10-29｜V3.2方案A编码，设备准入待服务器编译
+
+用户授权实现A，并索取供MemFabric团队评估的公共非阻塞收件需求。
+已实现固定FIFO OrderedProgress、八核独立producer、单Y直接输出、双槽集体选择及Storage持有；
+协议31/32建池协商，epoch/slot generation与每代一次run，拒绝活跃输出覆盖/关闭。
+A不新增MemFabric接口、不修改其仓库；B仍为备选。
+实际C++调度/Transport 480场异步FIFO和Host mock槽管理已通过；全套CPU/静态结果见
+[V3.2准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+新增`quick --plan-a`和Storage/单边释放/下游消费门禁；完整计时包含acquire的流同步与allgather。
+**CANN/TorchNPU编译、真实Storage/缓存/数值/性能NOT_RUN，不签设备GO**。
+由用户委托OpenCode后先私有编译，再G0/设备门禁，门禁通过才短测；Stock默认不变。
+[MemFabric需求原稿](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)已整理，尚未代发。
+
+## 38. 方案A复核修复，B非阻塞收件目的澄清
+
+A2新增输出包装后的双端prepare；任一端失败均封禁且不得启动数据波。
+collective close按双方租约决定busy，避免单边关闭；同步异常封禁，旧波完成后回收输入引用。
+控制信封统一校验操作/epoch/token，Host协议3202拒绝旧版本混用。
+Host双Rank rendezvous及Python故障注入覆盖上述反例，设备门禁增加真正的单边持有close。
+完整计时包含新增prepare，性能仍UNKNOWN；CANN/Storage/设备门禁仍NOT_RUN。
+B的try_wait仅允许无邮件时继续调度，最终完整性仍依靠每片段MM/READY/ADD/Gather状态、
+最终quiet+DONE及输出可见性；EMPTY绝不代表完成。见[V32准入单](../../memfabric_mm_ar_v3/V32_ADMISSION.md)。
+
+## 39. 2026-10-29｜A2服务器准入+六门禁+短测完成：正确性全过，性能仍不过
+
+OpenCode在38144双Die独占窗口按[执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)一次性完成A2私有编译与验证，
+[实验记录](../../memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)：
+起点`213cfcedb`，修复两个编译BUG后HEAD `0f638d511`（CANN ACL头路径缺失；锁定版
+libtorch_npu不导出`StorageDescHelper::SetDesc`，改经torch 2.10 `c10::make_storage_impl`
+注册的PrivateUse1工厂创建NPUStorageImpl并按SetDesc语义填`npu_desc_`，未退回普通from_blob）。
+MemFabric锁定db38d75e未改动，helper指纹与生产验证版一致。
+G0/双Die独占成立，六门禁双Rank全PASS（ib/add/输出生命周期含单边持有busy close/协议含单chunk
+排空与环回绕/融合含下游ND消费/尾块）。六配置两轮短测漂移1.17%~2.69%，
+最佳M2048/chunk1024=2018.7µs、M4096/chunk1024=2727.1µs（双Rank max、完整接口窗口）。
+**相对历史V3.1最佳慢21.9%/8.4%，相对V2 E3-G慢39.1%/28.7%，相对真实NZ Stock慢87.2%/34.8%，
+方向性判定A2未达性能目标**；逐波acquire同步+双Host协商+Storage包装的接口成本为主因结构
+（未做独立归因轮，不签同批正式收益）。KVER28自拷贝差异仍在，不签长稳/发布GO；Serving默认不变。
+
+## 40. 2026-10-29｜A2的L0+L1插桩归因：Host双allgather~430µs与传输固定延迟是主成本，MM与IB无罪
+
+用户授权后在同一独占流程下完成归因轮（工具提交`b0bdb2cba`，修复部署窗口顺序`f8b5b30a9`，
+首轮STOP(97)为守护器对无窗口超额进程的正确拦截）。四臂同会话差分+逐波Host相位：
+[实验记录§L0+L1](../../memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)。
+要点：①每波acquire(~250µs)+prepare(~180µs)两次控制allgather是Host接口主成本，
+基线合计~550µs/波，loadavg≈13宿主抖动可抬至~890µs；②Δ(fused−partial)显示8核MM
+与MTE整块拷入同量级（g2048下近零边际），MM不是瓶颈；③裸ADD传输固定成本~500µs
+（控制往返+quiet）+边际~103µs/MiB，定量证实减包减同步方向；④IB~4.8µs/次可忽略。
+M4096 g1024分解：Host 21% + 设备79%。优化去向：砍每波双allgather（最大单项）、
+减控制往返；MM/IB不动。归因结论不构成性能GO；L2内核内分段未做，需另行授权。
+
+## 41. A3设计、审核与编码：完整S固定席位 + 独立Y + NZ MM / Direct ADD
+
+用户已定稿并授权设计/审核/编码/实机准入检查。基于最新1aa95969归因证据推进，
+不重新启动独立归因轮，不据fused-partial差分声称单独MM已测最优。
+[A3设计](../../memfabric_mm_ar_v3/A3_DESIGN.md)：会话级完整S不在单波复用，Y独立租约；
+compute512/1024与comm512/1024/2048解耦，八核连续ND生产，显式seed后双向Direct ADD，无Gather。
+Host3301固定槽、冷warm、设备START一致性；正常reserve/run无Host集合或流同步，输入事件回收。
+忙槽/包装失败为终止性START拒绝，禁止覆盖/重试；旧A2可恢复接口仅独立保留，不混用。
+两轮设计源码审查、实际START/调度器FIFO与Host热路径回归详见[A3准入](../../memfabric_mm_ar_v3/A3_ADMISSION.md)。
+新CANN/TorchNPU/设备门禁及性能NOT_RUN；CPU成功不签设备GO，Stock默认不变。
+
+## 42. 2026-10-29｜接口优化Phase1实机A/B：合并acquire+prepare单allgather，事件时间-6%~-12%，360波零回退
+
+依据§40去向①实施（提交`6fb54e09d`，协议3202→3203）：`wave_acquire`无协商投机占槽
+（最低空闲确定性规则，双方命中即一致），`prepare`成为每波唯一控制allgather并对账
+槽位，分歧返回可恢复-29回退经典交集路径；generation降级为本地租约令牌不再跨Rank比较
+（投机不对称烧代次会活锁）。先打tag备份（`backup/v32a2-pre-ifaceopt-20261029`→`1aa95969c`，
+另存git bundle于`/home/w00804146/310P/backups/`，SHA256 `e58e4df6098a0b4730532d9cc1b57bec8c24d2f63d1bcf4f9f01383e83e632b2`）。
+r6私有构建后同会话五臂A/B（新增fused_merged臂，`merged_wave`默认False作为opt-in）：
+**双Rank全PASS（含逐配置FP16位等值校验），fused_merged 180波×2Rank零回退**。
+设备事件时间：M2048 -10.2%~-12.3%（最佳g1024 1993→1790µs），M4096 -6.0%~-7.5%
+（g1024 2782→2573µs）。Host相位：acquire 253-277µs→52µs（省~200µs/波），prepare不变
+（仍单allgather），enqueue合计-177~-249µs/波。首次STOP为manifest漏登tensor适配器
+（KeyError），补跑build_tensor.py登记后PASS。回退路径已由Host打桩UT+Python注入UT
+（`test_v32_wave.py`5项+`test_v32_host.py`1项）覆盖；CPU套件57项全过。不构成性能GO；
+merged默认翻转见后续提交；L2内核分段仍未做，需另行授权。
+
+## 43. A3 profile3302：首READY合并帧校验，取消非必要启动固定开销
+
+用户要求减少非必要固定开销。独立START已删除，正常计算不等待跨Rank启动确认；
+第0范围的64B READY合并profile/epoch/slot/形状/粒度/mode/admit，双方校验后才可ADD。
+取消计算前的本地fan-out，状态清零移入Kernel，不再每波提交ACL memset任务。
+失败端不做MM/seed，发送ready=0并在错误路径quiet后Trap；正常对端可以已计算首单元，
+但双方均不允许数据ADD；该故障仍为终止性，不在原会话重试。
+profile3302拒绝与3301混用，源码/设计/准入单及实际协议故障回归同步更新。
+保留现有数据可见性、READY、精确完成、最终quiet/DONE及租约/事件；没有借减开销删除数据依赖。
+新CANN/设备门禁及性能NOT_RUN；不改A2 merged-wave实现或历史实验证据。
+
+
+## 42. A3-2专职通信与A3-tail末尾席位候选（设备NOT_RUN）
+
+以A3首READY版970a0c414e9786b9106f7032e6c5da6ffd0ea978为基底，原3302保持对照；
+新增3303七核MM+Core0专职通信、3304 Core0计算末尾席位。S/Y ND连续行、NZ只描述权重。
+详见[A3席位设计/同批执行](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+同批包含两种MM粒度下各A3前/七核/末尾/A3后，共八会话；沿用六门禁及失败STOP。
+不逐chunk等源回收，不增加正常Host同步/集合/清零任务；每座位发布缓存行状态有真实开销。
+MemFabric仍锁db38d75e，主线核对54d5518d；工作仅落自有V3短分支，不自动合主线或启用Serving。
+本地CPU/源码验证后交服务器私有编译和门禁，CANN/NPU/新性能NOT_RUN。无新模型/TTFT/Graph测试。
+
+## 44. 2026-10-29｜A3同批三候选服务器私有编译完成，设备阶段因38144被外部租户占用STOP
+
+固定起点81780f342（tree 6b94a0b3）+MemFabric db38d75e，新隔离worktree/克隆，无 tracked 改动。
+CPU全过（V3+V2 UT 135、治理38、静态门、V3范围Ruff、git diff --check）；私有SDK（137步，
+helper与生产验证版逐字节一致）与V3 Host/Device（BiSheng dav-2002，device_compile PASS）、
+TorchNPU Storage适配（冻结进manifest）全部完成；三候选3302/3303/3304的模板实例化、
+Matmul注册/UB NZ2ND预算/双MTE缓冲/IB第二半64B座位标志/Core0独立分支等按席位合同逐项核对通过。
+设备G0预检时38144 dev4被外部租户python进程持续占用（19.8GB、51% DDR带宽，观察18分钟），
+dev5间歇探测——按本轮用户指令（卡忙即STOP、不换卡、不杀租户）与执行单§5停止，
+compare_a3八会话批次NOT_RUN、未触发任何设备Kernel。
+[实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r1-device-stop/README.md)。
+恢复条件：协调38144双Die覆盖整批（约1小时）真实独占窗口后直接用已冻结manifest启动批次；
+KVER28占位自拷贝差异仍在，不签长稳。无修复提交，分支HEAD仍为81780f342。
+
+## 45. 2026-10-29｜A3同批六会话PASS后遭外部租户干扰STOP：c512组完整对照成立，原A3占优
+
+用户授权换卡16384/dev2,3。批次HEAD 4d5ce62e8（docs提交后按工具合同重建；Device SO与
+起点逐字节一致）。11:42–12:06独占窗口内六会话全部PASS_QUICK_SCREEN_ONLY（六门禁双Rank、
+24计时文件、全样本correct）：a3-before/a3-2/a3-tail/a3-after-c512 + a3-before/a3-2-c1024。
+首次在dev2/3部署v28（部署窗口3.6秒自愈）。**同批c512组（完整夹逼，六配置全稳定，
+漂移0.12%–3.06%）**：原A3六配置全快于A3-2（2.5%–7.3%）、5/6快于A3-tail（13.5%–25.3%），
+唯一例外M2048/comm2048 A3-tail +1.70%但夹逼漂移2.19%，不判稳定收益。
+c1024组2/4会话方向不一致，不签。12:06:42外部跨卡进程（同占5664+16384）触发守护器STOP，
+第7会话死于池创建（无门禁/ADD执行）；重试批次preflight遇vLLM EngineCore占用再STOP；
+终态全服务器无独占窗口（16384 dev2被vLLM serving 20+分钟、38144原租户未走、43520 dev7 Alarm）。
+未杀租户、失败现场全保留、未重试ADD；不签整批GO。
+[实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r2-card16384/README.md)。
+恢复：manifest已冻结，约20分钟独占窗口即可补完整批次（compare_a3.py start --card 16384 --devices 2,3）。
+
+
+## 统一完整I/O计时与A3阶段归因（代码完成，设备NOT_RUN）
+
+本轮在591a61fa实机归档之上补齐Stock/V2 D4/V3/三A3统一Tensor输入到ND输出ready边界。
+新增独立进程对照入口、Stock NZ/HCCL路由门、V2 D4/KVER11冻结、11会话前后对照；
+三A3有无打点前/Host/Device/无打点后，设备每核与座位独占cacheline，默认关闭。
+详见[统一计时合同与执行单](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)。
+每核占比与通信暴露等待分别统计，禁止重叠时长相加、Wall−Event当Host或fused−partial当MM。
+本地无CANN/TorchNPU/NPU，新设备编译、资源、数值、路由与归因NOT_RUN，Stock默认不变。
+
+
+## 2026-10-30｜V1/V2/V3主线资产整合（用户授权，研发暂停）
+
+以主线54d5518d与最新V3 d59fec7d为固定起点，整合54条项目相关分支。
+V1/V2正式实现及Serving/build默认保留；新增E1/E2/E3/E4、G1取证、MM shadow等独立候选，
+NZ-aware U1工具、测试、原始实验与数据；冲突及废止实现按原blob完整保全，不覆盖当前模块。
+[整合说明](../../memfabric_history/README.md)、[分支HEAD/快照清单](../../memfabric_history/manifest.json)。
+历史源码特定的五个测试文件与废止R2计划归入legacy，匹配源分支可完整恢复；未删除原件。
+407 CPU测试及36 subtest通过；无CANN/设备新实验、无生产启用、无外部仓库或SDK变更。
+所有源分支保留；本轮不删除分支、不强推、不以归档恢复算法推进。

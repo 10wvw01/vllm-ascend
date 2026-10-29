@@ -1,0 +1,103 @@
+# A1-E3｜Chunk2048实机验证报告（含BUG修复与八场对照）
+
+> run_id `e3-chunk2048-20261028-001`；2026-10-28 00:45~01:35 (+08)；执行分支`work/310p-mm-ar-e3-chunk2048-20261028`（基准`65837dc4`→修复`3e58ae38`）；物理卡16384（310P3同卡双Die dev2,3）独占，30s全程只读巡检；私有装载Host`1dc46d7d`/正式D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`，共享系统SO零改动，前后SHA一致。完整原始证据：[../evidence/e3_chunk2048_20261028/](../evidence/e3_chunk2048_20261028/)。
+
+## 1. 执行摘要
+
+| 项 | 结果 |
+|---|---|
+| G0环境准入 | PASS（四卡巡检：5664/38144被外部占用、43520 Die7 Alarm排除；16384双Die+MCU健康、ChipFault=0、无进程、hugepages 0/0） |
+| 静态回归 | 原仓UT 71项PASS（含E3 CPU合同9项）、py_compile/bash -n/项目门禁全PASS |
+| 隔离编译（dav-2002/BiSheng/CANN9.1） | E1+G+T三核一次通过，符号/manifest齐全，无正式D4 ABI泄漏 |
+| **BUG修复1** | E3-T首版tiling运行时AICore异常（L0C满载）→ basicM 256→128，详见§2 |
+| Stock真实NZ路由 | 4/4证明（每Rank×M：`aclnnMatmulWeightNz`≥6、`hcom_allReduce`≥6、TransData=0） |
+| E3-G/E3-T双Rank Smoke | 全部bit-exact、协议status=0、M2048/4096、双输入变体 |
+| 八场正式对照 | `stock,e1,e3g,e3t,e3t,e3g,e1,stock`全COMPLETE，16份Rank JSON全bit-exact、status=0 |
+| 设备安全 | 全程无507014/507899/507018/IB/KFC异常；二进制前后SHA一致；测后卡回基线 |
+| 总状态 | **`INCONCLUSIVE_DRIFT`**（M2048的E1臂场间漂移6.19%>5%；M4096全臂≤2.02%稳定，按合同作首要参考） |
+
+## 2. BUG修复1：E3-T首版tiling运行时L0C满载AICore异常
+
+**现象**：首次campaign中E3-G Smoke双Rank全部bit-exact PASS后，E3-T Smoke在首个真实kernel即双Rank对称SIGABRT：`rtStreamSynchronizeWithTimeout`错误507015（aicore exception，retCode=0x26，failure_mode=1，fault kernel=`E3Group2048Kernel<e3Tiling2048,2048>`）。BiSheng编译期未拦截。
+
+**根因**：dav-2002 L0C总计**256KB**（`sys_constants.h`实测）。首版`e3Shape2048={256,kN,kK,256,256,64}`的baseM=256×baseN=256 FP32累加器恰为256×256×4B=**256KB，100%占满L0C零余量**（同时L0A双缓冲64KB=100%满载）。对照G用tiling1024的128×256×4B=128KB（50%）同批同卡同SO通过，异常被隔离在T的MM tiling本身。
+
+**修复**（提交`3e58ae38`，已入工作分支）：`e3Shape2048={256,kN,kK,128,256,64}`。**singleCoreM=256保持不变**——T语义仍为"每组每核一次256行MM调用"（`SetOrgShape(256,…)+IterateAll`单次发射）；仅内部基础tile回落到与已实机验证tiling1020完全同几何的128×256（L0C 50%、L0A 32KB、L0B 64KB）。UT合同新增几何锁定断言；71项UT复跑全PASS；重建manifest与新HEAD一致；E3-T Smoke随即转PASS。原始故障证据：[bugfix1_l0c_overflow/](../evidence/e3_chunk2048_20261028/bugfix1_l0c_overflow/)。
+
+**边界说明**：此修复不是"用1024 MM冒充2048 MM"——G/T差异（每组每核2次128行MM调用 vs 1次256行MM调用）完整保留；受L0C硬限制，任何能在dav-2002上运行的"真2048 MM"内部基础tile都不可能大于128×256。
+
+## 3. 正确性证据
+
+- **8MiB逻辑组→2×4MiB分包**：内核静态断言`kE3PacketBytes==4MiB`、`kE3PacketsPerGroup==2`、tag=`kTagBase|(group*2+part)`两包唯一；`E3WaitGroup`要求两封不同tag、`dst/len/imm/status`全匹配且不重复消费后才ReleaseAdd（UT合同+编译断言）。运行期16份Rank JSON（8场×2 Rank×2 M）全部bit-exact且协议status=0——若分包/双包聚合/首写有任何错序，`CheckOrTrap`将写入非零status。
+- 双Rank交替输入变体（2组）、每次调用均bit-exact（CPU FP32 Gloo参考→FP16），不依赖固定输入掩盖旧数据。
+- 正式D4/E1源码、Serving默认路径、共享MemFabric SO零改动（前后SHA清单见`binaries_before/after.sha256`，diff为空）。
+
+## 4. 八场性能对照（每场20预热+100测量，配对p50=max(rank0[i],rank1[i])）
+
+| 形状 | Stock NZ+HCCL | E1 Chunk1024 | **E3-G2048** | E3-T2048 | E3-G vs E1 | E3-T vs E1 | E3-T vs E3-G | E3-G vs Stock | 判定 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| M2048 | 1078.4µs | 1222.6µs | 1451.0µs | 1483.9µs | **−15.74%**（+228.4µs） | −17.61% | −2.22% | −25.68% | `INCONCLUSIVE_DRIFT`：E1臂两场1185.9/1259.3µs漂移6.19%>5%；但E3-G(1451.0)劣于两场E1各自p50，方向稳健 |
+| **M4096** | 2022.6µs | 2271.8µs | **2119.5µs** | 2267.1µs | **+7.19%（−152.3µs）** | +0.21% | **−6.51%（+147.6µs）** | **−4.57%（−97.0µs）** | 全臂稳定（drift≤2.02%），首要有效证据 |
+
+逐场配对p50/p99（µs）：
+
+| 场次 | M2048 p50/p99 | M4096 p50/p99 |
+|---|---|---|
+| 01_stock | 1085.3 / 1272.4 | 2030.0 / 2080.1 |
+| 02_e1 | 1185.9 / 1284.9 | 2254.0 / 2379.2 |
+| 03_e3g | 1442.2 / 1503.8 | 2105.5 / 2209.5 |
+| 04_e3t | 1495.8 / 1586.8 | 2286.2 / 2353.1 |
+| 05_e3t | 1472.0 / 1562.1 | 2247.9 / 2385.3 |
+| 06_e3g | 1459.8 / 1525.5 | 2133.6 / 2229.1 |
+| 07_e1 | 1259.3 / 1310.0 | 2289.6 / 2406.2 |
+| 08_stock | 1071.5 / 1224.5 | 2015.1 / 2056.3 |
+
+与同硬件同口径历史一致性好：本批Stock 1078/2023µs vs five-arm 1070/2017µs；E1 1223/2272µs vs five-arm 1264/2274µs。M4096下E3-G尾部分布（p99 2209/2229µs）显著紧于E1（2379/2406µs）。
+
+## 5. 三个核心问题的回答
+
+### Q1｜Chunk2048是否优于E1的Chunk1024？
+
+**分形状，不能一刀切。**
+
+- **M4096（2个2048组）：是，E3-G比E1快7.19%（−152.3µs）且p99更紧。** 2048组把每M的ReadyTree会合轮数（4→2）、生产端整核DCCI flush次数（4→2）、Core0"等待-投递-释放Add"序列（4→2）全部减半，同时组间交叠仍然存在（组k的MM与组k−1的双包传输+Add并行）。固定开销减半的收益没有被交叠损失吃掉，净赚约152µs。
+- **M2048（仅1个2048组）：否，E3-G比E1慢15.74%（+228.4µs，方向对E1臂6.19%漂移稳健）。** 单组意味着**零组间交叠**：整组8MiB的MM必须全部完成后才发第一包，两个4MiB包与Add全串行收尾；而E1的1024 chunk在M2048下有2个chunk的流水（chunk0传输/规约与chunk1的MM重叠）。粗粒度分组把这笔交叠收益全部丢掉，还推迟了首包发射，净亏约228µs。
+
+**结论**：Chunk2048的收益本质是"**固定同步开销×组数**"与"**组内串行化×组数**"之间的差额；组数≥2（M≥4096）时前者占优，组数=1（M=2048）时后者占优。
+
+### Q2｜真正的2048 MM是否优于两次1024 MM？
+
+**否。E3-T比E3-G慢6.51%（M4096，+147.6µs）/2.22%（M2048），与E1基本打平（+0.21%）。**
+
+原因分两层：
+
+1. **硬件层**：dav-2002的L0C=256KB硬性禁止256×256基础tile（FP32累加器100%满载即AICore异常，本次实机证实）。因此"真2048 MM"在310P3上内部必然退化为128行基础tile——与两次1024调用**同基础几何**，硬件上不存在"更大的累加tile带来A复用/更少指令开销"的可能。
+2. **调度层**：理论上单次256行调用可减少B（权重8MB NZ）的L1重装载（两次128行调用各自完整过一遍B）。但实测未兑现：每核256行A本身占1MB=整个L1，与B staging无法共存，L1 factor只能拆小stepM/depth，B重载次数并未减半；而单次大调用反而引入更大的tiling表与单一完成屏障。两次独立1024调用沿用已验证的tiling1024调度，L1双缓冲行为更优，实测更快。
+
+**因此E3-T对E3-G的−6.51%就是"单次2048调用相对两次1024调用在当前L1/L0C约束下的真实代价"，不能把该差额解释为通信节约（通信侧G/T完全一致）。**
+
+### Q3｜E3距Stock还差多少？下一轮最值得优化的关键路径？
+
+- **差距**：M4096下E3-G 2119.5µs vs Stock 2022.6µs，**还差97.0µs（−4.57%）**——E1原差距249.3µs（−10.84%）被E3-G缩半。M2048下差距372.6µs（−25.68%），单组交叠缺失是主因。L1之外的Qwen L2/L3/L4均NOT_RUN。
+- **下一轮优先级**：
+  1. **单组（M2048）组内流水**：保2048同步组不变，但组内"前1024行MM完成即发第一包4MiB，后1024行MM与第一包传输重叠"——把E1式细粒度交叠还给粗粒度同步，直接攻击M2048的228µs亏损，且不放弃M4096的固定开销收益（混合粒度）。
+  2. **producer端缓存维护代价**：ENTIRE_DATA_CACHE整核flush每组的真实耗时仍未分段（INNER_PHASE_UNKNOWN）；评估按输出区间定址DCCI（CleanLines式）与整核flush在2048组粒度下的实测差额。
+  3. **Core0串行链**：ReadyTree会合→双包投递→双包等待→Add发布→DONE全在Core0单核串行，8场样本的97µs残差大概率集中于此；可探索双包并行投递流水或接收侧提前预取。
+  4. **周期长尾根因**（~25s级p99尖峰，R1/R2已知现象）：需连续长窗口+设备探针，与上述优化并行排查。
+
+## 6. 边界与后续
+
+- 本报告全部数字为**L1离线算子**（真实NZ权重、FP16、K=N=2048、TP2、Event完整MM+AR热态计时、无Profiler混入）；不推导Qwen TTFT/TPOT，L2/L3/L4按总账仍NOT_RUN。
+- M2048总状态`INCONCLUSIVE_DRIFT`按合同不挑场、不复算；M4096为全臂稳定的首要参考。E3-G是否进入下一轮研发基线，由主线审阅本报告后裁决。
+- 正式D4/E1源码、Serving默认、共享SO零改动；Stock默认不变；候选SO仅在隔离构建目录，未安装。
+- 恢复现场：campaign结束后卡16384无进程、显存回基线（1938/1011MB）、健康OK；共享/冻结二进制前后SHA一致。
+
+## 7. 证据索引
+
+| 证据 | 位置 |
+|---|---|
+| G0记录 | [../evidence/e3_chunk2048_20261028/g0/](../evidence/e3_chunk2048_20261028/g0/) |
+| BUG修复1原始故障+归档 | [../evidence/e3_chunk2048_20261028/bugfix1_l0c_overflow/](../evidence/e3_chunk2048_20261028/bugfix1_l0c_overflow/) |
+| 两次构建manifest/日志/符号 | [../evidence/e3_chunk2048_20261028/build/](../evidence/e3_chunk2048_20261028/build/) |
+| 八场原始Rank JSON/路由CSV/卡监控 | [../evidence/e3_chunk2048_20261028/campaign_full/](../evidence/e3_chunk2048_20261028/campaign_full/) |
+| 机器评估 | [../evidence/e3_chunk2048_20261028/e3_assessment.json](../evidence/e3_chunk2048_20261028/e3_assessment.json) |

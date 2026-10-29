@@ -1,0 +1,206 @@
+# 310P3 融合算子项目：仓库、分支、镜像与部署版本关系归档
+
+> 快照日期：2026-10-20（Asia/Taipei）。本文核对了 GitHub 仓库元数据、实际分支 HEAD、Git 提交图比较结果，并交叉阅读 `310P3_版本溯源与资产保全报告_20261020.md`、G1-A/G1-B 实机报告。  
+> **事实边界**：GitHub 分支位置为本次查询时的远程快照；服务器路径、GitCode origin、已安装二进制以此前实机报告为历史证据，不代表已实时登录服务器复核。  
+> 本文件为仓库治理事实表，不将「Git 分支存在」等同于「实机已编译/加载/验证」。
+
+## 0. 一页结论：往哪两个仓库提交
+
+| 项目侧职责 | 本项目建议唯一研发目标 | 不应混淆 |
+|---|---|---|
+| Qwen3.6、vLLM 310P 适配、V2 融合算子、模型长稳 | [`10wvw01/vllm-ascend`](https://github.com/10wvw01/vllm-ascend) | 不是官方 `main`，也不是 `HaonanWu1` 的原始 DFlash 工作树 |
+| MemFabric 310P3 Host/AICPU SDMA 能力 | [`10wvw01/memfabric_hybrid_310p`](https://github.com/10wvw01/memfabric_hybrid_310p) | 不是 `10wvw01/memfabric_hybrid`，不是服务器 GitCode `origin` |
+| 历史调查、旧实验、其他研究分支 | [`10wvw01/memfabric_hybrid`](https://github.com/10wvw01/memfabric_hybrid) | 历史副本/多课题集合，不是本项目当前 MemFabric 默认交付目标 |
+
+**日常研发只认两套 GitHub 项目仓库**。将 GitCode 官方源、GitHub 老仓库、新研发仓库、服务器本地 remote、独立 worktree 视为五个不同概念。
+
+## 1. 源头及迁移拓扑
+
+### 1.1 vllm-ascend：真实 GitHub Fork 关系（API 元数据确认）
+
+```text
+vllm-project/vllm-ascend             官方上游（GitHub）
+   └─ HaonanWu1/vllm-ascend         第一级 Fork，310P DFlash 定制来源
+       └─ 10wvw01/vllm-ascend       第二级 Fork，本项目唯一 vLLM 研发仓库
+             ├─ dev_v24/feat-310p-dflash            DFlash 历史开发基础
+             └─ feat/310p-memfabric-public-api     V2 已回归融合算子基线
+```
+
+- [官方上游](https://github.com/vllm-project/vllm-ascend) 与 [HaonanWu1 fork](https://github.com/HaonanWu1/vllm-ascend) 是**来源关系**，不会自动把新功能同步到当前项目。
+- `10wvw01/vllm-ascend` 的 GitHub `main@049b8593` 是 9 月历史合入位置，**不是当前 V2 工程的开发/部署基线**。
+- 2026-09-30 `merge/310p-memfabric-on-dflash-20260930@90a4d1f8` 记录了将早期 MemFabric 定制重新应用到 DFlash 分支；现 `feat/310p-memfabric-public-api` 的祖先包含该 DFlash 基线。
+- V1 / V2 工程正式位置分别为 `csrc/_310P/memfabric_mm_ar/` 与 `csrc/_310P/memfabric_mm_ar_v2/`；当前设备诊断、测试、说明均应在 V2 目录的 `src/`、`test/`、`docs/` 管理。
+
+### 1.2 MemFabric：**不是 GitHub Fork** 的两次独立仓库归档
+
+```text
+GitCode 官方：gitcode.com/Ascend/memfabric_hybrid       官方项目来源
+   └─ GitCode：gitcode.com/GDD_ESCC/memfabric_hybrid     实机原仓库 origin（10-20 资产审计确证）
+        ├─ 本地多分支 / /tmp/opencode/mf-fix 工作树
+        ├─ GitHub：10wvw01/memfabric_hybrid             较早的 GitHub 代码副本，混合历史课题
+        └─ GitHub：10wvw01/memfabric_hybrid_310p        2026-10-20 创建的独立 310P 研发仓库
+              ├─ main@131ee5ff       从已验证 KFC 修复提交起步
+              ├─ diag/...@eb96eced  G1-B Host 飞行记录器
+              └─ archive/...        原服务器仅本地分支的历史保全
+```
+
+> 箭头表示工程的**来源/迁移语义**，不等于已验证 GitCode 的逐分支完整父子 Fork 关系。GitHub API 显示 `10wvw01/memfabric_hybrid` 和 `10wvw01/memfabric_hybrid_310p` 均 `fork=false`；新旧 GitHub 仓库之间**不存在 GitHub 自动 Fork 同步关系**。即使 commit SHA 相同，也不代表两处 remote 会自行更新。
+
+**重要精确核对**：
+- 服务器 10-20 的审计文档明确记载 `/home/w00804146/310P/memfabric_hybrid` 的 `origin=https://gitcode.com/GDD_ESCC/memfabric_hybrid.git`，而不是 `github.com`；当时未配置 GitHub 镜像远程。
+- `10wvw01/memfabric_hybrid/fix-310p-kfc-deploy-helper` 与 `10wvw01/memfabric_hybrid_310p/main` 的 HEAD **逐字节相同 Git SHA：`131ee5ffd1a6ae9d4824cbb0cf4d32d99bbfdc5a`**。这是从旧研究环境迁移的可核验连接点。
+- 旧仓库 `10wvw01/memfabric_hybrid` 仍有 `wgm-dev-310p`、`wzy-dev-fused*`、`dev-v1.2.0`、`fix-310p-sdma-serve-sync` 等历史/平行研究分支，它们**不能因为名字含 310P 就视为新 `main` 的祖先或已合并功能**。
+- `Ascend/memfabric_hybrid` 官方 GitHub 仓库和官方 GitCode 均存在，但**当前服务器 `origin` 的 GDD_ESCC 地址是另一层**；不要把官方地址直接覆盖到服务器 `origin`。
+
+## 2. vllm-ascend 本项目分支台账（GitHub 2026-10-20 快照）
+
+| 分支 / HEAD | 性质与继承关系 | 本项目处理原则 |
+|---|---|---|
+| `main @ 049b8593` | Fork 的旧合入线 | 不能作为当前融合算子的构建基线 |
+| `dev_v24/feat-310p-dflash @ a832a2c7` | 310P DFlash 分支 | 参考/后续模型功能，不把 Gate E 诊断反推于此 |
+| `feat/310p-memfabric-public-api @ 518418f2` | **已做源码拆分与实机回归的 V2 基线**；含 10-20 资产审计 | **基线冻结，未来修复经验证后再并入** |
+| `diag/310p3-gate-e-forensics-20261020 @ 8f1eef3b` | 由 `518418f2` 分出，领先基线 13 个提交；G1-A/G1-B 报告及脚本 | 已完成诊断结果存档；不是正式生产修复 |
+| `design/310p-g1c-first-stop-20261020 @ d87bacfb` | 基于 G1-B 分支，仅 G1-C 设计文档 | 设计锚点，不是设备可执行版本 |
+| `feat/310p-g1c-phase-trace-20261020 @ a249f5b4` | G1-C **候选实现 A**，来自 `d87bacfb`；包含独立追踪 Kernel、观测门禁、执行方案 | **当前文档与预检最完整的候选**；实际 CANN/310P 编译及实机验证尚未完成，不能认定 PASS |
+| `feat/310p-g1c-v2-flight-recorder-20261020 @ 8afdb2cc` | G1-C **平行候选实现 B**，也来自 `d87bacfb`；Kernel 中埋点、Host 观察线程、离线分析 | 与候选 A **已分叉**，不能认为是 A 的新提交、不能随意混用构建件 |
+| `fix/310p-gate-e-verdict-20261020 @ 8405f389` | 以 G1-A `dc9caa31` 为基础，独立开发的 Runner 假成功修复、离线分析器 | 判定器已在 G1-C 候选中分别集成；不要再全量合并同一修复线 |
+| `merge/310p-memfabric-on-dflash-20260930 @ 90a4d1f8` | 9 月跨 DFlash 研发线迁移归档 | 历史参照 |
+| `backup/310p-memfabric-public-api-before-dflash-merge-20260930 @ 18aab551` | 迁移前留档 | 不作为测试/交付入口 |
+| `backup/310p-memfabric-public-api-before-reset-20260930 @ c1cc2ca4` | 重置前留档 | 不作为测试/交付入口 |
+| `feat/310p-memfabric-standalone-op @ c1cc2ca4` | 历史独立算子方案，与上一备份指向同一提交 | 仅作追溯 |
+| `feat/310p-w8a8-o-proj-memfabric-ar @ 1058cd87` | 初期 W8A8 `o_proj` + AR 融合开发线 | 已被更完善的 V1/V2 路线替代，保留 |
+| `fix/310p-memfabric-graph-prewarm @ d66257da` | 早期 Graph 预热修复实验 | 不是 G1-C |
+| `docs/310p-o-proj-ai-native @ 911e4b19` | 早期文档方案 | 保留，不在此续写 |
+
+### G1-C 双分支风险（当前必须明确）
+
+```text
+518418f2 (V2 代码基线)
+   └─ 8f1eef3b (G1-A + G1-B)
+        └─ d87bacfb (G1-C 方案)
+             ├─ a249f5b4  feat/310p-g1c-phase-trace-20261020        候选 A
+             └─ 8afdb2cc  feat/310p-g1c-v2-flight-recorder-20261020  候选 B
+```
+
+GitHub Compare 已核对：**从候选 B 看候选 A，A 独有 37 个提交、B 独有 19 个提交**，共同祖先 `d87bacfb`；存在两个实现版本而非「谁的提交 SHA 更大就是最新」。
+
+**治理建议**：下一轮 310P3 测试先明确选择且冻结唯一候选分支与完整 SHA；优先审查候选 A 的隔离构建及观测门禁，因为 A 已包含 `G1C_C1_设备阶段追踪实施与实机门禁.md`。**未编译验证前不能把 A/B 自动合并，更不能两套同时部署。** B 保留作比较/回退备选。
+
+参考：[G1-C 候选 A 执行门禁](https://github.com/10wvw01/vllm-ascend/blob/feat/310p-g1c-phase-trace-20261020/csrc/_310P/memfabric_mm_ar_v2/docs/G1C_C1_%E8%AE%BE%E5%A4%87%E9%98%B6%E6%AE%B5%E8%BF%BD%E8%B8%AA%E5%AE%9E%E6%96%BD%E4%B8%8E%E5%AE%9E%E6%9C%BA%E9%97%A8%E7%A6%81.md)。
+
+## 3. MemFabric 两个 GitHub 仓库和新仓库分支台账
+
+### 3.1 本项目新仓库 `10wvw01/memfabric_hybrid_310p`
+
+| 分支 / HEAD | 来源与意义 | 用法 |
+|---|---|---|
+| `main @ 131ee5ff` | 与旧 GitHub `fix-310p-kfc-deploy-helper` 完全相同；对应已验证 Host 修复源码 | **当前 MemFabric 正式研发基线** |
+| `diag/310p3-gate-e-forensics-20261020 @ eb96eced` | 基于 `main` 增加 1 个 opt-in Host 飞行记录器提交 | G1-B 诊断 Host SO 的源码；不是持续部署在现网的版本 |
+| `archive/20261020/fix-310p-sdma-serve-sync @ 990cf989` | 从服务器本地 `fix-310p-sdma-serve-sync` 归档，包含另一套 serve 同步修复合并历史 | **不要**和当前 KVER11 重拉算法直接混合 |
+| `archive/20261020/wgm-dev-310p-5commits @ 254e6d85` | 从旧服务器本地备份支线归档；包括 env-gated 免 KFC 直发方案 | 未经当前主线实机认证 |
+| `archive/20261020/wzy-dev-fused-backup @ 8297ba04` | 早期 fused 单向生产环/尾部归约实验保全 | 仅历史研究，不是 V2 正式实现 |
+
+上述 `archive/` 解决了 10-20 资产审计发现的「部分本地独有提交没有远程 ref」风险。**并不表示其内容已合入 `main`**。服务器仍可能留有 stash、untracked、unreachable Git 对象及大型二进制归档，需要留存原备份。
+
+### 3.2 旧仓库 `10wvw01/memfabric_hybrid`
+
+旧 GitHub 仓库默认分支为 `310p-2-rank@a4db8996`，不是新版 `main`。其中还包含：
+
+- `dev-v1.2.0@bf967270`：此前安装包的源码系列；
+- `wgm-dev-310p@6f63508e`、`wgm-dev-310p-4rank`、`wgm-dev-310p-crosscard`：早期 SDMA/多 Rank 研究；
+- `wzy-dev-fused`、`wzy-dev-fused-310p`、`wzy-dev-vllm-ascend`：早期融合实验/协作支线；
+- `fix-310p-sdma-serve-sync@f7ad47c2`：**实现甲**，按时长分轮 + Host 换轮；与服务器本地 `990cf989` 线存在分叉；
+- `fix-310p-kfc-deploy-helper@131ee5ff`：**实现乙**，有限纪/心跳/监督重拉 + fork-exec，已成为新 `_310p/main` 的代码起点。
+
+其中旧仓库的 `fix-310p-sdma-serve-sync` **不是**新仓库 `main` 的直接继承分支。详细分歧和原来八个本地独有提交参见 [2026-10-20 服务器资产审计](310P3_版本溯源与资产保全报告_20261020.md)。
+
+## 4. 服务器上 Git、Worktree 和部署的四层关系
+
+**不要再用「我 pull 了某分支」推断「vLLM 现在实际运行的就是该代码」。** 须分别查证：
+
+| 层 | 应该核对的内容 | 已知事实或历史快照 |
+|---|---|---|
+| 远程仓库 | `git remote -v`、`git ls-remote`、HEAD SHA | vLLM 服务器 `origin` 曾是 `github.com/10wvw01/vllm-ascend`；MemFabric 服务器 `origin` 为 GitCode GDD_ESCC |
+| 本地源码 | `git worktree list --porcelain`、`git status -sb`、`git rev-parse HEAD` | vLLM 主树 `/home/w00804146/310P/vllm-ascend`；MemFabric 主树 `/home/w00804146/310P/memfabric_hybrid`；曾用独立 `vllm-ascend-g1`、MemFabric 诊断 worktree 和 `/tmp/opencode/mf-fix` |
+| 构建产物 | 构建目录、内嵌 Commit 字符串、`sha256sum`、ldd | 源码 HEAD 不能替代某个 SO 的身份 |
+| 运行进程 | `/proc/<PID>/maps`、Python `__file__`、实际 ctypes 路径、设备 KVER/JSON | MemFabric Host `libmf_hybm_core.so` 有两份部署位置，AICPU KVER11 与 Host 库应分别识别 |
+
+### 截至 G1-B 报告的部署快照（**不是当前实时断言**）
+
+- vllm-ascend 已验证融合算子基线：`518418f2`；G1-B 诊断文件在 vLLM `8f1eef3b` 分支。
+- 实际 Host `libmf_hybm_core.so`：原始 SHA256 **`88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1`**，源码语义等价 `131ee5ff`；G1-B 临时替换 `c03310c1...`，测试后报告称两个位置均恢复 `88d39285...`。
+- AICPU `libmf_sdma_orch.so`：SHA256 **`db7134b8...`**（来自 `2f59dedb` 的 KVER11 构建），G1-B 未替换。
+- `version.info`/wheel 元数据：仍可能标 `2f59dedb`。它只记录旧安装包版本，**不能用来否定 Host SO 热替换**。
+- `MF_SDMA_ORCH_JSON` 使用 KVER11 的 launch JSON；设备上缓存的实际 KFC 载入版本还需结合进程/设备日志核实。
+- 本地 `tmp/opencode/` 保存 F01、B02 原始设备日志及备份，不在 Git 中；远端只上传经整理的代码和报告。
+
+## 5. Git remote 与推送规范（给服务器 OpenCode）
+
+**先读、后写；不改老 `origin`。** 远端实际配置必须先核实，不得仅凭本文猜测。
+
+```bash
+VLLM=/home/w00804146/310P/vllm-ascend
+MF=/home/w00804146/310P/memfabric_hybrid
+
+git -C "$VLLM" remote -v
+git -C "$VLLM" worktree list --porcelain
+git -C "$MF" remote -v
+git -C "$MF" worktree list --porcelain
+
+# vLLM 研发 fork：remote origin 指向 10wvw01/vllm-ascend 时才用它
+git -C "$VLLM" ls-remote --heads origin 'feat/310p-memfabric-public-api' 'diag/*' 'feat/310p-g1c-*'
+
+# MemFabric：原 origin 是 GitCode；GitHub 研发 remote 必须单独验证
+git -C "$MF" remote get-url github-dev || true
+# 只有未配置时，才可在核验后添加：
+# git -C "$MF" remote add github-dev git@github.com:10wvw01/memfabric_hybrid_310p.git
+# git -C "$MF" ls-remote --heads github-dev main 'diag/*'
+```
+
+- vLLM 诊断结果推送：`git push origin HEAD:refs/heads/<明确的诊断分支>`。
+- MemFabric 诊断结果推送：`git push github-dev HEAD:refs/heads/<明确的诊断分支>`；**禁止无意识 `git push origin` 推到 GitCode。**
+- 不直接在服务器已有运行工作树 `git pull`/切分支：使用 `fetch + worktree` 独立检出。提交前审查 `git diff --cached` 与未追踪文件；服务器本地原始日志及备份不直接上传公开仓库。
+- 发生远端非快进拒绝，不 `--force`、不私自 rebase 已执行诊断的证据分支；先报告 HEAD 分叉再决定。
+
+## 6. 单一权威基线规则（避免今后继续混乱）
+
+1. **基线与候选分离**：vLLM 稳定回归锚 `518418f2`；MemFabric 运行基线源码 `131ee5ff`。G1-B、G1-C 是诊断分支，不自动升级为稳定基线。
+2. **一次实机只选一个 vLLM 分支和一个 MemFabric Commit**：记录 `GitHub repository URL + full SHA + worktree path + native SO sha256 + site-packages SO sha256 + AICPU KVER`。
+3. **同一阶段只有一条交付候选**：G1-C 目前存在两条平行实现。先完成设计/静态评审选线，再在选定候选上执行，不允许盲目混合两条源码。
+4. **历史仓库只读保全**：旧 MemFabric 的 `wgm/wzy/fix` 分支以及新 `archive/` 分支是历史资产；除有明确方案和回归门禁外，不将其历史修改任意 cherry-pick 到新 `main`。
+5. **评测证据不可回填结果**：F01/B02 故障已复现但根因未定；已完成 Epoch 的正常结果不等于 SQ 完全健康；静态检查通过不等于 CANN/Bisheng 或 310P3 实机通过。
+6. **资料统一归档**：本项目 V2 诊断文档只入 `csrc/_310P/memfabric_mm_ar_v2/docs/`，代码与测试分别入 `src/`、`test/`；服务器过程件在 `tmp/opencode/`。
+
+## 7. 重要时间轴
+
+| 时间 | 事件 |
+|---|---|
+| 2026-09-17 | 创建本项目 `10wvw01/vllm-ascend` GitHub 二级 Fork，开展 310P 融合算子 |
+| 2026-09-21 | 创建旧 `10wvw01/memfabric_hybrid` GitHub 仓库，用于历史 MemFabric 定制线 |
+| 2026-09-30 | vLLM `merge/310p-memfabric-on-dflash` 合并/重放历史定制到 DFlash 基础线 |
+| 2026-10-12 | MemFabric `2f59dedb`：有限 Epoch + Host 心跳 + KVER11 部署系 |
+| 2026-10-19 | MemFabric `131ee5ff`：fork-exec 部署助手修复；V2 源码拆分与实机回归 |
+| 2026-10-20 | V2 `518418f2`：服务器资产审计；创建独立 `memfabric_hybrid_310p`，迁移 `main@131ee5ff` 并保全本地历史分支 |
+| 2026-10-20 | G1-A/G1-B 实测归档：vLLM `diag@8f1eef3b`；MemFabric `diag@eb96eced`；完成 Host 飞行诊断 |
+| 2026-10-20 | G1-C 方案 `d87bacfb`，随后独立产生两条未合并的 G1-C 实现分支 `a249f5b4`、`8afdb2cc` |
+
+## 8. 已知未核验项与更新规则
+
+本次已核实 GitHub 远程分支和此前资产报告，**没有直接读取当前服务器**：
+
+1. GitCode `GDD_ESCC` 各分支最新 HEAD、是否与 GitHub 旧仓库同一时刻完全镜像：尚未逐分支比对；不可称为「实时同步镜像」。
+2. 服务器所有现存 Worktree、dirty/untracked/stash，以及是否已有新的 G1-C build：需实机 `git worktree list`、`git status` 才能断言。
+3. 现网实际 Host SO、AICPU SO 和 CP1 缓存的**当前**版本：只能以实时哈希、进程映射和设备 slog 判定。
+4. 两条 G1-C 分支均未见可归档的 CANN/310P 实机通过报告：当前应标记「代码候选／待实机」，不应误用正式算子 PASS。
+
+更新此归档时使用新快照日期，并保留历史 SHA；如决定合并诊断分支或迁移权威仓库，必须同步修改 §0 的唯一研发入口和 §6 的基线记录。
+
+---
+
+### 证据入口
+
+- [310P3 服务器版本溯源与资产保全报告（2026-10-20）](310P3_版本溯源与资产保全报告_20261020.md)
+- [G1-A 首故障点取证报告](G1_GATE_E_FORENSICS_REPORT_20261020.md)
+- [G1-B Host 飞行记录器报告](G1_GATE_E_FORENSICS_G1B_ADDENDUM_20261020.md)
+- [G1-C 分级诊断方案](G1C_首停点分级诊断设计_20261020.md)（位于 `design/` 或 G1-C 两个候选分支）
+- [旧 MemFabric GitHub 研发仓库](https://github.com/10wvw01/memfabric_hybrid)｜[新 MemFabric 310P 项目仓库](https://github.com/10wvw01/memfabric_hybrid_310p)

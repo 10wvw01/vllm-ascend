@@ -1,0 +1,39 @@
+{
+  "run_id": "e4-layered-20261028-003-attempt3",
+  "date_local": "2026-10-28 (+08)",
+  "task": "E4 attempt3: test-protection CPU acceptance + live guard validation + isolated rebuild at new HEAD; device smoke/screen BLOCKED by external host-level time-sharing on card 16384",
+  "github_repo": "10wvw01/vllm-ascend",
+  "work_branch": "work/310p-mm-ar-e4-layered-pipeline-20261028",
+  "work_head": "1bfacb2515be64d47cfc11533296cf071015f2ea",
+  "worktree": "/home/w00804146/310P/e4wt",
+  "pr": "https://github.com/10wvw01/vllm-ascend/pull/21",
+  "card_selected": {
+    "npu_id": 16384,
+    "dies": "dev2,dev3 same card (bus 0000:41:00.0) dual-Die",
+    "health_at_g0": "OK both Dies + MCU; Chip Fault 0; hugepages 0/0",
+    "processes_at_g0": "none on 16384",
+    "memory_baseline_mb": {"dev2": 1979, "dev3": 973},
+    "other_cards": {
+      "5664": "external PID 3589835 (42753MB, persistent for days) - occupied, untouched",
+      "38144": "hugepages 5860/5860 + ~13GB residue, no visible owner - not clean, excluded",
+      "43520": "die1 Alarm persistent - excluded per ADR-014"
+    }
+  },
+  "environment": {
+    "cann": "cann-9.1.0 (V100R001C11SPC001B243)",
+    "bisheng": "clang 15.0.5 dav-2002",
+    "driver": "npu-smi 26.1.1",
+    "python": "3.12.13",
+    "torch_npu": "2.10.0.post4",
+    "memfabric": "1.2.0"
+  },
+  "frozen_binaries_recheck": "all four SHA (host 1dc46d7d / D4 2a19390c / plugin 8eb65de9 / KVER11 25e16b0a) byte-identical to e4_layered_20261028/g0/frozen_binaries_g0.sha256; see frozen_binaries_recheck.txt (all OK)",
+  "isolated_rebuild": {
+    "build_dir": "/tmp/opencode/e4-build-attempt3-20261028",
+    "manifest_head": "1bfacb2515be64d47cfc11533296cf071015f2ea",
+    "candidate_so_sha256_prefix": "08f73f2c1936b990",
+    "candidate_byte_identical_to_attempt1_2": true,
+    "note": "test-tool-only changes; kernel sources untouched; BiSheng deterministic build reconfirmed; private host SO SHA differs only by embedded absolute paths, same as previous rounds"
+  },
+  "exclusivity_verdict": "NOT_SUSTAINED - 16384 is currently time-shared by recurring host-level external workloads (~40-90s bursts, 1-2 per minute at times, up to 34GB each); three separate external intrusions documented 14:18/14:47/14:49-14:53 UTC; per delegation no card switching, no tenant kill, no KFC clear"
+}

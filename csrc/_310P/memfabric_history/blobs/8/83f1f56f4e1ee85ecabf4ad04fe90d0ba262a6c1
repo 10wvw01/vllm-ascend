@@ -1,0 +1,139 @@
+{
+  "schema": "A1_R1_INDEPENDENT_OFFLINE_REAUDIT_V1",
+  "status": "EXTERIOR_BUDGET_AND_PERIODIC_TAIL_VERIFIED_CAUSE_UNKNOWN",
+  "source_work_branch_head_at_start": "ff885ff559efea6523f8026e24704a0797c2ef8b",
+  "source_paths": [
+    "s4_l2/analysis/{stock,v2}_rank{0,1}_step{0..4}_sites.json",
+    "s5_l3/l3_result.json"
+  ],
+  "test_scope": "20 archived per-site source JSONs (200 sites per arm/rank) + four no-profiler ABBA sessions (30 samples each)",
+  "l2_per_rank": {
+    "stock/rank0": {
+      "n": 200,
+      "p50_us": 2151.3555,
+      "mean_us": 2263.162065,
+      "step_sum_us": [
+        90538.3,
+        90814.3,
+        89771.8,
+        91197.7,
+        90310.3
+      ]
+    },
+    "stock/rank1": {
+      "n": 200,
+      "p50_us": 1921.356,
+      "mean_us": 1934.03809,
+      "step_sum_us": [
+        77474.9,
+        77362.6,
+        77260.9,
+        77452.7,
+        77256.5
+      ]
+    },
+    "v2/rank0": {
+      "n": 200,
+      "p50_us": 2510.765,
+      "mean_us": 2953.155085,
+      "step_sum_us": [
+        173191.9,
+        104488.7,
+        104182.3,
+        104066.7,
+        104701.3
+      ]
+    },
+    "v2/rank1": {
+      "n": 200,
+      "p50_us": 2429.6835,
+      "mean_us": 2783.115575,
+      "step_sum_us": [
+        165931,
+        96738.2,
+        97066,
+        98509.6,
+        98378.4
+      ]
+    }
+  },
+  "fused_gt10ms_outliers": [
+    {
+      "rank": 0,
+      "step": 0,
+      "site": "out_proj_8",
+      "layer_index": 10,
+      "duration_us": 70593.739
+    },
+    {
+      "rank": 1,
+      "step": 0,
+      "site": "out_proj_8",
+      "layer_index": 10,
+      "duration_us": 70823.098
+    }
+  ],
+  "l3_spike_threshold_ms": 20,
+  "l3_peak_indices_0based": {
+    "S1": [],
+    "F1": [
+      0,
+      6,
+      12,
+      19,
+      25
+    ],
+    "F2": [
+      0,
+      6,
+      12,
+      19,
+      25
+    ],
+    "S2": []
+  },
+  "l3_peak_gaps": {
+    "F1": [
+      6,
+      6,
+      7,
+      6
+    ],
+    "F2": [
+      6,
+      6,
+      7,
+      6
+    ]
+  },
+  "l3_peak_excess_ms": {
+    "F1": [
+      136.04,
+      124.69,
+      184.82,
+      153.05,
+      145.16
+    ],
+    "F2": [
+      88.86,
+      81.68,
+      80.03,
+      77.98,
+      79.77
+    ]
+  },
+  "epoch_hypothesis": {
+    "default_budget_s": 15,
+    "normal_relaunch_gap_documented_ms": "~100-300",
+    "steady_v2_prefill_s": "~2.37",
+    "expected_requests_per_epoch": "~6.3",
+    "status": "CORRELATION_NOT_CAUSATION",
+    "test": "15s vs 5s controlled diagnostic with actual epoch boundary timestamp evidence; no automatic bypass"
+  },
+  "limitations": [
+    "V2 fused kernel total cannot be decomposed into internal MM/SDMA/IB/Add using only exterior timing",
+    "Raw full profiler CSV is SERVER_ONLY; analysis used committed 20 per-site trace extractions",
+    "Stationary step-sum values cannot be equated with true end-to-end Prefill critical path; do not subtract component median sums as exact causal host overhead",
+    "70ms L2 kernel outlier is a different profiler session from L3 periodic peaks; causal relation unknown"
+  ]
+}

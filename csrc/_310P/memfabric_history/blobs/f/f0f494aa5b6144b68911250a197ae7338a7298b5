@@ -1,0 +1,32 @@
+// Standalone probe: does dav-2002 AICore expose a usable SYS_CNT counter?
+// Writes 8 U64 to GM: [magic, arch, syscnt0, syscnt1, syscnt2, delta_work, pc, 0]
+#include "kernel_operator.h"
+#include <cstdint>
+
+constexpr uint64_t kProbeMagic = 0x535953434E545052ULL; // "SYSCNTPR"
+
+extern "C" __global__ __aicore__ void syscnt_probe(__gm__ uint64_t* out)
+{
+    uint64_t a = 0, b = 0, c = 0;
+    asm volatile("MOV %0, SYS_CNT\n" : "+l"(a));
+    // measurable work between reads: a dependent ALU chain
+    uint64_t work = a;
+    for (int i = 0; i < 4096; ++i) work = work * 1103515245u + 12345u;
+    asm volatile("MOV %0, SYS_CNT\n" : "+l"(b));
+    uint64_t work2 = b;
+    for (int i = 0; i < 4096; ++i) work2 = work2 * 1103515245u + 12345u;
+    asm volatile("MOV %0, SYS_CNT\n" : "+l"(c));
+    if (AscendC::GetBlockIdx() == 0) {
+        out[0] = kProbeMagic;
+        out[1] = 2002;
+        out[2] = a;
+        out[3] = b;
+        out[4] = c;
+        out[5] = work ^ work2; // prove the chain executed (value used)
+        out[6] = static_cast<uint64_t>(AscendC::GetProgramCounter());
+        out[7] = 0;
+        AscendC::GlobalTensor<int32_t> g;
+        g.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(out), 16);
+        AscendC::DataCacheCleanAndInvalid<int32_t, AscendC::CacheLine::SINGLE_CACHE_LINE>(g);
+    }
+}

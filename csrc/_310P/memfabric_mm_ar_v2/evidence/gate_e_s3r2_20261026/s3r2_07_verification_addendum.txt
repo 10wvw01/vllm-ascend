@@ -1,0 +1,25 @@
+===== S3R2 verification addendum: raw-log recheck tables (2026-10-26, CPU-only) =====
+
+--- [V1] pattern precision table (raw serve.log) ---
+loose  "falling back"                           : 1
+precise "falling back to in-process KFC deploy" : 0
+precise "deploy helper not found"               : 0
+
+--- the single loose hit (full line) ---
+421:(Worker_TP0 pid=579001) WARNING 10-26 16:54:50 [sampler.py:54] [sample/sampler] Triton not available, falling back to vLLM default penalty implementation. Penalty performance may be degraded on NPU. 
+
+--- [V3] timeline extraction ---
+[16:50:11] starting fused EAGER serve
+[16:53:27] healthy; layers=80
+[16:58:19] load done after 1 reps
+16:Starting main benchmark run...
+25/25 [04:38
+(Worker_TP1 pid=579026) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fuse
+(Worker_TP0 pid=579001) INFO 10-26 16:54:48 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fuse
+
+--- [deadlock_hits] the single hit (full line) ---
+416:(EngineCore pid=578690) INFO 10-26 16:54:40 [shm_broadcast.py:802] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing s
+
+--- [V2] helper lines chronology basis (S3-R miss proof + flock) ---
+helper line count: 4
+flock path: /tmp/.mf_sdma_orch_deploy.lock (host-side, serializes both helpers)

@@ -1,0 +1,406 @@
+{
+  "schema": "E3_CHUNK2048_ASSESS_V1",
+  "status": "INCONCLUSIVE_DRIFT",
+  "stock_native_NZ_route_verified": true,
+  "native_route_evidence": [
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 404.428,
+      "hccl_kernel_p50_us": 567.866,
+      "csv_sha256": "0b84bc815048cd5769b1d599d7d75662b19cf3801a71677365f75ef629c56541",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 390.8345,
+      "hccl_kernel_p50_us": 602.929,
+      "csv_sha256": "71aace1e408aeefd70daac7ef8bfc1da6edcb80c66b577e71541cb91ffcd0eaf",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 768.956,
+      "hccl_kernel_p50_us": 1147.641,
+      "csv_sha256": "315b0dd4d73ef6ce97edebc22792fc27205116d943205ab30382cbc97b9bc958",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 779.195,
+      "hccl_kernel_p50_us": 1165.2905,
+      "csv_sha256": "9479ebbcf1dd21481faccc28feb623c76f5d3975341a81dbc0aeeee0a3dc639a",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    }
+  ],
+  "E1_E3_device_correctness_on_new_binary": "BIT_EXACT_BUT_DRIFT",
+  "candidate_work_head": "3e58ae389784d21eca5fb4bf18bad0fc32de6279",
+  "comparisons": [
+    {
+      "M": 2048,
+      "stable": false,
+      "arm_session_p50_us": {
+        "stock": [
+          1085.339,
+          1071.485
+        ],
+        "e3t": [
+          1495.82,
+          1472.044
+        ],
+        "e1": [
+          1185.898,
+          1259.323
+        ],
+        "e3g": [
+          1442.2,
+          1459.804
+        ]
+      },
+      "arm_time_us": {
+        "stock": 1078.412,
+        "e3t": 1483.932,
+        "e1": 1222.611,
+        "e3g": 1451.002
+      },
+      "drift": {
+        "stock": 0.01293,
+        "e3t": 0.01615,
+        "e1": 0.06192,
+        "e3g": 0.01221
+      },
+      "E3_G_vs_E1_pct": -15.74,
+      "E3_T_vs_E1_pct": -17.61,
+      "E3_T_vs_E3_G_pct": -2.219,
+      "E3_G_vs_Stock_pct": -25.678,
+      "E3_T_vs_Stock_pct": -27.327,
+      "best_E3_arm": "e3g",
+      "best_E3_time_us": 1451.002,
+      "best_E3_delta_vs_E1_us": 228.391,
+      "best_E3_delta_vs_Stock_us": 372.59,
+      "per_session_p99_us": {
+        "stock": [
+          1272.423,
+          1224.547
+        ],
+        "e1": [
+          1284.907,
+          1310.012
+        ],
+        "e3g": [
+          1503.846,
+          1525.549
+        ],
+        "e3t": [
+          1586.754,
+          1562.086
+        ]
+      }
+    },
+    {
+      "M": 4096,
+      "stable": true,
+      "arm_session_p50_us": {
+        "stock": [
+          2029.962,
+          2015.144
+        ],
+        "e3t": [
+          2286.25,
+          2247.93
+        ],
+        "e1": [
+          2254.023,
+          2289.649
+        ],
+        "e3g": [
+          2105.456,
+          2133.555
+        ]
+      },
+      "arm_time_us": {
+        "stock": 2022.553,
+        "e3t": 2267.09,
+        "e1": 2271.836,
+        "e3g": 2119.506
+      },
+      "drift": {
+        "stock": 0.00735,
+        "e3t": 0.01705,
+        "e1": 0.01581,
+        "e3g": 0.01335
+      },
+      "E3_G_vs_E1_pct": 7.187,
+      "E3_T_vs_E1_pct": 0.209,
+      "E3_T_vs_E3_G_pct": -6.51,
+      "E3_G_vs_Stock_pct": -4.574,
+      "E3_T_vs_Stock_pct": -10.786,
+      "best_E3_arm": "e3g",
+      "best_E3_time_us": 2119.506,
+      "best_E3_delta_vs_E1_us": -152.33,
+      "best_E3_delta_vs_Stock_us": 96.953,
+      "per_session_p99_us": {
+        "stock": [
+          2080.128,
+          2056.32
+        ],
+        "e1": [
+          2379.161,
+          2406.195
+        ],
+        "e3g": [
+          2209.469,
+          2229.079
+        ],
+        "e3t": [
+          2353.073,
+          2385.263
+        ]
+      }
+    }
+  ],
+  "raw_sessions": [
+    {
+      "stage": 1,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1085.339,
+          "paired_p90_us": 1229.806,
+          "paired_p99_us": 1272.423,
+          "r0_p50_us": 1072.643,
+          "r1_p50_us": 1085.144,
+          "n": 100,
+          "rank0_sha256": "d24722f18ef3029713714ead2f635a9cf9fe9ef420984bf46cf82050835de9f5",
+          "rank1_sha256": "0420426ac9e84d5ee0c174295649c317e1a4c3fd61b2b57a427192513f709692"
+        },
+        "4096": {
+          "paired_p50_us": 2029.962,
+          "paired_p90_us": 2049.565,
+          "paired_p99_us": 2080.128,
+          "r0_p50_us": 2014.726,
+          "r1_p50_us": 2029.962,
+          "n": 100,
+          "rank0_sha256": "d24722f18ef3029713714ead2f635a9cf9fe9ef420984bf46cf82050835de9f5",
+          "rank1_sha256": "0420426ac9e84d5ee0c174295649c317e1a4c3fd61b2b57a427192513f709692"
+        }
+      }
+    },
+    {
+      "stage": 2,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1185.898,
+          "paired_p90_us": 1254.341,
+          "paired_p99_us": 1284.907,
+          "r0_p50_us": 1128.828,
+          "r1_p50_us": 1163.164,
+          "n": 100,
+          "rank0_sha256": "1b05e10f2e03ea1f45cb4daad34e7ae7328560ad0968d7a7ad9619ecb05ce969",
+          "rank1_sha256": "89538ae380bd7eab043fd29d2d6c8e7e9ec888c7d111a8cb0cfceba5c30218a3"
+        },
+        "4096": {
+          "paired_p50_us": 2254.023,
+          "paired_p90_us": 2311.138,
+          "paired_p99_us": 2379.161,
+          "r0_p50_us": 2230.117,
+          "r1_p50_us": 2239.231,
+          "n": 100,
+          "rank0_sha256": "1b05e10f2e03ea1f45cb4daad34e7ae7328560ad0968d7a7ad9619ecb05ce969",
+          "rank1_sha256": "89538ae380bd7eab043fd29d2d6c8e7e9ec888c7d111a8cb0cfceba5c30218a3"
+        }
+      }
+    },
+    {
+      "stage": 3,
+      "arm": "e3g",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1442.2,
+          "paired_p90_us": 1467.989,
+          "paired_p99_us": 1503.846,
+          "r0_p50_us": 1401.185,
+          "r1_p50_us": 1438.034,
+          "n": 100,
+          "rank0_sha256": "603fa86c1f6bd88ca5c749e629e69e373d8c063f56bf367bafbaa8643eae873c",
+          "rank1_sha256": "a54b68948fb020b9da60a6974f71bc8909800c4663eb0095b22b699cfd2b0d9b"
+        },
+        "4096": {
+          "paired_p50_us": 2105.456,
+          "paired_p90_us": 2174.352,
+          "paired_p99_us": 2209.469,
+          "r0_p50_us": 2092.604,
+          "r1_p50_us": 2081.875,
+          "n": 100,
+          "rank0_sha256": "603fa86c1f6bd88ca5c749e629e69e373d8c063f56bf367bafbaa8643eae873c",
+          "rank1_sha256": "a54b68948fb020b9da60a6974f71bc8909800c4663eb0095b22b699cfd2b0d9b"
+        }
+      }
+    },
+    {
+      "stage": 4,
+      "arm": "e3t",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1495.82,
+          "paired_p90_us": 1552.273,
+          "paired_p99_us": 1586.754,
+          "r0_p50_us": 1458.255,
+          "r1_p50_us": 1463.985,
+          "n": 100,
+          "rank0_sha256": "eb591c76539193f4c8742c0aad7a81c99aee54b478997132477d8e96e5a873f1",
+          "rank1_sha256": "59f03b3311405eb20b3b07a69d6caaa00ea07da23782fe7a0d9810bae8afdd58"
+        },
+        "4096": {
+          "paired_p50_us": 2286.25,
+          "paired_p90_us": 2330.369,
+          "paired_p99_us": 2353.073,
+          "r0_p50_us": 2281.875,
+          "r1_p50_us": 2240.795,
+          "n": 100,
+          "rank0_sha256": "eb591c76539193f4c8742c0aad7a81c99aee54b478997132477d8e96e5a873f1",
+          "rank1_sha256": "59f03b3311405eb20b3b07a69d6caaa00ea07da23782fe7a0d9810bae8afdd58"
+        }
+      }
+    },
+    {
+      "stage": 5,
+      "arm": "e3t",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1472.044,
+          "paired_p90_us": 1536.729,
+          "paired_p99_us": 1562.086,
+          "r0_p50_us": 1413.62,
+          "r1_p50_us": 1457.422,
+          "n": 100,
+          "rank0_sha256": "b42113d34f067ebfeea2e3385bd187f3cbd747df6195ea70cacbbb4bb2791ed4",
+          "rank1_sha256": "07a88f17e47ba2264d3693083adec2600f8f4145ac90ef8e5d49026256c768e1"
+        },
+        "4096": {
+          "paired_p50_us": 2247.93,
+          "paired_p90_us": 2342.414,
+          "paired_p99_us": 2385.263,
+          "r0_p50_us": 2228.697,
+          "r1_p50_us": 2239.701,
+          "n": 100,
+          "rank0_sha256": "b42113d34f067ebfeea2e3385bd187f3cbd747df6195ea70cacbbb4bb2791ed4",
+          "rank1_sha256": "07a88f17e47ba2264d3693083adec2600f8f4145ac90ef8e5d49026256c768e1"
+        }
+      }
+    },
+    {
+      "stage": 6,
+      "arm": "e3g",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1459.804,
+          "paired_p90_us": 1483.531,
+          "paired_p99_us": 1525.549,
+          "r0_p50_us": 1426.524,
+          "r1_p50_us": 1452.096,
+          "n": 100,
+          "rank0_sha256": "1476ac73af7ce4dd1fe98c60d8c02f9815c3cf99451cc5e78d7890cb7da454e5",
+          "rank1_sha256": "1372468b4ae4858ac373abdb3eb1757edb729dbac97d3bee84e525103e62c359"
+        },
+        "4096": {
+          "paired_p50_us": 2133.555,
+          "paired_p90_us": 2197.667,
+          "paired_p99_us": 2229.079,
+          "r0_p50_us": 2123.451,
+          "r1_p50_us": 2086.575,
+          "n": 100,
+          "rank0_sha256": "1476ac73af7ce4dd1fe98c60d8c02f9815c3cf99451cc5e78d7890cb7da454e5",
+          "rank1_sha256": "1372468b4ae4858ac373abdb3eb1757edb729dbac97d3bee84e525103e62c359"
+        }
+      }
+    },
+    {
+      "stage": 7,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1259.323,
+          "paired_p90_us": 1293.818,
+          "paired_p99_us": 1310.012,
+          "r0_p50_us": 1226.12,
+          "r1_p50_us": 1233.06,
+          "n": 100,
+          "rank0_sha256": "3f9cbfef65d16cff7dcf773bfd7ea872e42388dee94764b99cc481fcb1324806",
+          "rank1_sha256": "97248edb7750d8f19e80270e87d9695c943ddbf82bf6250270afd26efed10ac7"
+        },
+        "4096": {
+          "paired_p50_us": 2289.649,
+          "paired_p90_us": 2383.531,
+          "paired_p99_us": 2406.195,
+          "r0_p50_us": 2259.427,
+          "r1_p50_us": 2268.034,
+          "n": 100,
+          "rank0_sha256": "3f9cbfef65d16cff7dcf773bfd7ea872e42388dee94764b99cc481fcb1324806",
+          "rank1_sha256": "97248edb7750d8f19e80270e87d9695c943ddbf82bf6250270afd26efed10ac7"
+        }
+      }
+    },
+    {
+      "stage": 8,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1071.485,
+          "paired_p90_us": 1197.609,
+          "paired_p99_us": 1224.547,
+          "r0_p50_us": 1070.99,
+          "r1_p50_us": 1068.216,
+          "n": 100,
+          "rank0_sha256": "7092ae9eabf5da063211e62d96817db39e84832965134c93f89df9db8065103a",
+          "rank1_sha256": "d29eaae61d1dc928665bd1ca9b2da10a223604d0f7f0110a3e1dd487e2de224d"
+        },
+        "4096": {
+          "paired_p50_us": 2015.144,
+          "paired_p90_us": 2034.157,
+          "paired_p99_us": 2056.32,
+          "r0_p50_us": 2012.682,
+          "r1_p50_us": 2011.029,
+          "n": 100,
+          "rank0_sha256": "7092ae9eabf5da063211e62d96817db39e84832965134c93f89df9db8065103a",
+          "rank1_sha256": "d29eaae61d1dc928665bd1ca9b2da10a223604d0f7f0110a3e1dd487e2de224d"
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "E3 group2048 produces 8MiB; two verified 4MiB SDMA messages are awaited before Add.",
+    "E3-G vs E1 changes synchronizations and math layout grouping but not per-MM compute tile (1024).",
+    "E3-T vs E3-G changes exactly the per-MM compute tile (1024 calls twice vs 2048 once) while transport and IB grouping remain matched.",
+    "No per-phase kernel time can be inferred by subtracting arm p50; MM-core subphase remains UNKNOWN.",
+    "No Graph/Serving/Qwen gain implied by this L1 offline tool."
+  ]
+}

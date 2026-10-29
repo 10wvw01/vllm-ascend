@@ -1,0 +1,86 @@
+{
+  "schema": "A1_R2_D4_DIAG_EXTERNAL_V1",
+  "status": "DIAG_CASES_COMPLETE_INNER_PHASE_UNKNOWN",
+  "cases": {
+    "formal": [
+      {
+        "rank": 0,
+        "sample_count": 8,
+        "event_p50_us": 2635.925,
+        "raw_sha256": "e30ef5909174b20da9abd1d58cc32a3a36e58efb994267d9c214a059a04dc5e1"
+      },
+      {
+        "rank": 1,
+        "sample_count": 8,
+        "event_p50_us": 2617.149,
+        "raw_sha256": "77f8871a22044130b112bebb1b0a1ce4e630e5b691ce99145ac036e541966c4a"
+      }
+    ],
+    "loop4": [
+      {
+        "rank": 0,
+        "sample_count": 8,
+        "event_p50_us": 3234.206,
+        "raw_sha256": "c862722283f70dea87191a37974b18105317231218dc7dbccb1810f74ee6958f"
+      },
+      {
+        "rank": 1,
+        "sample_count": 8,
+        "event_p50_us": 3213.112,
+        "raw_sha256": "b1611f2ac99d93c78e100751a8f8f6382708ceecb2908b15a79b1e02d700e505"
+      }
+    ],
+    "diag0": [
+      {
+        "rank": 0,
+        "sample_count": 8,
+        "event_p50_us": 6378.946,
+        "raw_sha256": "695fccad9a96b4fe1933a8922a58e9c72c22b34b9adca828b4302050ca5ffb25"
+      },
+      {
+        "rank": 1,
+        "sample_count": 8,
+        "event_p50_us": 412.448,
+        "raw_sha256": "4a72752315a6aa5c6fdaaef2b7be4cda1099ba8b3362931c6baf7c68f5d86eaf"
+      }
+    ],
+    "diag4": [
+      {
+        "rank": 0,
+        "sample_count": 8,
+        "event_p50_us": 27033.241,
+        "raw_sha256": "6181ea453f7d84967140a28c533571a02fda47663cd63c9ea778053a2716933b"
+      },
+      {
+        "rank": 1,
+        "sample_count": 8,
+        "event_p50_us": 26994.908,
+        "raw_sha256": "78d67998d1b809d135f19320884a84b241bd888a440ba8f6a624ae83fa531430"
+      }
+    ],
+    "diag5": [
+      {
+        "rank": 0,
+        "sample_count": 8,
+        "event_p50_us": 1021.224,
+        "raw_sha256": "8743fb37f0bd456aa8f12c3016dfb586995578f42a50735eb6128cf153938a33"
+      },
+      {
+        "rank": 1,
+        "sample_count": 8,
+        "event_p50_us": 1055.573,
+        "raw_sha256": "15435c888a8d537275284883e76e7f00c4fe232fd6f689f70f0a81dab6905ca7"
+      }
+    ]
+  },
+  "comparisons": {
+    "formal": "4-chunk overlapping formal D4 run, M4096",
+    "loop4": "4-chunk SERIAL diagnostic; does NOT isolate one stage",
+    "diag0": "1-chunk M1024 diagnostic MM-only-like behavior; not formal MM phase",
+    "diag4": "1-chunk diagnostic; not a genuine full M4096 phase",
+    "diag5": "1-chunk diagnostic; not a genuine full M4096 phase"
+  },
+  "no_algebraic_phase_breakdown": true,
+  "inner_phase_status": "INNER_PHASE_UNKNOWN",
+  "next_requirement": "CANN 9.1 device-level trustworthy MM/SDMA/IB/Add phase evidence or supported cycle profiling; cannot subtract non-equivalent diagnostic cases"
+}

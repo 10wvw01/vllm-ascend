@@ -113,3 +113,22 @@ git switch -c work/310p-mm-ar-<topic>
 - **当前强制优先级**：大M [ADR-015](DECISIONS.md)以真实Qwen3.6 Prefill TTFT为最终指标，L1完整Stock作为诊断基线；先建立L3真实设备Step无Profiler可复现正向收益，**L3-GO后才批准正式4096/2048/50/10 L4 TTFT**。具体唯一合同：[历史证据复用与L3-first实验设计](L1_L4_HISTORICAL_REUSE_AND_TTFT_MINIMAL_CAMPAIGN_20261027.md)。A1 PR #9下次合入前须与新主线对比并剔除重复/旧状态文档，保留所有未合入实施证据。
 - **边界不变**：严禁复活ADR-013废止的Runner重建；不修改正式Stock默认、不改外部HaonanWu1仓库；不把docs-only合并或CI PASS冒充310P3 G0/Smoke/L3/TTFT实测成功。实机失败先STOP保全。
 
+
+
+## 2026-10-29｜用户授权V3工作分支与MemFabric镜像同步
+
+- V3实施分支：`work/310p-mm-ar-v3-sdma-add-20261029`，从主线`54d5518d`派生；本轮活动算法开发为V3。
+- E4 PR#21保留为历史/对照证据，不将其大分支整体merge到V3或主线。
+- 用户已明确授权推送V3工作分支；代码仍以Draft PR评审，不直接启用Serving或合入生产默认。
+- MemFabric镜像`dev-v1.2.0`同步到`b9d46f97`，来源GitCode `ba3e7f42`，完整tree一致，历史提交身份分别保留记录。
+- 服务器使用这两个仓库的新隔离克隆和detached SHA；执行者不在现有Serving worktree切分支或修改代码。
+- 固定执行流程与依赖证明见[V3 OpenCode执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)。
+
+
+## 2026-10-30｜本轮用户明确授权的集中整合规则
+
+用户要求将已实现V1/V2/V3、测试、实验及数据、系列优化全部汇入dev/310p-memfabric-mm-ar。
+本轮按文件级核对整合研发资产，并以原blob快照保全冲突版本；不以先前“只留在实验分支”的规定
+阻止本次已获授权的合入。仅合研发资产，不启用历史候选为Serving默认，不复活退役Runner路线。
+54条源分支HEAD及合并历史纳入清单，后续唯一事实来源为主线；不创建新长期研发线、不删除源分支。
+[整合目录/恢复方法](../../memfabric_history/README.md)。算法研发及实机实验保持暂停。

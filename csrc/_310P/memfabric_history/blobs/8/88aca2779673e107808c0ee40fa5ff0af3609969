@@ -1,0 +1,63 @@
+{
+  "gate": "D4 admission (on-site record)",
+  "date_local": "2026-10-23 (host clock shows 2026-10-22 ~21:1x in NPU UTC logs)",
+  "branch": "perf/310p-v2-d3-add-tile2048-20261023",
+  "git_sha": "25fb1951d (candidate, D3 Tile2048)",
+  "baseline_sha": "edebac40d226a8aeb08460b5a33a3283a842bba5 (D1-A end state, Tile1024)",
+  "purpose": "D4 on-device verification of D3 production-only Add Tile 1024->2048",
+  "target_card": "5664 dual die = global device 0/1 ONLY (ASCEND_RT_VISIBLE_DEVICES=0,1 enforced for every process)",
+  "host_so": {
+    "usr_local_lib64": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+    "site_packages": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+    "expected": "88d39285... (Gate A/B/C/D1-A verified identity)",
+    "verdict": "PASS (both paths match; no G1-D tail-sampler residue)"
+  },
+  "kver11_json": {
+    "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+    "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "verdict": "PASS (matches D1-A)"
+  },
+  "device_side_v11": {
+    "probe": "orch_deploy_helper 849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310 (same binary as Gate C/D1-A probe)",
+    "dev0": "kernel already present (/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v11.so) == rc=3 equivalent",
+    "dev1": "kernel already present (same path) == rc=3 equivalent",
+    "verdict": "PASS (no redeploy triggered; KVER11 deployment intact)"
+  },
+  "plugin_so": {
+    "vllm_ascend_C": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1 (Gate C diagnostics-ON build, unchanged since D1-A)",
+    "libmf310p_v2_trial_device": "b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811 (baseline Tile1024, diag-ON, built at a15013c75)",
+    "libmf310p_device": "8447a55a54d9d1b615353e2197e2057da52882bd6a991d2bbddcc3c574e755df",
+    "backup": "/tmp/opencode/d4/c0/backup_20261022T211729/",
+    "verdict": "PASS (working tree clean at 25fb1951d; plugin SO still baseline identity — device kernel swap is the only planned mutation)"
+  },
+  "device_health": {
+    "dev0_compute_probe": "PASS (device_count=1, alloc+sum on npu:0)",
+    "dev1_compute_probe": "PASS (device_count=1, alloc+sum on npu:1)",
+    "pair_probe_0_1": "PASS (device_count=2, alloc+sum+synchronize on both dies)",
+    "dmesg_dev0_dev1_errors": "none found (grep over full ring buffer)",
+    "verdict": "PASS for die 0/1"
+  },
+  "environment_deviations": {
+    "issue": "dev2/dev3 devmanager/devmm channels wedged since host uptime ~539045s (first buffered record; a D-state npu-smi from 2026-10-22 20:07 local predates it) — external tenant llama-server crash on dev2; ret=-38 no-resp errors, 400+ lines, all dev_id=2/3",
+    "impact": [
+      "npu-smi (any form, incl. -i 0 / -t proc-mem -i 5664) hangs in D state => D1-A npu-smi idle gate NOT executable",
+      "Any process started WITHOUT ASCEND_RT_VISIBLE_DEVICES hangs at runtime loader (enumerates all 8 devices)",
+      "Each torch_npu/ACL process leaves ~15-20 D-state cleanup threads on exit (stuck in devdrv_host_notice_dev_process_exit); main processes still exit rc=0 and deliver results",
+      "stuck orch_deploy_helper --help residue holds NO deploy flock (verified LOCK FREE)"
+    ],
+    "replacement_idle_gate": [
+      "fd-ownership scan: no process holds /dev/davinci0 or /dev/davinci1 open (exclusive compute context check)",
+      "dmesg delta scan: zero new dev0/dev1 errors before/after each session",
+      "pair functional probe PASS before each batch"
+    ],
+    "mitigation": "every device-touching process launched with ASCEND_RT_VISIBLE_DEVICES=0,1 exported at shell level; no npu-smi; no all-device enumeration; sessions run in background with log polling (D-state-safe)",
+    "verdict": "ADMITTED WITH DEVIATION (target dies healthy and exclusive; pollution is on other tenants' devices; driver-level risk documented)"
+  },
+  "env_hygiene": {
+    "MF310P_V2_NOWARMUP": "unset ambient",
+    "MF_SDMA_ORCH_JSON": "unset ambient; launchers set KVER11 absolute path explicitly",
+    "ASCEND_WORK_PATH": "unset ambient",
+    "g1d_residue": "none (host SO identity restored; no v12 dynamic-load path)"
+  },
+  "verdict": "D4 admission PASS with recorded environment deviation; proceeding to D4-1 builds"
+}

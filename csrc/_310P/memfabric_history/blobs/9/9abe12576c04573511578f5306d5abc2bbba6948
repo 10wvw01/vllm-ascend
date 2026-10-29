@@ -1,0 +1,16 @@
+vis=<unset>                logic=0 -> physical=0 (expect 0) PASS
+vis=<unset>                logic=1 -> physical=1 (expect 1) PASS
+vis=                       logic=3 -> physical=3 (expect 3) PASS
+vis=0,1                    logic=0 -> physical=0 (expect 0) PASS
+vis=0,1                    logic=1 -> physical=1 (expect 1) PASS
+vis=2,3                    logic=0 -> physical=2 (expect 2) PASS
+vis=2,3                    logic=1 -> physical=3 (expect 3) PASS
+vis=6,7                    logic=0 -> physical=6 (expect 6) PASS
+vis=6,7                    logic=1 -> physical=7 (expect 7) PASS
+vis=4,5                    logic=0 -> physical=4 (expect 4) PASS
+vis=4,5                    logic=1 -> physical=5 (expect 5) PASS
+vis= 2 , 3                 logic=0 -> physical=2 (expect 2) PASS
+vis=x,y                    logic=0 -> physical=0 (expect 0) PASS
+vis=2                      logic=1 -> physical=1 (expect 1) PASS
+vis=2,3                    logic=7 -> physical=7 (expect 7) PASS
+RESULT=PASS(0 failures)

@@ -4,6 +4,62 @@
 >
 > **请新 ChatGPT 会话、OpenCode 及新接手开发人员先读这里，再读下列链接，不要仅凭聊天记忆或旧版 PLAN.md 制定计划。**
 
+## 2026-10-30｜用户授权V1/V2/V3研发资产主线整合；算法推进暂停
+
+当前唯一工作入口为`dev/310p-memfabric-mm-ar`。V1/V2/V3及系列候选、测试工具、
+实验原始数据已集中整合；54条项目分支的源码版本及冲突历史完整保全，
+[整合目录与恢复入口](csrc/_310P/memfabric_history/README.md)、
+[冻结分支清单](csrc/_310P/memfabric_history/manifest.json)。
+Serving默认及V1/V2现有构建入口保持不变，历史失败/未准入方案不因合并自动启用。
+本轮只做分支管理、冲突处理及CPU/源码验证，不推进新算法或实机实验。
+
+## A3-2 / A3-tail新候选：同批对照待实机
+
+新增7核MM+Core0专职通信与Core0末尾席位实现，保留原A3首READY版为同批基线。
+S/Y按ND完整行连续，NZ为权重格式。[设计与八会话执行入口](csrc/_310P/memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+当前设备编译/正确性/性能NOT_RUN；不启用Serving，MemFabric依赖不变。
+
+## 2026-10-29｜V3.2方案A2服务器准入与短测完成：正确性全过，性能仍不过
+
+OpenCode按[执行单](csrc/_310P/memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)在38144双Die独占窗口完成A2一次性验证，
+[实验记录](csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-v32a2-plan-a/README.md)。
+起点`213cfcedb`，两个执行BUG修复后HEAD `0f638d511`（CANN ACL头路径；`SetDesc`未从libtorch_npu
+导出，改经torch 2.10 `c10::make_storage_impl`注册工厂+按SetDesc语义填`npu_desc_`，未退回普通
+from_blob）。MemFabric锁定`db38d75e`未改动。CPU102条、私有SDK/SO/Storage适配冻结、
+G0与双Die连续独占、六门禁双Rank全PASS（含单边持有busy close、单chunk排空、环回绕、下游ND消费）。
+六配置两轮短测漂移1.17%~2.69%，最佳M2048/4096均chunk1024：2018.7/2727.1µs（双Rank max、
+完整接口窗口含acquire同步/双Host协商/Storage包装）。**相对历史V3.1最佳慢21.9%/8.4%，
+相对V2 E3-G慢39.1%/28.7%，相对真实NZ Stock慢87.2%/34.8%——A2方向性判定未达性能目标**，
+接口成本为主因结构（未做归因轮）。KVER28自拷贝差异仍在，不签长稳/发布GO；Stock默认不变。
+详见控制台§39。
+
+## 2026-10-29｜V3实机已完成，性能失败，进入V3.1流水重排
+
+已审核V3分支`6144af16`的[原始R1/R2/R3证据](csrc/_310P/memfabric_mm_ar_v3/experiments/quick-20261029-r1r2r3/README.md)：
+执行`f2c3eaf0`、MemFabric修复`db38d75e`/KVER28；CPU87条、CANN编译、五关双Rank正确性全部PASS。
+四配置两轮30样本全部完成；最佳group2048在M2048/4096为1709.941/2883.197微秒，
+相对历史V2/E3-G仍慢17.29%/35.11%，相对同批历史NZ Stock慢57.11%/41.49%。
+**当前V3性能目标失败，不推进集成；下方开发期NOT_RUN只保留为历史状态。**
+研发[复核与新设计](csrc/_310P/memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)
+固定chunk512/1024/2048，沿用V2对应MM tiling，重排MM/Reduce/Gather并减少包、同步和MTE串行。
+V3.1代码与CPU88项已完成，CANN编译及实机仍NOT_RUN；[编译准入单](csrc/_310P/memfabric_mm_ar_v3/V31_ADMISSION.md)。
+继续只测V3并复用历史V2/Stock，Serving默认不变。
+OpenCode负责执行、执行BUG修复、数据/证据与远程提交；方案、协议与结果审查由研发负责。
+
+## 2026-10-29｜V3 SDMA ADD开发与V3-only快速历史对照
+
+用户已批准V3：移除本地Vector Add，采用单Kernel MM + ADD Reduce-Scatter + COPY All-Gather。
+独立工程见[csrc/_310P/memfabric_mm_ar_v3/README.md](csrc/_310P/memfabric_mm_ar_v3/README.md)，
+工作分支`work/310p-mm-ar-v3-sdma-add-20261029`从主线`54d5518d`派生。
+用户最新要求是**只跑V3短测、复用历史V2/真实NZ Stock，不重新跑旧性能臂**；
+该快测只提供历史方向对照，不签同批正式收益，不执行Serving/TTFT/Confirm。
+代码包含原语/协议/融合/串行与流水/尾块/Torch薄适配、私有构建和一键有界测试。
+当前仅CPU与静态检查，**BiSheng/310P3实测NOT_RUN**；Stock默认不变。
+
+上游MemFabric已同步：GitCode `ba3e7f42` → GitHub镜像 `b9d46f97`（整树一致，commit不同）。
+V3最新依赖和OpenCode两仓私有构建/部署流程见[固定执行单](csrc/_310P/memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)。
+
+
 ## 2026-10-28 最新权威状态（先读，避免把历史NOT_RUN当现状）
 
 **E3实机已经完成，E4编码已开工；二者的准入阶段不能混淆。** 真实NZ Stock M4096=2022.553µs、E1=2271.836µs、E3-G=2119.506µs、E3-T=2267.090µs。E3-G较E1提升7.187%（缩短152.330µs），但**仍慢Stock 96.953µs**；M2048 E1两场漂移6.192%，所以E3整批仍`INCONCLUSIVE_DRIFT`，不挑样本签正收益；真实M2049～4095尚未做融合实机性能。E3修复过一次E3-T L0C满载507015 AICore异常，E2-P曾遇507014且根因未闭环。**Stock一直是Serving默认**，E3/E4的L2真实Qwen站点、L3 Prefill Step和L4客户端TTFT皆`NOT_RUN`。
@@ -71,3 +127,19 @@
 ### 2026-10-26｜新增四卡动态择优实机原则（ADR-014）
 
 310P3服务器共有4张卡，实机应优先选**健康且独占的一张双Die卡**；卡级Alarm/占用则记录并换卡重新G0，运行中507014/507899/IB/KFC/错算则STOP保全现场，不自动轮测四卡。换卡需核查`ASCEND_RT_VISIBLE_DEVICES`逻辑/物理映射、双Host SO的SetAccess物理DeviceID修复和KVER11；**KFC由MemFabric在获准首次建池时自动按需部署，G0只读阶段不预部署**。同一Stock/V2 ABBA不得跨卡混合。详见[310P3四卡动态选卡与KFC标准](csrc/_310P/memfabric_mm_ar_v2/docs/310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)。未进行新实机测试。
+
+## 2026-10-29｜V3.2方案A编码交付，尚未完成服务器准入
+
+最新实现及准入见[V32_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/V32_ADMISSION.md)：
+现有阻塞API、单Y pool-return、独立producer、双槽Storage生命周期。
+V3.1历史测试通过不覆盖此版新Kernel/TorchNPU Storage；本轮CANN编译/设备/性能NOT_RUN。
+MemFabric公共非阻塞收件仅提供[需求原稿](csrc/_310P/memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)，
+由用户提交给负责团队，非方案A依赖。详见控制台§37，Stock默认不变。
+
+## A3最新研发状态：设计审核与代码交付，设备待准入
+
+用户定稿完整S固定席位、独立Y、NZ MM计算优先及连续就绪批量通信。
+[A3_DESIGN](csrc/_310P/memfabric_mm_ar_v3/A3_DESIGN.md)与
+[A3_ADMISSION](csrc/_310P/memfabric_mm_ar_v3/A3_ADMISSION.md)：profile3302、首READY参数校验、
+Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完整计时。
+新设备编译/正确性/性能NOT_RUN；A2证据不能替代A3准入。控制台§41，Stock默认不变。

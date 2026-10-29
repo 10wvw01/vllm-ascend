@@ -1,0 +1,108 @@
+# A1-E4｜分层流水融合算子第一轮实机验证报告（2026-10-28）
+
+> **run_id**: e4-layered-20261028-001（attempt1中止 + attempt2完成全部允许阶段）
+> **分支**: `work/310p-mm-ar-e4-layered-pipeline-20261028` @ 委托HEAD `1e20d3522`（attempt2执行HEAD `5b727e9f9`，仅增加attempt1证据归档，源码零改动，构建SO逐字节一致）
+> **PR**: [#21](https://github.com/10wvw01/vllm-ascend/pull/21)｜**权威方向**：主线 `dev/310p-memfabric-mm-ar` ADR-020
+> **一句话结论**：attempt2在16384独占窗口完成**全部五个双Rank Smoke（含E4四臂，bit-exact/status0）与七臂短Screen**；Screen方向性结果显示 **AddTile8192在M4096相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs缩至38.5µs**，PacketAdd −1.34%（−28.6µs），**M2048全部E4候选无改善**。按合同Screen不签正式性能，Confirm未授权未运行。
+
+---
+
+## 1. 执行摘要
+
+| 阶段 | 结果 | 关键证据 |
+|---|---|---|
+| G0准入 | **PASS** | g0/g0_identity.json：卡16384(dev2,3)双Die健康+MCU OK、无进程、hugepages 0/0；Host`1dc46d7d`/D4`2a19390c`/Plugin`8eb65de9`/KVER11`25e16b0a`四冻结SHA与u1_spec逐项一致，且与E3批次G0完全相同；CANN 9.1.0、BiSheng clang15.0.5(dav-2002)、torch_npu 2.10.0.post4 |
+| 原有工作区保护 | **完成** | 主工作区`/home/w00804146/310P/vllm-ascend`（他人任务分支+未提交修改）原样未动；E4使用独立worktree `/home/w00804146/310P/e4wt` |
+| CPU与静态门禁 | **PASS** | cpu/cpu_regression.log：py_compile 5文件、bash -n 2脚本、E4合同UT 9 passed+9 subtests、原仓UT **80 passed**+9 subtests、project_gate --static PASS |
+| 2049-M穷尽规划 | **PASS** | cpu/e4_m_domain_cpu_audit.json：2049形状全覆盖、9个零Padding整M、最大Padding 255行、最多4组、未验M全部fail-closed路由stock |
+| 乱序/重复/坏邮件负面测试 | **PASS** | test_e4_layered_contract.py：两包任意顺序、重复位图拒绝、坏status/dst/len/imm、过期tag、跨组Release事件计数 |
+| E1/E3-G/E4隔离编译 | **PASS** | build/manifest.json；attempt2重建于HEAD 5b727e9f9，**候选SO SHA与首次构建逐字节一致**（BiSheng确定性编译，`08f73f2c`）；**AddTile8192编译成功，无BUILD_UNSUPPORTED**；三个私有ABI导出齐全、正式D4符号未导出；tiling含E3轮507015修复（BASIC_M=128） |
+| 真实NZ路由证明 | **PASS 4/4（两轮campaign各一次）** | campaign_attempt{1,2}/routes/：两Rank×M2048/4096，各6次`aclnnMatmulWeightNz`+6次`hcom_allReduce`、**0次TransData**，CANN CSV逐份归档 |
+| 双Rank正确性Smoke（attempt2） | **全部PASS** | e3g、e4t2、e4t4、**e4t8**、**e4p**五臂：M2048/4096、每臂6样本、双Rank **bit-exact、protocol status=0**、首写与池创建（chunk1024）成功；**E4四臂为首次设备执行**，e4t8未触发507015类资源异常，e4p的Core0唯一邮件消费者/分核释放协议在实机成立 |
+| 七臂短Screen（attempt2） | **完成** | e4_screen_summary.json + 14份rank JSON：M4096配对p50 Stock 2037.7/E1 2261.9/E3-G 2133.9/**e4t8 2076.2**µs；M2048无候选改善。**SCREEN_ONLY_NO_SIGNED_PERFORMANCE** |
+| 设备状态 | **全程独占、干净退出** | card_watch_30s.log：16384零外部进程记录；npu_after：hugepages 0/0、内存回基线、无Alarm；前后二进制SHA diff一致 |
+| 十四场Confirm | **NOT_RUN（未授权）** | E4_CONFIRM_APPROVED全程未设置（attempt2续跑脚本显式unset），符合本轮硬性约束 |
+
+### attempt1中止与attempt2续跑（环境事件记录）
+
+- attempt1（06:29–07:03）：NZ路由与E3-G Smoke通过后，宿主级外部进程PID 506263占用全部四卡（16384双Die持续增长、hugepages满），按"设备被占用→STOP"合同止损；另有e4t2 torchrun被工具超时SIGTERM误杀的工艺失误（无设备执行）。完整取证见 stop_incident/STOP_INCIDENT_ANALYSIS.md。
+- 等待窗口（07:03–09:38）：部署setsid全脱管监视器（attempt2_automation/），60s采样、连续3次空闲判定；期间16384先后被宿主PID 1228809/1229041（AICore 99%）占用，09:35进程退出、hugepages约1分钟内完全回收。
+- attempt2（09:39启动）：自动G0复核（卡空闲/健康/四冻结SHA/工作树洁净/manifest身份，g0_attempt2/）通过后启动；与attempt1的差别仅为OUT目录与私有Host SO内嵌路径，**候选Kernel SO与E1/E3-G源SHA完全一致**。
+
+## 2. attempt1的STOP根因：宿主级外部进程占用四卡（已证实，attempt2已解除）
+
+- attempt1 campaign启动同时（06:28–06:29），**宿主PID 506263**出现在全部4卡8个Die并持续分配内存；至07:03仍在增长（16384双Die各2979MB、+20MB/5min，hugepages 0→1449/1449满）。
+- 定性依据：本会话在Docker容器内（31个可见PID），506263不在本命名空间；其同时占用本会话从未使用的5664/38144/43520各Die；存活并四卡同步增长（死进程记账不会增长）；E3整晚巡检中16384从未出现该PID。**结论：外部租户服务，非本会话残留。**
+- 执行侧失误（如实记录）：attempt1的e4t2 Smoke进程被本会话bash工具120秒超时的进程组SIGTERM误杀（nohup不防TERM）。该失误与外部占用相互独立：即使未被误杀，campaign也会在506263共存下继续，违反独占租约产出污染数据——30s巡检循环只记录不拦截。
+- 依据委托硬性约束（设备被占用→立即STOP）与ADR-014（运行中不自动换卡），且当时四卡无一健康独占，正式STOP保全现场；未杀任何宿主进程、未清KFC、未动共享SO。attempt2以setsid全脱管自动续跑后独占成立、全程无外部进程记录，该阻塞解除。
+
+## 3. 逐候选状态与Screen方向性结果（attempt2，Screen不签正式性能）
+
+| 候选 | 编译 | 双Rank正确性（Smoke） | M4096 p50 相对E3-G | M4096 相对Stock | M2048 相对E3-G | M2048 相对Stock | 备注 |
+|---|---|---|---|---|---|---|---|
+| E1（对照锚） | PASS | PASS（E3轮已验，本轮仅Screen） | +6.00% | +11.00%（+224.2µs） | −12.23% | +17.57% | E1锚与E3轮方向一致 |
+| E3-G（对照锚） | PASS | **PASS**（bit-exact/status0/首写） | 基准 | +4.72%（**+96.2µs**，与E3 Confirm的96.953µs高度复现） | 基准 | +33.96% | 单组M2048劣势复现 |
+| E4-T2048（e4t2） | PASS | **PASS**（首次设备执行） | **−0.10%** | +4.61% | **−1.33%** | +32.17% | 同构重编对照：与E3-G差2.2µs，**编译/结构对等性成立，排除重建漂移** |
+| E4-T4096（e4t4） | PASS | **PASS** | **−1.00%** | +3.67%（+74.8µs） | −0.73% | +32.97% | Add循环512→256 |
+| E4-T8192（e4t8） | PASS（无BUILD_UNSUPPORTED） | **PASS**（无507015类资源异常） | **−2.71%** | **+1.89%（+38.5µs）** | +0.24% | +34.27% | Add循环256→128；**Screen最优**，回收约60%的Stock差距 |
+| E4-PacketAdd（e4p） | PASS | **PASS**（协议实机成立） | **−1.34%** | +3.32%（+67.6µs） | −0.47% | +33.33% | 只提前消费者时机；收益受"Core0须等两包才做自身Add"结构性限制（静审预判兑现） |
+| E4-B连续M | CPU规划PASS（2049/2049） | 不适用 | 不适用 | 不适用 | 不适用 | 不适用 | **仍为纯CPU规划器，无变长设备Kernel，Serving路由维持stock** |
+
+配对p50/p90/p99（30样本/臂，rank max配对）：
+
+| 臂 | M4096 p50/p90/p99 µs | M2048 p50/p90/p99 µs |
+|---|---|---|
+| stock | 2037.7 / 2081.3 / 2107.5 | 1088.4 / 1144.9 / 1151.7 |
+| e1 | 2261.9 / 2368.4 / 2408.8 | 1279.6 / 1334.0 / 1342.4 |
+| e3g | 2133.9 / 2220.8 / 2228.2 | 1457.9 / 1499.1 / 1506.3 |
+| e4t2 | 2131.7 / 2193.3 / 2209.3 | 1438.5 / 1461.5 / 1512.7 |
+| e4t4 | 2112.5 / 2160.5 / 2170.6 | 1447.2 / 1483.5 / 1490.2 |
+| e4t8 | 2076.2 / 2182.1 / 2206.3 | 1461.4 / 1520.9 / 1550.6 |
+| e4p | 2105.3 / 2201.6 / 2228.6 | 1451.1 / 1515.9 / 1522.6 |
+
+### 对四个委托问题的回答（区分已证实事实与Screen级方向）
+
+1. **AddTile4096/8192是否真正优于2048（M4096）**：Screen方向**单调为是**——2048→4096→8192对应2131.7→2112.5→2076.2µs（vs E3-G −0.10%→−1.00%→−2.71%）；每核Add循环512→256→128的削减带来21.4/36.3µs递增收益，非纯线性，提示Queue/Copy调度开销随循环数下降的同时大块搬运效率也在改善。e4t2与E3-G的−0.10%确认该收益来自AddTile本身而非重建漂移。**此为30样本单场Screen方向，须Confirm确认。**
+2. **PacketAdd能否缩短M4096约97µs Stock差距**：Screen方向**部分成立**——e4p相对E3-G −1.34%（−28.6µs，回收约30%差距），但其AddTile仍为2048；收益小于e4t8（−57.7µs），且静审预判的"Core0须消费两包后才做自身Add"的结构上限得到数据佐证。
+3. **M2048是否改善**：**没有**。四臂全部与E3-G持平（−1.33%…+0.24%），仍落后E1约12–14%、落后Stock约32–34%；单2048组零组间交叠的结构性损失不因消费者侧Add变化而消除，与门禁文档§2预判一致。e4t8在M2048方向为微负（+0.24%），提示大UB在小M场景无可摊销的循环收益（Screen噪声内，不下结论）。
+4. **为什么**：M4096有2个2048组，Add段在等待窗口后的执行重复2轮；AddTile扩大直接削减每轮Queue/Copy/Add固定开销。M2048只有1轮且关键路径在组内无交叠，Add段优化空间被更大的结构性损失掩盖。
+
+**Screen边界重申**：每臂单场、30样本、无ABBA平衡、无场间漂移控制；以上数字**不可签为正式性能结论**（脚本自身标记`SCREEN_ONLY_NO_SIGNED_PERFORMANCE`），但E3-G/E1/Stock三锚与本轮E3-Confirm认证值高度一致（M4096 E3-G差Stock 96.2 vs 96.953µs），方向可信度高。
+
+## 4. 异常与修复记录
+
+| # | 异常 | 处置 | 状态 |
+|---|---|---|---|
+| 1 | attempt1：e4t2 Smoke进程被工具超时SIGTERM误杀 | 如实记录（stop_incident §4）；无代码缺陷 | attempt2以setsid全脱管启动，未复现 |
+| 2 | attempt1：宿主PID 506263占用四卡，hugepages满 | 按合同STOP保全，未杀进程/未换卡/未清KFC | attempt2前自动解除（09:35退出、hugepages 1分钟回收） |
+| 3 | 自动续跑首轮G0复核因脚本硬编码HEAD笔误拒绝启动 | 修正为实际HEAD `5b727e9f9…`后重启；门禁按设计fail-stop，无越权 | 已修复，复核通过 |
+| 4 | attempt2运行中 | **零异常**：全程独占、无507014/507899/IB/KFC/错算/外部进程记录 | — |
+| 5 | 代码缺陷 | **未发现**；两轮静审+CPU+编译+五臂Smoke全过，无BUG修复提交 | — |
+
+## 5. 下一轮建议（最值得确认的候选）
+
+1. **Confirm最优先e4t8（AddTile8192）**：Screen唯一把M4096对Stock差距缩至<40µs（38.5µs）的候选，且单变量、机制清晰；需按十四场ABBA合同验证5%场间漂移与p90/p99尾部分布（e4t8的p90 2182µs仍高于stock 2081µs，尾部行为是Confirm的关键观察点）。
+2. **次优先e4t4**：作为8192与2048之间的机制校验点（收益是否随Tile单调、UB压力是否影响尾部），可与e4t8同批Confirm。
+3. **e4p建议暂缓Confirm**：−1.34%方向有效但结构性上限已被数据佐证；若Confirm资源有限，先让位给e4t8/e4t4；其真正的下一步是"producer侧提前发Packet0"或"Core0自身Add不等两包"的结构变体，属新设计需另行走审查。
+4. **M2048问题独立立项**：消费者侧已证无解，下一轮按门禁文档预研方向（core-ownership重排或1024+1024混合组内流水）出新候选，本轮四臂不再重复投入。
+5. **前置条件**：维持setsid全脱管+空闲监视自动G0复核的执行工艺（attempt2_automation/可复用）；十四场须显式授权`E4_CONFIRM_APPROVED=YES`后才可运行。
+6. E4-B连续M维持"仅规划器"定位不变；本轮无新证据支持改变。
+
+## 6. 证据索引（全部归档于本分支 evidence/e4_layered_20261028/）
+
+- `g0/`：g0_identity.json、npu_smi_g0.txt、board/health/usages_16384.txt、frozen_binaries_g0.sha256（与E3批次逐字节一致）、e4_launch_env.sh（完整私有装载环境）
+- `cpu/`：cpu_regression.log、e4_m_domain_cpu_audit.json
+- `build/`：manifest.json（HEAD/六源SHA/SO SHA绑定）、build.log、host_build.log、symbols.txt、host_symbols.txt、isolated_so.sha256
+- `campaign_attempt1/`：routes/（4份route JSON+4份CANN CSV）、sessions/（e3g Smoke JSON与被杀e4t2现场）、card_watch_30s.log（含506263首现样本）、binaries_before.sha256
+- `stop_incident/`：STOP_INCIDENT_ANALYSIS.md、npu_stop_0701.txt、npu_stop_latest.txt
+- `g0_attempt2/`：attempt2启动前自动G0复核快照（npu_relaunch.txt、health_relaunch.txt）
+- `campaign_attempt2/`：**本轮主证据**——routes/（4份route JSON+4份CANN CSV+torchrun.log）、sessions/（5份Smoke rank JSON+7臂Screen 14份rank JSON+全部torchrun日志）、e4_screen_summary.json、e4_m_domain_cpu_audit.json、progress.txt、commit.txt、git_status.txt、binaries_before/after.sha256（diff一致）、npu_before/after.txt、card_watch_30s.log（16384零外部进程）
+- `attempt2_automation/`：e4_wait_and_launch.sh（空闲监视器）、e4_relaunch.sh（G0复核+启动）、e4_card_watch.log、e4_auto_launch.log
+- 服务器原始现场保全：`/tmp/opencode/e4-campaign-20261028{,b}/`、`/tmp/opencode/e4-build{,2}/`
+
+## 7. 承诺与边界声明
+
+- 本轮**未修改**正式D4/E1/E3源码、生产Serving、Stock默认、共享MemFabric库，未向其他仓库提交；attempt2执行HEAD `5b727e9f9`相对委托HEAD `1e20d3522`仅增加attempt1证据归档，E4相关源码与测试零改动，候选SO SHA逐字节一致。
+- **E4四臂设备正确性已由attempt2 Smoke证实**（bit-exact/status0/首写/交替输入/重复调用）；**性能仅有Screen方向性结果，不构成正式结论**；e4t8/e4t4/stock/e3g/e1的正式速比与漂移判定须待授权的十四场Confirm。
+- M2049..4095连续M、E4-B变长设备Kernel、Serving自适应路由仍为NOT_IMPLEMENTED；Serving维持Stock默认。
+- 十四场Confirm未获授权亦未运行；`E4_CONFIRM_APPROVED`保持未设置状态。

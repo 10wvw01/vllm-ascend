@@ -1,0 +1,45 @@
+{
+  "schema": "A1_R0_BUILD_MANIFEST_V1",
+  "run_id": "a1-r0-20261027-001",
+  "build_status": "NOT_ATTEMPTED_FOR_HOST_SO",
+  "build_status_reason": "Path A (historical artifact reuse) verified viable: frozen host SO 1dc46d7d found intact at two locations with identical SHA, plus fix source commit 5802f550, patch, CMakeCache/build.ninja and on-device validation trail. Per A1 contract §2.2 rule 1, no unconditional rebuild of a correct legacy library; rebuild of the Draft PR#1 candidate would produce a different SHA and require a separate frozen-contract review, so it is NOT attempted in BATCH-R0.",
+  "only_build_performed": {
+    "what": "pure-CPU DeviceID mapping boundary test (replicated function body of HybmPhysicalDeviceIdOf from mf-fix hybm_define.h @5802f550)",
+    "compiler": "g++ (system)",
+    "result": "15/15 PASS, exit 0",
+    "np_involved": false
+  },
+  "staged_artifacts_for_review": [
+    {"role": "memfabric_host_so_fixed", "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30", "bytes": 3240592, "verified_copies": ["/tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so", "/tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so"], "target_paths_after_approval": ["/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so", "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so"]},
+    {"role": "d4_device_so_candidate", "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19", "bytes": 2185952, "verified_copies": ["/tmp/opencode/d4/build/device_candidate_diag_on.so"], "note": "frozen U1 D4 SHA; currently installed plugin-dir libmf310p_v2_trial_device.so is b8ca96f0 (baseline) and MUST be swapped only in E2 under approval; source commit 5adbf1810 on perf/310p-v2-d3-add-tile2048-20261023"},
+    {"role": "vllm_ascend_plugin_so", "sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1", "bytes": 263744, "path": "/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so", "note": "already in place and equal to frozen SHA; editable install resolves vllm_ascend to main worktree; main worktree tracked-clean on another task branch perf/310p-f1c-...-20261025 - deployment must NOT switch that worktree"},
+    {"role": "kver11_json", "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78", "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json", "note": "already in place and equal to frozen SHA"},
+    {"role": "orch_deploy_helper", "sha256": "849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310", "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/orch_deploy_helper", "note": "production helper identical to mf-fix tools binary; S3-R2 used MF_SDMA_ORCH_DEPLOY_HELPER env pointing here (env is a controlled-run variable, must NOT be ambient in serving)"}
+  ],
+  "dependencies_audit": {
+    "cann": "9.1.0 (/usr/local/Ascend/cann-9.1.0) == CANN at fix validation time (9.1.0): probe contract (MallocPhysical logical / SetAccess physical) still the reviewed one; any CANN upgrade voids this and needs re-review",
+    "driver": "26.1.1 (npu-smi 26.1.1)",
+    "python": "3.12.13 (/usr/local/python3.12.13)",
+    "torch": "2.10.0", "torch_npu": "2.10.0.post4",
+    "vllm": "0.27.1+empty editable -> /vllm-workspace/vllm/vllm (git 6e448d0, detached-clean)",
+    "vllm_ascend": "0.1.dev4877+gb9a293d95.d20261015 editable -> /home/w00804146/310P/vllm-ascend/vllm_ascend",
+    "abi_conclusion": "host SO 1dc46d7d was built on this server with this CANN 9.1.0 and loads via DlAclApi dynamic resolution; plugin 8eb65de9 verified byte-identical to the frozen Gate-C diagnostic-ON plugin; no ABI mismatch signal"
+  },
+  "kfc_device_side": {
+    "dir": "/usr/lib64/aicpu_kernels/0/aicpu_kernels_device/",
+    "state": "EMPTY (no libmf_sdma_orch_v11.so deployed)",
+    "policy": "per ADR-014 + A1 contract, KFC is NOT pre-deployed manually; MemFabric auto-deploys at first authorized pool creation in E2+"
+  },
+  "proposed_staged_deployment_plan_FOR_REVIEW_ONLY": {
+    "step_0_preconditions": "user approval of BATCH-R0 report; chosen card 16384 (dev2,3) re-checked healthy/idle/exclusive at that time",
+    "step_1_backup": "byte-copy current 88d39285 production pair to timestamped backup dir + verify SHA restorable (fresh backup at deploy time; prior backups exist at gate_e_s3r/backup_prod_20261026)",
+    "step_2_install": "copy 1dc46d7d to BOTH production paths (from verified archive copy after re-hash); preserve mode/owner",
+    "step_3_device_so": "place 2a19390c as the V2 trial device SO per U1 contract (swap of plugin-dir libmf310p_v2_trial_device.so with fresh backup of b8ca96f0) - only when U1 run is the goal",
+    "step_4_verify": "re-hash both paths; verify no other task touched the files; runtime load-path proof at first authorized smoke (not by env vars alone)",
+    "rollback": "restore step_1 backups verbatim; KFC device file removal only per authorized diagnostic flow (mini_kfc rm -f is NOT part of normal rollback)",
+    "forbidden_until_approved": ["global pip install", "cmake --install", "torchrun", "KFC manual deploy", "pool creation", "modifying other task worktrees/processes"]
+  },
+  "BUILD_PASS_or_FAIL_or_NOT_ATTEMPTED": "NOT_ATTEMPTED (host SO); CPU-only deviceid test PASS",
+  "ARTIFACTS_REUSABLE_or_STAGED_NEW_or_UNAVAILABLE": "ARTIFACTS_REUSABLE",
+  "NEEDS_REVIEW": true
+}

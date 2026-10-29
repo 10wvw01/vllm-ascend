@@ -1,0 +1,35 @@
+{
+  "schema": "A1_R0_EVIDENCE_INDEX_V1",
+  "run_id": "a1-r0-20261027-001",
+  "server_only_raw_evidence_dir": "/tmp/opencode/a1_r0_evidence_20261027 (SERVER_ONLY, not uploaded)",
+  "files_in_repo_package": {
+    "BATCH_R0_REPORT_20261027.md": "sanitized top-level report with all verdicts",
+    "environment_inventory_sanitized.json": "sanitized copy of a1_reentry_readonly.py output (raw host details withheld)",
+    "source_provenance.json": "MemFabric fix provenance: branch/commit/patch/two verified 1dc46d7d copies/push state/PR#1 fallback",
+    "build_manifest.json": "staged artifacts, dependency/ABI audit, proposed E2 deployment+rollback plan (REVIEW ONLY)",
+    "card_selection.json": "manual four-card selection record (16384 primary; 38144 not-clean; 5664 occupied; 43520 Alarm excluded)",
+    "cpu_results.json": "A1-repo CPU regression summary (all green)",
+    "u1_run_static_gate_audit.txt": "grep proof that u1_run.sh still enforces the three approval gates and five frozen SHAs",
+    "memfabric_fix_5802f550_setaccess_physical.patch": "the unpushed historical fix commit, archived verbatim",
+    "memfabric_fix_stack_commits.txt": "commit stack on the fix branch (KVER v11 + KFC helper + argv fix + SetAccess fix)",
+    "cpu_py_compile.txt": "py_compile stdout/exit",
+    "cpu_unittest_a1.txt": "unittest discover test_a1_*.py verbose log (34 tests)",
+    "cpu_pytest_ut.txt": "pytest full ut dir log (88 passed + 27 subtests)",
+    "cpu_bash_n_u1_run.txt": "bash -n exit record",
+    "cpu_deviceid_test/deviceid_mapping_cpu_test.cpp": "pure-CPU replica of HybmPhysicalDeviceIdOf source",
+    "cpu_deviceid_test/deviceid_mapping_cpu_test.txt": "15/15 boundary cases PASS",
+    "EVIDENCE_VALIDATION_NOTE_20261027.md": "Records source_provenance.json original invalid line-range token and syntax-only correction e0f5012; verifies six JSON files and flags imprecise local timestamp."
+  },
+  "server_only_files_not_uploaded": {
+    "reentry_inventory/environment_inventory.json": "raw tool output incl. full uname/ps/ss/npu-smi text (sensitive host info)",
+    "paths.json": "paths fed to the readonly tool (contains server absolute paths)",
+    "deviceid_mapping_cpu_test (binary)": "compiled test binary, rebuildable from cpp"
+  },
+  "external_records_referenced_not_duplicated": [
+    "/tmp/opencode/gate_e_s3r2_pkg/GATE_E_S3R2_SMOKE_REPORT_20261026.md (on-device validation of 1dc46d7d, helper mode)",
+    "/tmp/opencode/gate_e_s4_hold_pkg/GATE_E_S4_ENV_HOLD_20261026.md (machine state history: devmm storm timeline, dev2/3 clean baseline)",
+    "/tmp/opencode/d4/d4_build_record.json (D4 device SO build provenance incl. 2a19390c)",
+    "/tmp/opencode/gate_e_s3r/ (S3-R staging: fixed_host_lib, backup_prod_20261026, launch/guardian scripts)"
+  ],
+  "G0_APPROVED": false
+}

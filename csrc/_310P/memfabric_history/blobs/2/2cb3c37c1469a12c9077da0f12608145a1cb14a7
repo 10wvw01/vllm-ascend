@@ -1,0 +1,35 @@
+name: 310P E2 isolated CPU contracts
+on:
+  pull_request:
+    branches: [dev/310p-memfabric-mm-ar, work/310p-mm-ar-five-arm-dcci-20261028]
+    paths:
+      - "csrc/_310P/memfabric_mm_ar_v2/**"
+      - ".github/workflows/310p_e2_cpu_only.yml"
+  workflow_dispatch:
+jobs:
+  cpu-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pure CPU tests only
+        run: python -m pip install --disable-pip-version-check pytest
+      - name: Python syntax contracts
+        run: |
+          python -m py_compile \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e2_arm.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e2_assess.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e2_pipeline_contract.py
+      - name: Shell syntax contracts
+        run: |
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e2_build.sh
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e2_campaign.sh
+      - name: E2 protocol and offline scoring tests
+        run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e2_pipeline_contract.py
+      - name: Entire existing V2 CPU tests
+        run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Project gate static
+        run: python tools/310p_mm_ar/project_gate.py --static

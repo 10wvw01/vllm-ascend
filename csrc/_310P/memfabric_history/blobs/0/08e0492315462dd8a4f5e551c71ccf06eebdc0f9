@@ -1,0 +1,31 @@
+{
+  "gate": "C3-0 environment admission (on-site record)",
+  "date_local": "2026-10-24 13:0x-13:2x",
+  "branch": "perf/310p-v2-c3-cleanlines-unroll4-20261024",
+  "devices": "6,7 (card 43520 same-card die pair; SEL-01 precedent pair; idle and healthy at admission)",
+  "npu_smi": "usable this round (D4-era dev2/3 devmanager wedge resolved after server restart); dev0/1 and dev2/3 occupied by external tenants, dev4/5 idle, dev6/7 chosen",
+  "pair_health_probe": "PASS (device_count=2, alloc+sum+synchronize on both dies)",
+  "identity": {
+    "plugin_so_vllm_ascend_C": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1 (unchanged Gate C build)",
+    "host_so_installed_for_sessions": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30 (mf-fix fix/310p-setaccess-physical-devid-20261023 @ 5802f550; same identity SEL-01 used on dev6/7; required because ASCEND_RT_VISIBLE_DEVICES=6,7 needs physical-devid conversion for aclrtMemSetAccess)",
+    "host_so_restored_after": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1 (both paths, verified)",
+    "kver11_json": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "device_so_before": "b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811 (pre-D4 baseline; restored after, verified)",
+    "aicpu_v11_kernel": "auto-deployed per-die by orch_deploy_helper during first session ('kernel already present' thereafter)"
+  },
+  "env_hygiene": {
+    "MF310P_V2_NOWARMUP": "unset ambient (enforced by drivers)",
+    "MF_SDMA_ORCH_JSON": "unset ambient; launchers set KVER11 absolute path explicitly",
+    "process_group": "gloo (D4 session precedent; timing window contains no collectives)",
+    "idle_gate": "per-session: npu-smi proc-mem exclusive check + dev6/7 dmesg delta + fd scan fallback"
+  },
+  "backups": {
+    "host_so_pre_c3": "/tmp/opencode/c3/hostso_pre_c3_88d39285.bak",
+    "device_so_pre_c3": "/tmp/opencode/c3/device_so_pre_c3_b8ca96f0.bak"
+  },
+  "deviations": [
+    "Host SO temporarily swapped to patched 1dc46d7d for non-0/1 visible devices (identical to SEL-01/D4-4 dev6/7 precedent; setup-time-only code path, no protocol change); restored and verified after",
+    "ABBA on dev6/7 (not D4-3's dev0/1): both arms measured on the same pair in the same batch, paired comparison unaffected; cross-pair anchor vs D4 Tile2048 p50 2556.3us reported in analysis"
+  ],
+  "verdict": "ADMITTED"
+}

@@ -1,0 +1,172 @@
+{
+  "gate": "F2 chunk-overlap sweep (external, no profiler)",
+  "label": "08_m2048_c1024_o0",
+  "rank": 1,
+  "M": 2048,
+  "chunk_rows": 1024,
+  "chunks": 2,
+  "overlap": 0,
+  "warmup": 3,
+  "iters": 30,
+  "status": 0,
+  "bit_exact": true,
+  "profile": false,
+  "samples": [
+    {
+      "i": 0,
+      "wall_us": 1725.9,
+      "event_us": 1620.0
+    },
+    {
+      "i": 1,
+      "wall_us": 1663.1,
+      "event_us": 1582.1
+    },
+    {
+      "i": 2,
+      "wall_us": 3385.8,
+      "event_us": 1589.4
+    },
+    {
+      "i": 3,
+      "wall_us": 1625.5,
+      "event_us": 1527.9
+    },
+    {
+      "i": 4,
+      "wall_us": 1816.5,
+      "event_us": 1734.3
+    },
+    {
+      "i": 5,
+      "wall_us": 1833.8,
+      "event_us": 1747.9
+    },
+    {
+      "i": 6,
+      "wall_us": 1838.0,
+      "event_us": 1735.7
+    },
+    {
+      "i": 7,
+      "wall_us": 1798.2,
+      "event_us": 1700.3
+    },
+    {
+      "i": 8,
+      "wall_us": 1801.1,
+      "event_us": 1706.3
+    },
+    {
+      "i": 9,
+      "wall_us": 1823.5,
+      "event_us": 1735.3
+    },
+    {
+      "i": 10,
+      "wall_us": 1845.8,
+      "event_us": 1751.9
+    },
+    {
+      "i": 11,
+      "wall_us": 1837.7,
+      "event_us": 1748.5
+    },
+    {
+      "i": 12,
+      "wall_us": 1852.1,
+      "event_us": 1768.4
+    },
+    {
+      "i": 13,
+      "wall_us": 1775.3,
+      "event_us": 1693.3
+    },
+    {
+      "i": 14,
+      "wall_us": 1859.1,
+      "event_us": 1774.8
+    },
+    {
+      "i": 15,
+      "wall_us": 1859.4,
+      "event_us": 1773.2
+    },
+    {
+      "i": 16,
+      "wall_us": 1849.2,
+      "event_us": 1764.3
+    },
+    {
+      "i": 17,
+      "wall_us": 1860.9,
+      "event_us": 1775.5
+    },
+    {
+      "i": 18,
+      "wall_us": 1867.0,
+      "event_us": 1784.7
+    },
+    {
+      "i": 19,
+      "wall_us": 1858.6,
+      "event_us": 1774.0
+    },
+    {
+      "i": 20,
+      "wall_us": 1696.0,
+      "event_us": 1611.8
+    },
+    {
+      "i": 21,
+      "wall_us": 1577.4,
+      "event_us": 1481.4
+    },
+    {
+      "i": 22,
+      "wall_us": 1630.9,
+      "event_us": 1538.6
+    },
+    {
+      "i": 23,
+      "wall_us": 1641.8,
+      "event_us": 1557.8
+    },
+    {
+      "i": 24,
+      "wall_us": 1694.5,
+      "event_us": 1610.0
+    },
+    {
+      "i": 25,
+      "wall_us": 1699.8,
+      "event_us": 1608.7
+    },
+    {
+      "i": 26,
+      "wall_us": 1719.6,
+      "event_us": 1634.5
+    },
+    {
+      "i": 27,
+      "wall_us": 1597.6,
+      "event_us": 1513.1
+    },
+    {
+      "i": 28,
+      "wall_us": 1672.5,
+      "event_us": 1584.3
+    },
+    {
+      "i": 29,
+      "wall_us": 1678.5,
+      "event_us": 1595.0
+    }
+  ],
+  "device_so": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "timing_semantics": {
+    "wall_us": "host perf_counter around (launch + stream.synchronize)",
+    "event_us": "device stream interval between two NPU events bracketing the kernel; primary metric"
+  },
+  "note": "F2 known precedent: gloo process group/reference (HCCL port leaked by killed session); timing window contains no collectives"
+}

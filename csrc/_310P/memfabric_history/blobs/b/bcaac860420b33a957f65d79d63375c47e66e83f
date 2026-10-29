@@ -1,0 +1,186 @@
+"""310P3 V2 RequestState candidate without GPU UVA construction.
+
+Matches vLLM 0.27.1 RequestState's public attributes and methods. Does not
+subclass/call GPU RequestState.__init__: that constructor allocates UVA pools
+before Ascend's post-super replacement. Not yet wired into a 310P V2 runner.
+"""
+from __future__ import annotations
+
+from .staged_buffers import NPUBackedTensor, NPUStagedWriteTensor
+
+
+class NPURequestState:
+    def __init__(
+        self,
+        max_num_reqs: int,
+        max_model_len: int,
+        max_num_batched_tokens: int,
+        num_speculative_steps: int,
+        vocab_size: int,
+        device,
+        num_prefill_lookahead: int = 1,
+    ):
+        import numpy as np
+        import torch
+
+        if (min(max_num_reqs, max_model_len, max_num_batched_tokens,
+                vocab_size, num_prefill_lookahead) <= 0 or num_speculative_steps < 0):
+            raise ValueError("invalid RequestState capacity")
+        self.max_num_reqs = max_num_reqs
+        self.max_model_len = max_model_len
+        self.max_num_batched_tokens = max_num_batched_tokens
+        self.num_speculative_steps = num_speculative_steps
+        self.vocab_size = vocab_size
+        self.device = device
+        self.req_id_to_index: dict[str, int] = {}
+        self.index_to_req_id: dict[int, str] = {}
+        self.free_indices = list(range(max_num_reqs))
+        # All token IDs are physically device-backed, NOT host UVA mapped.
+        self.all_token_ids = NPUStagedWriteTensor(
+            (max_num_reqs, max_model_len), torch.int32, device,
+            uva_instead_of_gpu=False,
+        )
+        self.prompt_len = NPUBackedTensor(max_num_reqs, torch.int32, device)
+        self.prefill_len = NPUBackedTensor(max_num_reqs, torch.int32, device)
+        self.total_len = NPUStagedWriteTensor(max_num_reqs, torch.int32, device)
+        self.num_computed_prefill_tokens = np.zeros(max_num_reqs, dtype=np.int32)
+        self.num_computed_tokens = NPUStagedWriteTensor(max_num_reqs, torch.int32, device)
+        self.num_computed_tokens_np = np.zeros(max_num_reqs, dtype=np.int32)
+        # Physical rows are 32-byte aligned: resetting a reused request
+        # must never issue a short unaligned 8-byte D2D write on 310P3.
+        self._last_sampled_storage = torch.zeros(
+            max_num_reqs, 4, dtype=torch.int64, device=device
+        )
+        self.last_sampled_tokens = self._last_sampled_storage[:, :1]
+        self.max_seq_len = np.zeros(max_num_reqs, dtype=np.int32)
+        draft_width = ((num_speculative_steps + 3) // 4) * 4
+        self._draft_storage = torch.zeros(
+            max_num_reqs, draft_width, dtype=torch.int64, device=device
+        )
+        self.draft_tokens = self._draft_storage[:, :num_speculative_steps]
+        # T01's [lookahead, req_state] ABI is a logical transpose view.
+        # Each request owns an independent, 32-byte-padded physical row;
+        # column-wise index_fill_/index_copy_ would issue narrow int32 writes.
+        padded_lookahead = ((num_prefill_lookahead + 7) // 8) * 8
+        self._next_prefill_storage = torch.zeros(
+            max_num_reqs, padded_lookahead, dtype=torch.int32, device=device
+        )
+        self.next_prefill_tokens = (
+            self._next_prefill_storage[:, :num_prefill_lookahead].transpose(0, 1)
+        )
+        # Ascend V2 attention expects an explicit CPU mirror.
+        self.num_computed_tokens_cpu = torch.zeros(max_num_reqs, dtype=torch.int32)
+        self._poisoned = False
+
+    def _assert_healthy(self) -> None:
+        if self._poisoned:
+            raise RuntimeError("310P3 V2 RequestState poisoned by partial state mutation")
+
+    @property
+    def num_reqs(self) -> int:
+        return len(self.req_id_to_index)
+
+    def add_request(
+        self,
+        req_id: str,
+        prompt_len: int,
+        all_token_ids: list[int],
+        num_computed_tokens: int,
+        max_tokens: int,
+    ) -> None:
+        self._assert_healthy()
+        if req_id in self.req_id_to_index:
+            raise ValueError("duplicate request id")
+        if not self.free_indices:
+            raise ValueError("no free request slots")
+        prefill_len = len(all_token_ids)
+        if not (0 <= prompt_len <= prefill_len <= self.max_model_len):
+            raise ValueError("invalid prompt/prefill length")
+        if max_tokens < 0 or prompt_len + max_tokens > self.max_model_len:
+            raise ValueError("request exceeds model capacity")
+        if not (0 <= num_computed_tokens <= prefill_len):
+            raise ValueError("invalid computed token count")
+        try:
+            idx = self.free_indices.pop()
+            self.req_id_to_index[req_id] = idx
+            self.index_to_req_id[idx] = req_id
+            self.max_seq_len[idx] = prompt_len + max_tokens
+            self.prompt_len.np[idx] = prompt_len
+            self.prefill_len.np[idx] = prefill_len
+            self.total_len.stage_write_elem(idx, prefill_len)
+            # A recycled row may still contain the previous request's tokens
+            # beyond the new prompt. Stage a full reset BEFORE the new prefix;
+            # only the committed, 32-byte-aligned row is copied to the device.
+            # The Runner must separately ensure no in-flight kernel owns idx.
+            self.all_token_ids.stage_write(
+                idx, 0, [0] * self.max_model_len
+            )
+            self.all_token_ids.stage_write(idx, 0, all_token_ids)
+            self.num_computed_prefill_tokens[idx] = num_computed_tokens
+            self.num_computed_tokens_np[idx] = num_computed_tokens
+            self.num_computed_tokens.stage_write_elem(idx, num_computed_tokens)
+            self.num_computed_tokens_cpu[idx] = num_computed_tokens
+            self._last_sampled_storage[idx].zero_()
+            self._draft_storage[idx].zero_()
+            # Recycled request: reset the entire aligned physical row, never
+            # a single 4-byte column of the [lookahead, req_state] view.
+            self._next_prefill_storage[idx].zero_()
+        except Exception:
+            # CPU maps and device rows may have diverged; do not continue
+            # scheduling requests into a half-mutated slot.
+            self._poisoned = True
+            raise
+
+    def apply_staged_writes(self) -> None:
+        self._assert_healthy()
+        try:
+            self.prompt_len.copy_to_uva()
+            self.prefill_len.copy_to_uva()
+            self.total_len.apply_write()
+            self.all_token_ids.apply_write()
+            self.num_computed_tokens.apply_write()
+        except Exception:
+            self._poisoned = True
+            raise
+
+    def assert_can_release_request(self, req_id: str) -> int | None:
+        """Non-mutating preflight for the inherited GPU runner release order.
+
+        Frozen GPUModelRunner._remove_request invokes model_state.remove_request
+        BEFORE req_states.remove_request because ModelState still needs the
+        request slot. A late pending-write error in the latter would otherwise
+        leave ModelState freed while the request maps still own that slot.
+        This preflight is not a device in-flight stream completion fence.
+        """
+        self._assert_healthy()
+        idx = self.req_id_to_index.get(req_id)
+        if idx is None:
+            return None
+        # Check every device-owned staged buffer BEFORE changing either
+        # request map. A released slot can still receive delayed vector
+        # writes to total_len/num_computed_tokens even when its token row
+        # has already been committed. Such writes would corrupt a new
+        # request reusing the same slot.
+        if any(row == idx for row, _off, _values
+               in self.all_token_ids.plan._pending):
+            raise RuntimeError("cannot release request with pending token writes")
+        for name in ("total_len", "num_computed_tokens"):
+            pending = getattr(self, name).plan._pending
+            # Vector plans store the logical slot as the offset, not row.
+            if any(start <= idx < start + len(values)
+                   for _row, start, values in pending):
+                raise RuntimeError(
+                    f"cannot release request with pending {name} writes"
+                )
+        # No pending writes for this slot. Stream completion/in-flight
+        # ownership is a separate runtime admission gate (T16).
+        return idx
+
+    def remove_request(self, req_id: str) -> int | None:
+        idx = self.assert_can_release_request(req_id)
+        if idx is None:
+            return None
+        del self.req_id_to_index[req_id]
+        del self.index_to_req_id[idx]
+        self.free_indices.append(idx)
+        return idx

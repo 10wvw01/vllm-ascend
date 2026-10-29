@@ -1,0 +1,56 @@
+{
+  "experiment": "U1_PARTIAL_NOT_FOR_GO",
+  "rank": 1,
+  "session": "01_large_stock_fp16",
+  "scope": "large",
+  "phase": "smoke",
+  "M": 2048,
+  "arm": "stock_fp16",
+  "device_so_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "result": {
+    "M": 2048,
+    "arm": "stock_fp16",
+    "warmup": 3,
+    "iters": 6,
+    "samples": [
+      {
+        "i": 0,
+        "variant": 1,
+        "event_us": 1065.443,
+        "wall_us": 1153.15
+      },
+      {
+        "i": 1,
+        "variant": 0,
+        "event_us": 1075.391,
+        "wall_us": 1160.39
+      },
+      {
+        "i": 2,
+        "variant": 1,
+        "event_us": 1066.094,
+        "wall_us": 1149.77
+      },
+      {
+        "i": 3,
+        "variant": 0,
+        "event_us": 1063.308,
+        "wall_us": 1153.11
+      },
+      {
+        "i": 4,
+        "variant": 1,
+        "event_us": 1076.067,
+        "wall_us": 1186.46
+      },
+      {
+        "i": 5,
+        "variant": 0,
+        "event_us": 1089.479,
+        "wall_us": 1187.98
+      }
+    ],
+    "status": null,
+    "bit_exact": true
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "fixed_profile": {
+    "input_tokens": 4096,
+    "output_tokens": 2048,
+    "tp": 2,
+    "batch_cap": 10,
+    "mode": "eager"
+  },
+  "assumed_requests": 50,
+  "profiled_requests": 3,
+  "kernel_calls_per_rank_in_trace": 120,
+  "fusion_calls_per_request": 40,
+  "fusion_calls_whole_bench": 2000,
+  "bench_duration_s": 2177.193,
+  "baseline_fusion_kernel_us": 2530.3,
+  "sum_prefill_fusion_kernel_time_s": 5.0606,
+  "fraction_of_duration_pct": 0.23244,
+  "full_kernel_elimination_estimated_throughput_gain_pct": 0.23298,
+  "interpretation": "ONLY a simplified accounting limit for direct shortening of these observed Prefill kernels. Reassess if routing, kernel count, queues, scheduling, cache or communication overlap changes.",
+  "not_a_device_measurement": true,
+  "candidate_kernel_us": 2487.2,
+  "predicted_duration_reduction_s": 0.0862,
+  "predicted_throughput_gain_pct": 0.00396
+}

@@ -1,0 +1,60 @@
+{
+  "contract": "A1_G0_READONLY_V1",
+  "hardware_executed": false,
+  "device_kernel_executed": false,
+  "facts": {
+    "repo_root": "/home/w00804146/310P/vllm-ascend-a1/csrc",
+    "git_head": "d89204b0a14af5b1469b2f9f397e32d5c77b6088",
+    "git_dirty": false,
+    "visible_devices": "6,7",
+    "sha256": {
+      "device_so_sha256": "b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811",
+      "plugin_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+      "host_so_sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+      "host_python_sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+      "kver11_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78"
+    },
+    "artifact_paths": {
+      "device_so_sha256": "/home/w00804146/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device.so",
+      "plugin_sha256": "/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+      "host_so_sha256": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so",
+      "host_python_sha256": "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so",
+      "kver11_sha256": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json"
+    },
+    "dangerous_flags": [],
+    "npu_smi_readonly_ok": true,
+    "npu_smi_output": "+--------------------------------------------------------------------------------------------------------+\n| npu-smi 26.1.1                                   Version: 26.1.1                                       |\n+-------------------------------+-----------------+------------------------------------------------------+\n| NPU     Name                  | Health          | Power(W)     Temp(C)           Hugepages-Usage(page) |\n| Chip    Device                | Bus-Id          | AICore(%)    Memory-Usage(MB)                        |\n+===============================+=================+======================================================+\n| 5664    310P3                 | OK              | NA           68                6468  / 6468          |\n| 0       0                     | 0000:18:00.0    | 0            14899/ 44277                            |\n+-------------------------------+-----------------+------------------------------------------------------+\n| 5664    310P3                 | OK              | NA           67                21007 / 21007         |\n| 1       1                     | 0000:18:00.0    | 0            43693/ 43693                            |\n+===============================+=================+======================================================+\n| 16384   310P3                 | OK              | NA           69                0     / 0             |\n| 0       2                     | 0000:41:00.0    | 0            1939 / 44277                            |\n+-------------------------------+-----------------+------------------------------------------------------+\n| 16384   310P3                 | OK              | NA           69                0     / 0             |\n| 1       3                     | 0000:41:00.0    | 0            1009 / 43693                            |\n+===============================+=================+======================================================+\n| 38144   310P3                 | OK              | NA           66                5860  / 5860          |\n| 0       4                     | 0000:96:00.0    | 0            13095/ 44277                            |\n+-------------------------------+-----------------+------------------------------------------------------+\n| 38144   310P3                 | OK              | NA           64                0     / 0             |\n| 1       5                     | 0000:96:00.0    | 0            1601 / 43693                            |\n+===============================+=================+======================================================+\n| 43520   310P3                 | OK              | NA           65                0     / 0             |\n| 0       6                     | 0000:AB:00.0    | 0            1608 / 44277                            |\n+-------------------------------+-----------------+------------------------------------------------------+\n| 43520   310P3                 | Alarm           | NA           65                0     / 0             |\n| 1       7                     | 0000:AB:00.0    | 0            1340 / 43693                            |\n+===============================+=================+======================================================+\n+-------------------------------+-----------------+------------------------------------------------------+\n| NPU     Chip                  | Process id      | Process name             | Process memory(MB)        |\n+===============================+=================+======================================================+\n| 5664    0                     | 895887          |                          | 13017                     |\n| 5664    1                     | 3589835         |                          | 42753                     |\n+===============================+=================+======================================================+\n| No running processes found in NPU 16384                                                                |\n+===============================+=================+======================================================+\n| No running processes found in NPU 38144                                                                |\n+===============================+=================+======================================================+\n| No running processes found in NPU 43520                                                                |\n+===============================+=================+======================================================+\n",
+    "npu_smi_error": "",
+    "required_tools": true,
+    "tool_availability": {
+      "python3": true,
+      "torchrun": true,
+      "timeout": true,
+      "sha256sum": true,
+      "nm": true,
+      "npu-smi": true,
+      "readlink": true
+    },
+    "python_plugin_loaded_path_verified": false,
+    "loaded_plugin_note": "Read-only probe intentionally does not import vllm_ascend_C; the separate approved G0 process must verify Python-loaded plugin SO path"
+  },
+  "decision": {
+    "static_fingerprint_consistent": false,
+    "runtime_loaded_plugin_verified": false,
+    "G0_APPROVED": false,
+    "SMOKE_APPROVED": false,
+    "errors": [
+      "Missing/wrong approved fingerprint: device_so_sha256",
+      "Missing/wrong approved fingerprint: host_so_sha256",
+      "Missing/wrong approved fingerprint: host_python_sha256"
+    ],
+    "human_required": [
+      "Verify both device IDs belong to one physical 310P3 card; npu-smi snapshot alone does not prove it",
+      "Verify both dies exclusive and currently idle (processes/other tenant)",
+      "Verify actual loaded SO and KVER11 AICPU registration, not only on-disk SHA",
+      "Verify independent restore/rollback plan and backup SHA prior to any swap",
+      "Review Stock HCCL versus MemFabric independent communication process isolation",
+      "Approve G0 explicitly; then approve a separate M2048 smoke before screen"
+    ]
+  }
+}

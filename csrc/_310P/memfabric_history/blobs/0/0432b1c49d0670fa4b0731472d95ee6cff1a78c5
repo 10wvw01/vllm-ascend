@@ -1,0 +1,205 @@
+# 310P3 MemFabric 部署四个问题：发生了什么、怎么修的、怎么复现
+
+> **日期**：2026-10-28。
+> **这份文档讲什么**：2026-10-20 到 10-23 期间，MemFabric 在 310P3 服务器上部署和运行时出的四个问题。每个问题讲清当时看到的现象、背后的原因、后来怎么处理的；其中后两个问题（换卡后建池报 507899、serve 被“永不退出”的内核拖死）附上复现步骤，给需要验证或排查的人用。仓库里已有的报告（见文末“来源”）写得比较术语化，本文是通俗版，两者事实完全一致。
+> **两条底线**：① 本文没有做任何新实验，所有数字和结论都出自已归档的实机报告；② 复现步骤要动真机，必须先按[四卡选卡与 KFC 部署规则](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)取得授权、完成环境检查（G0），本文不构成自动执行许可。
+
+## 开始前先说清几个词
+
+- **Die（芯片）**：310P3 一张卡里有两个运算芯片，各叫一个 Die。本项目用一张卡上的两个 Die 做两路并行（TP=2），下文说“换卡”就是换这两个 Die。
+- **建池**：MemFabric 使用前要先创建一个两个 Die 共用的内存池并建立地址映射。这一步失败，后面什么都做不了。
+- **编排内核**：一个跑在 AI CPU 上的小程序，负责在两个 Die 之间搬运数据，文件名 `libmf_sdma_orch_v11.so`（v11 是版本号，其他文档里的 KVER11 就是“内核第 11 版”）。MemFabric 启动时要先把它装到设备上、再加载运行。
+- **KFC**：CANN 提供的系统通道，负责把 AI CPU 程序装到设备上并加载。MemFabric 装编排内核就靠它。
+- **逻辑卡号和物理卡号**：程序里看到的卡编号叫逻辑卡号，受环境变量 `ASCEND_RT_VISIBLE_DEVICES` 影响。比如设成 `6,7` 后，程序里的 0 号卡实际是硬件的 6 号；硬件的真实编号叫物理卡号。不设这个变量（或设成 `0,1`）时两个编号恰好相同，一些问题因此被藏住。
+
+## 一、四个问题
+
+### 问题一：系统里装的库，实际版本和标签对不上（10/20 发现）
+
+**现象**：检查 `/usr/local/memfabric_hybrid` 安装目录时发现，安装包自带的版本说明文件 `version.info` 写着版本 `2f59dedb`，但实际在用的核心库 `libmf_hybm_core.so` 是后来手动替换过的另一个版本。整个目录是三个时间、三个来源拼起来的（表中“文件指纹前缀”是 SHA256 的前 8 位，用来对上具体是哪个文件）：
+
+| 层 | 时间 | 动了什么 | 文件指纹前缀 | 来源 |
+|---|---|---|---|---|
+| ① 安装包 | 10-12 15:14–15:19 | 安装包的全部内容 | `daec2332`（libmf_smem.so 等） | `2f59dedb` 源码构建 |
+| ② 新增工具 | 10-19 01:40:44 | 新增 `orch_deploy_helper`（部署小工具） | `849f93c0` | 主仓 `tools/aicpu_kernel_deploy/` 构建 |
+| ③ 手动换库 | 10-19 02:15:07 | 核心库 `libmf_hybm_core.so` 换成新构建版本（Python 包目录里的副本同步替换） | `88d39285` | fix 分支工作树构建 |
+
+顺带发现一个文件名问题：启动配置 `libmf_sdma_orch_v11.json` 里写的内核文件名是 `libmf_sdma_orch_v11.so`，而安装目录里实际的文件叫 `libmf_sdma_orch.so`，配置里引用的文件名在安装目录里找不到。
+
+**原因**：10-19 为上线部署修复，把新构建的核心库直接覆盖进安装目录（这是当时有记录的修复动作），但安装包自带的版本标签不会跟着变；另外构建脚本按版本号生成了带 v11 字样的启动配置，而打包进安装目录的内核文件仍是老文件名，两边没对上。
+
+**怎么办**：不要信版本标签和文件名。确认版本时直接算文件指纹（完整 SHA256），再看 `cat /proc/<进程号>/maps` 里程序实际加载的是哪个文件。两处都要查，因为 MemFabric 的库在系统库目录和 Python 包目录各放一份，程序加载哪份不一定。原始细节见[310P3 版本溯源与资产保全报告](310P3_版本溯源与资产保全报告_20261020.md)。
+
+### 问题二：忘删的临时脚本骗过安装检查，内核没装上（10/23 发现）
+
+**现象**：换到 6/7 号 Die 上做实验，程序第一次启动编排内核时报 AICPU errorCode=0x2a，含义是“要加载的内核文件不存在”。
+
+**原因**：早前在 0/1 号 Die 上排查程序卡死时，部署小工具有“退出时挂住”的毛病，为了绕开它，临时设过环境变量 `MF_SDMA_ORCH_DEPLOY_HELPER`，指向一个什么都不做、只回答“内核已经装好了”的假脚本。这个捷径在 0/1 号上是安全的，因为那里的内核确实已经手工装好并验证过（三重验证）。换到 6/7 号后，设备上其实没有内核，假脚本仍回答“装好了”，MemFabric 信了它、跳过真正的安装，到加载时才发现文件不存在。
+
+**怎么办**：删掉假脚本后自动安装恢复正常，6 号 Die 从零安装成功。经验教训已写进规范：这类“骗过检查”的临时捷径，用完必须马上删；每次换环境，先检查有没有这种遗留的覆盖脚本。
+
+### 问题三：换卡后建池报 507899（10/23 发现，可复现）
+
+**现象**：设 `ASCEND_RT_VISIBLE_DEVICES=6,7` 换卡后，建池在“给内存登记访问权限”这一步（源码位置 `hybm_gva.cpp:82`）报错误码 507899，建池失败。
+
+**原因**：同一个“设备编号”参数，CANN 的两个接口认的含义不一样。实测结果：
+
+| 接口 | 填逻辑卡号 | 填物理卡号 |
+|---|---|---|
+| `aclrtMallocPhysical`（申请物理内存） | 成功 | 报错 107001 |
+| `aclrtMemSetAccess`（给内存设访问权限） | **报错 507899** | 成功 |
+
+不设环境变量或设 `0,1` 时，两个编号恰好相同，两边都拿到对的编号，问题看不出来；设成 `6,7` 这种错开的列表后，程序把逻辑 0 号当成物理 0 号去设权限，而这块内存在物理 6 号上，权限设置失败，报 507899。
+
+**怎么修的**：改 MemFabric 的 Host 库：新增换算函数 `HybmPhysicalDeviceIdOf`，按 CANN 相同的规则把逻辑卡号换算成物理卡号，在调用 `aclrtMemSetAccess` 的三个位置（内存池登记、本 Die 内存段、对端 Die 内存段）换算后再传入；申请内存的接口不动。修好后的库文件指纹前缀 `1dc46d7d`，在 6/7 号 Die 上验证：建池成功，8 种形状的双 Rank 逐位比对全部通过。
+
+复现方法见第二节。
+
+### 问题四：内核设成“永不退出”模式后，serve 必挂（10/23 发现，可复现）
+
+**现象**：编排内核以“永不退出”模式运行（把环境变量 `MF_SDMA_ORCH_EPOCH_BUDGET_S` 设成特殊值 `4294967295`）时，起 serve 服务后进程很快死掉，错误码 507017。
+
+**原因**：PyTorch 的 NPU 版在分配显存时，内部会做一次“等所有设备、所有任务全部跑完”的全局等待，没有任何例外。一个永不退出的内核任务让这个等待永远等不完，serve 就死在那里。
+
+**怎么修的**：从 v11 版起（库提交 `2f59dedb`，2026-10-12），编排内核默认改成“限时轮班”：系统每 0.1 秒发一次心跳，内核数到 15 秒就自己退出；旁边的看护线程每 0.1 秒检查一次，发现内核退了就重新拉起。这样全局等待最多卡约 1.5 倍时限就能解除，不会再永远卡死。内核退出到重启之间有 0.1～0.3 秒空档，这期间新请求排队、不丢失。那个“永不退出”的值只用于诊断，禁止出现在正式服务和性能测试里。
+
+复现方法见第二节。
+
+## 二、后两个问题的复现步骤
+
+### 2.1 复现 507899
+
+#### 方法 A：用一个小测试程序直接验证（推荐）
+
+这个办法不碰 MemFabric，只直接调 CANN 的两个接口，最快最安全。程序源码留在服务器 `/tmp/opencode/d4/vmm_probe.c`（临时目录可能被清理，全文备份在下面，共 52 行）。
+
+程序做的事：申请一块 2MB 物理内存、映射、设置访问权限、释放，把每步的返回码打印出来。两个命令行参数分别是“设权限”和“申请内存”要填的设备编号。
+
+```c
+/* D4 环境探针：验证 aclrt VMM API 的 location.id 命名空间（逻辑 vs 物理）。
+ * 用法: vmm_probe <setaccess_location_id> [malloc_location_id]
+ * 在 ASCEND_RT_VISIBLE_DEVICES=2,3、当前设备=逻辑0(物理2) 下运行矩阵：
+ *   (malloc_id, set_id) ∈ {0,2}²，对照 VISIBLE=0,1 的 (0,0)。 */
+#include <stdio.h>
+#include <stdlib.h>
+#include "acl/acl_rt.h"
+
+int main(int argc, char **argv)
+{
+    if (argc < 2) { printf("usage: %s <set_id> [malloc_id]\n", argv[0]); return 2; }
+    int set_id = atoi(argv[1]);
+    int malloc_id = (argc > 2) ? atoi(argv[2]) : 0;
+    aclError r = aclInit(0);
+    if (r && r != 100000 /* already inited */) { printf("aclInit ret=%d\n", (int)r); return 2; }
+    r = aclrtSetDevice(0);
+    if (r) { printf("SetDevice(0) ret=%d\n", (int)r); return 2; }
+
+    void *va = 0;
+    const size_t sz = 2UL * 1024 * 1024;
+    r = aclrtReserveMemAddress(&va, sz, 0, 0, 0);
+    printf("reserve ret=%d va=%p\n", (int)r, va);
+    if (r) return 1;
+
+    aclrtPhysicalMemProp prop = {};
+    prop.handleType = ACL_MEM_HANDLE_TYPE_NONE;
+    prop.allocationType = ACL_MEM_ALLOCATION_TYPE_PINNED;
+    prop.memAttr = ACL_MEM_P2P_HUGE;
+    prop.location.id = (uint32_t)malloc_id;
+    prop.location.type = ACL_MEM_LOCATION_TYPE_DEVICE;
+    aclrtDrvMemHandle h = 0;
+    r = aclrtMallocPhysical(&h, sz, &prop, 0);
+    printf("malloc_physical(id=%d) ret=%d\n", malloc_id, (int)r);
+    if (r) { aclrtReleaseMemAddress(va); return 1; }
+
+    r = aclrtMapMem(va, sz, 0, h, 0);
+    printf("map ret=%d\n", (int)r);
+    if (r) { aclrtFreePhysical(h); aclrtReleaseMemAddress(va); return 1; }
+
+    aclrtMemAccessDesc acc = {};
+    acc.flags = ACL_RT_MEM_ACCESS_FLAGS_READWRITE;
+    acc.location.id = (uint32_t)set_id;
+    acc.location.type = ACL_MEM_LOCATION_TYPE_DEVICE;
+    r = aclrtMemSetAccess(va, sz, &acc, 1);
+    printf("set_access(id=%d) ret=%d %s\n", set_id, (int)r, r == 0 ? "OK" : "FAIL");
+
+    (void)aclrtUnmapMem(va);
+    (void)aclrtFreePhysical(h);
+    (void)aclrtReleaseMemAddress(va);
+    (void)aclrtResetDevice(0);
+    return r != 0;
+}
+```
+
+编译（按现场 CANN 安装路径调整）：
+
+```bash
+gcc vmm_probe.c -I/usr/local/Ascend/cann-9.1.0/include \
+  -L/usr/local/Ascend/cann-9.1.0/lib64 -lascend_cl -o vmm_probe
+```
+
+运行（前提：授权会话、健康独占的卡、G0 通过；程序只使用当前逻辑设备）：
+
+```bash
+export ASCEND_RT_VISIBLE_DEVICES=2,3   # 或 6,7；此时程序里的 0 号卡 = 硬件的 2 号
+./vmm_probe 0 0
+./vmm_probe 2 2
+./vmm_probe 2 0
+```
+
+预期结果：
+
+| 命令 | 预期输出 | 说明 |
+|---|---|---|
+| `./vmm_probe 0 0` | 申请内存成功；**设置权限报 507899** | **复现点**。两个接口都拿到逻辑号，设权限这步去了错误的设备 |
+| `./vmm_probe 2 2` | **申请内存报 107001** | 反过来也不行：申请内存要逻辑号，拿到物理号就报错 |
+| `./vmm_probe 2 0` | 全部成功 | 申请内存给逻辑号、设权限给物理号，各取所需，正是补丁的做法 |
+
+对照实验：把 `ASCEND_RT_VISIBLE_DEVICES` 设成 `0,1` 再跑 `./vmm_probe 0 0`，会全部成功。两个编号恰好相同，问题被藏住，这解释了为什么这个缺陷一直没被发现。
+
+程序只申请并释放 2MB 内存，不留残留。
+
+#### 方法 B：完整流程复现（让建池真的失败）
+
+1. 找出没修过的旧版库：`/tmp/opencode/d4/c0/backup_hostso_20261023T153335/libmf_hybm_core.so.orig`（指纹前缀 `88d39285`）；
+2. 拷到自己的目录，用 `LD_LIBRARY_PATH` 指向它来加载，不要覆盖系统里的任何文件；进程起来后用 `cat /proc/<进程号>/maps` 确认加载的确实是这份旧库；
+3. 设 `ASCEND_RT_VISIBLE_DEVICES=6,7`（以现场核实的健康独占卡为准）；
+4. 跑一次首次建池（例如授权后的 `mf310p_v2_trial_create` 或 M2048 短冒烟）。
+
+**预期**：建池在权限登记这步报 507899 失败。**对照**：同一会话换成加载修好的库（指纹前缀 `1dc46d7d`），步骤不变，建池成功。一新一旧各跑一遍，问题归属就清楚了。
+
+### 2.2 复现 507017（serve 被永不退出的内核拖死）
+
+前提：授权会话、健康独占的双 Die 卡、G0 通过、当前 v11 版环境（默认就是限时轮班模式）。
+
+```bash
+# 切到"永不退出"模式（只许诊断用，测完必须删掉这个变量）：
+export MF_SDMA_ORCH_EPOCH_BUDGET_S=4294967295
+# 起融合 serve 的参考环境变量（G3 用过的那套，按当次 G0 冻结值调整）：
+export VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1
+export VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE=1
+export VLLM_ASCEND_310P_MEMFABRIC_V2_CHUNK_ROWS=1024
+export VLLM_ASCEND_310P_MEMFABRIC_V2_OUTPUT_SLOTS=4
+export VLLM_ASCEND_310P_MEMFABRIC_STORE_URL=tcp://127.0.0.1:8581
+export MF_SDMA_ORCH_JSON=<run包>/libmf_sdma_orch_v11.json
+# 然后按正常流程启动 TP=2 融合 serve、加载模型
+```
+
+**预期**：建池成功、内核以“永不退出”模式驻留后，PyTorch 一分配显存就触发全局等待并卡死，serve 进程以 507017 死亡（历史实测的死法）。**对照**：删掉 `MF_SDMA_ORCH_EPOCH_BUDGET_S` 这一行（恢复默认 15 秒限时轮班），同样负载下 serve 正常。
+
+## 三、复现时要遵守的规矩
+
+1. **先拿授权再动手**：两类复现都是真机操作。按 [ADR-014](DECISIONS.md) 和[四卡选卡与 KFC 部署规则](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)：先对四张卡做只读巡检，挑一张两个 Die 都健康、没人占用的卡，做完 G0 环境检查，然后才允许跑。
+2. **出错立即停**：出现预期之外的错误（507014、507899、0x2a、卡死），马上停，保存两个 Rank 的日志和设备状态，不要自己换一张卡接着试，那会把一次故障变成四次。
+3. **“永不退出”模式只许诊断用**：`4294967295` 不许进入任何正式性能对比，复现完立即删掉该环境变量。
+4. **新旧库对比一律用私有目录加载**：`LD_LIBRARY_PATH` 加载加 `cat /proc/<进程号>/maps` 验证，不覆盖系统安装，测完不需要恢复。
+5. **不许设假脚本**：不要设置任何 `MF_SDMA_ORCH_DEPLOY_HELPER` 覆盖。
+6. **测完清理**：`vmm_probe` 程序和临时库目录可以删掉，源码已全文备份在本文 2.1 节。
+
+## 来源
+
+1. [310P3 版本溯源与资产保全报告（2026-10-20）](310P3_版本溯源与资产保全报告_20261020.md)——问题一的原始细节。
+2. [MemFabric 310P 多卡部署与 KFC 自动部署链实机总结（2026-10-23）](MEMFABRIC_310P_KFC_DEPLOY_AND_DEVICE_PIVOT_20261023.md)——问题二、三、四的原始记录；复现方法 A 的出处。
+3. [V2 G3 Qwen E2E 报告](V2_G3_QWEN_E2E_REPORT.md) §4.3——KFC 问题的根因（背景）；serve 环境变量参考。
+4. [四卡动态选卡与 KFC 自动部署准入规范（ADR-014，2026-10-26）](310P3_四卡动态选卡与KFC自动部署准入规范_20261026.md)——第三节的规矩出处。
+5. [融合算子专项总结（2026-10-28）](阶段性总结/融合算子专项总结_20261028.md) §10.1——KFC 相关问题的完整时间线（术语版，可与本文互相对照）。
+6. 服务器上的实物：`/tmp/opencode/d4/vmm_probe.c`（测试程序源码，全文备份于本文 2.1 节）；`/tmp/opencode/d4/c0/backup_hostso_20261023T153335/libmf_hybm_core.so.orig`（旧版未修复库文件，指纹前缀 `88d39285`）。

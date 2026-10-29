@@ -1,0 +1,126 @@
+{
+  "experiment": "U1_SMOKE_ONLY",
+  "scope": "large",
+  "phase": "smoke",
+  "session": "02_large_memfabric_d4",
+  "stage": 2,
+  "arm": "memfabric_d4",
+  "rank": 0,
+  "M_order": [
+    2048
+  ],
+  "TP": 2,
+  "K": 2048,
+  "N": 2048,
+  "dtype": "fp16",
+  "reference": "CPU_GLOO_FP32_SUM_TO_FP16",
+  "stock_collective": "FP16_HCCL_no_FP32_conversion",
+  "comm_isolation": "separate process; never HCCL with MemFabric pool",
+  "device_so_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "plugin_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+  "host_so_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+  "kver11_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+  "profile": false,
+  "results": {
+    "2048": {
+      "M": 2048,
+      "arm": "memfabric_d4",
+      "warmup": 3,
+      "iters": 6,
+      "samples": [
+        {
+          "i": 0,
+          "variant": 1,
+          "event_us": 1335.104,
+          "wall_us": 1405.97
+        },
+        {
+          "i": 1,
+          "variant": 0,
+          "event_us": 1331.614,
+          "wall_us": 1405.04
+        },
+        {
+          "i": 2,
+          "variant": 1,
+          "event_us": 1361.667,
+          "wall_us": 1439.38
+        },
+        {
+          "i": 3,
+          "variant": 0,
+          "event_us": 1342.839,
+          "wall_us": 1425.05
+        },
+        {
+          "i": 4,
+          "variant": 1,
+          "event_us": 1379.297,
+          "wall_us": 1451.5
+        },
+        {
+          "i": 5,
+          "variant": 0,
+          "event_us": 1254.245,
+          "wall_us": 1325.78
+        }
+      ],
+      "status": 0,
+      "bit_exact": true
+    },
+    "_anchor_after": {
+      "M": 2048,
+      "samples": [
+        {
+          "i": 0,
+          "variant": 0,
+          "wall_us": 1407.47,
+          "event_us": 1325.521
+        },
+        {
+          "i": 1,
+          "variant": 1,
+          "wall_us": 1478.89,
+          "event_us": 1405.468
+        },
+        {
+          "i": 2,
+          "variant": 0,
+          "wall_us": 1448.76,
+          "event_us": 1379.453
+        },
+        {
+          "i": 3,
+          "variant": 1,
+          "wall_us": 1418.31,
+          "event_us": 1346.641
+        },
+        {
+          "i": 4,
+          "variant": 0,
+          "wall_us": 1450.47,
+          "event_us": 1378.958
+        },
+        {
+          "i": 5,
+          "variant": 1,
+          "wall_us": 1449.57,
+          "event_us": 1384.974
+        },
+        {
+          "i": 6,
+          "variant": 0,
+          "wall_us": 1300.9,
+          "event_us": 1230.052
+        },
+        {
+          "i": 7,
+          "variant": 1,
+          "wall_us": 1331.19,
+          "event_us": 1262.11
+        }
+      ]
+    }
+  },
+  "event_semantics": "NPU stream bracketing, may include Host enqueue gaps, not pure kernel cycles"
+}

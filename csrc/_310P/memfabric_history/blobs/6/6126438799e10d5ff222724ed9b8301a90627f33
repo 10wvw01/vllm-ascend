@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1142" viewBox="0 0 1400 1142" role="img">
+<title>V1/V2 性能与稳定性排障图解</title>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1A5EA8"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1142" fill="#FBFCFE"/>
+<g font-family="Noto Sans CJK SC, Source Han Sans SC, Microsoft YaHei, PingFang SC, Arial, sans-serif"><rect x="12" y="12" width="1376" height="80" rx="20" fill="#133858" stroke="#133858" stroke-width="2"/>
+<text x="42" y="64" fill="#FFFFFF" font-size="32" font-weight="700" text-anchor="start">图解三：Gate E 507014 究竟卡在哪？</text>
+<text x="1358" y="63" fill="#D7EAFB" font-size="17" font-weight="500" text-anchor="end">已确认的事实 vs 尚未完成的根因定性</text>
+<rect x="45" y="112" width="1310" height="77" rx="14" fill="#FFF0F0" stroke="#E3A0A4" stroke-width="2"/>
+<text x="75" y="144" fill="#BC3A3E" font-size="24" font-weight="700" text-anchor="start">现象：真实 Eager 中，两个 Worker 偶发 507014，服务停下来</text>
+<text x="75" y="173" fill="#19354F" font-size="18" font-weight="500" text-anchor="start">大白话：一边等对端送达通知，等不到，另一边又被后续依赖拖住。</text>
+<text x="45" y="229" fill="#133858" font-size="24" font-weight="700" text-anchor="start">一条完整的取证路径</text>
+<rect x="45" y="251" width="306" height="154" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="65" y="285" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">G1-A：确认故障</text>
+<text x="65" y="318" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">表面常报 SwiGlu/EventSync</text>
+<text x="65" y="356" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">不能把报错处当第一根因</text>
+<rect x="381" y="251" width="306" height="154" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="401" y="285" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">G1-B：排查控制面</text>
+<text x="401" y="318" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">检查请求环、Epoch、SQ</text>
+<text x="401" y="356" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">未发现持续积压</text>
+<rect x="715" y="251" width="306" height="154" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="735" y="285" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">G1-C：找到等待点</text>
+<text x="735" y="318" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">Core0 停在 wait_at</text>
+<text x="735" y="356" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">其他 Core 多在等 IB</text>
+<rect x="1050" y="251" width="305" height="154" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="1070" y="285" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">G1-D：锁定目标邮件</text>
+<text x="1070" y="318" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">找到 ARR 旧 stamp 和 seq</text>
+<text x="1070" y="356" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">错误缩小到特定交接链</text>
+<path d="M352 326 L376 326" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M688 326 L710 326" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M1022 326 L1046 326" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="45" y="452" fill="#133858" font-size="24" font-weight="700" text-anchor="start">D1R4 故障现场（这里有过一次关键语义更正）</text>
+<rect x="45" y="476" width="623" height="176" rx="14" fill="#FFF0F0" stroke="#E4A3A3" stroke-width="2"/>
+<text x="65" y="510" fill="#BC3A3E" font-size="22" font-weight="700" text-anchor="start">rank0 / dev0</text>
+<text x="65" y="543" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">接收消费游标 ArrHead = 8632</text>
+<text x="65" y="581" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">等待的槽位 440；期待序号 8633</text>
+<text x="65" y="619" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">实际读到旧 stamp = 7609</text>
+<rect x="694" y="476" width="661" height="176" rx="14" fill="#FFF0F0" stroke="#E4A3A3" stroke-width="2"/>
+<text x="714" y="510" fill="#BC3A3E" font-size="22" font-weight="700" text-anchor="start">rank1 / dev1</text>
+<text x="714" y="543" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">接收消费游标 ArrHead = 8634</text>
+<text x="714" y="581" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">等待的槽位 442；期待序号 8635</text>
+<text x="714" y="619" fill="#19354F" font-size="21" font-weight="450" text-anchor="start">实际读到旧 stamp = 7611</text>
+<rect x="45" y="674" width="1310" height="64" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="700" y="713" fill="#9E6B0B" font-size="19" font-weight="700" text-anchor="middle">注意：ArrHead 是接收方的消费游标；真正被等的槽是 head 本位（440/442），不是 head-1。</text>
+<rect x="45" y="761" width="622" height="159" rx="14" fill="#ECF8F2" stroke="#9BCEB4" stroke-width="2"/>
+<text x="65" y="795" fill="#16794C" font-size="22" font-weight="700" text-anchor="start">目前可以证明</text>
+<text x="65" y="828" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">V2 在 wait_at 等邮件时未返回</text>
+<text x="65" y="858" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">Host 看到接收槽仍是上圈旧值</text>
+<text x="65" y="888" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">SQ 控制面没有持续堆积</text>
+<rect x="694" y="761" width="661" height="159" rx="14" fill="#FFF0F0" stroke="#E4A3A3" stroke-width="2"/>
+<text x="714" y="795" fill="#BC3A3E" font-size="22" font-weight="700" text-anchor="start">目前仍不能证明</text>
+<text x="714" y="828" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">是哪条 SQE 组装、提交或执行出错</text>
+<text x="714" y="858" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">接收缓存可见性与接口合同的责任边界</text>
+<text x="714" y="888" fill="#19354F" font-size="19" font-weight="450" text-anchor="start">MemFabric 软件 BUG 或 V2 完全免责</text>
+<rect x="45" y="942" width="1310" height="112" rx="14" fill="#EBF4FD" stroke="#1A5EA8" stroke-width="2"/>
+<text x="73" y="978" fill="#1A5EA8" font-size="23" font-weight="700" text-anchor="start">下一步交给 MemFabric 联合取证：同一封邮件的三条 SQE</text>
+<text x="73" y="1014" fill="#19354F" font-size="18" font-weight="500" text-anchor="start">数据拷贝 SQE → stamp 写入 SQE → mail 通知 SQE；逐件核对目的地址、执行回执、最终接收值</text>
+<text x="73" y="1043" fill="#19354F" font-size="18" font-weight="500" text-anchor="start">保留双 Rank 原始 plog / serve.log / SHA256；证据闭环后再单变量修复和长稳。</text>
+<rect x="45" y="1072" width="1310" height="53" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="700" y="1106" fill="#9E6B0B" font-size="20" font-weight="700" text-anchor="middle">阶段结论：高度怀疑 MemFabric 投递或可见性链路，但根因未正式闭环，Gate E P0 OPEN。</text></g>
+</svg>

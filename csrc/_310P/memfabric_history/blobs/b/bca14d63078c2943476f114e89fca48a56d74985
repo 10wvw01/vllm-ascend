@@ -1,0 +1,13 @@
+{
+  "l2_verified_report": "l2_verified_report.json",
+  "session_dirs": {"l2_stock": "../l2/l2_stock", "l2_v2": "../l2/l2_v2"},
+  "site_level_summary": {
+    "stock_mm_nz_us_p50": {"rank0": 751.9, "rank1": 752.1},
+    "stock_hccl_ar_us_p50": {"rank0": 1390.9, "rank1": 1165.5},
+    "stock_chain_us_p50": {"rank0": 2142.8, "rank1": 1917.6},
+    "v2_fused_kernel_us_p50": {"rank0": 2510.8, "rank1": 2429.7},
+    "verdict": "V2 fused kernel is ~370us SLOWER per site than real Stock NZ-MM+HCCL chain on device critical path; U1 row-major F.linear stock baseline (1869us MM-only) is NOT representative of the real model NZ-weight site",
+    "copy_us": "zero contiguous copy at sites (aligned=True first-call gate)",
+    "u1_vs_real_discrepancy": "U1 L1 said V2 +21~22% (vs row-major stock); real L2 site says V2 -17% slower; root cause is stock weight layout (NZ) not reproduced in U1"
+  }
+}

@@ -1,0 +1,81 @@
+# SEL-01｜Stock / V1 / V2 同场 Eager 选型计划及执行门禁
+
+> 版本：2026-10-24 · **状态：已执行完毕（2026-10-24）。结果：V1 判 PERF_EVALUATION_BLOCKED_BY_STABILITY（3 次自然尝试 0/3，纯 decode 相位双 die 自旋死锁）；V2 vs Stock 吞吐中位 +1.12% 且方向不一致，未达 ≥5% 门槛——保持 Stock 为产品默认路径。详见执行报告 `SEL01_STOCK_V1_V2_EAGER_4096_2048_TP2_BATCH10_REPORT_20261024.md` 与证据 `../evidence/sel01_20261024/`。**  
+> 技术负责人：我（路线设计/证据审查）；实机执行：OpenCode。  
+> 源码分支：`perf/310p-sel01-three-arm-eager-c2-audit-20261024`（基于已经通过 D4 的 V2 Tile2048）。  
+> 本轮**性能优先**，不主动启动长期 Gate E 修复；若 507014 直接造成真实 Eager 无法收集有效性能样本，则按用户要求视为**性能验收阻塞**，先做最少必要的取证和解除阻塞。
+
+## 1. 五个不能改变的参数
+
+| 参数 | 必须采用 |
+|---|---|
+| 模型 | `Qwen3.6-35B-A3B-w8a8`，本地相同权重 |
+| **输入** | **4096 Token / 请求**，逐请求验证 `input_lens=4096` |
+| **输出** | **2048 Token / 请求**，`--ignore-eos`，逐请求验证 `output_lens=2048`；**不允许512** |
+| TP | **2**，同一对 310P3 die |
+| **batch** | **10**：压测最大并发 `--max-concurrency 10` + vLLM最大活跃序列 `--max-num-seqs 10`；并单独确认各步实际模型 batch，因为 vLLM 动态调度不能从“并发10”反推每步都严格等于10 |
+| Eager | `--enforce-eager`；禁用 DFlash、Graph 等额外变量 |
+| 负载 | 同一50条请求，先5条暖机，重复两轮顺/逆交叉 |
+| 融合范围 | Qwen3.6 全注意力 `o_proj` + GDN `out_proj` 40层，核验每张卡 |
+| V1 | q=1（`batch_basem_count=1`），走现有 V1 公共API链路；q=2/4 后续可作为独立V1调参项目 |
+| V2 | 4 Chunk、chunk_rows1024、overlap1、**已通过D4的Tile2048**。C3 CleanLines 候选不参与SEL-01！ |
+
+**为什么必须强调 batch？** 旧脚本虽在压测端设并发10，却设置了 `--max-num-seqs 16`。SEL-01 已增加配置入口，并明确设为10。但调度器运行中的 Prefill/Decode 可能随请求进度变成1～10；只有额外的请求/调度证据才能断言“真实batch10”。因此统一测试类型称为“batch10上限/并发10”实际Eager对照，不能冒充“每一步满10的纯算子实验”。
+
+## 2. 谁跟谁比：三臂定义与防污染
+
+| Arm | vLLM 路由 | 正式服务实现 | 正确性与取证要求 |
+|---|---|---|---|
+| Stock | 不设 MemFabric enable | 原生MM+HCCL | 确认没有开启任何融合层 |
+| V1 | `VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1`，**无**V2 serving环境变量 | V1 + MemFabric，q=1 | 每个Rank 40层日志使能 + 独立设备Trace证明V1 kernel确实执行 |
+| V2 | MemFabric enable **并设** `VLLM_ASCEND_310P_MEMFABRIC_MM_AR_V2_SERVE=1` | V2 Tile2048正式生产核，M2048～4096才融合，其余回退Stock | 每个Rank 40层使能 + `[mf310p-v2] M=`真实执行标记 + 独立设备Trace |
+
+V1 与 V2的低M调用路由**并不完全相同**，这是两个现有产品策略的真实比较，不得谎称所有Decode站点的底层Kernel完全对等；必须统计实际每站路径，并说明差异。**只能比端到端真实模型指标，不能把V1单层2.808ms与V2其他会话强行混算。**
+
+同一模型、设备、CANN/torch/torch_npu/vllm、MemFabric KVER11 Host与Device SO、JSON、插件/Host ABI 均记录SHA256；必须固定设备独占并防止G1-D遗留实验库。若改用dev6/7而Host仍存在物理号映射问题，需用同一修复过且可回滚的Host版本跑所有Arm，不能半路换库。若任何Arm的路由命中失效，停止当前选择，不填“Stock/V1/V2谁赢”。
+
+## 3. OpenCode 实机执行方法（只需一个实验分支）
+
+拉取分支；本地先做静态单元测试：
+
+```bash
+python3 -m pytest -q tests/e2e/_310p/test_sel01_source_contract.py
+```
+
+在已确认独占的 TP2 卡对，固定本地模型路径（示例按现场替换）：
+
+```bash
+export MEMFABRIC_MM_AR_E2E_MODEL=/home/models/Qwen3.6-35B-A3B-w8a8
+export MEMFABRIC_MM_AR_E2E_DEVICES=0,1
+export MEMFABRIC_MM_AR_E2E_ORCH_JSON=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json
+# 人工审核运行时真实SO/KVER哈希、确认独占设备，才允许执行：
+export SEL01_APPROVED_ENV=YES
+bash tests/e2e/_310p/sel01_three_arm_eager.sh /tmp/opencode/sel01_20261024_run01
+```
+
+入口自动采用两个 `Stock→V1→V2→V2→V1→Stock` 的交叉序列，12个独立服务器会话；每场调用原生`vllm serve`和`vllm bench serve`，源参数全部写死4096/2048/TP2/10，不会继承D4的512。
+
+**必须人工先完成一个独立、不计入性能的三臂设备Trace校验**：Stock呈现原生MM+HCCL；V1/V2各自实际执行对应Kernel，并确认真实目标40层（如Rank日志重复记数是80，要以“每Rank40”为准）。将这一审核结果保存在`route_audit.json`：
+```json
+{
+  "stock": {"device_trace_verified": true, "description": "Stock MM+HCCL confirmed"},
+  "v1": {"device_trace_verified": true, "description": "V1 real kernel symbol/40 target layers confirmed"},
+  "v2": {"device_trace_verified": true, "description": "V2 TrialKernel/40 target layers confirmed"}
+}
+```
+只有实际Trace核对完成才能写`true`，不能为了让报表显示PASS手填。缺这一文件，自动分析仍会给出原始性能表，但把最终结论标为`NO_DECISION_MISSING_DEVICE_ROUTE_PROOF`。
+
+## 4. 计时、失败与最终选型
+
+- 比`output_throughput`、TTFT/TPOT/ITL p50/p90/p99、完成率、错误和原始会话散布；主要业务目标是**输出吞吐稳定正向**且TTFT/TPOT没有实质退化。
+- **三臂每个请求真实`input_lens=4096`、`output_lens=2048`**；如任意一个请求被缩短或失败，本场**不计入性能收益**，不偷偷删掉失败样本凑“稳定提升”。
+- 12场交叉、每Arm4场；须查看不同时间段收益是否一致。建议把**≥5%真实输出吞吐提升且跨轮次方向一致**作为“明显正向”的候选门槛，低于此（例如D4成功会话的+1.86%）只作为方向性信号，不能据此拍板。
+- 如果某Arm因507014中断，原始日志与失败场必须保留；若失败频率让此Arm无法得到同配置有效样本，判为`PERF_EVALUATION_BLOCKED_BY_STABILITY`，按用户要求**只先排除影响性能测量的阻塞，不立即开展全面稳定性改造**。
+- 若V1/V2都未显著好于Stock，保持Stock作为产品默认路径，C线实验仍可设计，但新性能代码不直接合入。
+- 不能把与D4不同卡对、输出512或不同Host SO的旧统计加入这次三方选型。
+
+## 5. A 与 C 工作衔接
+
+本实验只包含**已验证单算子优化的V2 Tile2048**，而非正在开发的C3候选。C线当前首选为“保留所有缓存清理操作，仅展开循环控制”，是独立分支、独立A/B，不能污染这次选型。
+
+SEL-01 成果一旦明确证明V1显著优于V2与Stock，我会改变优化资源分配，而不是为了V2已投入较多而继续盲目优化。如果SEL-01被反复挂死阻塞，则优先针对导致性能无法评估的通信故障做最小定因，再继续路线比较。

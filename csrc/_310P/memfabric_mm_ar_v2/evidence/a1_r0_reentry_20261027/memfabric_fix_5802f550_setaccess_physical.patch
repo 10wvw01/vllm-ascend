@@ -1,0 +1,111 @@
+commit 5802f55026c16e153e783d8ef26a29f813d63dd9
+Author: 10wvw01 <iseeyouxms@gmail.com>
+Date:   Fri Oct 23 15:50:55 2026 +0000
+
+    fix(310p): convert logical device id to physical for aclrtMemSetAccess
+    
+    CANN 9.1 VMM namespace split (probed on 310P3): aclrtMallocPhysical
+    takes the ASCEND_RT_VISIBLE_DEVICES logical id while aclrtMemSetAccess
+    takes the global physical id. The library fed the logical id (from
+    aclrtGetDevice) to both, which only worked under identity mapping
+    (visible list unset or 0,1). On non-zero-origin visible lists (2,3 /
+    6,7) meta-region authorization fails with 507899 DRV_INTERNAL_ERROR.
+    
+    Add HybmPhysicalDeviceIdOf() in hybm_define.h (parses the visible list
+    with CANN-runtime-equivalent semantics, identity fallback on unset/
+    malformed/short lists) and use it at the three AclrtMemSetAccess sites
+    (meta region, own segment, imported peer segment). All other VMM calls
+    keep the logical id. Protocol, IB/SDMA/DONE, cache visibility and the
+    AICPU kernel are untouched; identity-mapped behavior is unchanged.
+    
+    Validated on dev6/7 (43520 card, ASCEND_RT_VISIBLE_DEVICES=6,7): pool
+    creation passes, KFC auto-deploy completes on fresh dies, trial
+    correctness matrix 8 shapes x 2 ranks bit-exact with status=0.
+    
+    Signed-off-by: 10wvw01 <iseeyouxms@gmail.com>
+
+diff --git a/src/hybm/csrc/common/hybm_define.h b/src/hybm/csrc/common/hybm_define.h
+index 2a8aa618..8ec9e3f1 100644
+--- a/src/hybm/csrc/common/hybm_define.h
++++ b/src/hybm/csrc/common/hybm_define.h
+@@ -15,12 +15,45 @@
+ #include <netinet/in.h>
+ #include <cstdint>
+ #include <cstddef>
++#include <cstdlib>
+ #include <vector>
+ #include "mf_out_logger.h"
+ 
+ namespace ock {
+ namespace mf {
+ 
++/* ACL VMM aclrtMemSetAccess 的 location.id 需要全局物理设备号， 而本库全链设备号
++ * 来自 aclrtGetDevice 的逻辑号(ASCEND_RT_VISIBLE_DEVICES 重映射后的连续编号)。
++ * identity 映射(未设置可见列表或 "0,1")下二者恒等故从未暴露； 非零起点可见列表
++ * (如 "2,3")下 SetAccess 以逻辑号授权会 507899(实测定位于驱动内部错误)。
++ * 按 CANN 运行时同款语义解析可见列表， 将逻辑号换算为物理号； 仅 SetAccess 消费，
++ * aclrtMallocPhysical 等其余 VMM API 实测要求逻辑号， 保持原值不改。 */
++inline uint32_t HybmPhysicalDeviceIdOf(uint32_t logicDevId)
++{
++    const char *vis = std::getenv("ASCEND_RT_VISIBLE_DEVICES");
++    if (vis == nullptr || *vis == '\0') {
++        return logicDevId; // 未设置: 逻辑==物理
++    }
++    uint32_t idx = 0;
++    const char *p = vis;
++    while (*p != '\0') {
++        char *end = nullptr;
++        const unsigned long v = std::strtoul(p, &end, 10);
++        if (end == p) {
++            break; // 解析失败: 退回 identity
++        }
++        if (idx == logicDevId) {
++            return static_cast<uint32_t>(v);
++        }
++        ++idx;
++        p = (*end == ',') ? end + 1 : end;
++        while (*p == ' ') {
++            ++p; // 容忍逗号后空格
++        }
++    }
++    return logicDevId; // 列表短于逻辑号(异常): 退回 identity
++}
++
+ constexpr uint64_t KB = 1024ULL;
+ constexpr uint64_t MB = KB * 1024ULL;
+ constexpr uint64_t GB = MB * 1024ULL;
+diff --git a/src/hybm/csrc/driver/hybm_gva.cpp b/src/hybm/csrc/driver/hybm_gva.cpp
+index eaf752d9..1221fb71 100644
+--- a/src/hybm/csrc/driver/hybm_gva.cpp
++++ b/src/hybm/csrc/driver/hybm_gva.cpp
+@@ -75,7 +75,7 @@ static int32_t MetaSetDeviceAccess(uint16_t deviceId, size_t allocSize)
+ {
+     aclrtMemAccessDesc acc{};                                            // 访问权限描述符
+     acc.flags = aclrtMemAccessFlags::ACL_RT_MEM_ACCESS_FLAGS_READWRITE;  // 读写权限
+-    acc.location.id = static_cast<uint32_t>(deviceId);                   // 授权设备号
++    acc.location.id = HybmPhysicalDeviceIdOf(static_cast<uint32_t>(deviceId)); // 授权设备号(SetAccess 需物理号)
+     acc.location.type = aclrtMemLocationType::ACL_MEM_LOCATION_TYPE_DEVICE; // 授权类型: 设备侧
+     auto ret = DlAclApi::AclrtMemSetAccess(reinterpret_cast<void *>(HYBM_DEVICE_META_ADDR), allocSize, &acc, 1);
+     if (ret != BM_OK) { // 授权失败
+diff --git a/src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp b/src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp
+index fa16a644..8ffcb281 100644
+--- a/src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp
++++ b/src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp
+@@ -136,7 +136,7 @@ Result HybmAclVmmSegment::MapPhysicalToOwnSlot(aclrtDrvMemHandle handle, uint64_
+ 
+     aclrtMemAccessDesc acc{};
+     acc.flags = aclrtMemAccessFlags::ACL_RT_MEM_ACCESS_FLAGS_READWRITE;
+-    acc.location.id = static_cast<uint32_t>(options_.devId);
++    acc.location.id = HybmPhysicalDeviceIdOf(static_cast<uint32_t>(options_.devId));
+     acc.location.type = aclrtMemLocationType::ACL_MEM_LOCATION_TYPE_DEVICE;
+     ret = DlAclApi::AclrtMemSetAccess(reinterpret_cast<void *>(allocAddr), size, &acc, 1);
+     if (ret != BM_OK) {
+@@ -464,7 +464,7 @@ Result HybmAclVmmSegment::MapImportedToSlot(const AclVmmExportInfo &im, aclrtDrv
+ 
+     aclrtMemAccessDesc acc{};
+     acc.flags = aclrtMemAccessFlags::ACL_RT_MEM_ACCESS_FLAGS_READWRITE;
+-    acc.location.id = static_cast<uint32_t>(options_.devId);
++    acc.location.id = HybmPhysicalDeviceIdOf(static_cast<uint32_t>(options_.devId));
+     acc.location.type = aclrtMemLocationType::ACL_MEM_LOCATION_TYPE_DEVICE;
+     ret = DlAclApi::AclrtMemSetAccess(reinterpret_cast<void *>(slotAddr), im.size, &acc, 1);
+     if (ret != BM_OK) {

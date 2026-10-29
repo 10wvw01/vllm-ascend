@@ -1,0 +1,36 @@
+........................................F.... [ 29%]
+.....................F.................................................. [ 77%]
+..................................                                       [100%]
+=================================== FAILURES ===================================
+____________________ test_nz_source_default_is_nonbreaking _____________________
+
+    def test_nz_source_default_is_nonbreaking():
+        src = (PERF / "u1_arm.py").read_text()
+        runner = (PERF / "u1_run.sh").read_text()
+        ana = (PERF / "u1_analyze.py").read_text()
+        for path in ("u1_arm.py", "u1_analyze.py", "a1_nz_route_gate.py"):
+            ast.parse((PERF / path).read_text())
+        assert 'os.environ.get("U1_STOCK_LAYOUT", "nz" if a.scope == "large" else "row_major")' in src
+        assert 'stock_weight = w_nz if a.stock_weight_layout == "nz" else w' in src
+        assert "F.linear(x, stock_weight)" in src
+>       assert "export U1_STOCK_LAYOUT=" in runner
+E       assert 'export U1_STOCK_LAYOUT=' in '#!/usr/bin/env bash\n# SPDX-License-Identifier: Apache-2.0\n# U1 双Die多M试验：每场仅使用一种通信数据面，不修改正式内核。\nset -Eeuo pipefail\n...-smi info > "$OUT/npu_after.txt" 2>&1\necho "U1 $SCOPE/$PHASE complete. Archive all raw logs and G0 restore record."\n'
+
+csrc/_310P/memfabric_mm_ar_v2/test/ut/test_a1_nz_stock_contract.py:110: AssertionError
+_________________ test_budget_shift_is_timing_correlation_only _________________
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-68/test_budget_shift_is_timing_co0')
+
+    def test_budget_shift_is_timing_correlation_only(tmp_path):
+        result = evaluate(fixture(tmp_path))
+>       assert result["status"] == "FREQUENCY_SHIFT_SUPPORTS_EPOCH_HYPOTHESIS_ONLY"
+E       AssertionError: assert 'EPOCH_FREQUE...FT_NOT_PROVEN' == 'FREQUENCY_SH...POTHESIS_ONLY'
+E         
+E         - FREQUENCY_SHIFT_SUPPORTS_EPOCH_HYPOTHESIS_ONLY
+E         + EPOCH_FREQUENCY_SHIFT_NOT_PROVEN
+
+csrc/_310P/memfabric_mm_ar_v2/test/ut/test_a1_r2_epoch_assess.py:59: AssertionError
+=========================== short test summary info ============================
+FAILED csrc/_310P/memfabric_mm_ar_v2/test/ut/test_a1_nz_stock_contract.py::test_nz_source_default_is_nonbreaking
+FAILED csrc/_310P/memfabric_mm_ar_v2/test/ut/test_a1_r2_epoch_assess.py::test_budget_shift_is_timing_correlation_only
+2 failed, 149 passed, 27 subtests passed in 2.23s

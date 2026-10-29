@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1150" viewBox="0 0 1400 1150" role="img">
+<title>V1/V2 性能与稳定性排障图解</title>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1A5EA8"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1150" fill="#FBFCFE"/>
+<g font-family="Noto Sans CJK SC, Source Han Sans SC, Microsoft YaHei, PingFang SC, Arial, sans-serif"><rect x="12" y="12" width="1376" height="80" rx="20" fill="#133858" stroke="#133858" stroke-width="2"/>
+<text x="42" y="64" fill="#FFFFFF" font-size="32" font-weight="700" text-anchor="start">图解一：为什么要做这次排障？</text>
+<text x="1358" y="63" fill="#D7EAFB" font-size="17" font-weight="500" text-anchor="end">项目总脉络：先选型，再沿两条线取证</text>
+<rect x="40" y="116" width="1320" height="75" rx="14" fill="#EBF4FD" stroke="#C5E1FC" stroke-width="2"/>
+<text x="700" y="162" fill="#133858" font-size="25" font-weight="700" text-anchor="middle">目标：选出一条在真实 Qwen3.6 Eager 中更快、更稳、能长期维护的方案</text>
+<rect x="40" y="216" width="415" height="170" rx="14" fill="#F2F5F8" stroke="#CAD9E8" stroke-width="2"/>
+<text x="60" y="250" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">Stock：原生 MM + HCCL</text>
+<text x="60" y="283" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">当前真实业务性能基线</text>
+<text x="60" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">功能相对成熟；没有额外融合收益</text>
+<rect x="492" y="216" width="415" height="170" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="512" y="250" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">V1：MM + MemFabric</text>
+<text x="512" y="283" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">单层测试表现不错</text>
+<text x="512" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">长输出3次挂死，暂无有效性能</text>
+<rect x="945" y="216" width="415" height="170" rx="14" fill="#FFF8E5" stroke="#E5BD69" stroke-width="2"/>
+<text x="965" y="250" fill="#9E6B0B" font-size="22" font-weight="700" text-anchor="start">V2：MM + 通信 + Add</text>
+<text x="965" y="283" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">目标层能跑通；交叠确实有收益</text>
+<text x="965" y="321" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">但真实业务没赢 Stock，Gate E 会挂</text>
+<path d="M700 391 L700 425" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="130" y="438" width="1140" height="67" rx="14" fill="#EBF4FD" stroke="#1A5EA8" stroke-width="2"/>
+<text x="700" y="480" fill="#133858" font-size="23" font-weight="700" text-anchor="middle">SEL-01已执行：Stock默认，V1被Decode挂死阻塞，V2未达标</text>
+<path d="M700 508 L700 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M700 535 L359 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M700 535 L1041 535" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M359 535 L359 565" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M1041 535 L1041 565" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="40" y="578" width="640" height="470" rx="16" fill="#FFFFFF" stroke="#1A5EA8" stroke-width="2"/>
+<rect x="40" y="578" width="640" height="55" rx="16" fill="#1A5EA8" stroke="#1A5EA8" stroke-width="2"/>
+<text x="65" y="614" fill="#FFFFFF" font-size="24" font-weight="700" text-anchor="start">性能主线：解释为什么 V2 比 Stock 慢</text>
+<circle cx="72" cy="648" r="19" fill="#1A5EA8"/>
+<text x="72" y="655" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">1</text>
+<text x="110" y="655" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">真实 Qwen Eager：V2 吞吐中位 -3.51%</text>
+<circle cx="72" cy="702" r="19" fill="#1A5EA8"/>
+<text x="72" y="709" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">2</text>
+<text x="110" y="709" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">确认 40 个目标站点确实走 V2</text>
+<circle cx="72" cy="756" r="19" fill="#1A5EA8"/>
+<text x="72" y="763" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">3</text>
+<text x="110" y="763" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">定位到单站点约 0.63ms 额外耗时</text>
+<circle cx="72" cy="810" r="19" fill="#1A5EA8"/>
+<text x="72" y="817" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">4</text>
+<text x="110" y="817" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">排除额外 contiguous 拷贝的误判</text>
+<circle cx="72" cy="864" r="19" fill="#1A5EA8"/>
+<text x="72" y="871" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">5</text>
+<text x="110" y="871" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">确认 4 Chunk overlap=1 有收益</text>
+<circle cx="72" cy="918" r="19" fill="#1A5EA8"/>
+<text x="72" y="925" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">6</text>
+<text x="110" y="925" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">D1-A 建立可信的无 Profiler 基线</text>
+<circle cx="72" cy="972" r="19" fill="#1A5EA8"/>
+<text x="72" y="979" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">7</text>
+<text x="110" y="979" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">D4 已验收：单算子+6.26%，P0仍打开</text>
+<rect x="720" y="578" width="640" height="470" rx="16" fill="#FFFFFF" stroke="#BC3A3E" stroke-width="2"/>
+<rect x="720" y="578" width="640" height="55" rx="16" fill="#BC3A3E" stroke="#BC3A3E" stroke-width="2"/>
+<text x="745" y="614" fill="#FFFFFF" font-size="24" font-weight="700" text-anchor="start">稳定性主线：解释 Gate E 为什么偶发挂死</text>
+<circle cx="753" cy="648" r="19" fill="#BC3A3E"/>
+<text x="753" y="655" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">1</text>
+<text x="790" y="655" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">真实服务出现双 Worker 507014</text>
+<circle cx="753" cy="702" r="19" fill="#BC3A3E"/>
+<text x="753" y="709" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">2</text>
+<text x="790" y="709" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">G1-B：Host 请求环、Epoch、SQ 核查</text>
+<circle cx="753" cy="756" r="19" fill="#BC3A3E"/>
+<text x="753" y="763" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">3</text>
+<text x="790" y="763" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">G1-C：找到 Core0 第一等待位置</text>
+<circle cx="753" cy="810" r="19" fill="#BC3A3E"/>
+<text x="753" y="817" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">4</text>
+<text x="790" y="817" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">G1-D：看到 wait_at 等邮件，目标槽旧值</text>
+<circle cx="753" cy="864" r="19" fill="#BC3A3E"/>
+<text x="753" y="871" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">5</text>
+<text x="790" y="871" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">高度怀疑投递或可见性服务异常</text>
+<circle cx="753" cy="918" r="19" fill="#BC3A3E"/>
+<text x="753" y="925" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">6</text>
+<text x="790" y="925" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">具体 SQE / 根因尚未正式证明</text>
+<circle cx="753" cy="972" r="19" fill="#BC3A3E"/>
+<text x="753" y="979" fill="#FFFFFF" font-size="21" font-weight="700" text-anchor="middle">7</text>
+<text x="790" y="979" fill="#19354F" font-size="19" font-weight="550" text-anchor="start">下一步联合 MemFabric 团队闭环</text>
+<rect x="40" y="1072" width="1320" height="58" rx="10" fill="#F2F5F8" stroke="#CAD9E8" stroke-width="2"/>
+<text x="700" y="1110" fill="#133858" font-size="22" font-weight="650" text-anchor="middle">现状：功能在限定范围内可用 ｜ 主路线待选 ｜ 性能未达标 ｜ Gate E P0 未关闭</text></g>
+</svg>

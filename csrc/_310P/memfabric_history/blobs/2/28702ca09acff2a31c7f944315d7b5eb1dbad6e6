@@ -1,0 +1,202 @@
+{
+ "stock_r0": {
+  "n_sites": 200,
+  "n_steps": 5,
+  "step_periods_ms": [
+   2366.9,
+   2359.9,
+   2371.0,
+   2359.8
+  ],
+  "mm_p50_us": 795,
+  "mm_sum_per_step_us": 31820,
+  "ar_p50_us": 1149,
+  "ar_sum_per_step_us": 46033,
+  "site_sum_per_step_us": 77853,
+  "nontarget_ar_per_step": 42.0,
+  "nontarget_ar_sum_per_step_us": 48436
+ },
+ "stock_r1": {
+  "n_sites": 200,
+  "n_steps": 5,
+  "step_periods_ms": [
+   2382.5,
+   2374.4,
+   2386.1,
+   2374.9
+  ],
+  "mm_p50_us": 759,
+  "mm_sum_per_step_us": 30307,
+  "ar_p50_us": 1512,
+  "ar_sum_per_step_us": 62898,
+  "site_sum_per_step_us": 93205,
+  "nontarget_ar_per_step": 42.0,
+  "nontarget_ar_sum_per_step_us": 51710
+ },
+ "v2_r0": {
+  "n_sites": 200,
+  "n_steps": 5,
+  "step_periods_ms": [
+   2473.4,
+   2395.6,
+   2397.3,
+   2394.3
+  ],
+  "v2_p50_us": 2573,
+  "v2_p90_us": 2965,
+  "v2_sum_per_step_us": 105216,
+  "outliers": [
+   {
+    "dur_us": 74232,
+    "step": 1
+   }
+  ],
+  "nontarget_ar_per_step": 42.0,
+  "nontarget_ar_sum_per_step_us": 51970
+ },
+ "v2_r1": {
+  "n_sites": 200,
+  "n_steps": 5,
+  "step_periods_ms": [
+   2489.0,
+   2410.8,
+   2412.6,
+   2410.4
+  ],
+  "v2_p50_us": 2672,
+  "v2_p90_us": 3248,
+  "v2_sum_per_step_us": 109592,
+  "outliers": [
+   {
+    "dur_us": 74827,
+    "step": 1
+   }
+  ],
+  "nontarget_ar_per_step": 42.0,
+  "nontarget_ar_sum_per_step_us": 50746
+ },
+ "stock_r0_topkernels": [
+  {
+   "sum_per_step_us": 647245,
+   "n_per_step": 80.0,
+   "name": "aclnnQuantGroupedMatmulDequantWeightNZ_QuantGroupedM"
+  },
+  {
+   "sum_per_step_us": 284691,
+   "n_per_step": 160.0,
+   "name": "MoeGatingTopKSoftmax"
+  },
+  {
+   "sum_per_step_us": 268455,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkGatedDeltaRuleComputeWy_ChunkGatedDeltaRul"
+  },
+  {
+   "sum_per_step_us": 150850,
+   "n_per_step": 181.0,
+   "name": "aclnnMatmulWeightNz_MatMulCommon_MatMulV2"
+  },
+  {
+   "sum_per_step_us": 133721,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkFwdO_ChunkFwdO_ChunkFwdO"
+  },
+  {
+   "sum_per_step_us": 97084,
+   "n_per_step": 191.0,
+   "name": "RmsNorm"
+  },
+  {
+   "sum_per_step_us": 90640,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkGatedDeltaRuleFwdH_ChunkGatedDeltaRuleFwdH"
+  },
+  {
+   "sum_per_step_us": 89644,
+   "n_per_step": 30.0,
+   "name": "CausalConv1dV310"
+  },
+  {
+   "sum_per_step_us": 83089,
+   "n_per_step": 40.0,
+   "name": "aclnnMoeInitRoutingV2_MoeInitRoutingV2_MoeInitRoutin"
+  },
+  {
+   "sum_per_step_us": 77418,
+   "n_per_step": 10.0,
+   "name": "UnpadFlashAttentionNzEncoderKernel"
+  },
+  {
+   "sum_per_step_us": 42765,
+   "n_per_step": 40.0,
+   "name": "MoeTokenUnpermute"
+  },
+  {
+   "sum_per_step_us": 32576,
+   "n_per_step": 150.0,
+   "name": "aclnnAdd_AddAiCore_Add"
+  }
+ ],
+ "v2_r0_topkernels": [
+  {
+   "sum_per_step_us": 648585,
+   "n_per_step": 80.0,
+   "name": "aclnnQuantGroupedMatmulDequantWeightNZ_QuantGroupedM"
+  },
+  {
+   "sum_per_step_us": 285236,
+   "n_per_step": 160.0,
+   "name": "MoeGatingTopKSoftmax"
+  },
+  {
+   "sum_per_step_us": 267206,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkGatedDeltaRuleComputeWy_ChunkGatedDeltaRul"
+  },
+  {
+   "sum_per_step_us": 149452,
+   "n_per_step": 181.0,
+   "name": "aclnnMatmulWeightNz_MatMulCommon_MatMulV2"
+  },
+  {
+   "sum_per_step_us": 133953,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkFwdO_ChunkFwdO_ChunkFwdO"
+  },
+  {
+   "sum_per_step_us": 120063,
+   "n_per_step": 40.0,
+   "name": "_ZN12_GLOBAL__N_113V2TrialKernelIL_ZNS_10tiling1024E"
+  },
+  {
+   "sum_per_step_us": 97077,
+   "n_per_step": 191.0,
+   "name": "RmsNorm"
+  },
+  {
+   "sum_per_step_us": 90697,
+   "n_per_step": 30.0,
+   "name": "aclnnChunkGatedDeltaRuleFwdH_ChunkGatedDeltaRuleFwdH"
+  },
+  {
+   "sum_per_step_us": 89642,
+   "n_per_step": 30.0,
+   "name": "CausalConv1dV310"
+  },
+  {
+   "sum_per_step_us": 83714,
+   "n_per_step": 40.0,
+   "name": "aclnnMoeInitRoutingV2_MoeInitRoutingV2_MoeInitRoutin"
+  },
+  {
+   "sum_per_step_us": 77520,
+   "n_per_step": 10.0,
+   "name": "UnpadFlashAttentionNzEncoderKernel"
+  },
+  {
+   "sum_per_step_us": 43083,
+   "n_per_step": 40.0,
+   "name": "MoeTokenUnpermute"
+  }
+ ]
+}

@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "scope": "LOCKED_TARGET_310P3_TP2_PP1_EAGER_DFLASH_K7",
+  "target_id": "Eco-Tech/Qwen3.6-35B-A3B-w8a8",
+  "target_identity": "CONFIG_ARCH_COMPATIBLE_ARTIFACT_UNVERIFIED",
+  "draft_private": "NOT_READ_NOT_REQUIRED",
+  "target_sampling_policy": "NOT_FROZEN_BY_USER",
+  "candidate_sampling_policy": "GREEDY_ONLY_REJECT_UNSUPPORTED",
+  "evidence": "SOURCE_STATIC_ONLY_RUNTIME_NOT_OBSERVED",
+  "upstream_vllm_commit": "6e448d0ea9bf3d88d898b65449ca6dc2aec170ac",
+  "absolute_stop": "310P3_V2_WORKER_NOT_IMPLEMENTED",
+  "categories": {
+    "CORE": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+    "GATED": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+    "PP": "EXCLUDED_BY_PP1_STATIC_BRANCH",
+    "SHADOW": "SHADOWED_BY_310P_OVERRIDE",
+    "UMBRELLA": "UNRESOLVED_INHERITED_AUDIT",
+    "HYBRID": "HYBRID_ALIGN_CONDITIONAL_BLOCKER"
+  },
+  "entries": [
+    {
+      "id": "T01",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "存在prefill片段时进入输入准备；input=4096不保证始终单次prefill",
+      "source": "_310p/v2/model_runner.py:prepare_inputs（scoped替代T01）；Ascend V2 prepare_inputs",
+      "decision": "已提供NPU Torch候选；310P设备写粒度/Stream未审"
+    },
+    {
+      "id": "T02",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "正常有token批次准备position和seq_len",
+      "source": "_310p/v2/model_runner.py:prepare_inputs",
+      "decision": "NPU输入候选已局部绑定；设备未验"
+    },
+    {
+      "id": "T03",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "正常有token批次组合采样与draft，含空draft和首次prefill",
+      "source": "_310p/v2/model_runner.py:prepare_inputs; GPU input_batch.combine_sampled_and_draft_tokens",
+      "decision": "NPU token_ops候选已绑定；设备未验"
+    },
+    {
+      "id": "T04",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "有draft token参与输入展开时；首次prefill未必有draft",
+      "source": "_310p/v2/model_runner.py:prepare_inputs; GPU input_batch.expand_idx_mapping",
+      "decision": "NPU输入候选已绑定；设备未验"
+    },
+    {
+      "id": "T05",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "有KV attention时，按实际group gather",
+      "source": "GPUModelRunner.prepare_attn; _310p/v2/model_runner.py:initialize_kv_cache",
+      "decision": "NPUBlockTables候选；多group device/真实backend未审"
+    },
+    {
+      "id": "T06",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "有KV attention时，按group计算slot；DFlash独立读取持久slot_mappings",
+      "source": "GPUModelRunner.prepare_attn; GPU DFlashSpeculator.propose; _310p/v2/block_tables.py",
+      "decision": "持久slot已CPU验证，真实device/写可见性未审"
+    },
+    {
+      "id": "T07",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "常规/Spec采样均须统计sampled/rejected；chunked prefill亦需0计数",
+      "source": "GPU Sampler.__call__; GPU RejectionSampler.__call__; _310p/v2/sampler.py",
+      "decision": "NPU采样候选局部绑定；设备未验"
+    },
+    {
+      "id": "T08",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "仅请求logprobs时；NO_LOGPROBS立即return",
+      "source": "GPU RejectionSampler._get_logprobs_tensors; _310p/v2/sampler.py",
+      "decision": "greedy候选拒绝logprobs；不代表目标请求已禁止logprobs"
+    },
+    {
+      "id": "T09",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "采样后更新num_computed_tokens/token-state，且回调ModelState",
+      "source": "_310p/v2/model_runner.py:postprocess_sampled",
+      "decision": "NPU post_update候选；所有权和ModelState未闭环"
+    },
+    {
+      "id": "T10",
+      "category": "EXCLUDED_BY_PP1_STATIC_BRANCH",
+      "condition": "GPU sample_tokens非last_pp_rank唯一已定位call；PP=1双方rank均last",
+      "source": "GPUModelRunner.sample_tokens; _310p/v2/model_runner.py:sample_tokens",
+      "decision": "排除已核对的非last PP分支；若发现其他直接call须重审"
+    },
+    {
+      "id": "T11",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "DFlash K7且有真实draft proposal；每个Draft KV group一次",
+      "source": "GPU DFlashSpeculator.propose; _310p/v2/dflash_speculator.py",
+      "decision": "局部non-Triton prepare候选；多group ABI/设备未验"
+    },
+    {
+      "id": "T12",
+      "category": "SHADOWED_BY_310P_OVERRIDE",
+      "condition": "针对候选Runner的postprocess_sampled已私有override；旧Ascend post_update定义不等于会调用",
+      "source": "_310p/v2/model_runner.py:postprocess_sampled; worker/v2/input_batch.py",
+      "decision": "仅候选当前选路被覆盖；全仓其他Runner仍可能调用"
+    },
+    {
+      "id": "T13",
+      "category": "UNRESOLVED_INHERITED_AUDIT",
+      "condition": "继承/隐式调用集合，不能直接视为一个可排除kernel",
+      "source": "GPUModelRunner.__init__/execute_model/load_model; Ascend NPUModelRunner",
+      "decision": "仍需静态遍历每个继承调用点与环境条件，不可GO"
+    },
+    {
+      "id": "T14",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "每轮有新KV写入就需staged-write提交；首次构造后延续",
+      "source": "GPUModelRunner.execute_model; _310p/v2/block_tables.py",
+      "decision": "NPU staged-write候选已绑定到KV初始化；设备/poison/stream未审"
+    },
+    {
+      "id": "T15",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "Runner构造期请求状态；原GPU有UVA，310P候选私有替换",
+      "source": "GPUModelRunner.__init__; Ascend NPUModelRunner.__init__; _310p/v2/model_runner.py:_310p_v2_parent_constructor",
+      "decision": "可避开原RequestState构造，Ascend父类随后重建状态；生命周期开销/设备未审"
+    },
+    {
+      "id": "T16",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "新增/完成/释放请求与采样写回均依赖所有权、顺序和流可见性",
+      "source": "_310p/v2/request_state.py; _310p/v2/staged_buffers.py; _310p/v2/model_runner.py:_remove_request",
+      "decision": "CPU异常止损已有；设备Stream/Event/原子性未证明"
+    },
+    {
+      "id": "T17",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "常规无draft采样时GPU Sampler.sample调用gumbel_sample；greedy候选以argmax替代",
+      "source": "GPU Sampler.sample; _310p/v2/sampler.py; _310p/v2/gumbel_ops.py",
+      "decision": "greedy子集可用CPU合同；随机采样不可擅自等价替代"
+    },
+    {
+      "id": "T18",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "温度缩放只在需要logit处理时；greedy temperature=0且不走该缩放",
+      "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
+      "decision": "greedy候选禁用非零温度；原始负载尚未锁定采样策略"
+    },
+    {
+      "id": "T19",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "presence/frequency/repetition惩罚或prompt统计时；greedy候选参数全为中性",
+      "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
+      "decision": "功能禁用，不是正式Target永久不可达"
+    },
+    {
+      "id": "T20",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "min_p非零时；greedy候选min_p=0",
+      "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
+      "decision": "greedy候选明确要求min_p=0；非零参数必须在请求入队前拒绝，不能隐式忽略"
+    },
+    {
+      "id": "T21",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "bad_words非空时；greedy候选拒绝",
+      "source": "GPU Sampler.apply_sampling_params; _310p/v2/sampling_scope.py",
+      "decision": "greedy候选明确拒绝bad_words非空请求；未实现NPU禁词算子前不可进入执行"
+    },
+    {
+      "id": "T22",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "logprobs/token logprobs时；greedy候选明确拒绝",
+      "source": "GPU Sampler.__call__; GPU RejectionSampler._get_logprobs_tensors; _310p/v2/sampling_scope.py",
+      "decision": "logprobs不属于当前greedy候选子集；原始业务策略未锁"
+    },
+    {
+      "id": "T23",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "有draft token的SpecVerify执行拒绝校验，greedy也必须对首个不一致token进行正确处理",
+      "source": "GPU RejectionSampler._verify; _310p/v2/rejection_ops.py",
+      "decision": "310P候选仅贪婪K7；温度>0必须正确实现概率拒绝，不得借用Ascend旧u=0"
+    },
+    {
+      "id": "T24",
+      "category": "FEATURE_GATED_GREEDY_CANDIDATE_ONLY",
+      "condition": "grammar/structured output请求时；greedy候选add_requests拒绝",
+      "source": "GPUModelRunner.sample; _310p/v2/model_runner.py:add_requests",
+      "decision": "无grammar业务时不需实现kernel；但构造worker仍需T27"
+    },
+    {
+      "id": "T25",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "K7每轮proposal写7-token；310P3需要安全整8槽写",
+      "source": "GPUModelRunner.sample_tokens; _310p/v2/model_runner.py:_310p_v2_store_draft_tokens",
+      "decision": "候选已经替换短宽赋值；设备写粒度未审"
+    },
+    {
+      "id": "T26",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "即便采样参数中性，load_model仍构造五种sampler state",
+      "source": "GPUModelRunner.load_model; GPU Sampler.__init__; _310p/v2/sampler.py",
+      "decision": "局部状态工厂替代UVA；NPU支持/生命周期待审"
+    },
+    {
+      "id": "T27",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "即便无grammar，GPUModelRunner.load_model仍构造structured outputs worker",
+      "source": "GPUModelRunner.load_model; _310p/v2/sampler_state.py",
+      "decision": "NPU替代构造仅限定拒绝grammar；设备未审"
+    },
+    {
+      "id": "T28",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "Runner构造必经DraftTokensHandler实例化，与是否使用grammar无关",
+      "source": "GPUModelRunner.__init__; _310p/v2/model_runner.py:_310p_v2_parent_constructor",
+      "decision": "NPU handler候选局部替代；设备未验"
+    },
+    {
+      "id": "T29",
+      "category": "BUSINESS_CORE_CONDITIONAL_ON_STAGE",
+      "condition": "有生成输出时sample_tokens创建AsyncOutput，不因Eager或greedy消失",
+      "source": "GPUModelRunner.sample_tokens; _310p/v2/model_runner.py:AsyncOutput",
+      "decision": "NPU同步复制输出候选；设备/调度数据合同未验"
+    },
+    {
+      "id": "T30",
+      "category": "HYBRID_ALIGN_CONDITIONAL_BLOCKER",
+      "condition": "若ModelConfig.is_hybrid、实际工厂选MambaHybridModelState、align并有非空真实batch，则preprocess含Triton",
+      "source": "GPUModelRunner.execute_model; gpu/model_states/__init__.py; gpu/model_states/mamba_hybrid.py",
+      "decision": "当前310P候选load_model在is_hybrid && align下提前阻断；不能删除守卫代替实现"
+    },
+    {
+      "id": "T31",
+      "category": "HYBRID_ALIGN_CONDITIONAL_BLOCKER",
+      "condition": "实际hybrid ModelState在Spec采样回写时，tensor num_sampled的scatter Triton；align还有postcopy",
+      "source": "GPUModelRunner.postprocess_sampled; gpu/model_states/mamba_hybrid.py; _310p/v2/model_runner.py",
+      "decision": "310P候选仍调用postprocess_state；状态语义/跨流/采样K7待专属非Triton替代"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+experiment=F1_low_M_M10_cost_screening
+repo_head=4da25a68139ce9903e6c10e7c6658f38bfb94785
+devices=6,7
+orch_sha256=25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78
+num_m=6
+mm_cores=4,8
+add_cores=1,4,8
+host_timing=Stock_MM_HCCL_prepool_vs_T1_MM_MemFabric_postpool
+warning=do_not_make_final_GO_from_prepool_vs_postpool_host_sync
+host_lib_path=/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+host_lib_sha256=8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1
+python_plugin_path=/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+python_plugin_sha256=8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1
+device_so_path=/home/w00804146/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device.so
+device_so_sha256=2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19
+session_timeout=30m_plus_30s_kill

@@ -1,0 +1,68 @@
+===== 7. device log inventory (script-generated) head =====
+原始 runner 退出码: 0
+若负载发生 hang/timeout，请在恢复设备前保全对应时段的 plog、slog、aicore 错误日志。
+路径清单（需要根据服务器实际部署核实）：
+2026-10-26 14:04:12.5362085500 /root/ascend/log/run/device-3/device-539827_20261026135429483.log
+2026-10-26 14:08:29.6002085500 /root/ascend/log/run/device-3/device-543837_20261026140602579.log
+2026-10-26 12:40:23.8282085500 /root/ascend/log/run/device-0/device-520659_20261026124019832.log
+2026-10-26 12:40:54.8282085500 /root/ascend/log/run/device-0/device-521815_20261026124054834.log
+2026-10-26 14:04:12.5402085500 /root/ascend/log/run/device-2/device-539795_20261026135415481.log
+2026-10-26 14:08:29.6002085500 /root/ascend/log/run/device-2/device-543810_20261026140547574.log
+2026-10-26 13:54:23.4802085500 /root/ascend/log/run/device-2/device-539827_20261026135423482.log
+2026-10-26 14:05:56.5722085500 /root/ascend/log/run/device-2/device-543837_20261026140556575.log
+2026-10-26 14:04:21.1402085500 /root/ascend/log/run/plog/plog-539120_20261026135325778.log
+2026-10-26 13:06:49.1802085500 /root/ascend/log/run/plog/plog-525505_20261026130645593.log
+2026-10-26 14:08:30.7802085500 /root/ascend/log/run/plog/plog-546622_20261026140813931.log
+2026-10-26 14:09:54.2042085500 /root/ascend/log/run/plog/plog-549802_20261026140942176.log
+2026-10-26 14:09:12.7482085500 /root/ascend/log/run/plog/plog-548302_20261026140900719.log
+2026-10-26 12:40:33.4722085500 /root/ascend/log/run/plog/plog-520659_20261026124013519.log
+2026-10-26 14:05:22.6122085500 /root/ascend/log/run/plog/plog-543504_20261026140522414.log
+2026-10-26 14:08:31.3242085500 /root/ascend/log/run/plog/plog-543097_20261026140458534.log
+2026-10-26 13:54:14.8482085500 /root/ascend/log/run/plog/plog-539866_20261026135414653.log
+2026-10-26 13:45:07.2442085500 /root/ascend/log/run/plog/plog-537568_20261026134503840.log
+2026-10-26 13:54:23.1962085500 /root/ascend/log/run/plog/plog-540147_20261026135422999.log
+2026-10-26 13:45:48.7602085500 /root/ascend/log/run/plog/plog-537706_20261026134535727.log
+2026-10-26 14:04:16.6562085500 /root/ascend/log/run/plog/plog-539795_20261026135400378.log
+2026-10-26 14:04:20.6442085500 /root/ascend/log/run/plog/plog-539827_20261026135409103.log
+2026-10-26 13:07:03.8322085500 /root/ascend/log/run/plog/plog-525706_20261026130700246.log
+2026-10-26 13:07:08.5922085500 /root/ascend/log/run/plog/plog-525773_20261026130705187.log
+2026-10-26 14:09:27.0922085500 /root/ascend/log/run/plog/plog-548805_20261026140914462.log
+2026-10-26 13:07:52.5642085500 /root/ascend/log/run/plog/plog-526033_20261026130748555.log
+2026-10-26 13:41:52.6722085500 /root/ascend/log/run/plog/plog-536218_20261026134149267.log
+
+===== 8. slog/plog dirs =====
+--- /root/ascend/log ---
+debug
+run
+security
+vllm_ascend
+--- /root/ascend/log ---
+debug
+run
+security
+vllm_ascend
+
+===== 9. current device state (post-failure) =====
+| 16384   310P3                 | OK              | NA           79                0     / 0             |
+| 0       2                     | 0000:41:00.0    | 0            1954 / 44277                            |
+| 16384   310P3                 | OK              | NA           76                0     / 0             |
+| 1       3                     | 0000:41:00.0    | 0            994  / 43693                            |
+| No running processes found in NPU 16384                                                                |
+	NPU ID                         : 16384
+	Chip Count                     : 2
+
+	Health                         : OK
+	Chip ID                        : 0
+
+	Health                         : OK
+	Chip ID                        : 1
+
+	Health                         : OK
+	Chip Name                      : MCU
+
+
+===== 10. leftover processes =====
+NONE (all exited)
+
+===== 11. ports =====
+8000/8581 released

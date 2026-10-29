@@ -1,0 +1,18 @@
+{
+  "pid": 2271469,
+  "argv": [
+    "/tmp/opencode/310p-a3cmp-20261029-001/venv/bin/python",
+    "/home/w00804146/310P/vllm-ascend-a3v3/csrc/_310P/memfabric_mm_ar_v3/tools/compare_a3.py",
+    "_run",
+    "--manifest",
+    "/tmp/opencode/310p-a3cmp-20261029-001/v3-build-r2/manifest.json",
+    "--out",
+    "/tmp/opencode/310p-a3cmp-20261029-001/batch-r2",
+    "--card",
+    "16384",
+    "--devices",
+    "2,3",
+    "--lease-note",
+    "R2重启（R1于12:06:42被守护器正确STOP：外部跨卡进程3301645同时占用5664与16384，非代码问题，R1现场完整保留于batch-r1/）。用户授权卡16384/dev2,3。外部活动模式：11:36-11:42间歇TP2对、12:06跨卡进程，间隔约25分钟；守护器fail-closed，再现即STOP并保留现场。批次需约17分钟完整窗口。"
+  ]
+}

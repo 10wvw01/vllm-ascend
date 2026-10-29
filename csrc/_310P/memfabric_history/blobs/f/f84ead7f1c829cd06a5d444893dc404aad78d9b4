@@ -1,0 +1,171 @@
+{
+  "experiment": "U1_PARTIAL_NOT_FOR_GO",
+  "rank": 1,
+  "session": "01_large_stock_fp16",
+  "scope": "large",
+  "phase": "screen",
+  "M": 2048,
+  "arm": "stock_fp16",
+  "device_so_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "result": {
+    "M": 2048,
+    "arm": "stock_fp16",
+    "warmup": 3,
+    "iters": 12,
+    "samples": [
+      {
+        "i": 0,
+        "variant": 1,
+        "event_us": 1652.031,
+        "wall_us": 1746.39
+      },
+      {
+        "i": 1,
+        "variant": 0,
+        "event_us": 1673.437,
+        "wall_us": 1757.09
+      },
+      {
+        "i": 2,
+        "variant": 1,
+        "event_us": 1639.271,
+        "wall_us": 1730.0
+      },
+      {
+        "i": 3,
+        "variant": 0,
+        "event_us": 1628.88,
+        "wall_us": 1727.4
+      },
+      {
+        "i": 4,
+        "variant": 1,
+        "event_us": 1633.255,
+        "wall_us": 1721.54
+      },
+      {
+        "i": 5,
+        "variant": 0,
+        "event_us": 1627.37,
+        "wall_us": 1716.55
+      },
+      {
+        "i": 6,
+        "variant": 1,
+        "event_us": 1642.63,
+        "wall_us": 1731.09
+      },
+      {
+        "i": 7,
+        "variant": 0,
+        "event_us": 1636.562,
+        "wall_us": 1723.93
+      },
+      {
+        "i": 8,
+        "variant": 1,
+        "event_us": 1631.64,
+        "wall_us": 1720.35
+      },
+      {
+        "i": 9,
+        "variant": 0,
+        "event_us": 1627.422,
+        "wall_us": 1710.92
+      },
+      {
+        "i": 10,
+        "variant": 1,
+        "event_us": 1629.479,
+        "wall_us": 1724.3
+      },
+      {
+        "i": 11,
+        "variant": 0,
+        "event_us": 1626.093,
+        "wall_us": 1714.56
+      }
+    ],
+    "status": null,
+    "bit_exact": true,
+    "native_mm_only": {
+      "samples": [
+        {
+          "i": 0,
+          "variant": 1,
+          "event_us": 1074.245,
+          "wall_us": 1160.52
+        },
+        {
+          "i": 1,
+          "variant": 0,
+          "event_us": 1255.339,
+          "wall_us": 1333.12
+        },
+        {
+          "i": 2,
+          "variant": 1,
+          "event_us": 1048.515,
+          "wall_us": 1119.2
+        },
+        {
+          "i": 3,
+          "variant": 0,
+          "event_us": 1042.917,
+          "wall_us": 1111.6
+        },
+        {
+          "i": 4,
+          "variant": 1,
+          "event_us": 1058.75,
+          "wall_us": 1128.22
+        },
+        {
+          "i": 5,
+          "variant": 0,
+          "event_us": 1038.568,
+          "wall_us": 1115.21
+        },
+        {
+          "i": 6,
+          "variant": 1,
+          "event_us": 1040.052,
+          "wall_us": 1114.36
+        },
+        {
+          "i": 7,
+          "variant": 0,
+          "event_us": 1049.219,
+          "wall_us": 1123.95
+        },
+        {
+          "i": 8,
+          "variant": 1,
+          "event_us": 1051.459,
+          "wall_us": 1131.02
+        },
+        {
+          "i": 9,
+          "variant": 0,
+          "event_us": 1044.506,
+          "wall_us": 1118.03
+        },
+        {
+          "i": 10,
+          "variant": 1,
+          "event_us": 1055.338,
+          "wall_us": 1126.49
+        },
+        {
+          "i": 11,
+          "variant": 0,
+          "event_us": 1040.911,
+          "wall_us": 1109.64
+        }
+      ],
+      "iters": 12,
+      "bit_exact": true,
+      "note": "separate native MM invocation, NOT a decomposable phase inside stock+HCCL"
+    }
+  }
+}

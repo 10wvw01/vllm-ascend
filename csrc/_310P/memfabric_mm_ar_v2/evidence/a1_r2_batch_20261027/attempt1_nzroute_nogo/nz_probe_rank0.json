@@ -1,0 +1,30 @@
+{
+  "schema": "A1_NZ_STOCK_SHORT_PROFILE_V1",
+  "rank": 0,
+  "workload": "M2048+4096/K2048/N2048/HCCL-TP2",
+  "full_NZ_matmul_route_verified": false,
+  "results": [
+    {
+      "M": 2048,
+      "rank": 0,
+      "raw_profiler_directory": "rank0_m2048_profiler",
+      "CANN_kernel_details_source": "rank0_m2048_profiler/rank0_m2048_1288431_20261027034540698_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+      "CANN_kernel_details_csv": "rank0_m2048_kernel_details.csv",
+      "trace_sha256": "8d465555b067a07ec3de5fcaec6cf3f184f655a83ff0785a8883a5bdbbbf6c94",
+      "bit_exact": true,
+      "iters": 6,
+      "route": "UNVERIFIED_UNTIL_FOUR_RANK_M_ROUTE_GATE"
+    },
+    {
+      "M": 4096,
+      "rank": 0,
+      "raw_profiler_directory": "rank0_m4096_profiler",
+      "CANN_kernel_details_source": "rank0_m4096_profiler/rank0_m4096_1288431_20261027034546069_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+      "CANN_kernel_details_csv": "rank0_m4096_kernel_details.csv",
+      "trace_sha256": "08e82fdb7f24f99657dc3356f8a86d3a183ba375861fdb2960a5a1c236101303",
+      "bit_exact": true,
+      "iters": 6,
+      "route": "UNVERIFIED_UNTIL_FOUR_RANK_M_ROUTE_GATE"
+    }
+  ]
+}

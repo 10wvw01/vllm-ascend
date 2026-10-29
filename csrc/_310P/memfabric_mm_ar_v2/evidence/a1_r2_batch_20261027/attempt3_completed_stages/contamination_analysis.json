@@ -1,0 +1,92 @@
+{
+  "schema": "A1_R2_ATTEMPT3_CONTAMINATION_V1",
+  "analyzer_verdict": "INCONCLUSIVE_DRIFT (within-worker anchor drift > 5pct)",
+  "clean_sessions": [
+    "01",
+    "02",
+    "03",
+    "06",
+    "07"
+  ],
+  "contaminated_sessions": {
+    "04": "M4096 p50 15340us vs 2010us in session01 (7.6x); external burst suspected 06:53:30+",
+    "05": "M1024 p50 13785us (last M in rotated order); same external burst window",
+    "08": "M2048 1880us vs 1068us in session01 (1.8x, mild) - uncertain attribution"
+  },
+  "evidence_basis": "boundary pre/post npu-smi snapshots show only our worker, but an external process demonstrably cycles on/off the dies (captured live at 07:02-07:08: pid 4140162 14841MB dev2; pid 9371 3383->15905MB dev2 + pid 18482 7419MB dev3 by 07:10); a ~1min burst during 04/05 explains the isolated outliers without boundary traces",
+  "formal_conclusion": "NO NZ-L1 speedup conclusion can be signed from this confirm; clean-session trend (D4 M4096 2490-2631us vs NZ-Stock 2010-2335us) aligns directionally with R1-L2 (+368us/site) but is NOT formal evidence",
+  "sessions": [
+    {
+      "session": "01_large_stock_fp16",
+      "arm": "stock_fp16",
+      "per_M_event_p50_us": {
+        "1024": 631.5,
+        "2048": 1067.8,
+        "4096": 2009.5
+      }
+    },
+    {
+      "session": "02_large_memfabric_d4",
+      "arm": "memfabric_d4",
+      "per_M_event_p50_us": {
+        "1024": 959.0,
+        "2048": 1328.7,
+        "4096": 2490.2
+      }
+    },
+    {
+      "session": "03_large_memfabric_d4",
+      "arm": "memfabric_d4",
+      "per_M_event_p50_us": {
+        "1024": 908.8,
+        "2048": 1305.5,
+        "4096": 2509.6
+      }
+    },
+    {
+      "session": "04_large_stock_fp16",
+      "arm": "stock_fp16",
+      "per_M_event_p50_us": {
+        "1024": 1185.9,
+        "2048": 1531.1,
+        "4096": 15339.7
+      }
+    },
+    {
+      "session": "05_large_stock_fp16",
+      "arm": "stock_fp16",
+      "per_M_event_p50_us": {
+        "1024": 13784.6,
+        "2048": 1874.8,
+        "4096": 2668.1
+      }
+    },
+    {
+      "session": "06_large_memfabric_d4",
+      "arm": "memfabric_d4",
+      "per_M_event_p50_us": {
+        "1024": 1286.4,
+        "2048": 1497.6,
+        "4096": 2613.5
+      }
+    },
+    {
+      "session": "07_large_memfabric_d4",
+      "arm": "memfabric_d4",
+      "per_M_event_p50_us": {
+        "1024": 1351.1,
+        "2048": 1765.8,
+        "4096": 2631.0
+      }
+    },
+    {
+      "session": "08_large_stock_fp16",
+      "arm": "stock_fp16",
+      "per_M_event_p50_us": {
+        "1024": 1241.4,
+        "2048": 1879.8,
+        "4096": 2335.2
+      }
+    }
+  ]
+}

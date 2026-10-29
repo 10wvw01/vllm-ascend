@@ -1,0 +1,36 @@
+{
+  "schema": "MF310P_V3_QUICK_RANK_V1",
+  "rank": 0,
+  "run_id": "results",
+  "build_manifest_sha256": "510cf032235e62f58c3c9bb4699bb0b13d001eb5038cdaaacac4b57555cd2c73",
+  "configuration": {
+    "M": [
+      2048,
+      4096
+    ],
+    "groups": [
+      1024,
+      2048
+    ],
+    "pipeline": true,
+    "samples": 30,
+    "warmup": 4,
+    "repeats": 2,
+    "K": 2048,
+    "N": 2048,
+    "dtype": "fp16",
+    "packet_bytes": 1048576,
+    "baseline_execution": "NONE"
+  },
+  "physical_device": 4,
+  "gates": {},
+  "measurements": [],
+  "status": "STOP",
+  "event_semantics": "stream completion window; includes host enqueue gaps",
+  "runtime": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "device_name": "Ascend310P3"
+  },
+  "error": "RuntimeError('V3 create: rc=-8; stop BOTH ranks; never retry an uncertain ADD')"
+}

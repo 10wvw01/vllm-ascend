@@ -1,0 +1,73 @@
+name: 310P MM-AR project control
+
+on:
+  pull_request:
+    branches: [dev/310p-memfabric-mm-ar]
+  push:
+    branches: [dev/310p-memfabric-mm-ar]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  project-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install lightweight test dependency
+        run: python -m pip install 'pytest>=7,<9'
+      - name: CPU-only governance unit tests
+        run: python -m unittest discover -s tools/310p_mm_ar -p 'test_*.py' -v
+      - name: Existing V2 CPU/source-contract regression
+        run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: R2-A static admission inventory (NO-GO is expected)
+        run: python3 tools/310p_mm_ar/r2_static_admission.py --report
+      - name: Validate project entry and state files
+        run: python3 tools/310p_mm_ar/project_gate.py --static
+      - name: Validate change ledger requirements
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" =~ ^0+$ ]]; then
+            echo "First-commit/dispatch event: metadata-only check; no diff base."
+          else
+            python3 tools/310p_mm_ar/project_gate.py --base "${BASE_SHA}" --head "${HEAD_SHA}"
+          fi
+
+  r2-torch-cpu-contracts:
+    # Keep heavy CPU Torch separate from the no-Torch governance gate.
+    # This is NOT a 310P3/NPU execution test.
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'work/310p-v2-r2-implementation-20261025' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned CPU Torch (no Triton or CUDA runtime)
+        run: |
+          python -m pip install 'numpy>=1.26,<3'
+          python -m pip install 'torch==2.10.0' --index-url https://download.pytorch.org/whl/cpu
+      - name: Verify CPU tensor contracts without skips
+        run: |
+          python - <<'PY'
+          import torch, numpy
+          assert torch.__version__.startswith("2.10.0"), torch.__version__
+          assert not torch.cuda.is_available(), "unexpected CUDA device in CPU gate"
+          print("CPU Torch:", torch.__version__, "NumPy:", numpy.__version__)
+          PY
+          python -m unittest discover -s tools/310p_mm_ar -p 'test_v2_*.py' -v

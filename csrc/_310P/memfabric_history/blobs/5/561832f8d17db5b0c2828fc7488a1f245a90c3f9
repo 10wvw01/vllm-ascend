@@ -1,0 +1,27 @@
+{
+  "pid": 1963609,
+  "argv": [
+    "/tmp/opencode/310p-v31-20261029-001/venv/bin/python",
+    "/tmp/opencode/310p-v31-20261029-001/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/tools/quick.py",
+    "_run",
+    "--manifest",
+    "/tmp/opencode/310p-v31-20261029-001/v3-build-fix2/manifest.json",
+    "--card",
+    "38144",
+    "--devices",
+    "4,5",
+    "--out",
+    "/tmp/opencode/310p-v31-20261029-001/results-diag-1mib-r2",
+    "--samples",
+    "10",
+    "--packet-bytes",
+    "1048576",
+    "--timeout",
+    "900",
+    "--lease-note",
+    "V3.1 packet diag 1MiB under fixed guard (HEAD 2a5f3b37e): same exclusive window"
+  ],
+  "head": "2a5f3b37e04b0dd5036ae37d8fed5d8628351825",
+  "started_unix": 1793236086.8185437,
+  "baseline_performance_arms": []
+}

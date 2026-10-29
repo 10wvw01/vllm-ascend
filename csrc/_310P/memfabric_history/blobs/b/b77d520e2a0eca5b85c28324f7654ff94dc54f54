@@ -1,0 +1,21 @@
+{
+  "schema": "A1_R0_CPU_RESULTS_V1",
+  "run_id": "a1-r0-20261027-001",
+  "worktree": "/tmp/opencode/a1-r0-worktree (isolated, created fresh this session)",
+  "branch": "work/310p-mm-ar-large-m-a1-20261026",
+  "head": "235de9f6d13a394ffaaddde1db8843154aeb8813",
+  "origin_tip_matches": true,
+  "python": "3.12.13 (/usr/local/python3.12.13/bin/python3)",
+  "tests": [
+    {"cmd": "python3 -m py_compile test/perf/a1_reentry_readonly.py a1_g0_readonly.py a1_large_m_assess.py", "exit_code": 0, "result": "PASS"},
+    {"cmd": "python3 -m unittest discover -s test/ut -p 'test_a1_*.py' -v", "exit_code": 0, "result": "PASS", "tests": 34, "failures": 0, "errors": 0},
+    {"cmd": "python3 -m pytest -q test/ut", "exit_code": 0, "result": "PASS", "passed": 88, "subtests_passed": 27, "failed": 0},
+    {"cmd": "bash -n test/perf/u1_run.sh", "exit_code": 0, "result": "PASS"},
+    {"cmd": "static audit of u1_run.sh gates", "exit_code": 0, "result": "PASS", "detail": "approval gates U1_G0_APPROVED/U1_EXCLUSIVE_APPROVED/U1_RESTORE_PLAN_VERIFIED (+U1_CONFIRM_APPROVED for confirm) all required-before-run; all five frozen SHAs present verbatim (2a19390c device, 8eb65de9 plugin, 1dc46d7d host x2 dual-path, 25e16b0a kver11); no SHA was modified"},
+    {"cmd": "deviceid_mapping_cpu_test (pure CPU replica of HybmPhysicalDeviceIdOf @5802f550)", "exit_code": 0, "result": "PASS", "cases": "15/15 (unset/empty/identity/0,1/2,3/4,5/6,7/spaces/malformed/short-list/out-of-range)"}
+  ],
+  "notes": "pytest collected the full ut directory (includes non-A1 contract tests: gate_c/d1a source contracts, u1 matrix, v2 layout/separation, f1/f1c, memfabric serve source, d3 add tile) - all green in one process on the isolated checkout",
+  "toxic_env_in_test_session": "none",
+  "CPU_PASS": true,
+  "G0_APPROVED": false
+}

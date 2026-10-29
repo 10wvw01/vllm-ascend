@@ -1,0 +1,24 @@
+{
+  "python": "3.12.13",
+  "python_exe": "/usr/local/python3.12.13/bin/python3",
+  "torch": "2.10.0+cpu",
+  "torch_npu": "2.10.0.post4",
+  "vllm": "INFO 10-26 19:44:47 [__init__.py:52] Available plugins for group vllm.platform_plugins:\nINFO 10-26 19:44:47 [__init__.py:54] - ascend -> vllm_ascend:register\nINFO 10-26 19:44:47 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.\nINFO 10-26 19:44:47 [__init__.py:237] Platform plugin ascend is activated\nINFO 10-26 19:44:47 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.\n0.27.1 /vllm-workspace/vllm/vllm/__init__.py",
+  "cann": "/usr/local/Ascend/cann-9.1.0",
+  "a1_head": "26d7ea3f515f802d95b1941fcbd3e2a8f99a3b69",
+  "a1_branch": "work/310p-mm-ar-large-m-a1-20261026",
+  "a1_clean": "",
+  "main_wt_head": "bd422330a003e91206ddff56e0887fe24a0b1e95",
+  "main_wt_branch": "perf/310p-f1c-stock-fp16-hccl-vs-memfabric-abba-20261025",
+  "mf_fix_head": "5802f55026c16e153e783d8ef26a29f813d63dd9",
+  "vllm_core_head": "6e448d0ea9bf3d88d898b65449ca6dc2aec170ac",
+  "toxic_env_vars": {
+    "MF_KFC_BYPASS": null,
+    "MF310P_V2_NOWARMUP": null,
+    "MF310P_V2_AR_ONLY_NOWARMUP": null,
+    "MF_SDMA_ORCH_DEPLOY_HELPER": null,
+    "MF_SDMA_ORCH_EPOCH_BUDGET_S": null
+  },
+  "model_path": "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8",
+  "model_exists": true
+}

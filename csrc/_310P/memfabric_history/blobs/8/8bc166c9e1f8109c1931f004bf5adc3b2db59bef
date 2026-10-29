@@ -1,0 +1,17 @@
+{
+ "branch": "perf/310p-v2-prefill-attribution-20261021",
+ "commit": "518418f20cf8f09f2c418993400afaf639a101fc",
+ "base_branch": "feat/310p-memfabric-public-api",
+ "devices": "ASCEND_RT_VISIBLE_DEVICES=0,1 (310P3, card 5664 die pair)",
+ "cann": "9.1.0",
+ "memfabric": "wgm-dev-310p 1.2.0, KVER=11",
+ "orch_json_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+ "host_core_so_sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1",
+ "plugin_so_sha256": "929b53c20553f1b7c03fb41fc6577a75784582f4b05f10d0f84d6ba986ad3fd5",
+ "build_flags": "SOC_VERSION=ascend310p3 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1",
+ "raw_traces_server_only": {
+  "stock": "/tmp/opencode/v2_prefill_captures/stock_prefill_v2attrib",
+  "v2": "/tmp/opencode/v2_prefill_captures/v2_prefill_v2attrib",
+  "note": "full ascend_pt exports (69MB stock / ~70MB v2) kept on server only"
+ }
+}

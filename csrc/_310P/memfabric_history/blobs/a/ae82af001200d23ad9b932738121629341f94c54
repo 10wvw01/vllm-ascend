@@ -1,0 +1,474 @@
+{
+  "experiment": "SEL-01",
+  "fixed_profile": {
+    "input_tokens": 4096,
+    "output_tokens": 2048,
+    "tp": 2,
+    "max_num_seqs": 10,
+    "max_concurrency": 10,
+    "num_prompts": 50,
+    "mode": "eager",
+    "note": "batch10 = cap; steady decode shows Running:10 (see scheduler_batch_hist)"
+  },
+  "session_rows": [
+    {
+      "session": "01-stock",
+      "sid": 1,
+      "arm": "stock",
+      "valid": true,
+      "output_throughput": 42.48977237051333,
+      "median_ttft_ms": 11805.081899998186,
+      "p90_ttft_ms": 16100.453036004914,
+      "median_tpot_ms": 223.73737025891657,
+      "p90_tpot_ms": 244.77661358475908,
+      "median_itl_ms": 208.99149500473868,
+      "route": {
+        "enabled_log_count": 0,
+        "v2_execution_marker": false,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 1,
+        "2": 1,
+        "5": 36,
+        "8": 9,
+        "9": 3,
+        "10": 227
+      }
+    },
+    {
+      "session": "02-v1",
+      "sid": 2,
+      "arm": "v1",
+      "valid": false,
+      "failure_reason": "VERIFY_FAILED (completed=30 failed=20; EngineCore dequeue timeout after dual-die AICore 100% spin ~03:03-03:06:58; G3 section-8 P0 signature)"
+    },
+    {
+      "session": "03-v2",
+      "sid": 3,
+      "arm": "v2",
+      "valid": true,
+      "output_throughput": 47.03304349446222,
+      "median_ttft_ms": 11941.81594499969,
+      "p90_ttft_ms": 16461.40158500639,
+      "median_tpot_ms": 205.00130229359792,
+      "p90_tpot_ms": 214.74823108988787,
+      "median_itl_ms": 194.7912350005936,
+      "route": {
+        "enabled_log_count": 80,
+        "v2_execution_marker": true,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 1,
+        "2": 1,
+        "3": 1,
+        "5": 35,
+        "7": 1,
+        "8": 8,
+        "9": 2,
+        "10": 205
+      }
+    },
+    {
+      "session": "04-v2",
+      "sid": 4,
+      "arm": "v2",
+      "valid": true,
+      "output_throughput": 45.95337921795607,
+      "median_ttft_ms": 12022.869940003147,
+      "p90_ttft_ms": 16499.89099800005,
+      "median_tpot_ms": 212.08319063995717,
+      "p90_tpot_ms": 214.7232901827059,
+      "median_itl_ms": 203.83588000549935,
+      "route": {
+        "enabled_log_count": 80,
+        "v2_execution_marker": true,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 1,
+        "3": 1,
+        "4": 1,
+        "5": 34,
+        "8": 9,
+        "9": 2,
+        "10": 210
+      }
+    },
+    {
+      "session": "05-v1",
+      "sid": 5,
+      "arm": "v1",
+      "valid": false,
+      "failure_reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+    },
+    {
+      "session": "06-stock",
+      "sid": 6,
+      "arm": "stock",
+      "valid": true,
+      "output_throughput": 49.181925773354,
+      "median_ttft_ms": 11809.32410000969,
+      "p90_ttft_ms": 16143.066749993892,
+      "median_tpot_ms": 197.34365847337511,
+      "p90_tpot_ms": 201.33733163849794,
+      "median_itl_ms": 188.6858549914905,
+      "route": {
+        "enabled_log_count": 0,
+        "v2_execution_marker": false,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 2,
+        "2": 1,
+        "5": 33,
+        "8": 8,
+        "9": 3,
+        "10": 195
+      }
+    },
+    {
+      "session": "07-stock",
+      "sid": 7,
+      "arm": "stock",
+      "valid": true,
+      "output_throughput": 46.120069487567946,
+      "median_ttft_ms": 11805.134104994067,
+      "p90_ttft_ms": 16152.996606001401,
+      "median_tpot_ms": 211.09553532242248,
+      "p90_tpot_ms": 217.4589391880827,
+      "median_itl_ms": 200.50122500106227,
+      "route": {
+        "enabled_log_count": 0,
+        "v2_execution_marker": false,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "2": 1,
+        "4": 2,
+        "5": 36,
+        "8": 9,
+        "9": 2,
+        "10": 209
+      }
+    },
+    {
+      "session": "08-v1",
+      "sid": 8,
+      "arm": "v1",
+      "valid": false,
+      "failure_reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+    },
+    {
+      "session": "09-v2",
+      "sid": 9,
+      "arm": "v2",
+      "valid": false,
+      "failure_reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+    },
+    {
+      "session": "10-v2",
+      "sid": 10,
+      "arm": "v2",
+      "valid": true,
+      "output_throughput": 48.19582327424515,
+      "median_ttft_ms": 11929.01312000322,
+      "p90_ttft_ms": 16651.81706699514,
+      "median_tpot_ms": 200.90581965314968,
+      "p90_tpot_ms": 206.79119049633402,
+      "median_itl_ms": 188.3281749978778,
+      "route": {
+        "enabled_log_count": 80,
+        "v2_execution_marker": true,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 1,
+        "3": 1,
+        "4": 1,
+        "5": 33,
+        "8": 9,
+        "9": 1,
+        "10": 201
+      }
+    },
+    {
+      "session": "11-v1",
+      "sid": 11,
+      "arm": "v1",
+      "valid": false,
+      "failure_reason": "ABORTED_BY_EXPERIMENTER: SIGTERM to bench during warmup (0/50 measured), per decision to stop V1 attempts after 3 consecutive natural same-signature failures (02, 05, 08). NOT a natural crash - excluded from natural-failure statistics."
+    },
+    {
+      "session": "12-stock",
+      "sid": 12,
+      "arm": "stock",
+      "valid": true,
+      "output_throughput": 45.83838690318762,
+      "median_ttft_ms": 11805.582405002497,
+      "p90_ttft_ms": 16142.218672006862,
+      "median_tpot_ms": 213.02103224963145,
+      "p90_tpot_ms": 223.9169747322863,
+      "median_itl_ms": 196.59381499513984,
+      "route": {
+        "enabled_log_count": 0,
+        "v2_execution_marker": false,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "2": 1,
+        "3": 1,
+        "5": 33,
+        "7": 1,
+        "8": 9,
+        "9": 2,
+        "10": 210
+      }
+    },
+    {
+      "session": "13-v2",
+      "sid": 13,
+      "arm": "v2",
+      "valid": true,
+      "output_throughput": 44.87399647409953,
+      "median_ttft_ms": 11987.045930000022,
+      "p90_ttft_ms": 16394.9578950007,
+      "median_tpot_ms": 209.70184401563208,
+      "p90_tpot_ms": 245.96790232047007,
+      "median_itl_ms": 201.36541499960003,
+      "route": {
+        "enabled_log_count": 80,
+        "v2_execution_marker": true,
+        "device_kernel_trace_still_required": true
+      },
+      "scheduler_batch_hist": {
+        "0": 1,
+        "3": 2,
+        "5": 35,
+        "8": 10,
+        "9": 2,
+        "10": 214
+      }
+    }
+  ],
+  "group_summary": {
+    "stock": {
+      "attempts": 4,
+      "valid_sessions": 4,
+      "failed_sessions": 0,
+      "failure_ledger": [],
+      "sessions": [
+        {
+          "session": "01-stock",
+          "output_throughput": 42.48977237051333,
+          "median_ttft_ms": 11805.081899998186,
+          "p90_ttft_ms": 16100.453036004914,
+          "median_tpot_ms": 223.73737025891657,
+          "p90_tpot_ms": 244.77661358475908,
+          "median_itl_ms": 208.99149500473868,
+          "scheduler_batch_hist": {
+            "0": 1,
+            "2": 1,
+            "5": 36,
+            "8": 9,
+            "9": 3,
+            "10": 227
+          }
+        },
+        {
+          "session": "06-stock",
+          "output_throughput": 49.181925773354,
+          "median_ttft_ms": 11809.32410000969,
+          "p90_ttft_ms": 16143.066749993892,
+          "median_tpot_ms": 197.34365847337511,
+          "p90_tpot_ms": 201.33733163849794,
+          "median_itl_ms": 188.6858549914905,
+          "scheduler_batch_hist": {
+            "0": 2,
+            "2": 1,
+            "5": 33,
+            "8": 8,
+            "9": 3,
+            "10": 195
+          }
+        },
+        {
+          "session": "07-stock",
+          "output_throughput": 46.120069487567946,
+          "median_ttft_ms": 11805.134104994067,
+          "p90_ttft_ms": 16152.996606001401,
+          "median_tpot_ms": 211.09553532242248,
+          "p90_tpot_ms": 217.4589391880827,
+          "median_itl_ms": 200.50122500106227,
+          "scheduler_batch_hist": {
+            "2": 1,
+            "4": 2,
+            "5": 36,
+            "8": 9,
+            "9": 2,
+            "10": 209
+          }
+        },
+        {
+          "session": "12-stock",
+          "output_throughput": 45.83838690318762,
+          "median_ttft_ms": 11805.582405002497,
+          "p90_ttft_ms": 16142.218672006862,
+          "median_tpot_ms": 213.02103224963145,
+          "p90_tpot_ms": 223.9169747322863,
+          "median_itl_ms": 196.59381499513984,
+          "scheduler_batch_hist": {
+            "2": 1,
+            "3": 1,
+            "5": 33,
+            "7": 1,
+            "8": 9,
+            "9": 2,
+            "10": 210
+          }
+        }
+      ],
+      "output_throughput_median": 45.979228195377786,
+      "output_throughput_min_max": [
+        42.48977237051333,
+        49.181925773354
+      ],
+      "ttft_p50_of_session_medians_ms": 11805.358254998282,
+      "tpot_p50_of_session_medians_ms": 212.05828378602695,
+      "itl_p50_of_session_medians_ms": 198.54751999810105
+    },
+    "v1": {
+      "attempts": 4,
+      "valid_sessions": 0,
+      "failed_sessions": 4,
+      "failure_ledger": [
+        {
+          "session": "02-v1",
+          "reason": "VERIFY_FAILED (completed=30 failed=20; EngineCore dequeue timeout after dual-die AICore 100% spin ~03:03-03:06:58; G3 section-8 P0 signature)"
+        },
+        {
+          "session": "05-v1",
+          "reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+        },
+        {
+          "session": "08-v1",
+          "reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+        },
+        {
+          "session": "11-v1",
+          "reason": "ABORTED_BY_EXPERIMENTER: SIGTERM to bench during warmup (0/50 measured), per decision to stop V1 attempts after 3 consecutive natural same-signature failures (02, 05, 08). NOT a natural crash - excluded from natural-failure statistics."
+        }
+      ],
+      "sessions": [],
+      "throughput_delta_vs_stock_pct": null
+    },
+    "v2": {
+      "attempts": 5,
+      "valid_sessions": 4,
+      "failed_sessions": 1,
+      "failure_ledger": [
+        {
+          "session": "09-v2",
+          "reason": "VERIFY_FAILED (not 50/50, wrong lens, or route mismatch)"
+        }
+      ],
+      "sessions": [
+        {
+          "session": "03-v2",
+          "output_throughput": 47.03304349446222,
+          "median_ttft_ms": 11941.81594499969,
+          "p90_ttft_ms": 16461.40158500639,
+          "median_tpot_ms": 205.00130229359792,
+          "p90_tpot_ms": 214.74823108988787,
+          "median_itl_ms": 194.7912350005936,
+          "scheduler_batch_hist": {
+            "0": 1,
+            "2": 1,
+            "3": 1,
+            "5": 35,
+            "7": 1,
+            "8": 8,
+            "9": 2,
+            "10": 205
+          }
+        },
+        {
+          "session": "04-v2",
+          "output_throughput": 45.95337921795607,
+          "median_ttft_ms": 12022.869940003147,
+          "p90_ttft_ms": 16499.89099800005,
+          "median_tpot_ms": 212.08319063995717,
+          "p90_tpot_ms": 214.7232901827059,
+          "median_itl_ms": 203.83588000549935,
+          "scheduler_batch_hist": {
+            "0": 1,
+            "3": 1,
+            "4": 1,
+            "5": 34,
+            "8": 9,
+            "9": 2,
+            "10": 210
+          }
+        },
+        {
+          "session": "10-v2",
+          "output_throughput": 48.19582327424515,
+          "median_ttft_ms": 11929.01312000322,
+          "p90_ttft_ms": 16651.81706699514,
+          "median_tpot_ms": 200.90581965314968,
+          "p90_tpot_ms": 206.79119049633402,
+          "median_itl_ms": 188.3281749978778,
+          "scheduler_batch_hist": {
+            "0": 1,
+            "3": 1,
+            "4": 1,
+            "5": 33,
+            "8": 9,
+            "9": 1,
+            "10": 201
+          }
+        },
+        {
+          "session": "13-v2",
+          "output_throughput": 44.87399647409953,
+          "median_ttft_ms": 11987.045930000022,
+          "p90_ttft_ms": 16394.9578950007,
+          "median_tpot_ms": 209.70184401563208,
+          "p90_tpot_ms": 245.96790232047007,
+          "median_itl_ms": 201.36541499960003,
+          "scheduler_batch_hist": {
+            "0": 1,
+            "3": 2,
+            "5": 35,
+            "8": 10,
+            "9": 2,
+            "10": 214
+          }
+        }
+      ],
+      "output_throughput_median": 46.493211356209144,
+      "output_throughput_min_max": [
+        44.87399647409953,
+        48.19582327424515
+      ],
+      "ttft_p50_of_session_medians_ms": 11964.430937499856,
+      "tpot_p50_of_session_medians_ms": 207.35157315461498,
+      "itl_p50_of_session_medians_ms": 198.0783250000968,
+      "throughput_delta_vs_stock_pct": 1.12,
+      "per_session_delta_vs_stock_median_pct": [
+        2.29,
+        -0.06,
+        4.82,
+        -2.4
+      ],
+      "direction_consistent": false
+    }
+  },
+  "selection_verdict": "PERF_EVALUATION_BLOCKED_BY_STABILITY(v1)",
+  "verdict_notes": [
+    "v1: PERF_EVALUATION_BLOCKED_BY_STABILITY (3 natural failures + 1 experimenter aborts of 4 attempts, no valid sample)"
+  ],
+  "safety": "Gate E P0 remains OPEN (intermittent dual-die spin hang, G3 section-8); no arm is production-approved",
+  "notice": "Failed sessions preserved and excluded from performance; D4 4096/512 data NOT included"
+}

@@ -1,0 +1,23 @@
+name: 310P V3 CPU contracts
+
+on:
+  pull_request:
+    paths:
+      - 'csrc/_310P/memfabric_mm_ar_v3/**'
+      - 'vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py'
+      - '.github/workflows/310p-v3-cpu.yml'
+  workflow_dispatch:
+
+jobs:
+  cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest ruff==0.14.0
+      - run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v3/test --import-mode=importlib
+      - run: >-
+          python -m ruff check csrc/_310P/memfabric_mm_ar_v3
+          vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py

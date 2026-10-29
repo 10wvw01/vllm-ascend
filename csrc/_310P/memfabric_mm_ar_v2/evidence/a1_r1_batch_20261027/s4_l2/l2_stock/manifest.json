@@ -1,0 +1,25 @@
+{
+  "session_id": "L2S",
+  "arm": "stock",
+  "input_tokens": 4096,
+  "output_tokens": 1,
+  "concurrency": 1,
+  "tp": 2,
+  "eager": true,
+  "profiler": true,
+  "warmup_requests": 6,
+  "measured_requests": 5,
+  "identity": {
+    "model": "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8",
+    "model_revision": "93a4693fa9d8392fbfccd4b3c9873f4bfdcb14fdede978b123d07d19675efe99",
+    "physical_devices": "2,3",
+    "host_so_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+    "device_so_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+    "plugin_so_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+    "kver_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "runtime_id": "a1-r1-batch-20261027",
+    "loading_scheme": "private PYTHONPATH site + LD_LIBRARY_PATH priv-libs; shared system files untouched",
+    "maps_evidence": "evidence/smoke_worker_maps + confirm_worker_maps: rank-bound workers load D4 2a19390c + host 1dc46d7d + plugin 8eb65de9 privately"
+  },
+  "identity_kind": "site-audited runtime; must retain raw evidence"
+}

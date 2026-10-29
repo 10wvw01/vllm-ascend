@@ -1,0 +1,327 @@
+"""CPU Torch contracts for candidate 310P V2 T05/T06/T14/T15 adapters.
+
+This tests semantic tensor behavior, NOT NPU op availability or runner wiring.
+The GitHub lightweight gate has no torch: tests skip cleanly there, while the
+pure-Python staged-write golden remains mandatory.
+"""
+import ast
+import importlib.util
+import pathlib
+import sys
+import types
+import unittest
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+SRC = ROOT / "vllm_ascend/_310p/v2"
+
+
+def load_isolated_modules():
+    name = "_r2_cpu_isolated"
+    package = types.ModuleType(name)
+    package.__path__ = [str(SRC)]
+    sys.modules[name] = package
+    for part in ("staged_buffers", "request_state", "block_tables"):
+        fullname = name + "." + part
+        spec = importlib.util.spec_from_file_location(fullname, SRC / (part + ".py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[fullname] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[name + ".request_state"], sys.modules[name + ".block_tables"]
+
+
+class TestCandidateAdapters(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            import torch
+            import numpy
+        except ImportError:
+            raise unittest.SkipTest("torch/numpy absent; mandatory pure Python gold still runs")
+        cls.torch = torch
+        cls.request_module, cls.block_module = load_isolated_modules()
+
+    def test_request_add_apply_release_reuse(self):
+        t = self.torch
+        s = self.request_module.NPURequestState(
+            2, 16, 32, 7, 32000, "cpu"
+        )
+        s.add_request("a", 3, [11, 12, 13], 0, 10)
+        idx = s.req_id_to_index["a"]
+        self.assertEqual(s.num_reqs, 1)
+        self.assertEqual(s.all_token_ids.gpu[idx, :3].tolist(), [0, 0, 0])
+        s.apply_staged_writes()
+        self.assertEqual(s.all_token_ids.gpu[idx, :3].tolist(), [11, 12, 13])
+        self.assertEqual(s.prefill_len.gpu[idx].item(), 3)
+        self.assertEqual(s.total_len.gpu[idx].item(), 3)
+        self.assertEqual(s._last_sampled_storage.stride(0), 4)
+        self.assertEqual(s._draft_storage.stride(0), 8)
+        self.assertEqual(s._next_prefill_storage.stride(0), 8)
+        self.assertEqual(s.next_prefill_tokens.stride(), (1, 8))
+        s._last_sampled_storage[idx].fill_(42)
+        s._draft_storage[idx].fill_(99)
+        s._next_prefill_storage[idx].fill_(66)
+        self.assertEqual(s.remove_request("a"), idx)
+        s.add_request("b", 2, [21, 22], 1, 10)
+        self.assertEqual(s.req_id_to_index["b"], idx)
+        self.assertEqual(s.last_sampled_tokens[idx, 0].item(), 0)
+        self.assertEqual(s.draft_tokens[idx].tolist(), [0] * 7)
+        self.assertEqual(s.next_prefill_tokens[:, idx].tolist(), [0])
+        self.assertEqual(s._next_prefill_storage[idx].tolist(), [0] * 8)
+        s.apply_staged_writes()
+        self.assertEqual(s.all_token_ids.gpu[idx, :2].tolist(), [21, 22])
+        self.assertEqual(s.all_token_ids.gpu[idx, 2:].tolist(), [0] * 14)
+        self.assertIsNone(s.remove_request("missing"))
+
+    def test_multistep_lookahead_reuse_preserves_other_request(self):
+        s = self.request_module.NPURequestState(
+            2, 32, 32, 7, 32000, "cpu", num_prefill_lookahead=9
+        )
+        self.assertEqual(s.next_prefill_tokens.shape, (9, 2))
+        self.assertEqual(s.next_prefill_tokens.stride(), (1, 16))
+        s.add_request("a", 2, [1, 2], 0, 10)
+        s.add_request("b", 2, [3, 4], 0, 10)
+        s.apply_staged_writes()
+        a, b = s.req_id_to_index["a"], s.req_id_to_index["b"]
+        s._next_prefill_storage[a].fill_(99)
+        s._next_prefill_storage[b].fill_(77)
+        s.remove_request("a")
+        s.add_request("c", 2, [5, 6], 0, 10)
+        self.assertEqual(s.req_id_to_index["c"], a)
+        self.assertEqual(s._next_prefill_storage[a].tolist(), [0] * 16)
+        self.assertEqual(s._next_prefill_storage[b].tolist(), [77] * 16)
+
+    def test_request_invalid_is_transactional(self):
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        for args in [
+            ("bad", 3, [1, 2], 0, 1),
+            ("bad", 2, [1, 2], 3, 1),
+            ("bad", 2, [1, 2], 0, 7),
+        ]:
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                s.add_request(*args)
+        self.assertEqual(s.num_reqs, 0)
+        self.assertEqual(len(s.free_indices), 1)
+
+    def test_partial_add_poisoned_and_no_reuse(self):
+        from unittest.mock import patch
+
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        with patch.object(
+            s.all_token_ids, "stage_write",
+            side_effect=RuntimeError("token row staging failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "token row staging failed"):
+                s.add_request("a", 2, [1, 2], 0, 3)
+        self.assertTrue(s._poisoned)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.add_request("b", 2, [3, 4], 0, 3)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.apply_staged_writes()
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            s.remove_request("a")
+
+    def test_pending_request_release_is_fail_closed(self):
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        s.add_request("a", 2, [1, 2], 0, 3)
+        with self.assertRaisesRegex(RuntimeError, "pending token writes"):
+            s.remove_request("a")
+        self.assertEqual(s.num_reqs, 1)
+        self.assertEqual(s.req_id_to_index["a"], 0)
+        s.apply_staged_writes()
+        self.assertEqual(s.remove_request("a"), 0)
+
+    def test_release_rejects_pending_device_owned_vector_writes(self):
+        s = self.request_module.NPURequestState(1, 8, 16, 7, 32000, "cpu")
+        s.add_request("old", 2, [1, 2], 0, 3)
+        s.apply_staged_writes()
+        idx = s.req_id_to_index["old"]
+
+        # Token writes are already committed, but each vector can still
+        # carry a delayed write targeting the soon-to-be-reused slot.
+        for name in ("total_len", "num_computed_tokens"):
+            with self.subTest(buffer=name):
+                buffer = getattr(s, name)
+                buffer.stage_write_elem(idx, 7)
+                with self.assertRaisesRegex(RuntimeError, f"pending {name} writes"):
+                    s.assert_can_release_request("old")
+                with self.assertRaisesRegex(RuntimeError, f"pending {name} writes"):
+                    s.remove_request("old")
+                self.assertEqual(s.req_id_to_index["old"], idx)
+                self.assertEqual(s.index_to_req_id[idx], "old")
+                self.assertNotIn(idx, s.free_indices)
+                buffer.clear_staged_writes()
+
+        self.assertEqual(s.assert_can_release_request("old"), idx)
+        self.assertEqual(s.req_id_to_index["old"], idx)
+        self.assertEqual(s.remove_request("old"), idx)
+        self.assertEqual(s.free_indices.count(idx), 1)
+        s.add_request("new", 2, [3, 4], 0, 3)
+        s.apply_staged_writes()
+        self.assertEqual(s.req_id_to_index["new"], idx)
+        self.assertEqual(s.total_len.gpu[idx].item(), 2)
+        self.assertEqual(s.num_computed_tokens.gpu[idx].item(), 0)
+
+    def test_multigroup_physical_block_and_padding(self):
+        t = self.torch
+        b = self.block_module.NPUBlockTables(
+            block_sizes=[64, 128],
+            kernel_block_sizes=[32, 128],
+            max_num_reqs=3,
+            max_num_batched_tokens=16,
+            max_num_blocks_per_group=[4, 4],
+            device="cpu",
+        )
+        b.append_block_ids(2, ([3, 4], [8]), overwrite=False)
+        b.apply_staged_writes()
+        self.assertEqual(b.block_tables[0].gpu[2, :4].tolist(), [6, 7, 8, 9])
+        self.assertEqual(b.block_tables[1].gpu[2, 0].item(), 8)
+        idx = t.tensor([2], dtype=t.int32)
+        tables = b.gather_block_tables(idx, 2)
+        self.assertEqual(tables[0][0, :4].tolist(), [6, 7, 8, 9])
+        self.assertEqual(tables[0][1].count_nonzero().item(), 0)
+        slots = b.compute_slot_mappings(
+            idx,
+            t.tensor([0, 3], dtype=t.int32),
+            t.tensor([0, 31, 32, 0, 0], dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(slots.shape, (2, 5))
+        self.assertEqual(slots.dtype, t.int32)  # NPU reshape_and_cache ABI
+        self.assertEqual(slots[0].tolist(), [192, 223, 224, -1, -1])
+        self.assertEqual(slots[1].tolist(), [1024, 1055, 1056, -1, -1])
+        # Upstream DFlash reads the persistent slot_mappings attribute,
+        # not the fresh return tensor. The Eager adapter must write both.
+        self.assertEqual(b.slot_mappings[:, :5].tolist(), slots.tolist())
+        self.assertEqual(slots.data_ptr(), b.slot_mappings.data_ptr())
+        # 0.27.1 passes positions for real tokens, not padded tokens.
+        short = b.compute_slot_mappings(
+            idx, t.tensor([0, 3], dtype=t.int32),
+            t.tensor([0, 31, 32], dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(short.tolist(), slots.tolist())
+        self.assertEqual(short.data_ptr(), b.slot_mappings.data_ptr())
+        empty = b.compute_slot_mappings(
+            t.empty(0, dtype=t.int32),
+            t.tensor([0], dtype=t.int32),
+            t.empty(0, dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(empty.tolist(), [[-1] * 5, [-1] * 5])
+        self.assertEqual(empty.data_ptr(), b.slot_mappings.data_ptr())
+        b.append_block_ids(2, ([10], [11]), overwrite=True)
+        b.apply_staged_writes()
+        self.assertEqual(b.num_blocks.gpu[:, 2].tolist(), [2, 1])
+        # Reused slot still has old tail in source; gather must mask it.
+        reused = b.gather_block_tables(idx, 2)
+        self.assertEqual(reused[0][0, :4].tolist(), [20, 21, 0, 0])
+        self.assertEqual(reused[1][0, :2].tolist(), [11, 0])
+        with self.assertRaises(NotImplementedError):
+            b.gather_block_tables(idx, 2, out=(tables[0], tables[1]))
+
+    def test_t06_slot_mapping_full_aligned_group_rows(self):
+        t = self.torch
+        b = self.block_module.NPUBlockTables(
+            [64, 128], 2, 5, [2, 2], "cpu", [64, 128]
+        )
+        self.assertEqual(b.slot_mappings.shape, (2, 5))
+        self.assertEqual(b._slot_storage.shape, (2, 8))
+        self.assertEqual(b.slot_mappings.stride(0), 8)
+        b.append_block_ids(0, ([1], [2]), overwrite=False)
+        b.apply_staged_writes()
+        out = b.compute_slot_mappings(
+            t.tensor([0], dtype=t.int32),
+            t.tensor([0, 3], dtype=t.int32),
+            t.tensor([0, 1, 2], dtype=t.int32),
+            num_tokens_padded=5,
+        )
+        self.assertEqual(out.tolist(), [
+            [64, 65, 66, -1, -1],
+            [256, 257, 258, -1, -1],
+        ])
+        self.assertEqual(b._slot_storage[:, 5:].tolist(), [[-1] * 3] * 2)
+        self.assertEqual(out.data_ptr(), b.slot_mappings.data_ptr())
+        empty = b.compute_slot_mappings(
+            t.empty(0, dtype=t.int32),
+            t.tensor([0], dtype=t.int32),
+            t.empty(0, dtype=t.int32),
+            num_tokens_padded=2,
+        )
+        self.assertEqual(empty.tolist(), [[-1] * 2] * 2)
+        self.assertEqual(b._slot_storage.tolist(), [[-1] * 8] * 2)
+        b.get_dummy_slot_mappings(3)
+        self.assertEqual(b._slot_storage.tolist(), [[-1] * 8] * 2)
+
+    def test_failed_kv_commit_blocks_future_gather_and_slot(self):
+        from unittest.mock import patch
+
+        t = self.torch
+        b = self.block_module.NPUBlockTables(
+            [64, 128], 2, 16, [2, 2], "cpu", [32, 128]
+        )
+        b.append_block_ids(0, ([1], [2]), False)
+        with patch.object(
+            b.block_tables[1], "apply_write",
+            side_effect=RuntimeError("second group H2D failed"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "second group H2D failed"):
+                b.apply_staged_writes()
+        self.assertTrue(b._poisoned)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.gather_block_tables(t.tensor([0], dtype=t.int32), 1)
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.compute_slot_mappings(
+                t.tensor([0], dtype=t.int32),
+                t.tensor([0, 1], dtype=t.int32),
+                t.tensor([0], dtype=t.int32), 1,
+            )
+        with self.assertRaisesRegex(RuntimeError, "poisoned"):
+            b.append_block_ids(0, ([3], [4]), False)
+
+    def test_invalid_group_is_atomic_and_cp_rejected(self):
+        b = self.block_module.NPUBlockTables(
+            [64, 128], 2, 16, [2, 2], "cpu", [32, 128]
+        )
+        with self.assertRaises(ValueError):
+            b.append_block_ids(0, ([1], [1, 2, 3]), False)
+        self.assertEqual(b.num_blocks.np[:, 0].tolist(), [0, 0])
+        self.assertTrue(all(x.plan.pending_count == 0 for x in b.block_tables))
+        with self.assertRaises(NotImplementedError):
+            self.block_module.NPUBlockTables(
+                [64], 2, 16, [2], "cpu", [64], cp_size=2
+            )
+
+
+class TestInheritedReleaseOrder(unittest.TestCase):
+    def test_preflight_before_frozen_model_state_release(self):
+        # The real vLLM 0.27.1 inherited method calls ModelState.remove_request
+        # before RequestState.remove_request. Guard our override by AST without
+        # importing the heavyweight vLLM/torch-npu runner in lightweight CI.
+        tree = ast.parse((SRC / "model_runner.py").read_text())
+        candidate = next(
+            node for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "NPUModelRunner310V2Candidate"
+        )
+        method = next(
+            node for node in candidate.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_remove_request"
+        )
+        calls = [
+            (ast.unparse(node.func), node.lineno)
+            for node in ast.walk(method)
+            if isinstance(node, ast.Call)
+        ]
+        preflight = next(
+            line for name, line in calls
+            if name == "self.req_states.assert_can_release_request"
+        )
+        inherited = next(
+            line for name, line in calls if name == "super()._remove_request"
+        )
+        self.assertLess(preflight, inherited)
+
+
+if __name__ == "__main__":
+    unittest.main()

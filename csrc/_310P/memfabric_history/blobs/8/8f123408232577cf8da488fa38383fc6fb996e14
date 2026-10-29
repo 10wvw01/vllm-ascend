@@ -1,0 +1,47 @@
+// Gate B independent timing-capability probe for Ascend 310P3 (dav-2002).
+// Standalone forensic probe: NOT part of the production V2 kernel, NOT part
+// of any diagnostic variant, never linked into serving. Only purpose: prove
+// or disprove whether GetSystemCycle() is a usable in-kernel timestamp on
+// 310P3 (monotonicity, rough frequency, cross-core coherence).
+#include "kernel_tensor.h"
+#include "kernel_operator.h"
+#include <cstdint>
+#include "acl/acl_rt.h"
+
+using namespace AscendC;
+
+// 8 cores (matches V2 fused kernel core count); each owns one 64B slot:
+// [0]=core [1]=c0 [2]=c1 [3]=c2 [4]=magic [5]=acc [6]=launch_id [7]=0
+extern "C" __global__ __aicore__ void mf_timing_probe_kernel(
+    __gm__ uint64_t* out, uint64_t magic, uint64_t launchId)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    const uint32_t core = GetBlockIdx();
+    if (core >= 8) return;
+    const uint64_t c0 = static_cast<uint64_t>(GetSystemCycle());
+    uint64_t acc = 0;
+    for (uint32_t i = 0; i < 200000u; ++i) acc += i;
+    const uint64_t c1 = static_cast<uint64_t>(GetSystemCycle());
+    const uint64_t c2 = static_cast<uint64_t>(GetSystemCycle());
+    __gm__ uint64_t* slot = out + 8 * core;
+    slot[0] = core;
+    slot[1] = c0;
+    slot[2] = c1;
+    slot[3] = c2;
+    slot[4] = magic;
+    slot[5] = acc;
+    slot[6] = launchId;
+    slot[7] = 0;
+    GlobalTensor<uint64_t> g;
+    g.SetGlobalBuffer(slot, 8);
+    DataCacheCleanAndInvalid<uint64_t, CacheLine::SINGLE_CACHE_LINE>(g);
+}
+
+extern "C" int mf_timing_probe_async(
+    uint64_t out, uint64_t magic, uint64_t launchId, aclrtStream stream)
+{
+    if (!stream || !out) return -1;
+    mf_timing_probe_kernel<<<8, 0, stream>>>(
+        reinterpret_cast<__gm__ uint64_t*>(out), magic, launchId);
+    return 0;
+}

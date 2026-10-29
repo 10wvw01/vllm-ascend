@@ -1,0 +1,43 @@
+<frozen runpy>:128: RuntimeWarning: 'torch.distributed.run' found in sys.modules after import of package 'torch.distributed', but prior to execution of 'torch.distributed.run'; this may result in unpredictable behaviour
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed.
+*****************************************
+[Gloo] Rank [Gloo] Rank 1 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+0 is connected to 1 peer ranks. Expected number of connected peer ranks is : 1
+[rank0]:[W1029 11:56:30.087042680 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+2026-10-29 11:56:32.895366 WARN [2224648-2224648][HYBM dl_hybm_copy_extend.cpp:46 TryLoadLibrary] /tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64 get lib path failed
+2026-10-29 11:56:32.895722 WARN [2224647-2224647][HYBM dl_hybm_copy_extend.cpp:46 TryLoadLibrary] /tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64 get lib path failed
+2026-10-29 11:56:32.895765 WARN [2224648-2224648][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-29 11:56:32.896069 WARN [2224647-2224647][HYBM dl_hcom_api.cpp:84 LoadLibrary] Unable to open library [libhcom.so], libhcom.so: cannot open shared object file: No such file or directory
+2026-10-29 11:56:32.897672 WARN [2224648-2224648][HYBM hybm_entity_tag_info.cpp:141 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-29 11:56:32.897712 WARN [2224647-2224647][HYBM hybm_entity_tag_info.cpp:141 GetTag2TagOpType] Not find opType from tag1:HYBM_DEFAULT_TAG_FOR_EMPTY to tag2:HYBM_DEFAULT_TAG_FOR_EMPTY
+2026-10-29 11:56:32.918558 WARN [2224647-2224647][HYBM hybm_mem_segment.cpp:220 InitDeviceInfo] get sdid failed: 207000 deviceId: 2 — using 0, may affect cross-server logic
+2026-10-29 11:56:32.918680 WARN [2224647-2224647][HYBM hybm_mem_segment.cpp:229 InitDeviceInfo] get server id failed: 207000 deviceId: 2 — using boot id fallback
+2026-10-29 11:56:32.918763 WARN [2224647-2224647][HYBM hybm_mem_segment.cpp:238 InitDeviceInfo] get super pod id failed: 207000 deviceId: 2 — using invalid fallback
+2026-10-29 11:56:32.919979 WARN [2224648-2224648][HYBM hybm_mem_segment.cpp:220 InitDeviceInfo] get sdid failed: 207000 deviceId: 3 — using 0, may affect cross-server logic
+2026-10-29 11:56:32.920097 WARN [2224648-2224648][HYBM hybm_mem_segment.cpp:229 InitDeviceInfo] get server id failed: 207000 deviceId: 3 — using boot id fallback
+2026-10-29 11:56:32.920180 WARN [2224648-2224648][HYBM hybm_mem_segment.cpp:238 InitDeviceInfo] get super pod id failed: 207000 deviceId: 3 — using invalid fallback
+[helper] kernel already present: /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v28.so
+[helper] kernel already present: /usr/lib64/aicpu_kernels/0/aicpu_kernels_device/libmf_sdma_orch_v28.so
+2026-10-29 11:56:40.052212 WARN [2224647-2224647][HYBM hybm_vmm_based_segment.cpp:436 AllocLocalMemory] AclrtMemSetAccess(RW) dev:0 failed:207000 addr:0x12c140000000 segType:0 rankId:0
+2026-10-29 11:56:40.052274 WARN [2224647-2224647][HYBM hybm_vmm_based_segment.cpp:436 AllocLocalMemory] AclrtMemSetAccess(RW) dev:1 failed:207000 addr:0x12c140000000 segType:0 rankId:0
+2026-10-29 11:56:40.060585 WARN [2224648-2224648][HYBM hybm_vmm_based_segment.cpp:436 AllocLocalMemory] AclrtMemSetAccess(RW) dev:0 failed:207000 addr:0x12c180000000 segType:0 rankId:1
+2026-10-29 11:56:40.060645 WARN [2224648-2224648][HYBM hybm_vmm_based_segment.cpp:436 AllocLocalMemory] AclrtMemSetAccess(RW) dev:1 failed:207000 addr:0x12c180000000 segType:0 rankId:1
+{"rank": 0, "gate": "ib", "status": "PASS"}{"rank": 1, "gate": "ib", "status": "PASS"}
+
+{"rank": 0, "gate": "add", "status": "PASS"}
+{"rank": 1, "gate": "add", "status": "PASS"}
+[mf310p-v3] live output on either rank prevents close failed rc=-26
+[mf310p-v3] live output on either rank prevents close failed rc=-26
+{"rank": 1, "gate": "output_lifetime", "status": "PASS"}
+{"rank": 0, "gate": "output_lifetime", "status": "PASS"}
+{"rank": 0, "gate": "protocol", "status": "PASS"}
+{"rank": 1, "gate": "protocol", "status": "PASS"}
+{"rank": 0, "gate": "fused", "status": "PASS"}
+{"rank": 1, "gate": "fused", "status": "PASS"}
+{"rank": 1, "gate": "tail", "status": "PASS"}
+{"rank": 0, "gate": "tail", "status": "PASS"}
+2026-10-29 11:57:43.951920 WARN [2224647-2224647][HYBM hybm_va_manager.cpp:480 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-29 11:57:43.951990 WARN [2224648-2224648][HYBM hybm_va_manager.cpp:480 DumpReservedGvaInfo] No reserved spaces found.
+2026-10-29 11:57:45.965083 WARN [2224647-2225347][AccLink acc_tcp_listener.cpp:151 RunInThread] Acc listener accept thread get stop signal, will exit...

@@ -1,0 +1,77 @@
+{
+  "tool": "c3_instr_compare",
+  "dcci_signature": "0x402c**** (probe-calibrated)",
+  "instantiations": {
+    "tiling256": {
+      "base_bytes": 13216,
+      "cand_bytes": 13312,
+      "base_instrs": 3304,
+      "cand_instrs": 3328,
+      "base_dcci_static": 33,
+      "cand_dcci_static": 42,
+      "base_branch_like_07": 479,
+      "cand_branch_like_07": 479,
+      "dcci_static_delta": 9
+    },
+    "tiling512": {
+      "base_bytes": 13220,
+      "cand_bytes": 13288,
+      "base_instrs": 3305,
+      "cand_instrs": 3322,
+      "base_dcci_static": 33,
+      "cand_dcci_static": 42,
+      "base_branch_like_07": 479,
+      "cand_branch_like_07": 479,
+      "dcci_static_delta": 9
+    },
+    "tiling1024": {
+      "base_bytes": 13196,
+      "cand_bytes": 13292,
+      "base_instrs": 3299,
+      "cand_instrs": 3323,
+      "base_dcci_static": 33,
+      "cand_dcci_static": 42,
+      "base_branch_like_07": 486,
+      "cand_branch_like_07": 486,
+      "dcci_static_delta": 9
+    }
+  },
+  "tiling1024_clean_sites": [
+    {
+      "site": 1,
+      "base_loop_body": "07000040 02000080 100afff8 08000040 00020101 004002ae 402c1000 4020fffc 03c1e950 03c5e918",
+      "cand_loop_body": "03cbe958 07000100 02000080 1014ffe0 00025001 08041100 402c2000 08041140 402c2000 08041180 08000100 402c2000 080211c0 0040052e 402c1000 4020fff5 03c1e950 02800a00",
+      "base_dcci_in_loop": 1,
+      "cand_dcci_in_loop": 4
+    },
+    {
+      "site": 2,
+      "base_loop_body": "07410000 07810000 40020000 03c1e8f0 07140040 07160000 402c0000 0cca0000 03c1e8e0 03c3e970",
+      "cand_loop_body": "03c3e8f8 00161001 07020100 02021080 0004b081 080a2100 402c5000 080a2140 402c5000 080a2180 08021100 402c5000 080421c0 0040152e 402c2000 4020fff5 03c3e940 072a0000",
+      "base_dcci_in_loop": 1,
+      "cand_dcci_in_loop": 4
+    },
+    {
+      "site": 3,
+      "base_loop_body": "07000025 07410000 07810000 40020000 03c1e968 07380040 402c0000 0cc00000 00005002 00400e2e",
+      "cand_loop_body": "03c1e8f8 07020100 02021080 00000101 00080081 080a4100 402c5000 080a4140 402c5000 080a4180 08021100 402c5000 080841c0 004011ae 402c4000 4020fff5 03c3e940 07120101",
+      "base_dcci_in_loop": 1,
+      "cand_dcci_in_loop": 4
+    }
+  ],
+  "dynamic_semantics_m4096_chunk1024": {
+    "per_core_bytes": 524288,
+    "base_dynamic_dcci_per_clean": 8192,
+    "cand_dynamic_dcci_per_clean": 8192,
+    "base_loop_iters_per_clean": 8192,
+    "cand_loop_iters_per_clean": 2048,
+    "clean_sites_per_kernel": 3
+  },
+  "conclusion": {
+    "dcci_total_dynamic_preserved": true,
+    "dcci_static_delta": "+9 (3 sites x 3 extra unrolled copies; all other 30 protocol/library DCCI unchanged)",
+    "loop_iters_div4": true,
+    "code_size_delta_bytes_per_inst": 96,
+    "icache_note": "code growth +96B/instantiation (~0.7%) \u2014 negligible pressure change"
+  }
+}

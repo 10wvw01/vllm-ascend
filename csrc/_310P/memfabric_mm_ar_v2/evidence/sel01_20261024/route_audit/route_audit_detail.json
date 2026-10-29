@@ -1,0 +1,94 @@
+{
+  "stock": {
+    "arm": "stock",
+    "enable_log_total": 0,
+    "enable_log_per_rank_expect_40": false,
+    "v2_marker_sample": [],
+    "v2_marker_count": 0,
+    "num_rank_traces": 2,
+    "per_rank_kernel_counts": {
+      "dp0_pp0_tp0_dcp0_ep0_rank0_204823_20261024000501576_ascend_pt": {
+        "fused_v1_mf310p_family_total": 0,
+        "fused_v1_Mf310pDirectProducerKernel": 0,
+        "fused_v2_V2TrialKernel": 0,
+        "orch_HybmSdmaOrchEpoch": 0,
+        "native_MatMulV3": 120,
+        "native_MatMulV2": 6144
+      },
+      "dp0_pp0_tp1_dcp0_ep1_rank1_204834_20261024000501576_ascend_pt": {
+        "fused_v1_mf310p_family_total": 0,
+        "fused_v1_Mf310pDirectProducerKernel": 0,
+        "fused_v2_V2TrialKernel": 0,
+        "orch_HybmSdmaOrchEpoch": 0,
+        "native_MatMulV3": 120,
+        "native_MatMulV2": 6144
+      }
+    },
+    "native_mm_present": true,
+    "description": "Stock: zero fused enable logs, zero mf310p/V2/orch kernels, native MM+HCCL only",
+    "device_trace_verified": true
+  },
+  "v1": {
+    "arm": "v1",
+    "enable_log_total": 80,
+    "enable_log_per_rank_expect_40": true,
+    "v2_marker_sample": [],
+    "v2_marker_count": 0,
+    "num_rank_traces": 2,
+    "per_rank_kernel_counts": {
+      "dp0_pp0_tp0_dcp0_ep0_rank0_207851_20261024001159031_ascend_pt": {
+        "fused_v1_mf310p_family_total": 13920,
+        "fused_v1_Mf310pDirectProducerKernel": 1920,
+        "fused_v2_V2TrialKernel": 0,
+        "orch_HybmSdmaOrchEpoch": 1,
+        "native_MatMulV3": 0,
+        "native_MatMulV2": 5304
+      },
+      "dp0_pp0_tp1_dcp0_ep1_rank1_207862_20261024001159031_ascend_pt": {
+        "fused_v1_mf310p_family_total": 13920,
+        "fused_v1_Mf310pDirectProducerKernel": 1920,
+        "fused_v2_V2TrialKernel": 0,
+        "orch_HybmSdmaOrchEpoch": 1,
+        "native_MatMulV3": 0,
+        "native_MatMulV2": 5304
+      }
+    },
+    "description": "V1: 40 Enable per rank + Mf310pDirectProducerKernel/mf310p family executed on device",
+    "device_trace_verified": true
+  },
+  "v2": {
+    "arm": "v2",
+    "enable_log_total": 80,
+    "enable_log_per_rank_expect_40": true,
+    "v2_marker_sample": [
+      "(Worker_TP1 pid=210731) INFO 10-24 00:17:17 [memfabric_mm_ar_v2_serve.py:93] [mf310p-v2] M=4096 outside [2048,4096] (or dummy warmup): native MM + HCCL",
+      "(Worker_TP0 pid=210722) INFO 10-24 00:17:17 [memfabric_mm_ar_v2_serve.py:93] [mf310p-v2] M=4096 outside [2048,4096] (or dummy warmup): native MM + HCCL",
+      "(Worker_TP0 pid=210722) INFO 10-24 00:19:07 [memfabric_mm_ar_v2_serve.py:117] [mf310p-v2] M=4096 within [2048,4096]: V2 MM+MemFabric (chunk=1024)",
+      "(Worker_TP1 pid=210731) INFO 10-24 00:19:07 [memfabric_mm_ar_v2_serve.py:117] [mf310p-v2] M=4096 within [2048,4096]: V2 MM+MemFabric (chunk=1024)",
+      "(Worker_TP0 pid=210722) INFO 10-24 00:19:07 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)",
+      "(Worker_TP1 pid=210731) INFO 10-24 00:19:07 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)"
+    ],
+    "v2_marker_count": 6,
+    "num_rank_traces": 2,
+    "per_rank_kernel_counts": {
+      "dp0_pp0_tp0_dcp0_ep0_rank0_210722_20261024001914607_ascend_pt": {
+        "fused_v1_mf310p_family_total": 0,
+        "fused_v1_Mf310pDirectProducerKernel": 0,
+        "fused_v2_V2TrialKernel": 120,
+        "orch_HybmSdmaOrchEpoch": 1,
+        "native_MatMulV3": 0,
+        "native_MatMulV2": 6144
+      },
+      "dp0_pp0_tp1_dcp0_ep1_rank1_210731_20261024001914607_ascend_pt": {
+        "fused_v1_mf310p_family_total": 0,
+        "fused_v1_Mf310pDirectProducerKernel": 0,
+        "fused_v2_V2TrialKernel": 120,
+        "orch_HybmSdmaOrchEpoch": 1,
+        "native_MatMulV3": 0,
+        "native_MatMulV2": 6144
+      }
+    },
+    "description": "V2: 40 Enable per rank + V2TrialKernel executed on device + M= route markers",
+    "device_trace_verified": true
+  }
+}

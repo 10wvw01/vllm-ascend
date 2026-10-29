@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "subject": "TARGET_QWEN35_MOE_GDN_MAMBA_ALIGN_TP2_DFLASH_K7",
+  "evidence": "STATIC_DESIGN_ONLY",
+  "runtime": "NOT_RUN",
+  "local_artifact_identity": "UNVERIFIED",
+  "private_draft": "NOT_ACCESSED",
+  "scenario": {
+    "target": "Eco-Tech/Qwen3.6-35B-A3B-w8a8",
+    "tp": 2,
+    "pp": 1,
+    "input_tokens": 4096,
+    "output_tokens": 2048,
+    "batch": 10,
+    "k": 7,
+    "eager": true,
+    "serve_declared_mamba_cache_mode": "align",
+    "actual_process_flags": "NOT_OBSERVED",
+    "sampling_policy": "NOT_FROZEN"
+  },
+  "upstream": {
+    "project": "vllm-project/vllm",
+    "commit": "6e448d0ea9bf3d88d898b65449ca6dc2aec170ac",
+    "files": [
+      "vllm/model_executor/models/qwen3_5.py",
+      "vllm/v1/worker/gpu/model_states/__init__.py",
+      "vllm/v1/worker/gpu/model_states/mamba_hybrid.py",
+      "vllm/v1/worker/mamba_utils.py",
+      "vllm/model_executor/layers/mamba/mamba_utils.py",
+      "vllm/v1/worker/gpu/model_runner.py"
+    ]
+  },
+  "factory_conditions": [
+    "loaded_public_Qwen3_5MoeForConditionalGeneration_or_other_target_resolved_class",
+    "custom_get_model_state_cls_takes_precedence_if_present",
+    "cross_encoder_alternatives_checked_before_is_hybrid",
+    "ModelConfig.is_hybrid_uses_ModelInfo_and_layer_types",
+    "align_requires_active_true_batches_to_preprocess",
+    "actual_runtime_ModelState_class_not_observed"
+  ],
+  "state_shapes": {
+    "conv": "Qwen3.5 GDN conv shape: orient(SD or DS, shard[(2*num_key_heads*key_dim + num_value_heads*value_dim)/tp], conv_kernel_dim-1 + K)",
+    "temporal": "(num_value_heads/tp, value_dim, key_dim)",
+    "dtypes": "conv from mamba_cache_dtype/model_dtype, temporal from mamba_ssm_cache_dtype (declared float16; actual flags NOT_OBSERVED)",
+    "copy_functions": [
+      "get_conv_copy_spec",
+      "get_temporal_copy_spec"
+    ],
+    "metadata": "forward_context Attention.kv_cache; MambaSpec groups; per-group persistent int32 block_table; state base/stride/elem_size/layout; no raw private config"
+  },
+  "kernel_replacements": [
+    "preprocess_mamba_align_fused_kernel",
+    "precopy_mamba_align_fused_kernel",
+    "_scatter_num_accepted_kernel",
+    "postprocess_mamba_fused_kernel"
+  ],
+  "additional_static_calls": [
+    "GPUModelRunner.execute_model calls model_state.preprocess_state in real batches",
+    "GPUModelRunner.postprocess_sampled calls model_state.postprocess_state after post_update",
+    "MambaHybridModelState.prepare_attn emits accepted_tokens and -1 sentinel for non-spec rows",
+    "MambaSpecDecodeGPUContext.initialize_from_forward_context has per-state address/stride and group-index metadata"
+  ],
+  "decisions": [
+    {
+      "id": "P0-S1",
+      "owner": "310P candidate ModelState factory",
+      "contract": "After protected preload, resolve ModelConfig.is_hybrid and final get_model_state_cls; never equate IsHybrid declaration with device object",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-S2",
+      "owner": "310P candidate GDN state and KV metadata",
+      "contract": "Keep int32 request state and per-Mamba-group block tables, SD/DS per-layer copy metadata; no UVA/CUDA; fail closed on unsupported shapes",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-T30-A",
+      "owner": "align preprocess",
+      "contract": "For each active request, preserve old state_idx and accepted bias, next_idx=ceil((old_computed+query_len)/B)-1, cross-boundary reset accepted=1; keep idx_mapping batch->slot",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-T30-B",
+      "owner": "GDN precopy",
+      "contract": "Copy old source state to advanced block only when src_col>=0 && src_col!=dst_col; conv shift by accepted-1 in SD/DS, temporal BT[src_col+bias]; stable group table and visible writes before target forward",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-T31-A",
+      "owner": "accept-count scatter",
+      "contract": "Post_update consumed sampled accepted K7 counts, max(count,1) to persistent slots; ignore -1 sentinels; no stale CPU whole-buffer overwrite",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-T31-B",
+      "owner": "GDN postalign",
+      "contract": "running=post_computed-accepted+1; aligned=floor(post_computed/B)*B; if aligned>=running then dest=aligned/B-1 and bias=aligned-running, copy from current state_idx to dest (unless self+zero), reset accepted=1 only if src==dest; before next batch",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    },
+    {
+      "id": "P0-LIFE",
+      "owner": "request state lifecycle",
+      "contract": "new request reset accepted=1 and state_idx=(computed-1)//B; no in-flight reuse/free; poison partial multi-group copy; TP ranks remain equivalent",
+      "status": "DESIGN_COMPLETE_NOT_IMPLEMENTED"
+    }
+  ],
+  "blocking_evidence": [
+    "ModelInfo.is_hybrid_and_real_local_layer_types_condition_not_runtime_proven",
+    "no_observed_actual_ModelState_class_or_custom_method_resolution",
+    "310P V2 Worker NOT_IMPLEMENTED and candidate load_model early align guard",
+    "Mamba cache KV group topology/physical blocksize/strides on 310P3 unverified",
+    "int32 scatter/index_copy, Torch NPU copy/barrier, 32B writes & stream order on real NPU unverified",
+    "conv SD/DS and temporal K7 shift semantics not on-device verified",
+    "cache buffer initialization/reuse/abort/rollback and poisoned state not on-device verified",
+    "greedy-only candidate may not match actual business sampling policy",
+    "overlapping_in_place_conv_window_shift_requires_memmove_safe_or_staged_copy_semantics"
+  ],
+  "source_review": {
+    "round_1": "FROZEN_SOURCE_CONDITION_AND_EQUATION_AUDIT",
+    "round_2": "R2_310P_CANDIDATE_INHERITANCE_ABI_FAIL_CLOSED_AUDIT",
+    "review_status": "DOCUMENTED_BLOCKERS_NO_GO"
+  },
+  "static_gate": "STATIC-NO-GO_0_OF_46_NO_DEVICE_PERMISSION"
+}

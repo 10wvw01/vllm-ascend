@@ -1,0 +1,100 @@
+=== upstream /vllm-workspace/vllm/vllm/model_executor/models/qwen3_dflash.py :110-130 (mixed-attention gate) ===
+    dflash_config = getattr(config, "dflash_config", None) or {}
+    layer_types = getattr(config, "layer_types", None)
+    use_swa = dflash_config.get("use_swa", False)
+
+    any_sliding = False
+    if layer_types is not None:
+        num_sliding = sum(lt == _SLIDING_ATTENTION for lt in layer_types)
+        any_sliding = num_sliding > 0
+        # Mixed sliding/full attention needs multiple KV groups (V2 runner only).
+        if (
+            0 < num_sliding < len(layer_types)
+            and not get_current_vllm_config().use_v2_model_runner
+        ):
+            raise NotImplementedError(
+                "DFlash drafters with mixed sliding/full attention require "
+                "the V2 model runner; relaunch with "
+                "VLLM_USE_V2_MODEL_RUNNER=1."
+            )
+
+    # ``use_swa`` forces SWA on every layer, even an all-full ``layer_types``.
+    if layer_types is None or (use_swa and not any_sliding):
+
+=== upstream vllm/config/vllm.py :576-600 (use_v2_model_runner property) ===
+
+    @property
+    def use_v2_model_runner(self) -> bool:
+        use_v2_model_runner = envs.VLLM_USE_V2_MODEL_RUNNER
+        if use_v2_model_runner is not None:
+            return use_v2_model_runner
+
+        # PCP runtime support is implemented only by the V2 model runner.
+        if self.parallel_config.prefill_context_parallel_size > 1:
+            return True
+
+        # DSpark is implemented only by the V2 GPU model runner, and DeepSeek-V4
+        # is not otherwise a default-V2 architecture, so force V2 for it. If V2
+        # is unsupported for the rest of the config, _validate_v2_model_runner
+        # raises rather than silently falling back to V1 (which can't run dspark).
+        if (
+            self.speculative_config is not None
+            and self.speculative_config.method == "dspark"
+        ):
+            return True
+
+        # Mixed sliding/full DFlash drafts need multiple KV groups (V2 only);
+        # force V2 as for dspark, since a hybrid target otherwise defaults to V1.
+        if self._dflash_needs_multi_kv_group():
+            return True
+
+=== upstream vllm/config/vllm.py :2255-2262 (_validate_v2_model_runner) ===
+    def _validate_v2_model_runner(self) -> None:
+        """Check for features not yet supported by the V2 model runner."""
+        if not HAS_TRITON:
+            raise ValueError("Model Runner V2 requires Triton.")
+
+        unsupported = self._get_v2_model_runner_unsupported_features()
+        if unsupported:
+            raise ValueError(
+
+=== plugin vllm_ascend/patch/platform/patch_use_v2_model_runner.py (env-only override) ===
+import vllm.envs as envs
+from vllm.config.vllm import VllmConfig
+
+
+def _patched_use_v2_model_runner(self) -> bool:
+    """Return VLLM_USE_V2_MODEL_RUNNER env directly.
+
+    The upstream use_v2_model_runner gate-keeps the v2 runner with
+    per-model architecture whitelists, Triton availability checks, and
+    feature-support inspections. On Ascend the v2 runner is controlled
+    purely by the VLLM_USE_V2_MODEL_RUNNER environment variable;
+    model-compatibility decisions are deferred to the NPU runner itself.
+    """
+    use_v2 = envs.VLLM_USE_V2_MODEL_RUNNER
+    if use_v2 is not None:
+        return use_v2
+    return False
+
+
+VllmConfig.use_v2_model_runner = property(_patched_use_v2_model_runner)
+
+=== plugin vllm_ascend/patch/worker/patch_idex_310.py :105-117 (310P no functional Triton) ===
+    AscendDsparkProposer.dummy_run
+)
+
+# 310P has no functional Triton: kernels cannot be compiled (bishengir-compile
+# fails on Ascend310P3) and the 310P worker never calls
+# init_device_properties_triton(), so get_vectorcore_num() asserts. Yet
+# vllm.triton_utils.HAS_TRITON is True because the triton package imports, so
+# every ``if HAS_TRITON:`` runtime gate takes the broken Triton path (e.g.
+# rejection_sample() and prepare_inputs_padded() both crash on the uninitialized
+# vector-core count). Force the flag off on the vllm_ascend modules that gate
+# inference behavior on it so their PyTorch fallbacks are used consistently.
+import vllm_ascend.sample.rejection_sampler as _rejection_sampler_mod  # noqa: E402
+import vllm_ascend.sample.sampler as _sampler_mod  # noqa: E402
+
+=== draft config layer_types ===
+layer_types: ['sliding_attention', 'sliding_attention', 'sliding_attention', 'sliding_attention', 'sliding_attention', 'full_attention']
+sliding_window: 4096 use_sliding_window: True max_window_layers: 6

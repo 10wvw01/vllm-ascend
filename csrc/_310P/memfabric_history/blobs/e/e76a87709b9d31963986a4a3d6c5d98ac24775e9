@@ -1,0 +1,14 @@
+===== INCIDENT RECORD: launch #1 mis-configuration 15:04:36Z =====
+gate_e_eager.sh re-sources memfabric set_env.sh AFTER launcher env, re-prepending
+/usr/local lib64 BEFORE our private dir -> workers resolved OLD 88d39285 from /usr/local.
+Detected via maps watcher during model load (pre-health, zero requests, zero V2 calls).
+Teardown: TERM serve group (workers exited; API server stuck -> KILL, last resort, documented);
+forensic exited RC=1 via designed 'serve exited early' path; devices back to baseline.
+Fix: LD_PRELOAD the fixed .so (wins over any LD_LIBRARY_PATH order; not touched by scripts).
+Session S3R_FUSED_SMOKE_20261026T145859Z = VOID (no device data point).
+
+===== LD_PRELOAD mechanism test (replicating exact script env sequence) =====
+LD_LIBRARY_PATH head: /usr/local/memfabric_hybrid/latest/aarch64-linux/lib64
+mapped: /tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so
+mapped: /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_smem.so
+PRELOAD-OK: fixed SO wins; production copy NOT mapped

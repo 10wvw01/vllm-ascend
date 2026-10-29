@@ -1,0 +1,37 @@
+{
+  "gate": "F2 chunk-overlap sweep (external, no profiler)",
+  "label": "trial_m2048_c1024_o1",
+  "rank": 1,
+  "M": 2048,
+  "chunk_rows": 1024,
+  "chunks": 2,
+  "overlap": 1,
+  "warmup": 3,
+  "iters": 3,
+  "status": 0,
+  "bit_exact": true,
+  "profile": false,
+  "samples": [
+    {
+      "i": 0,
+      "wall_us": 1441.9,
+      "event_us": 1336.8
+    },
+    {
+      "i": 1,
+      "wall_us": 1450.7,
+      "event_us": 1364.3
+    },
+    {
+      "i": 2,
+      "wall_us": 1481.5,
+      "event_us": 1397.3
+    }
+  ],
+  "device_so": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+  "timing_semantics": {
+    "wall_us": "host perf_counter around (launch + stream.synchronize)",
+    "event_us": "device stream interval between two NPU events bracketing the kernel; primary metric"
+  },
+  "note": "F2 known precedent: gloo process group/reference (HCCL port leaked by killed session); timing window contains no collectives"
+}

@@ -1,0 +1,202 @@
+{
+ "source": "independent offline recomputation from raw ascend_pt kernel_details/task_time/api_statistic CSVs; steps defined by >80ms anchor-site spacing (async scheduling leaves no >20ms whole-timeline gaps)",
+ "step_definition_note": "each step == one profiled 4096-token prefill request; 5 requests per arm; V2 request-0 split at the 74ms anomaly for reporting only",
+ "site_statistics_ms": {
+  "stock": {
+   "r0_per_step": [
+    77.866,
+    77.904,
+    77.822,
+    77.847,
+    77.824
+   ],
+   "r0_5step_mean": 77.853,
+   "r1_per_step": [
+    93.048,
+    91.343,
+    93.822,
+    93.639,
+    94.172
+   ],
+   "r1_5step_mean": 93.205
+  },
+  "v2": {
+   "r0_request0_with_anomaly": 176.654,
+   "r0_stable_requests_1_4": [
+    107.263,
+    105.832,
+    105.187,
+    105.378
+   ],
+   "r0_stable_mean": 105.915,
+   "r1_request0_with_anomaly": 182.849,
+   "r1_stable_requests_1_4": [
+    109.587,
+    109.76,
+    110.912,
+    109.682
+   ],
+   "r1_stable_mean": 109.985
+  }
+ },
+ "net_delta_site_sums_ms": {
+  "r0": "+28.06 (105.92-77.85)",
+  "r1": "+16.78 (109.99-93.21)"
+ },
+ "stable_step_period_s": {
+  "stock": {
+   "r0_mean": 2.364,
+   "r1_mean": 2.38
+  },
+  "v2": {
+   "r0_mean": 2.396,
+   "r1_mean": 2.411
+  },
+  "delta_v2_minus_stock_s": {
+   "r0": "+0.032",
+   "r1": "+0.031"
+  }
+ },
+ "anomaly_74ms": {
+  "location": "profiled request 0 (window step 0), target site index 8 (9th of 40), BOTH ranks",
+  "r0": {
+   "t_into_step_ms": 505.433,
+   "dur_us": 74231.7,
+   "wait_us": 130.8,
+   "stream": 8,
+   "same_stream_prev": "aclnnMul_MulAiCore_Mul (gap 131us)"
+  },
+  "r1": {
+   "t_into_step_ms": 508.687,
+   "dur_us": 74827.4,
+   "wait_us": 148.8,
+   "stream": 26,
+   "same_stream_prev": "aclnnMul_MulAiCore_Mul (gap 149us)"
+  },
+  "single_occurrence": true,
+  "root_cause": "unknown; candidates: cross-rank mail/SDMA path one-off, AICPU orchestrator epoch interaction, first-request-under-profiler effect; NOT explained by wait time (wait ~130-150us only)"
+ },
+ "cross_rank_pairing": {
+  "method": "pair unique hcom kernel names (e.g. hcom_allReduce__503_<seq>_1) across ranks = same HCCL call generation",
+  "stock": {
+   "pairs": 410,
+   "orphans_r0": 0,
+   "orphans_r1": 0,
+   "offset_p50_us": -38082,
+   "offset_range_us": [
+    -76367,
+    -416
+   ],
+   "hcom_dur_ratio_r1_over_r0_p50": 1.105
+  },
+  "v2": {
+   "pairs": 210,
+   "orphans_r0": 0,
+   "orphans_r1": 0,
+   "offset_p50_us": -39745,
+   "offset_range_us": [
+    -78397,
+    -675
+   ],
+   "hcom_dur_ratio_r1_over_r0_p50": 0.945
+  },
+  "ruling": "offset=t0-t1 drifts monotonically ~-7ms/s in BOTH arms (approx -15.5ms per 2.4s request). A clock-drift explanation would require ~6500ppm, physically impossible; per-step device-busy deltas independently show rank1 doing +11..26ms (stock) / +13..18ms (v2) more device work per request. Conclusion: the drift is genuine progressive inter-rank lag (rank1 slower), NOT a calibratable clock offset. compare2.py single-median calibration is invalid in both sign and concept; cross-rank absolute-time claims remain inadmissible; per-rank local durations and same-generation pairing are valid."
+ },
+ "per_step_total_device_busy_delta_r1_minus_r0_ms": {
+  "stock": [
+   11.0,
+   16.0,
+   26.0,
+   15.0,
+   16.0
+  ],
+  "v2": [
+   3.0,
+   18.0,
+   13.0,
+   15.0,
+   13.0,
+   15.0
+  ],
+  "note": "overlap-allowed busy sums, upper bound on wall; v2 request0 split by anomaly (first two entries are the split halves)"
+ },
+ "copy_attribution": {
+  "aclnnContiguous_device_kernels": {
+   "stock": {
+    "count": 200,
+    "dur_p50_us": 531.1,
+    "sum_ms_per_window": 81.058,
+    "rank": "r0"
+   },
+   "v2": {
+    "count": 200,
+    "dur_p50_us": 451.6,
+    "sum_ms_per_window": 71.449,
+    "rank": "r0"
+   },
+   "owner": "conv/Mamba path (immediately followed by aclnnContiguous_TransposeAiCore_Transpose + CausalConv1dV310), located 10-25ms BEFORE the next target site (p50 23.9ms), in BOTH arms",
+   "target_site_adjacency_within_10ms": "stock: 0/200, v2: 0/200"
+  },
+  "x_contiguous_claim_refuted": "V2's explicit x.contiguous() (memfabric_mm_ar.py:405) produced no device copy adjacent to any fused kernel; the previous round's '199/199 sites, p50 66us' came from a >=25ms lookback misattribution of conv-path copies plus host-API launch duration (aclnnContiguous host avg ~80.7us), not device copy cost",
+  "d2d_memcpy_async_tasks": {
+   "stock": {
+    "n_dur_gt1us": 449,
+    "p50_us": 202.4,
+    "sum_ms": 82.568,
+    "rank": "r0"
+   },
+   "v2": {
+    "n_dur_gt1us": 246,
+    "p50_us": 197.8,
+    "sum_ms": 41.652,
+    "rank": "r0"
+   },
+   "owner": "counts track hcom collectives (stock 410 vs v2 210 hcom ops) = HCCL-internal copies; stock pays ~2x more total D2D memcpy time",
+   "net_extra_v2_copy_overhead_at_target_sites": "none attributable; previous conditional estimate +3.6ms withdrawn"
+  },
+  "host_api_aclnnContiguous": {
+   "stock_count": 200,
+   "v2_count": 200,
+   "note": "both arms call it 200x (conv path); v2 total 16.1ms vs stock 37.5ms host time"
+  }
+ },
+ "pipe_counters_p50_us_reproduced": {
+  "v2_fused_r0": {
+   "mac": 458.9,
+   "mte2": 1711.4,
+   "mte3": 191.0,
+   "scalar": 873.0,
+   "vec": 127.4,
+   "aicore": 2269.9
+  },
+  "stock_mm_r0": {
+   "mac": 456.6,
+   "mte2": 335.9,
+   "mte3": 91.5,
+   "scalar": 186.5,
+   "vec": 194.9,
+   "aicore": 653.3
+  },
+  "note": "matches evidence_index §3 exactly; counters remain activity metrics, NOT phase timers"
+ },
+ "hybm_sdma_orch_epoch": {
+  "v2_r0": {
+   "dur_us": 14924831.1
+  },
+  "v2_r1": {
+   "dur_us": 15021038.1
+  },
+  "stock": "absent",
+  "profiler_artifact_ruling": "the single 14.92s/15.02s 'aclnnInplaceCopy' Device Self Duration in V2 operator_details.csv equals the persistent AI_CPU epoch kernel duration to ~1us -> profiler attribution artifact, not a real blocking copy"
+ },
+ "non_target_hcom_per_step": "41 allReduce + 1 allGather = 42 per step per rank (matches prior claim)",
+ "stock_target_mm_shape": "4096,2048;128,128,16,16 (M=4096 confirmed)",
+ "stock_site_p50_us": {
+  "mm": 795.1,
+  "ar": 1149.1
+ },
+ "v2_fused_p50_us": {
+  "r0": 2574.3,
+  "r1": 2672.1
+ }
+}

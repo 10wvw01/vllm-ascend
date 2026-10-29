@@ -1,0 +1,193 @@
+{
+  "note": "D1-A computed verdicts; loop4_aic_r1 quarantined as ambient-contaminated (see quarantine_record).",
+  "quarantine_record": {
+    "session": "loop4_aic_r1",
+    "why": "only session whose rank1 wall-event gap median (419us, range 105-1430us) deviates from the stable ~100-170us host-path envelope of all other 11 sessions; ran 17:20 during active external tenant bursts on die1 (npu-smi before/after idle gates passed, but die1 memory shifted -123MB during session)",
+    "signature": "rank0 kernel p50 inflated +32% vs group (4013 vs 3048-3110) with mte2+scalar absorbing and mac constant 458us; rank1 kernel NOT inflated (3136) while rank1 event inflated (+577us vs profile baseline) = rank1 host launch jitter delayed signals; rank0 waited in IB",
+    "disposition": "excluded from clean baselines; retained as forensic evidence of host-jitter -> wait-phase inflation chain at mild amplitude"
+  },
+  "mode_equivalence": {
+    "formal": {
+      "external": {
+        "sessions": [
+          "formal_external_r1",
+          "formal_external_r2"
+        ],
+        "event_rank0_p50_us": [
+          2731.4,
+          2655.6
+        ],
+        "event_rank0_spread_pct": 2.9,
+        "event_rank1_p50_us": [
+          2796.4,
+          2707.9
+        ],
+        "event_rank1_spread_pct": 3.3
+      },
+      "profile": {
+        "sessions": [
+          "formal_profile_r1",
+          "formal_profile_r2"
+        ],
+        "event_rank0_p50_us": [
+          2786.0,
+          2710.6
+        ],
+        "event_rank0_spread_pct": 2.8,
+        "event_rank1_p50_us": [
+          2811.8,
+          2728.8
+        ],
+        "event_rank1_spread_pct": 3.0,
+        "kernel_rank0_p50_us": [
+          2559.2,
+          2525.6
+        ],
+        "kernel_rank0_spread_pct": 1.3,
+        "kernel_rank1_p50_us": [
+          2641.5,
+          2573.0
+        ],
+        "kernel_rank1_spread_pct": 2.7
+      },
+      "aic": {
+        "sessions": [
+          "formal_aic_r1",
+          "formal_aic_r2"
+        ],
+        "event_rank0_p50_us": [
+          2763.2,
+          2743.7
+        ],
+        "event_rank0_spread_pct": 0.7,
+        "event_rank1_p50_us": [
+          2789.4,
+          2719.9
+        ],
+        "event_rank1_spread_pct": 2.6,
+        "kernel_rank0_p50_us": [
+          2569.7,
+          2557.1
+        ],
+        "kernel_rank0_spread_pct": 0.5,
+        "kernel_rank1_p50_us": [
+          2629.3,
+          2547.4
+        ],
+        "kernel_rank1_spread_pct": 3.2
+      }
+    },
+    "loop4": {
+      "external": {
+        "sessions": [
+          "loop4_external_r1",
+          "loop4_external_r2"
+        ],
+        "event_rank0_p50_us": [
+          3204.1,
+          3247.4
+        ],
+        "event_rank0_spread_pct": 1.4,
+        "event_rank1_p50_us": [
+          3184.4,
+          3271.4
+        ],
+        "event_rank1_spread_pct": 2.7
+      },
+      "profile": {
+        "sessions": [
+          "loop4_profile_r1",
+          "loop4_profile_r2"
+        ],
+        "event_rank0_p50_us": [
+          3264.0,
+          3304.4
+        ],
+        "event_rank0_spread_pct": 1.2,
+        "event_rank1_p50_us": [
+          3284.8,
+          3305.2
+        ],
+        "event_rank1_spread_pct": 0.6,
+        "kernel_rank0_p50_us": [
+          3048.5,
+          3109.8
+        ],
+        "kernel_rank0_spread_pct": 2.0,
+        "kernel_rank1_p50_us": [
+          3106.5,
+          3129.7
+        ],
+        "kernel_rank1_spread_pct": 0.7
+      },
+      "aic": {
+        "sessions": [
+          "loop4_aic_r2"
+        ],
+        "event_rank0_p50_us": [
+          3279.8
+        ],
+        "event_rank0_spread_pct": 0.0,
+        "event_rank1_p50_us": [
+          3304.7
+        ],
+        "event_rank1_spread_pct": 0.0,
+        "kernel_rank0_p50_us": [
+          3098.7
+        ],
+        "kernel_rank0_spread_pct": 0.0,
+        "kernel_rank1_p50_us": [
+          3107.3
+        ],
+        "kernel_rank1_spread_pct": 0.0
+      }
+    }
+  },
+  "offset_stability": {
+    "formal_aic_r1": {
+      "rank0_event_minus_kernel_us": 194,
+      "rank1_event_minus_kernel_us": 160
+    },
+    "formal_aic_r2": {
+      "rank0_event_minus_kernel_us": 187,
+      "rank1_event_minus_kernel_us": 172
+    },
+    "formal_profile_r1": {
+      "rank0_event_minus_kernel_us": 227,
+      "rank1_event_minus_kernel_us": 170
+    },
+    "formal_profile_r2": {
+      "rank0_event_minus_kernel_us": 185,
+      "rank1_event_minus_kernel_us": 156
+    },
+    "loop4_aic_r1": {
+      "rank0_event_minus_kernel_us": 321,
+      "rank1_event_minus_kernel_us": 625
+    },
+    "loop4_aic_r2": {
+      "rank0_event_minus_kernel_us": 181,
+      "rank1_event_minus_kernel_us": 197
+    },
+    "loop4_profile_r1": {
+      "rank0_event_minus_kernel_us": 216,
+      "rank1_event_minus_kernel_us": 178
+    },
+    "loop4_profile_r2": {
+      "rank0_event_minus_kernel_us": 195,
+      "rank1_event_minus_kernel_us": 176
+    }
+  },
+  "stall_census": {
+    "threshold_us": 6000,
+    "event_stalls": 0,
+    "kernel_stalls": 0,
+    "wall_stalls": 2,
+    "wall_stall_detail": "formal_profile_r1 sample-0 both ranks (8589/8626us wall; event 4563/4516us; kernel 2534/2643us unaffected) = profiler-start host overhead, not device stall",
+    "total_rank_samples_per_metric": 384,
+    "gate_c_23_45ms_stalls_reproduced": false
+  },
+  "sample0_rule": {
+    "finding": "profiler sessions show sample-0 event_us elevated +75..+1781us vs session median in 15/16 rank-sessions while sample-0 kernel duration is never elevated (some below median)",
+    "rule": "discard sample-0 event/wall in profiled sessions for baseline stats; kernel durations unaffected"
+  }
+}

@@ -1,0 +1,332 @@
+// 正式算子设备核：仅包含 T0 MM+MemFabric+Add 及 Serving 必须的 IB 自检。
+#include "mf310p_v2_kernel_common.h"
+
+namespace {
+/**
+ * @brief 单 Kernel 内串接 8 核本地 MM、TP2 SDMA 交换、向量 Add 和完成握手。
+ * @why 降低多 Kernel 编排成本并允许 overlap=1 用下一块 MM 遮蔽前块 SDMA。
+ * @tparam TILING 编译期静态 Matmul tiling；CHUNK 每块的 M 行数。
+ * @param gva 本 Rank 对称段基址；x,w,y 分别为 FP16 输入 ND、权重 NZ、输出 ND。
+ * @param ownC 本 Rank 写出的局部 MM 结果；ownPeerC 对端结果在本 Rank 的接收区。
+ * @param peerDst SDMA 向对端的目的地址；expectedRecvDst 本端期望收到的数据邮件目的地址。
+ * @param ibWorkspace 官方核间 IB 工作区；status 协议错误码槽。
+ * @param ctrlSrc 本地稳定 DONE 源；peerCtrlDst 对端 DONE 目的地址；expectedCtrlDst 本端期望 DONE 地址。
+ * @param chunks 本波完整块数；overlap 串行(0)/流水(1)；enable 正式执行(1)/符号预热(0)。
+ * @return 无直接返回；写 y，错误写 status 并 Trap。双方 Rank 必须执行相同块序。
+ */
+template <const MatmulApiStaticTiling& TILING, uint32_t CHUNK>
+__global__ __aicore__ void V2TrialKernel(
+    __gm__ uint8_t* gva,
+    __gm__ uint8_t* x, __gm__ uint8_t* w, __gm__ uint8_t* y,
+    __gm__ uint8_t* ownC, __gm__ uint8_t* ownPeerC,
+    __gm__ uint8_t* peerDst, uint64_t expectedRecvDst,
+    __gm__ uint8_t* ibWorkspace, __gm__ uint8_t* status,
+    __gm__ uint8_t* ctrlSrc, __gm__ uint8_t* peerCtrlDst,
+    uint64_t expectedCtrlDst,
+    uint32_t chunks, uint32_t overlap, uint32_t enable)
+{
+    // 核型与 enable 门禁：空发射用于符号预热，不能读未初始化的池地址。
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (enable == 0 || chunks == 0) return;
+    const uint32_t core = GetBlockIdx();
+    if (core >= kCores) return;
+
+    // UB 分配区分 IB 事件、静态 Matmul workspace 与向量 Add 队列，避免资源重叠。
+    TPipe pipe;
+    TBuf<> syncBuf, mmUb;
+    pipe.InitBuffer(syncBuf, kUBForIB);
+    pipe.InitBuffer(mmUb, TOTAL_UB_SIZE - kUBForVector - kUBForIB);
+    GlobalTensor<int32_t> ibGm;
+    ibGm.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibWorkspace),
+                         kIBBytes / sizeof(int32_t));
+    LocalTensor<int32_t> ibUb = syncBuf.Get<int32_t>();
+
+    TCubeTiling runtime{};
+    runtime.usedCoreNum = kCores;
+    Matmul<AT, BT, CT, BiasT, TILING> mm;
+    REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), mm, &runtime);
+    mm.SetLocalWorkspace(mmUb.Get<uint8_t>());
+
+    TQue<TPosition::VECIN, 1> in0, in1;
+    TQue<TPosition::VECOUT, 1> outQ;
+    pipe.InitBuffer(in0, 1, kAddBytes);
+    pipe.InitBuffer(in1, 1, kAddBytes);
+    pipe.InitBuffer(outQ, 1, kAddBytes);
+
+    GlobalTensor<float16_t> wg;
+    wg.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(w), kN * kK);
+    // 8 核沿 M 均分，每核拥有自己的连续 ND 行；一块因此能合并为单封 SDMA 邮件。
+    const uint64_t perCoreBytes = CHUNK * kRowBytes / kCores;
+    const uint32_t rowsPerCore = CHUNK / kCores;
+    const uint64_t chunkBytes = CHUNK * kRowBytes;
+    __gm__ uint8_t* reserved = smem_shm_sdma_reserved(gva);
+
+    // 单波内各块使用不重叠偏移；overlap=1 先推送本块，再等待并规约前块。
+    for (uint32_t k = 0; k < chunks; ++k) {
+        const uint64_t start = static_cast<uint64_t>(k) * chunkBytes;
+        const uint64_t coreOff = static_cast<uint64_t>(core) * perCoreBytes;
+        GlobalTensor<float16_t> ag, cg;
+        ag.SetGlobalBuffer(
+            reinterpret_cast<__gm__ float16_t*>(x + start + coreOff),
+            rowsPerCore * kK);
+        cg.SetGlobalBuffer(
+            reinterpret_cast<__gm__ float16_t*>(ownC + start + coreOff),
+            rowsPerCore * kN);
+        // 原始 NZ 权重直接参与 MM，结果直接落在对称内存的 ND 输出位置，省去打包 Kernel。
+        mm.SetTensorA(ag, false);
+        mm.SetTensorB(wg, true);
+        mm.SetOrgShape(rowsPerCore, kN, kK, kK, kN);
+        mm.IterateAll(cg);
+        // 发送前各核清理自己写出的 cache line，之后的 IB 会合只解决时序，不代替可见性维护。
+        CleanLines(ownC + start + coreOff, perCoreBytes);
+        WaitReady(ibGm, ibUb, core);
+
+        if (core == 0) {
+            const bool ok = smem_shm_sdma_signal_at(
+                reserved, ownC + start, peerDst + start,
+                chunkBytes, kTagBase | k);
+            CheckOrTrap(ok, status, 1);
+        }
+
+        // 串行消费当前块，流水消费前一块；等待邮件后必须核对 dst、len、imm 防旧信。
+        const bool doAdd = (overlap == 0 || k > 0);
+        if (doAdd) {
+            const uint32_t prev = overlap == 0 ? k : k - 1;
+            if (core == 0) {
+                auto mail = smem_shm_sdma_wait_at(reserved);
+                const bool good =
+                    mail.status == SMEM_SHM_SDMA_MAIL_OK &&
+                    mail.dst == expectedRecvDst + static_cast<uint64_t>(prev) * chunkBytes &&
+                    mail.len == chunkBytes && mail.imm == (kTagBase | prev);
+                CheckOrTrap(good, status, 2);
+            }
+            // Core0 独自 wait，确认邮件后逐核放行 Add；接收区 cache 仍要独立失效。
+            ReleaseAdd(ibGm, ibUb, core);
+            const uint64_t base = static_cast<uint64_t>(prev) * chunkBytes + coreOff;
+            // SDMA 写入了对端局部结果，精确失效本核即将读取的缓存行，
+            // Graph 重放时同样不能省略。
+            CleanLines(ownPeerC + base, perCoreBytes);
+            GlobalTensor<float16_t> a, b, dst;
+            a.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(ownC + base),
+                              perCoreBytes / 2);
+            b.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(ownPeerC + base),
+                              perCoreBytes / 2);
+            dst.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(y + base),
+                                perCoreBytes / 2);
+            // VECIN/VECOUT 队列按 tile 双路 DataCopy + FP16 Add + 写回，保证每核独占输出行。
+            for (uint32_t off = 0; off < perCoreBytes / 2; off += kAddTile) {
+                LocalTensor<float16_t> la = in0.AllocTensor<float16_t>();
+                LocalTensor<float16_t> lb = in1.AllocTensor<float16_t>();
+                DataCopy(la, a[off], kAddTile);
+                DataCopy(lb, b[off], kAddTile);
+                in0.EnQue(la); in1.EnQue(lb);
+                LocalTensor<float16_t> va = in0.DeQue<float16_t>();
+                LocalTensor<float16_t> vb = in1.DeQue<float16_t>();
+                LocalTensor<float16_t> res = outQ.AllocTensor<float16_t>();
+                Add(res, va, vb, kAddTile);
+                outQ.EnQue(res);
+                LocalTensor<float16_t> result = outQ.DeQue<float16_t>();
+                DataCopy(dst[off], result, kAddTile);
+                outQ.FreeTensor(result); in0.FreeTensor(va); in1.FreeTensor(vb);
+            }
+        }
+    }
+
+    // 流水模式最后一块没有在循环内执行 Add：显式等待末块，避免遗漏或过早发送 DONE。
+    if (overlap != 0) {
+        const uint32_t last = chunks - 1;
+        if (core == 0) {
+            auto mail = smem_shm_sdma_wait_at(reserved);
+            CheckOrTrap(mail.status == SMEM_SHM_SDMA_MAIL_OK &&
+                mail.dst == expectedRecvDst + static_cast<uint64_t>(last) * chunkBytes &&
+                mail.len == chunkBytes && mail.imm == (kTagBase | last),
+                status, 3);
+        }
+        ReleaseAdd(ibGm, ibUb, core);
+        const uint64_t base = static_cast<uint64_t>(last) * chunkBytes +
+                              static_cast<uint64_t>(core) * perCoreBytes;
+        CleanLines(ownPeerC + base, perCoreBytes);
+        GlobalTensor<float16_t> a, b, dst;
+        a.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(ownC + base),
+                          perCoreBytes / 2);
+        b.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(ownPeerC + base),
+                          perCoreBytes / 2);
+        dst.SetGlobalBuffer(reinterpret_cast<__gm__ float16_t*>(y + base),
+                            perCoreBytes / 2);
+        for (uint32_t off = 0; off < perCoreBytes / 2; off += kAddTile) {
+            LocalTensor<float16_t> la = in0.AllocTensor<float16_t>();
+            LocalTensor<float16_t> lb = in1.AllocTensor<float16_t>();
+            DataCopy(la, a[off], kAddTile);
+            DataCopy(lb, b[off], kAddTile);
+            in0.EnQue(la); in1.EnQue(lb);
+            LocalTensor<float16_t> va = in0.DeQue<float16_t>();
+            LocalTensor<float16_t> vb = in1.DeQue<float16_t>();
+            LocalTensor<float16_t> res = outQ.AllocTensor<float16_t>();
+            Add(res, va, vb, kAddTile);
+            outQ.EnQue(res);
+            LocalTensor<float16_t> result = outQ.DeQue<float16_t>();
+            DataCopy(dst[off], result, kAddTile);
+            outQ.FreeTensor(result); in0.FreeTensor(va); in1.FreeTensor(vb);
+        }
+    }
+
+    // 所有核完成 Add 后才执行 quiet + 双向 DONE：仅 quiet 无法证明对端已消费接收区。
+    WaitAddDone(ibGm, ibUb, core);
+    if (core == 0) {
+        CheckOrTrap(smem_shm_sdma_quiet_at(reserved), status, 4);
+        // 双方均先发送 DONE 再等待；收到对端 DONE 表示
+        // 对端 Add 已结束读取本端 C 缓冲区。
+        CheckOrTrap(smem_shm_sdma_signal_at(
+            reserved, ctrlSrc, peerCtrlDst, 8, kTagDone), status, 5);
+        const auto done = smem_shm_sdma_wait_at(reserved);
+        CheckOrTrap(done.status == SMEM_SHM_SDMA_MAIL_OK &&
+            done.imm == kTagDone && done.len == 8 &&
+            done.dst == expectedCtrlDst, status, 6);
+    }
+}
+
+} // 正式 Kernel 内部命名空间
+using namespace AscendC;
+// 调用方应保证：
+// 两个 Rank 的 CHUNK、数量、模式和对端指针一致；
+// ownC 与 ownPeerC 是对称内存内不重叠区域；
+// 本地 IB 工作区不小于 kIBBytes 且首次调用前清零；
+// ctrlSrc 不可修改，peerCtrlDst 位于 C0/C1 区域外；
+// y 与 C0/C1 不重叠，同一池不得并发使用；
+// 本原型仅支持完整 CHUNK 倍数，最多 8192 行；
+// 每个已实例化 Kernel 符号先进行两次 enable=0 预热。
+/**
+ * @brief 选择三种已实例化的静态 tiling 并向指定 stream 异步发射融合 Kernel。
+ * @param gva,x,w,y 对称段、输入、NZ 权重、ND 输出设备地址。
+ * @param ownC,ownPeerC 本 Rank 两个对称结果区；peerDst,expectedRecvDst 邮件发送/接收校验地址。
+ * @param ibWorkspace,status IB GM 空间和错误码槽；ctrlSrc,peerCtrlDst,expectedCtrlDst DONE 控制地址。
+ * @param chunkRows 256/512/1024；chunks 块数且总 M≤8192；overlap 为 0/1；enable 为 0/1。
+ * @param stream 非空 ACL stream；调用方保持相关设备缓冲直至计算完成。
+ * @return 0=发射成功，-1=非法输入；异步协议状态需另行同步检查。
+ */
+extern "C" int mf310p_v2_trial_launch_async(
+    uint64_t gva, uint64_t x, uint64_t w, uint64_t y,
+    uint64_t ownC, uint64_t ownPeerC,
+    uint64_t peerDst, uint64_t expectedRecvDst,
+    uint64_t ibWorkspace, uint64_t status,
+    uint64_t ctrlSrc, uint64_t peerCtrlDst, uint64_t expectedCtrlDst,
+    uint32_t chunkRows, uint32_t chunks, uint32_t overlap,
+    uint32_t enable, aclrtStream stream)
+{
+    if (stream == nullptr || (enable != 0 &&
+        (gva == 0 || x == 0 || w == 0 || y == 0 || ownC == 0 ||
+         ownPeerC == 0 || peerDst == 0 || expectedRecvDst == 0 ||
+         ibWorkspace == 0 || status == 0 || ctrlSrc == 0 ||
+         peerCtrlDst == 0 || expectedCtrlDst == 0))) return -1;
+    if (chunkRows == 0 || chunks > 8192 / chunkRows || (enable != 0 && chunks == 0) ||
+        overlap > 1) return -1;
+    // 编译期模板分派，拒绝任意 chunkRows，以免使用不存在的 tiling 实例。
+#define V2_CASE(ROWS)                                                         \
+    case ROWS: {                                                              \
+        V2TrialKernel<tiling##ROWS, ROWS><<<kCores, 0, stream>>>(              \
+            reinterpret_cast<uint8_t*>(gva),                                 \
+            reinterpret_cast<uint8_t*>(x),                                   \
+            reinterpret_cast<uint8_t*>(w),                                   \
+            reinterpret_cast<uint8_t*>(y),                                   \
+            reinterpret_cast<uint8_t*>(ownC),                                \
+            reinterpret_cast<uint8_t*>(ownPeerC),                             \
+            reinterpret_cast<uint8_t*>(peerDst), expectedRecvDst,             \
+            reinterpret_cast<uint8_t*>(ibWorkspace),                          \
+            reinterpret_cast<uint8_t*>(status),                               \
+            reinterpret_cast<uint8_t*>(ctrlSrc),                              \
+            reinterpret_cast<uint8_t*>(peerCtrlDst), expectedCtrlDst,         \
+            chunks, overlap, enable);                                        \
+        return 0;                                                             \
+    }
+    switch (chunkRows) {
+        V2_CASE(256)
+        V2_CASE(512)
+        V2_CASE(1024)
+        default: return -1;
+    }
+#undef V2_CASE
+}
+
+/**
+ * @brief 导出 Kernel 使用的 IB GM workspace 字节数，避免 Host 与事件编号表不一致。
+ * @return kIBBytes；Host 必须按此分配并在首用前清零。
+ */
+extern "C" uint32_t mf310p_v2_trial_ib_workspace_bytes()
+{
+    return kIBBytes;
+}
+
+/* 官方 IB 独立探针，须先于 V2TrialKernel 验证通过。 */
+extern "C" __global__ __aicore__ void mf310p_v2_ib_probe_kernel(
+    __gm__ uint8_t* ibWorkspace, __gm__ uint8_t* result,
+    uint32_t repetitions, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled || GetBlockIdx() >= 2) return;
+    TPipe pipe;
+    TBuf<> syncBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    GlobalTensor<int32_t> gm;
+    gm.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibWorkspace), 640);
+    LocalTensor<int32_t> ub = syncBuf.Get<int32_t>();
+    for (uint32_t k = 0; k < repetitions; ++k) {
+        if (GetBlockIdx() == 0) {
+            IBSet<true>(gm, ub, 0, 0);
+            IBWait<true>(gm, ub, 1, 1);
+        } else {
+            IBWait<true>(gm, ub, 0, 0);
+            IBSet<true>(gm, ub, 1, 1);
+        }
+    }
+    WriteResultSlot(result, GetBlockIdx(), repetitions);
+}
+extern "C" int mf310p_v2_ib_probe_async(
+    uint64_t ibWorkspace, uint64_t result, uint32_t repetitions,
+    uint32_t enabled, aclrtStream stream)
+{
+    if (!stream || (enabled && (!ibWorkspace || !result || !repetitions)))
+        return -1;
+    mf310p_v2_ib_probe_kernel<<<2, 0, stream>>>(
+        reinterpret_cast<uint8_t*>(ibWorkspace),
+        reinterpret_cast<uint8_t*>(result),
+        repetitions, enabled);
+    return 0;
+}
+
+/* G0 第二阶段模拟 MM Kernel 的 8→1、1→7 核间事件模式。 */
+extern "C" __global__ __aicore__ void mf310p_v2_ib_fan_probe_kernel(
+    __gm__ uint8_t* ibWorkspace, __gm__ uint8_t* result,
+    uint32_t repetitions, uint32_t enabled)
+{
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AICORE);
+    if (!enabled) return;
+    const uint32_t core = GetBlockIdx();
+    if (core >= 8) return;
+    TPipe pipe;
+    TBuf<> syncBuf;
+    pipe.InitBuffer(syncBuf, 32);
+    GlobalTensor<int32_t> gm;
+    gm.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(ibWorkspace),
+                       kIBBytes / sizeof(int32_t));
+    LocalTensor<int32_t> ub = syncBuf.Get<int32_t>();
+    for (uint32_t i = 0; i < repetitions; ++i) {
+        WaitReady(gm, ub, core);
+        ReleaseAdd(gm, ub, core);
+        WaitAddDone(gm, ub, core);
+    }
+    WriteResultSlot(result, core, repetitions);
+}
+using namespace AscendC;
+
+extern "C" int mf310p_v2_ib_fan_probe_async(
+    uint64_t ibWorkspace, uint64_t result, uint32_t repetitions,
+    uint32_t enabled, aclrtStream stream)
+{
+    if (!stream || (enabled && (!ibWorkspace || !result || !repetitions)))
+        return -1;
+    mf310p_v2_ib_fan_probe_kernel<<<8, 0, stream>>>(
+        reinterpret_cast<uint8_t*>(ibWorkspace),
+        reinterpret_cast<uint8_t*>(result), repetitions, enabled);
+    return 0;
+}
+

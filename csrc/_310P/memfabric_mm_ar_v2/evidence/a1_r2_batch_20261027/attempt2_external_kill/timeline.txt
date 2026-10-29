@@ -1,0 +1,17 @@
+A1-R2 attempt2 timeline (server local, Asia 2026-10-27; all npu-smi evidence archived):
+- ~04:15 manual G0 check: dev2 CLEAN (1927MB, hugepages 0/0, no processes) -> relaunch approved.
+- 04:17:50 batch g0_before.txt: dev2 ALREADY 2363MB + 205/205 hugepages -> external process
+  returned within ~2min of the clean check; batch ran on a NON-EXCLUSIVE dev2 throughout.
+- 04:17:50-04:23:56 CPU_PRECHECK, NZ_REAL_ROUTE (NZ_STOCK_ROUTE_VERIFIED, 4x6 real
+  aclnnMatmulWeightNz pairs), NZ smoke PASS, NZ screen (3 shapes, tainted), confirm sessions
+  01 (stock, complete) and 02 (d4, complete rank JSONs) all recorded dev2 at 2362-2364MB.
+- 04:23:56 entire batch process tree (launcher->one_batch->u1_run->torchrun) died SILENTLY:
+  no STOP_STAGE.json (ERR trap never fired), no FAIL line, session-02 post_npu_smi.txt never
+  written; exactly when the external workload vacated dev2 and a new external process
+  (host pid 3784624) appeared on dev3, growing 10.7->12.9GB+ (~18MB/s) with hugepages filling.
+- ~05:00-05:07 dev3 occupied and growing (external); dev2 near baseline with residual hugepages.
+Attribution: killer UNKNOWN; strong temporal correlation with external die-hopping workload
+(possible device-context reset/clear by external actor). No OOM kill found in dmesg.
+Disposition: attempt2 screen/confirm numbers are INVALID as formal evidence (non-exclusive
+die). The nz_route_verified route proof is retained as route-identity evidence only
+(kernel dispatch selection is not sensitive to die sharing), with this caveat attached.

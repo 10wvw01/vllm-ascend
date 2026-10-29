@@ -1,0 +1,63 @@
+{
+  "run_id": "e4-layered-20261028-001",
+  "date_local": "2026-10-28 (+08)",
+  "task": "E4 layered AddTile/packet-ready Add first real-device validation round: G0->CPU->isolated build->dual-Rank smoke->7-arm short screen",
+  "github_repo": "10wvw01/vllm-ascend",
+  "work_branch": "work/310p-mm-ar-e4-layered-pipeline-20261028",
+  "work_head_requested": "1e20d3522cc9dd8040b257fae8d887e7d12f3b5e",
+  "worktree": "/home/w00804146/310P/e4wt",
+  "work_head": "1e20d3522cc9dd8040b257fae8d887e7d12f3b5e",
+  "head_matches_requested": true,
+  "git_status_clean_tracked": true,
+  "pr": "https://github.com/10wvw01/vllm-ascend/pull/21",
+  "protected_main_workspace": {
+    "path": "/home/w00804146/310P/vllm-ascend",
+    "branch": "perf/310p-f1c-stock-fp16-hccl-vs-memfabric-abba-20261025",
+    "state": "left untouched; uncommitted AGENTS.md edit + untracked analysis files of another task preserved as-is; E4 uses separate git worktree e4wt"
+  },
+  "card_selected": {
+    "npu_id": 16384,
+    "dies": "dev2,dev3 same card (bus 0000:41:00.0) dual-Die",
+    "health": "OK both Dies + MCU (npu-smi -t health -i 16384)",
+    "hugepages": "0/0 both dies",
+    "processes_at_g0": "none on 16384",
+    "memory_baseline_mb": {"dev2": 1937, "dev3": 1013},
+    "logical_physical_mapping": "ASCEND_RT_VISIBLE_DEVICES=2,3 -> logical0=dev2, logical1=dev3, same physical card 16384",
+    "other_cards": {
+      "5664_dev01": "external PID 3589835 (42753MB), dev1 hugepages full - occupied, untouched",
+      "38144_dev45": "dev4 hugepages 5860/5860 full + 13096MB residue, no visible owner process - not clean, excluded",
+      "43520_dev67": "dev7 MCU/Chip Alarm + occupied by PIDs 11744/12149 - excluded per ADR-014"
+    }
+  },
+  "environment": {
+    "ascend_home": "/usr/local/Ascend/cann-9.1.0",
+    "cann_version": "cann-9.1.0 (V100R001C11SPC001B243)",
+    "bisheng": "clang 15.0.5 (2026-07-30) aarch64, npu-arch dav-2002",
+    "driver": "npu-smi 26.1.1",
+    "python": "/usr/local/python3.12.13/bin/python3 (3.12.13)",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "memfabric_home": "/usr/local/memfabric_hybrid/latest -> 1.2.0",
+    "memfabric_sdma_header": "/usr/local/memfabric_hybrid/latest/include/smem/device/smem_shm_aicore_base_sdma.h present"
+  },
+  "frozen_binary_identity": {
+    "memfabric_host_libmf_hybm_core_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+    "memfabric_host_path": "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so (private LD_LIBRARY_PATH, repaired aclrtMemSetAccess physical-ID; shared system SO untouched)",
+    "d4_device_libmf310p_v2_trial_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+    "d4_device_path": "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_v2_trial_device.so (private PYTHONPATH site)",
+    "plugin_vllm_ascend_C_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+    "plugin_path": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+    "kver11_json_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "kver11_json_path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+    "identity_matches_u1_spec": true,
+    "identical_to_e3_batch_g0": true,
+    "loading_scheme": "private PYTHONPATH site + LD_LIBRARY_PATH priv-libs (R1/R2/E3 verified scheme, no shared install modified)",
+    "kfc_deployment": "auto on-demand at first authorized pool creation (E4 smoke), read-only G0 does not pre-deploy"
+  },
+  "exclusive_lease": {
+    "card_16384_free_at_g0": true,
+    "plan": "30s npu-smi watch loop for the whole campaign (campaign script built-in); external processes on 5664/38144/43520 left untouched",
+    "known_risk": "R2/E3 history showed short external reoccupation bursts on dev2/dev3; campaign FAIL-stop discipline retained, no automatic card switch"
+  },
+  "g0_verdict": "G0_PASS_CARD_16384_DEV23"
+}

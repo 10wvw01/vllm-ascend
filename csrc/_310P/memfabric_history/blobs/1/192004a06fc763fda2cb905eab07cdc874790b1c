@@ -1,0 +1,22 @@
+===== A1.1 production old SO (both positions) =====
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so
+expected old: 88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1
+
+===== A1.2 fixed SO (mf-fix build) =====
+1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30  /tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so
+expected fix: 1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30
+
+===== A1.3 mf-fix worktree state & HEAD =====
+5802f550 fix(310p): convert logical device id to physical for aclrtMemSetAccess
+131ee5ff fix(310p): prepare deploy-helper argv before fork (async-signal-safety)
+acd626cc fix(310p): move KFC probe+auto-deploy into a fork+exec helper process
+?? tools/aicpu_kernel_deploy/orch_deploy_helper
+
+===== A1.4 embedded build identity in fixed SO =====
+library version: 1.2.0, build time: Oct 23 2026 15:33:16, commit: 2f59dedba86945d08a6d85ef3b9a38dcf53a2439
+
+===== A1.5 build provenance (CMakeCache key entries) =====
+BUILD_PYTHON:BOOL=ON
+CMAKE_BUILD_TYPE:STRING=RELEASE
+MF_SDMA_ORCH_KVER:STRING=11

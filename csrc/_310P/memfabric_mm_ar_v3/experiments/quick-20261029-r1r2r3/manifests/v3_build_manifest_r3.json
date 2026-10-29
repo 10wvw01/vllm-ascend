@@ -1,0 +1,107 @@
+{
+  "schema": "MF310P_V3_BUILD_V1",
+  "created_unix": 1793211264.5436523,
+  "head": "f2c3eaf0f31c0270aba228baebbd157473e8de0c",
+  "sources": {
+    "csrc/_310P/memfabric_mm_ar_v3/src/mf310p_v3_protocol.h": "fa96233822b9415b563a47a752e6c772de68600b72c3c565458597982f33647c",
+    "csrc/_310P/memfabric_mm_ar_v3/src/mf310p_v3_api.h": "9f8fa92487827c8681f14c79bd31ffb86cc113948d7a25132f5edbb43bcce2e3",
+    "csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc": "32a814e3d5247e3e4b4228ff60faf44d4cad67b30bb17d127199e670cb0fb6d7",
+    "csrc/_310P/memfabric_mm_ar_v3/src/op_host/mf310p_v3_host.cpp": "d71102ad593ce45a605fdb439716682456462cd4b0c89268f2c79407737fe042",
+    "csrc/_310P/memfabric_mm_ar_v3/tools/stage_guard.py": "67bb557c91346bc4366f824e9723af71efe61a630742018510822b44dc26bd10",
+    "csrc/_310P/memfabric_mm_ar_v3/tools/build.py": "ad571c9ab3b5e616b00651ae9c8c45895660ed5169f3094a6fb35ce8347d5e33",
+    "csrc/_310P/memfabric_mm_ar_v3/tools/quick.py": "b4a989d4846c3217555a50b70c6f4a7864b5ad097d4dfa0a90a1c525f95a0083",
+    "csrc/_310P/memfabric_mm_ar_v3/tools/prepare_sdk.py": "352d1510d86b11a7ae7eec0e42feb83cdd0b7d421fde125f87af59c63f83d042",
+    "csrc/_310P/memfabric_mm_ar_v3/test/historical.py": "3dafe08f06aafdbd6433353efd1d6ddbd96cb17d11ba327e3af0fba347fff635",
+    "csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py": "2371bd2b9bad9b89d397e20fd3b1c17e7694b73c5ae5cc482867ba21970a92c1",
+    "csrc/_310P/memfabric_mm_ar_v3/test/protocol_model.py": "4e3013f425becb8e89f8302ab0a6513d75dfea193cb257dead6d1cb6519d2d8a",
+    "csrc/_310P/memfabric_mm_ar_v3/test/test_v3.py": "300de15399e26a16e45e6855a7c35644557774c692f9396d1dfcc0aeaeebcdae",
+    "vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "a9e9d647ce2a2ed19e6a5ddc44f317d79fe7fd26a73311b37b7ea03e9d209f9b"
+  },
+  "dependency": {
+    "source_head": "db38d75e8485d31451302219eb7a1bfeb1dd107c",
+    "upstream_head": "ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4",
+    "source_tree": "4fe624cabbf62d6475f79cc63bd19dcbedacb0e7",
+    "fix_branch": "fix/310p-v3-orch-deploy-helper-20261029",
+    "fix_base": "b9d46f97955b11a8b7a892e9fd8d516e66346a65",
+    "home": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2",
+    "kver": 28,
+    "orch_json": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+    "orch_sha256": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+    "deploy_helper": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/orch_deploy_helper",
+    "deploy_helper_sha256": "849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310",
+    "installed_files": {
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.so": "db3903da4617dead67af5847209202d37e25e2f2853769e4c646c10d0ce6a709",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libacc_tcp_net.so": "ba34db54d61206712b19078c8766c0ff9c2799ac1e0f53ae2fa8d0bddb2d639a",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libmf_acc_offload.so": "7fb8eff9d2f6b7593ed7db5b6361c7201b2c3922d161a9a29f7a894955c2dc76",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libmf_hybm_core.so": "1f1838f79462264bf0c05cee09d3aa0afd557bd581b513bd8aec1171c9e10fa3",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libmf_smem.so": "0c94220d2ca771ab00ee8c2f509eb21970c4f3992b3b885fdfb0893cc8cb6367"
+    },
+    "smem": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libmf_smem.so",
+    "device_include": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/device",
+    "host_include": "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/host",
+    "public_headers": {
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/device/smem_shm_aicore_base_sdma.h": "2e7c31472edf104572ba82d2ef97d69fcff7827ca1a6d8dd1ce63431f527e5b2",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/device/smem_shm_sdma_layout.h": "fb38bae919eda790f5659554e3815b036c90e69b08fffc2a81437a4f77080e0e"
+    },
+    "findings": [
+      "KVER28_PADDING_SELF_COPY_PRESENT: quick screen cannot certify long-run stability"
+    ]
+  },
+  "cann": "/usr/local/Ascend/cann-9.1.0",
+  "compiler": "/usr/local/Ascend/cann-9.1.0/bin/bisheng",
+  "compiler_version": "2026-07-30T20:53:21+08:00 clang version 15.0.5 (clang-5c68a1cb1231 flang-5c68a1cb1231)\nTarget: aarch64-unknown-linux-gnu\nThread model: posix\nInstalledDir: /usr/local/Ascend/cann-9.1.0/bin\n",
+  "commands": [
+    [
+      "/usr/local/Ascend/cann-9.1.0/bin/bisheng",
+      "--npu-arch=dav-2002",
+      "-O2",
+      "-std=c++17",
+      "-shared",
+      "-fPIC",
+      "-x",
+      "asc",
+      "/tmp/opencode/310p-v3-20261029-001/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/op_kernel/mf310p_v3_kernel.asc",
+      "-x",
+      "none",
+      "-o",
+      "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_device.so",
+      "-I/usr/local/Ascend/cann-9.1.0/aarch64-linux/include",
+      "-I/usr/local/Ascend/cann-9.1.0/aarch64-linux/ascendc/include",
+      "-I/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/device",
+      "-L/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64",
+      "-lascendcl",
+      "-lruntime",
+      "-ldl",
+      "-pthread",
+      "-lm",
+      "-Wl,-rpath,/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64"
+    ],
+    [
+      "/usr/bin/g++",
+      "-O2",
+      "-std=c++17",
+      "-shared",
+      "-fPIC",
+      "-Wl,-z,defs",
+      "/tmp/opencode/310p-v3-20261029-001/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/op_host/mf310p_v3_host.cpp",
+      "-o",
+      "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_host.so",
+      "-I/usr/local/Ascend/cann-9.1.0/aarch64-linux/include",
+      "-I/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/include/smem/host",
+      "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_device.so",
+      "/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64/libmf_smem.so",
+      "-L/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64",
+      "-lascendcl",
+      "-pthread",
+      "-Wl,-rpath,$ORIGIN:/tmp/opencode/310p-v3-20261029-001/memfabric-sdk-r2/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64"
+    ]
+  ],
+  "host_so": "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_host.so",
+  "device_so": "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_device.so",
+  "artifacts": {
+    "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_host.so": "5e86b580a97e16a422ba528574a4dce3ccf1165052f27dd1c1e6ed6270824ade",
+    "/tmp/opencode/310p-v3-20261029-001/v3-build-r3/libmf310p_v3_device.so": "f5a1edf31bb099fa68a8378f46e22764715fde29441b882645d5640737f5f271"
+  },
+  "device_compile": "PASS",
+  "device_execution": "NOT_RUN"
+}

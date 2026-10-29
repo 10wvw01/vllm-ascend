@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1105" viewBox="0 0 1400 1105" role="img">
+<title>V1/V2 性能与稳定性排障图解</title>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#1A5EA8"/></marker></defs>
+<rect x="0" y="0" width="1400" height="1105" fill="#FBFCFE"/>
+<g font-family="Noto Sans CJK SC, Source Han Sans SC, Microsoft YaHei, PingFang SC, Arial, sans-serif"><rect x="12" y="12" width="1376" height="80" rx="20" fill="#133858" stroke="#133858" stroke-width="2"/>
+<text x="42" y="64" fill="#FFFFFF" font-size="32" font-weight="700" text-anchor="start">图解二：V2 性能为什么劣于 Stock？</text>
+<text x="1358" y="63" fill="#D7EAFB" font-size="17" font-weight="500" text-anchor="end">从现象到疑点，再到正式优化验证</text>
+<rect x="45" y="113" width="1310" height="86" rx="14" fill="#FFF0F0" stroke="#E6A8AA" stroke-width="2"/>
+<text x="75" y="148" fill="#BC3A3E" font-size="25" font-weight="700" text-anchor="start">真实 Qwen Eager 的结果：V2 没打赢 Stock</text>
+<text x="75" y="181" fill="#19354F" font-size="21" font-weight="500" text-anchor="start">吞吐三次为 -3.51% / -4.53% / +2.12%；中位 -3.51%，TTFT 也劣化</text>
+<path d="M700 204 L700 235" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="50" y="261" fill="#133858" font-size="24" font-weight="700" text-anchor="start">第一层：是不是测错、走错、算错？</text>
+<rect x="45" y="285" width="415" height="136" rx="14" fill="#ECF8F2" stroke="#8FCEB0" stroke-width="2"/>
+<text x="65" y="319" fill="#16794C" font-size="22" font-weight="700" text-anchor="start">路由确认</text>
+<text x="65" y="352" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">40 个目标层确实使用 V2</text>
+<text x="65" y="390" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">已排除“根本没命中”</text>
+<rect x="492" y="285" width="415" height="136" rx="14" fill="#ECF8F2" stroke="#8FCEB0" stroke-width="2"/>
+<text x="512" y="319" fill="#16794C" font-size="22" font-weight="700" text-anchor="start">额外拷贝确认</text>
+<text x="512" y="352" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">没有目标路径新增 contiguous 税</text>
+<text x="512" y="390" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">此前 66µs/层推断被纠正</text>
+<rect x="940" y="285" width="415" height="136" rx="14" fill="#ECF8F2" stroke="#8FCEB0" stroke-width="2"/>
+<text x="960" y="319" fill="#16794C" font-size="22" font-weight="700" text-anchor="start">内部计时确认</text>
+<text x="960" y="352" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">GetSystemCycle 返回 0</text>
+<text x="960" y="390" fill="#19354F" font-size="20" font-weight="450" text-anchor="start">换用外部 NPU Event / Trace</text>
+<path d="M700 422 L700 447" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="180" y="459" width="1040" height="115" rx="14" fill="#EBF4FD" stroke="#A3C9ED" stroke-width="2"/>
+<text x="700" y="500" fill="#133858" font-size="23" font-weight="700" text-anchor="middle">同口径目标路径：Stock（MM + HCCL） vs V2（单融合 Kernel）</text>
+<text x="700" y="540" fill="#BC3A3E" font-size="24" font-weight="700" text-anchor="middle">结果：代表性样本里，V2 单个目标站点约多 0.63ms</text>
+<path d="M700 576 L700 606" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<text x="45" y="631" fill="#133858" font-size="24" font-weight="700" text-anchor="start">第二层：真正可能多花时间的地方</text>
+<rect x="45" y="658" width="305" height="160" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="65" y="692" fill="#9E6B0B" font-size="22" font-weight="700" text-anchor="start">MM / Tiling / 访存</text>
+<text x="65" y="725" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">MAC 活动未明显膨胀</text>
+<text x="65" y="763" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">仍未排除访存与资源成本</text>
+<rect x="379" y="658" width="305" height="160" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="399" y="692" fill="#9E6B0B" font-size="22" font-weight="700" text-anchor="start">SDMA / IB 等待</text>
+<text x="399" y="725" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">Rank 间存在等待不对称</text>
+<text x="399" y="763" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">逐阶段耗时仍未证明</text>
+<rect x="713" y="658" width="305" height="160" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="733" y="692" fill="#9E6B0B" font-size="22" font-weight="700" text-anchor="start">CleanLines 缓存维护</text>
+<text x="733" y="725" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">大量按 64B 清理的循环</text>
+<text x="733" y="763" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">不可随意删除可见性保障</text>
+<rect x="1047" y="658" width="308" height="160" rx="14" fill="#EBF4FD" stroke="#8DBEEB" stroke-width="2"/>
+<text x="1067" y="692" fill="#1A5EA8" font-size="22" font-weight="700" text-anchor="start">Add 规约循环</text>
+<text x="1067" y="725" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">每 Core 循环存在控制开销</text>
+<text x="1067" y="763" fill="#19354F" font-size="18" font-weight="450" text-anchor="start">已选为第一轮优化候选</text>
+<path d="M700 822 L700 850" fill="none" stroke="#1A5EA8" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="45" y="859" width="1310" height="125" rx="14" fill="#FFFFFF" stroke="#1A5EA8" stroke-width="2"/>
+<text x="73" y="893" fill="#1A5EA8" font-size="24" font-weight="700" text-anchor="start">D2 → D3 → D4：一处优化已完成验证</text>
+<text x="73" y="929" fill="#19354F" font-size="19" font-weight="500" text-anchor="start">D3 正式 V2 Add Tile 1024→2048（循环次数减半，但占用 UB 增加 6KiB）</text>
+<text x="73" y="960" fill="#19354F" font-size="19" font-weight="500" text-anchor="start">D4：编译/位精确PASS；单算子+6.26%，Eager成功会话吞吐+1.86%</text>
+<rect x="45" y="1004" width="1310" height="83" rx="14" fill="#FFF8E5" stroke="#E6CA85" stroke-width="2"/>
+<text x="75" y="1040" fill="#133858" font-size="21" font-weight="650" text-anchor="start">已知：融合目标路径有额外成本，4 Chunk 交叠仍值得保留。</text>
+<text x="75" y="1070" fill="#9E6B0B" font-size="20" font-weight="650" text-anchor="start">未知：最终由通信等待、缓存维护、规约控制还是 MM 访存主导。</text></g>
+</svg>

@@ -1,0 +1,61 @@
+{
+  "run_id": "e3-chunk2048-20261028-001",
+  "date_local": "2026-10-28 00:45~01:00 (+08)",
+  "task": "E3 Chunk2048 MM+MemFabric AR real-device validation, bug fix and performance assessment",
+  "github_repo": "10wvw01/vllm-ascend",
+  "work_branch": "work/310p-mm-ar-e3-chunk2048-20261028",
+  "baseline_head_requested": "65837dc4481dde6ffa6ed6b0c1b6dfc147f0b610",
+  "worktree": "/home/w00804146/310P/e3wt",
+  "work_head": "65837dc4481dde6ffa6ed6b0c1b6dfc147f0b610",
+  "head_matches_baseline": true,
+  "git_status_clean_tracked": true,
+  "pr": "https://github.com/10wvw01/vllm-ascend/pull/20",
+  "card_selected": {
+    "npu_id": 16384,
+    "product": "IT21PD2G10 (310P3)",
+    "serial": "2106030737ZES5001180",
+    "bus": "0000:41:00.0",
+    "dies": "dev2,dev3 same card dual-Die",
+    "health": "OK both Dies + MCU, ChipFault=0",
+    "hugepages": "0/0 both dies",
+    "processes_at_g0": "none on 16384",
+    "memory_baseline_mb": {"dev2": 1938, "dev3": 1011},
+    "other_cards": {
+      "5664_dev01": "occupied by external PID 3589835 (42753MB), dev1 hugepages full",
+      "38144_dev45": "occupied by external vllm serve PID 1654387 (ASCEND_RT_VISIBLE_DEVICES=4,5, Qwen3.6 profiling), hugepages full",
+      "43520_dev67": "dev7 MCU/Chip Alarm + heavy memory residue (excluded per ADR-014)"
+    }
+  },
+  "environment": {
+    "ascend_home": "/usr/local/Ascend/cann-9.1.0",
+    "cann_version": "cann-9.1.0",
+    "bisheng": "clang 15.0.5 (2026-07-30) aarch64",
+    "driver": "npu-smi 26.1.1, firmware 7.5.0.5.220",
+    "python": "/usr/local/python3.12.13/bin/python3 (3.12.13)",
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "ascend_rt_visible_devices": "2,3",
+    "memfabric_home": "/usr/local/memfabric_hybrid/latest -> 1.2.0",
+    "memfabric_sdma_header": "/usr/local/memfabric_hybrid/latest/include/smem/device/smem_shm_aicore_base_sdma.h present"
+  },
+  "frozen_binary_identity": {
+    "memfabric_host_libmf_hybm_core_sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+    "memfabric_host_path": "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so (private LD_LIBRARY_PATH, repaired aclrtMemSetAccess physical-ID, shared system SO untouched)",
+    "d4_device_libmf310p_v2_trial_device_sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+    "d4_device_path": "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_v2_trial_device.so (private PYTHONPATH site)",
+    "plugin_vllm_ascend_C_sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+    "plugin_path": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+    "kver11_json_sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+    "kver11_json_path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+    "identity_matches_u1_spec": true,
+    "loading_scheme": "private PYTHONPATH site + LD_LIBRARY_PATH priv-libs (R1/R2/five-arm verified scheme, no shared install modified)",
+    "import_probe": "script-file import resolves plugin to private site with SHA match; editable finder (meta_path idx5) sits after PathFinder and does not hijack when PYTHONPATH private site is first",
+    "kfc_deployment": "auto on-demand at first authorized pool creation (E3-G smoke), read-only G0 does not pre-deploy"
+  },
+  "exclusive_lease": {
+    "card_16384_free_at_g0": true,
+    "plan": "30s npu-smi watch loop for the whole campaign (campaign script built-in); external processes on 5664/38144/43520 are left untouched",
+    "known_risk": "R2 history showed short external reoccupation bursts on dev2/dev3; campaign FAIL-stop discipline retained, no automatic card switch"
+  },
+  "g0_verdict": "G0_PASS_CARD_16384_DEV23"
+}

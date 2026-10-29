@@ -1,0 +1,38 @@
+{
+  "schema": "A1_R1_SMOKE_GATE_V1",
+  "decision": "ALLOW_SCREEN",
+  "meaning": "Correctness/identity-only; NOT L1/L3/L4 performance GO",
+  "smoke_manifest_sha256": "221b56a2f5e168b3a1fca3719895d50f95be5d68009d36343ca4a60f15230375",
+  "runtime_attestation_sha256": "0cf3a6900f9f0c5d94f4fb193277cc9bfb5437f2a8656369b76683e582fd3f32",
+  "session_proofs": {
+    "01_large_stock_fp16": {
+      "rank_json_sha256": [
+        "4fe7f42719731d054b801d6de3d2c7f226551a1d57a0f6173605d508accdedcc",
+        "198a3232fa687f57d8cc1f671e4642edacb735aa7288d33b3e1f01b442af2a2b"
+      ],
+      "session_log_sha256": "d247158a0be11a299bbbb255042f06b423293f50eba44859aa9e7f82c4493ce8"
+    },
+    "02_large_memfabric_d4": {
+      "rank_json_sha256": [
+        "d97cee2b85de73f2c74a10cf06c97c9cb58545dc921ba149580a9388594a52b7",
+        "9276012ba8f3c7311957db616f10b98b8b594b330bb0920c5562176348b118b4"
+      ],
+      "session_log_sha256": "602ff10b613078ecbec99cf43451325c8dd505b91fbd3057bde9e36835ce1aa4"
+    }
+  },
+  "runtime_evidence_sha256": {
+    "smoke2_run.log": "013af0c04a2b21fcdf6948a536e03d19c99c8a1eb9012245747d5a4145cc1603",
+    "smoke_worker_maps/maps_623566.txt": "c2fb46a5a462ef14a624d46f0989eac47af69f2562b5d8779932d2e9adf35a7b",
+    "smoke_worker_maps/maps_623567.txt": "a3ef826ecfe9591dea45e5fa134e2091210d21a41d5bdd74a7f5e6a68b04d5b2",
+    "smoke_worker_maps/maps_620000.txt": "1801d0d3473e6059e1b0e131f3f971e7a3f75c54a0380623645410d875a1e17a",
+    "smoke_worker_maps/maps_620001.txt": "0460d89ed6769a93a5db0a3890b34e7e55ccacfa6eb37f1a21969883093d7320",
+    "smoke_worker_maps/meta_623566.txt": "3490fa71e3ad1864ba680306676853800441b6d84aa6bd35c09333db978a4c2a",
+    "smoke_worker_maps/meta_623567.txt": "0f735ff7c610e135b4f434c12bc9882e40716f07bb840feee761bbc764f3405a",
+    "s0_shared_files_before.sha256": "690d1024a413d0592ff24eb0c95f9943cf7d41268a24e63ac40528bb7cc1f74e",
+    "s1_shared_files_after.sha256": "690d1024a413d0592ff24eb0c95f9943cf7d41268a24e63ac40528bb7cc1f74e",
+    "s0_npu_smi_before.txt": "97c3dc8e96de7885ddba6b3589f35c3b6e940b44ff1458c43e86b3a9a7cf4157",
+    "s1_npu_smi_after.txt": "5dfb968040eb48e49a87b76abc078781c1ba320fbb1a98895a8f87a9e653c1af",
+    "s0_environment.json": "6309721f05dd3bb5152452642cfa710798fa4df024f33d9b8b67f5c23c3d87b5",
+    "smoke_run.log": "013af0c04a2b21fcdf6948a536e03d19c99c8a1eb9012245747d5a4145cc1603"
+  }
+}

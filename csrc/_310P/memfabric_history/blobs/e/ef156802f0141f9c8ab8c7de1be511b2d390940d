@@ -1,0 +1,71 @@
+{"argv": ["/tmp/opencode/310p-v31-20261029-001/venv/bin/python", "-m", "torch.distributed.run", "--standalone", "--nproc-per-node=2", "/tmp/opencode/310p-v31-20261029-001/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py", "--manifest", "/tmp/opencode/310p-v31-20261029-001/v3-build-fix2/manifest.json", "--out", "/tmp/opencode/310p-v31-20261029-001/results-diag-2mib-r2", "--run-id", "results-diag-2mib-r2", "--store-url", "tcp://127.0.0.1:8593", "--physical-devices", "4,5", "--samples", "10", "--warmup", "4", "--protocol-reps", "8", "--packet-bytes", "2097152"], "at_utc": "2026-10-29T01:12:04.689601+00:00", "card": 38144, "event": "PREFLIGHT_START"}
+{"at_utc": "2026-10-29T01:12:06.139114+00:00", "cross_card": [], "event": "PREFLIGHT_PASS", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:12:06.146563+00:00", "child_pid": 1968898, "event": "STAGE_STARTED"}
+{"at_utc": "2026-10-29T01:12:07.627028+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:12:11.082872+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:12:14.539905+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:12:18.012583+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:21.485685+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_TRANSIENT", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044, 74982, 74984]}
+{"at_utc": "2026-10-29T01:12:21.491964+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044, 74982, 74984]}
+{"at_utc": "2026-10-29T01:12:24.918509+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044, 74982, 74984]}
+{"at_utc": "2026-10-29T01:12:28.362471+00:00", "cross_card": [], "event": "DEPLOY_WINDOW_HEALED", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:28.368157+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:31.834378+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:35.265423+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:38.713253+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:42.166394+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:45.604198+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:49.057195+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:52.502411+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:55.925233+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:12:59.381295+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:02.811033+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:06.240957+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:09.685895+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:13.136660+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:16.569672+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:19.987857+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:23.404768+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:26.835731+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:30.268811+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:33.684802+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:37.118084+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:40.551651+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:43.992461+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:47.445635+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:50.905516+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:54.369882+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:13:57.806215+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:01.240612+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:04.682546+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:08.129848+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:11.591085+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:15.019785+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:18.489091+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:21.963050+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:25.411932+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:28.851837+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:32.275056+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:35.721747+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:39.209904+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:42.658534+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:46.114696+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:49.623789+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:53.080653+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:14:56.535497+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:00.017435+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:03.495027+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:06.962308+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:10.441757+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:13.914901+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:17.402212+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:20.876354+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:24.298609+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:27.754447+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:31.238023+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:34.737105+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:38.959747+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": [74043, 74044]}
+{"at_utc": "2026-10-29T01:15:44.008346+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:15:47.610282+00:00", "cross_card": [], "event": "LEASE_SAMPLE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:15:49.121543+00:00", "cross_card": [], "event": "POST_STAGE_LEASE", "target_pid_origin": "unverified_host_namespace_requires_exclusive_lease", "target_pids": []}
+{"at_utc": "2026-10-29T01:15:49.128003+00:00", "event": "STAGE_EXIT", "exit_code": 0}

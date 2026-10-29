@@ -1,0 +1,482 @@
+{
+  "schema": "E2_PIPELINE_ASSESS_V1",
+  "status": "E2_FULL_CHAIN_TIMING_VALID",
+  "stock_native_NZ_route_verified": true,
+  "native_route_evidence": [
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 403.622,
+      "hccl_kernel_p50_us": 569.465,
+      "csv_sha256": "6dde063c7183a7a225ea3df6a05134e1a1e6d5663ab8bd079c62c57fe04b5a20",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 2048,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 399.4925,
+      "hccl_kernel_p50_us": 588.3215,
+      "csv_sha256": "47adbb93d9710a19b48b0f587f8c27dc6f2b42106e65ffea6d5aa4367ba2c7c2",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 0,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 770.49,
+      "hccl_kernel_p50_us": 1153.0625,
+      "csv_sha256": "182593da37b9b3acb25b6e5ac763986179184b1b12f5460f4bb0d58700168e73",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    },
+    {
+      "schema": "FIVE_ARM_REAL_NZ_HCCL_ROUTE_V1",
+      "rank": 1,
+      "M": 4096,
+      "nz_mm_kernel_hits": 6,
+      "hcom_allreduce_kernel_hits": 6,
+      "transdata_hits": 0,
+      "native_nz": true,
+      "mm_kernel_p50_us": 777.685,
+      "hccl_kernel_p50_us": 1145.5015,
+      "csv_sha256": "bd86d4eeec7fa4b0999f749cd0a74a54c0da930ba4c4a6867725e70f3088b403",
+      "profile": true,
+      "note": "route-only, never substitute pure kernel profiler medians for full-chain no-profiler p50"
+    }
+  ],
+  "E1_E2_device_correctness_on_new_binary": "BIT_EXACT_IN_ALL_10_SESSIONS",
+  "candidate_work_head": "f701f3e7cde830bae1271f0f100aeb8245fb7a4f",
+  "comparisons": [
+    {
+      "M": 2048,
+      "stable": true,
+      "arm_session_p50_us": {
+        "e2r": [
+          1279.675,
+          1257.787
+        ],
+        "e1": [
+          1248.333,
+          1223.829
+        ],
+        "e2p512": [
+          1577.5,
+          1584.922
+        ],
+        "stock": [
+          1113.542,
+          1061.524
+        ],
+        "e2p": [
+          1355.299,
+          1300.743
+        ]
+      },
+      "arm_time_us": {
+        "e2r": 1268.731,
+        "e1": 1236.081,
+        "e2p512": 1581.211,
+        "stock": 1087.533,
+        "e2p": 1328.021
+      },
+      "drift": {
+        "e2r": 0.0174,
+        "e1": 0.02002,
+        "e2p512": 0.0047,
+        "stock": 0.049,
+        "e2p": 0.04194
+      },
+      "E2_R_vs_E1_pct": -2.573,
+      "E2_P_1024_vs_E1_pct": -6.923,
+      "E2_P_512_vs_E1_pct": -21.827,
+      "E2_R_vs_Stock_pct": -14.282,
+      "E2_P_1024_vs_Stock_pct": -18.109,
+      "E2_P_512_vs_Stock_pct": -31.222,
+      "E1_vs_Stock_pct": -12.018,
+      "best_E2_arm": "e2r",
+      "best_E2_p50_us": 1268.731,
+      "best_E2_improvement_vs_E1_us": -32.65,
+      "best_E2_remaining_to_Stock_us": 181.198,
+      "all_arm_session_p99_us": {
+        "stock": [
+          1332.242,
+          1203.075
+        ],
+        "e1": [
+          1346.261,
+          1311.123
+        ],
+        "e2r": [
+          1359.699,
+          1372.374
+        ],
+        "e2p": [
+          1455.265,
+          1403.43
+        ],
+        "e2p512": [
+          1711.797,
+          1688.272
+        ]
+      }
+    },
+    {
+      "M": 4096,
+      "stable": true,
+      "arm_session_p50_us": {
+        "e2r": [
+          2293.021,
+          2292.135
+        ],
+        "e1": [
+          2287.708,
+          2283.203
+        ],
+        "e2p512": [
+          2780.104,
+          2733.633
+        ],
+        "stock": [
+          2026.901,
+          2018.347
+        ],
+        "e2p": [
+          2375.546,
+          2390.468
+        ]
+      },
+      "arm_time_us": {
+        "e2r": 2292.578,
+        "e1": 2285.456,
+        "e2p512": 2756.868,
+        "stock": 2022.624,
+        "e2p": 2383.007
+      },
+      "drift": {
+        "e2r": 0.00039,
+        "e1": 0.00197,
+        "e2p512": 0.017,
+        "stock": 0.00424,
+        "e2p": 0.00628
+      },
+      "E2_R_vs_E1_pct": -0.311,
+      "E2_P_1024_vs_E1_pct": -4.094,
+      "E2_P_512_vs_E1_pct": -17.1,
+      "E2_R_vs_Stock_pct": -11.775,
+      "E2_P_1024_vs_Stock_pct": -15.123,
+      "E2_P_512_vs_Stock_pct": -26.633,
+      "E1_vs_Stock_pct": -11.5,
+      "best_E2_arm": "e2r",
+      "best_E2_p50_us": 2292.578,
+      "best_E2_improvement_vs_E1_us": -7.122,
+      "best_E2_remaining_to_Stock_us": 269.954,
+      "all_arm_session_p99_us": {
+        "stock": [
+          2051.534,
+          2064.445
+        ],
+        "e1": [
+          2408.304,
+          2398.076
+        ],
+        "e2r": [
+          2413.481,
+          2408.002
+        ],
+        "e2p": [
+          2486.335,
+          2487.776
+        ],
+        "e2p512": [
+          2940.86,
+          2892.408
+        ]
+      }
+    }
+  ],
+  "raw_sessions": [
+    {
+      "stage": 1,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1113.542,
+          "paired_p90_us": 1258.482,
+          "paired_p99_us": 1332.242,
+          "r0_p50_us": 1109.075,
+          "r1_p50_us": 1111.771,
+          "n": 100,
+          "rank0_sha256": "7b3cfc2c795f35c3ff484a44f441d13c74696ec66c41eb08d061440e6707ce87",
+          "rank1_sha256": "b839642581ad79f889f0ddd6e5647c785308bb0d03c40244cdd1b66151685b11"
+        },
+        "4096": {
+          "paired_p50_us": 2026.901,
+          "paired_p90_us": 2042.255,
+          "paired_p99_us": 2051.534,
+          "r0_p50_us": 2026.158,
+          "r1_p50_us": 2024.414,
+          "n": 100,
+          "rank0_sha256": "7b3cfc2c795f35c3ff484a44f441d13c74696ec66c41eb08d061440e6707ce87",
+          "rank1_sha256": "b839642581ad79f889f0ddd6e5647c785308bb0d03c40244cdd1b66151685b11"
+        }
+      }
+    },
+    {
+      "stage": 2,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1248.333,
+          "paired_p90_us": 1301.896,
+          "paired_p99_us": 1346.261,
+          "r0_p50_us": 1225.235,
+          "r1_p50_us": 1235.221,
+          "n": 100,
+          "rank0_sha256": "926d0bc5f727812f89f1fe62eb7534312afdb603c27740f1f69eb02e994afe7f",
+          "rank1_sha256": "fa45d8ff8b8820e9960d14195e466dc2fc6c82bddd0dcfdaa4bd87c1a5c2a3d4"
+        },
+        "4096": {
+          "paired_p50_us": 2287.708,
+          "paired_p90_us": 2376.964,
+          "paired_p99_us": 2408.304,
+          "r0_p50_us": 2274.492,
+          "r1_p50_us": 2258.489,
+          "n": 100,
+          "rank0_sha256": "926d0bc5f727812f89f1fe62eb7534312afdb603c27740f1f69eb02e994afe7f",
+          "rank1_sha256": "fa45d8ff8b8820e9960d14195e466dc2fc6c82bddd0dcfdaa4bd87c1a5c2a3d4"
+        }
+      }
+    },
+    {
+      "stage": 3,
+      "arm": "e2r",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1279.675,
+          "paired_p90_us": 1323.713,
+          "paired_p99_us": 1359.699,
+          "r0_p50_us": 1248.802,
+          "r1_p50_us": 1236.003,
+          "n": 100,
+          "rank0_sha256": "e948438f20e54a18b5f6b38e9106b9a467b6ff1bc65b15d5fa6e724453615dbb",
+          "rank1_sha256": "1c7ebc21a22cdc23268ad4aee09870adeb3e317532eec507faf3e54d7ee187d9"
+        },
+        "4096": {
+          "paired_p50_us": 2293.021,
+          "paired_p90_us": 2380.073,
+          "paired_p99_us": 2413.481,
+          "r0_p50_us": 2270.26,
+          "r1_p50_us": 2266.146,
+          "n": 100,
+          "rank0_sha256": "e948438f20e54a18b5f6b38e9106b9a467b6ff1bc65b15d5fa6e724453615dbb",
+          "rank1_sha256": "1c7ebc21a22cdc23268ad4aee09870adeb3e317532eec507faf3e54d7ee187d9"
+        }
+      }
+    },
+    {
+      "stage": 4,
+      "arm": "e2p",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1355.299,
+          "paired_p90_us": 1409.206,
+          "paired_p99_us": 1455.265,
+          "r0_p50_us": 1352.044,
+          "r1_p50_us": 1284.804,
+          "n": 100,
+          "rank0_sha256": "f9f509a7621354e5f5f756d6065e5f25d0a19c0ed95a04ff46a9d4ca822da035",
+          "rank1_sha256": "0df3ce8b4d31a468d2a1b15981fae8b8ca9e3353f8169733aa75402b6226c84d"
+        },
+        "4096": {
+          "paired_p50_us": 2375.546,
+          "paired_p90_us": 2431.0,
+          "paired_p99_us": 2486.335,
+          "r0_p50_us": 2360.846,
+          "r1_p50_us": 2320.899,
+          "n": 100,
+          "rank0_sha256": "f9f509a7621354e5f5f756d6065e5f25d0a19c0ed95a04ff46a9d4ca822da035",
+          "rank1_sha256": "0df3ce8b4d31a468d2a1b15981fae8b8ca9e3353f8169733aa75402b6226c84d"
+        }
+      }
+    },
+    {
+      "stage": 5,
+      "arm": "e2p512",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1577.5,
+          "paired_p90_us": 1672.102,
+          "paired_p99_us": 1711.797,
+          "r0_p50_us": 1560.378,
+          "r1_p50_us": 1548.932,
+          "n": 100,
+          "rank0_sha256": "484a6e1085c625bb9b2129979d43bd9a71398395e6328c8cf80a85bbdccb814d",
+          "rank1_sha256": "3d123c951e6c614e1697dde5440ad86ed5597c9fea790816e50cf23834595050"
+        },
+        "4096": {
+          "paired_p50_us": 2780.104,
+          "paired_p90_us": 2841.511,
+          "paired_p99_us": 2940.86,
+          "r0_p50_us": 2759.297,
+          "r1_p50_us": 2743.567,
+          "n": 100,
+          "rank0_sha256": "484a6e1085c625bb9b2129979d43bd9a71398395e6328c8cf80a85bbdccb814d",
+          "rank1_sha256": "3d123c951e6c614e1697dde5440ad86ed5597c9fea790816e50cf23834595050"
+        }
+      }
+    },
+    {
+      "stage": 6,
+      "arm": "e2p512",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1584.922,
+          "paired_p90_us": 1648.996,
+          "paired_p99_us": 1688.272,
+          "r0_p50_us": 1545.195,
+          "r1_p50_us": 1575.104,
+          "n": 100,
+          "rank0_sha256": "3af6cc279741bf25a9b1bf11cd433fa1fb079a842f2f9ae1d88379a0c8498fa3",
+          "rank1_sha256": "7d7bcc4c8e2beba146c847992ec94d181a52245d8fd31ff68a0ede324b7e07fc"
+        },
+        "4096": {
+          "paired_p50_us": 2733.633,
+          "paired_p90_us": 2782.557,
+          "paired_p99_us": 2892.408,
+          "r0_p50_us": 2723.971,
+          "r1_p50_us": 2688.477,
+          "n": 100,
+          "rank0_sha256": "3af6cc279741bf25a9b1bf11cd433fa1fb079a842f2f9ae1d88379a0c8498fa3",
+          "rank1_sha256": "7d7bcc4c8e2beba146c847992ec94d181a52245d8fd31ff68a0ede324b7e07fc"
+        }
+      }
+    },
+    {
+      "stage": 7,
+      "arm": "e2p",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1300.743,
+          "paired_p90_us": 1378.466,
+          "paired_p99_us": 1403.43,
+          "r0_p50_us": 1265.911,
+          "r1_p50_us": 1285.066,
+          "n": 100,
+          "rank0_sha256": "eee60c66eb62b815105ff2a84d9c50cee45f6dbe67ebf818d98bcbc785194125",
+          "rank1_sha256": "ce88604d67e3aaa418d0504b1dbe2315a1271d54dfcc4a6cbdb039011faf45ad"
+        },
+        "4096": {
+          "paired_p50_us": 2390.468,
+          "paired_p90_us": 2451.805,
+          "paired_p99_us": 2487.776,
+          "r0_p50_us": 2369.374,
+          "r1_p50_us": 2367.474,
+          "n": 100,
+          "rank0_sha256": "eee60c66eb62b815105ff2a84d9c50cee45f6dbe67ebf818d98bcbc785194125",
+          "rank1_sha256": "ce88604d67e3aaa418d0504b1dbe2315a1271d54dfcc4a6cbdb039011faf45ad"
+        }
+      }
+    },
+    {
+      "stage": 8,
+      "arm": "e2r",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1257.787,
+          "paired_p90_us": 1334.001,
+          "paired_p99_us": 1372.374,
+          "r0_p50_us": 1241.536,
+          "r1_p50_us": 1229.232,
+          "n": 100,
+          "rank0_sha256": "20f1ba2c74464218e923bbcbd57bdcbdf50e5c2058c0bceb990f58f5f1061607",
+          "rank1_sha256": "362ab3753cc596c4ea392ee021919578416eb776c65b37f6973ec0a25adf4a21"
+        },
+        "4096": {
+          "paired_p50_us": 2292.135,
+          "paired_p90_us": 2382.838,
+          "paired_p99_us": 2408.002,
+          "r0_p50_us": 2274.675,
+          "r1_p50_us": 2267.071,
+          "n": 100,
+          "rank0_sha256": "20f1ba2c74464218e923bbcbd57bdcbdf50e5c2058c0bceb990f58f5f1061607",
+          "rank1_sha256": "362ab3753cc596c4ea392ee021919578416eb776c65b37f6973ec0a25adf4a21"
+        }
+      }
+    },
+    {
+      "stage": 9,
+      "arm": "e1",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1223.829,
+          "paired_p90_us": 1294.547,
+          "paired_p99_us": 1311.123,
+          "r0_p50_us": 1180.782,
+          "r1_p50_us": 1179.909,
+          "n": 100,
+          "rank0_sha256": "04c88234d18bd085f1eb38323e411ae706cf610d1d686142fe368368c55b1bcf",
+          "rank1_sha256": "d2623218e1693697f50be82b78b124aa6f470f4b4b2b6d774a7664a8d311d5a3"
+        },
+        "4096": {
+          "paired_p50_us": 2283.203,
+          "paired_p90_us": 2368.924,
+          "paired_p99_us": 2398.076,
+          "r0_p50_us": 2253.762,
+          "r1_p50_us": 2255.963,
+          "n": 100,
+          "rank0_sha256": "04c88234d18bd085f1eb38323e411ae706cf610d1d686142fe368368c55b1bcf",
+          "rank1_sha256": "d2623218e1693697f50be82b78b124aa6f470f4b4b2b6d774a7664a8d311d5a3"
+        }
+      }
+    },
+    {
+      "stage": 10,
+      "arm": "stock",
+      "Ms": {
+        "2048": {
+          "paired_p50_us": 1061.524,
+          "paired_p90_us": 1170.8,
+          "paired_p99_us": 1203.075,
+          "r0_p50_us": 1054.466,
+          "r1_p50_us": 1060.482,
+          "n": 100,
+          "rank0_sha256": "bd1e244faccd1c295fbdfd6908d032f73186bbc12ae1e8efdfcb0ca0c13a037f",
+          "rank1_sha256": "f5ba99398f5ec93ca3f66ccbdd814dea12ff0bbf2b99b2b17e82b0fd8684a475"
+        },
+        "4096": {
+          "paired_p50_us": 2018.347,
+          "paired_p90_us": 2040.956,
+          "paired_p99_us": 2064.445,
+          "r0_p50_us": 2004.727,
+          "r1_p50_us": 2018.347,
+          "n": 100,
+          "rank0_sha256": "bd1e244faccd1c295fbdfd6908d032f73186bbc12ae1e8efdfcb0ca0c13a037f",
+          "rank1_sha256": "f5ba99398f5ec93ca3f66ccbdd814dea12ff0bbf2b99b2b17e82b0fd8684a475"
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "E2-R replaces 1-to-7 Add release with a hierarchical tree, E2-P additionally introduces READY-fenced receive pre-invalidation.",
+    "E2-P/512 versus E2-P/1024 changes both MM tile and packet count; cannot isolate pure SDMA or pure overlap with simple subtraction.",
+    "E1 is recompiled from exactly the same immutable source in the E2 candidate SO; compare E1/E2 in balanced independent processes.",
+    "No kernel phase timestamp is inferred by subtracting arm p50, and no periodic-tail cause is claimed without device timeline.",
+    "Hardware tests are NPU-specific, Graph/Serving are separately NOT_RUN."
+  ]
+}

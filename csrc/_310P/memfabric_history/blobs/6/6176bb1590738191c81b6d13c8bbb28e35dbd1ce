@@ -1,0 +1,164 @@
+{
+  "schema": "V3_PRIVATE_SDK_V2",
+  "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src",
+  "head": "db38d75e8485d31451302219eb7a1bfeb1dd107c",
+  "upstream_head": "ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4",
+  "tree": "4fe624cabbf62d6475f79cc63bd19dcbedacb0e7",
+  "fix_branch": "fix/310p-v3-orch-deploy-helper-20261029",
+  "fix_base": "b9d46f97955b11a8b7a892e9fd8d516e66346a65",
+  "kver": 28,
+  "build_command": [
+    "bash",
+    "script/build_and_pack_run.sh",
+    "--build_python",
+    "OFF",
+    "--build_test",
+    "OFF",
+    "--build_hcom",
+    "OFF",
+    "--build_mode",
+    "RELEASE",
+    "--xpu_type",
+    "NPU"
+  ],
+  "deploy_helper": {
+    "command": [
+      "/usr/bin/g++",
+      "-O2",
+      "-std=c++17",
+      "-Wall",
+      "-Werror",
+      "-I/usr/local/Ascend/cann-9.1.0/aarch64-linux/include",
+      "-o",
+      "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/orch_deploy_helper",
+      "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/tools/aicpu_kernel_deploy/orch_deploy_helper.cpp",
+      "-L/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64",
+      "-Wl,-rpath,/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64",
+      "-lascendcl",
+      "-lruntime",
+      "-ldl"
+    ],
+    "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/orch_deploy_helper",
+    "sha256": "849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310",
+    "log": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/orch_deploy_helper_build.log"
+  },
+  "files": [
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem.h",
+      "sha256": "2c428bd6de1143963d8c9c5f356035b18ae01dc067fd3925892a61bcae186539"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_bm.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_bm.h",
+      "sha256": "df57cd7995c4bb3d09bff3d7079fb8be7f0c9f85913422ef36fed1fd8be7e600"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_bm_def.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_bm_def.h",
+      "sha256": "fb8739fbfdee3eb73d024bdc099fa3e07a20da52bb86abda6c50fa8a3d188752"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_def.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_def.h",
+      "sha256": "2a9ad4d7c241e9105289b2b9f9c1d2d79a24aae1b7f07008ed9c7509eb24d3d6"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_shm.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_shm.h",
+      "sha256": "0a27b009c8cde152eea0fabf998a3d1166fadafa8749ab5b16d3e3cb5c7f8003"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_shm_def.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_shm_def.h",
+      "sha256": "5bae649c310fdf46597b4b7a4a544ba2a8bc8b3842905bacdbdc7aa1b8fe5bef"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_trans.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_trans.h",
+      "sha256": "92000600d2a864b80a525999b5c60d6d7e81bdfbbe723a3eea57742b0d214917"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/host/smem_trans_def.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/host/smem_trans_def.h",
+      "sha256": "693e4cd69aaecad0722ec5724677f7c4f7612a5c93bd263ed434bb428cf354be"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_api.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_api.h",
+      "sha256": "9fcd3172e2b5e2e1602458cde1312dc41994934808877708bbae24cb1092a2e6"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_copy.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_copy.h",
+      "sha256": "8abcc32a0f9fa152b29ed1c695be047c4921a988fae2482e1fabc076eef97c33"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_define.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_define.h",
+      "sha256": "af76e4ef514f59d19bb427bf38b726e63f158ab89ea652b4fad45fa9df13f9a5"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_meta.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_meta.h",
+      "sha256": "387fad3ef6474b359a0c11a7a01711adcfbc1806c44713da53d3b463a9f51d72"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_rdma.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_rdma.h",
+      "sha256": "f88ae7e1aaeed0403b168fadc948ddb83a8295f935c691bffebb4793fd0c5146"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_aicore_base_sdma.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_aicore_base_sdma.h",
+      "sha256": "2e7c31472edf104572ba82d2ef97d69fcff7827ca1a6d8dd1ce63431f527e5b2"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/src/smem/include/device/smem_shm_sdma_layout.h",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/include/smem/device/smem_shm_sdma_layout.h",
+      "sha256": "fb38bae919eda790f5659554e3815b036c90e69b08fffc2a81437a4f77080e0e"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/output/acc_links/lib64/libacc_tcp_net.so",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/libacc_tcp_net.so",
+      "sha256": "585c1d0b9340c459fe3e73280c37e2215c1b84db1731e211183ce596eac6398f"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/output/acc_offload/lib64/libmf_acc_offload.so",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/libmf_acc_offload.so",
+      "sha256": "c36b43572c45ea413aa8d12d548cc28e749bbc2fb04786ae20ae5c2615b84998"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/output/hybm/lib64/libmf_hybm_core.so",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+      "sha256": "1cab72c152eab97f4e5c7d581dc51c1a7ad78b885230f23044b0fc3d4f3d142f"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/output/smem/lib64/libmf_smem.so",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+      "sha256": "0a0cbd00a13c8fceac484f1d04d84f1625f3b9435900c818a1fa279889ad60bb"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/build/src/hybm/ops/hybm_kernel/libmf_sdma_orch.so",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.so",
+      "sha256": "db3903da4617dead67af5847209202d37e25e2f2853769e4c646c10d0ce6a709"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/build/src/hybm/ops/hybm_kernel/libmf_sdma_orch.json",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.json",
+      "sha256": "74ad4668ba43aaaec6db9a5195441d5be1d73b6a0799c1a071bfc2902ffeab6e"
+    },
+    {
+      "source": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-src/build/src/hybm/ops/hybm_kernel/libmf_sdma_orch_v28.json",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+      "sha256": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655"
+    },
+    {
+      "source": "compiled",
+      "target": "/tmp/opencode/310p-a3cmp-20261029-001/memfabric-sdk/aarch64-linux/lib64/orch_deploy_helper",
+      "sha256": "849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310"
+    }
+  ],
+  "device_deployment": "NOT_RUN",
+  "scope": "host private staging only"
+}

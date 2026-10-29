@@ -1,0 +1,173 @@
+{
+  "schema": "A1_R1_LOADER_READONLY_V1",
+  "time_utc": "2026-10-26T19:43:55.871404+00:00",
+  "files": {
+    "host_archive_fixed": {
+      "path": "/tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so",
+      "realpath": "/tmp/opencode/mf-fix/build/src/hybm/csrc/libmf_hybm_core.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 3244688,
+      "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+      "st_dev": 134,
+      "st_ino": 17326671,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x3135a0 contains 31 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x000000000000000e (SONAME)             Library soname: [libmf_hybm_core.so]\n 0x000000000000000c (INIT)               0x59468\n 0x000000000000000d (FINI)               0x2b61cc\n 0x0000000000000019 (INIT_ARRAY)         0x320c30\n 0x000000000000001b (INIT_ARRAYSZ)       576 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x320e70\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x228\n 0x0000000000000005 (STRTAB)             0x14dc8\n 0x0000000000000006 (SYMTAB)             0x5030\n 0x000000000000000a (STRSZ)              194438 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x3237d0\n 0x0000000000000002 (PLTRELSZ)           29640 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x520a0\n 0x0000000000000007 (RELA)               0x45c50\n 0x0000000000000008 (RELASZ)             50256 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0x45a70\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0x4454e\n 0x000000006ffffff9 (RELACOUNT)          461\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "host_system": {
+      "path": "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so",
+      "realpath": "/tmp/opencode/a1-batch/priv-libs/libmf_hybm_core.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 3244688,
+      "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+      "st_dev": 134,
+      "st_ino": 18764697,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x3135a0 contains 31 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x000000000000000e (SONAME)             Library soname: [libmf_hybm_core.so]\n 0x000000000000000c (INIT)               0x59468\n 0x000000000000000d (FINI)               0x2b61cc\n 0x0000000000000019 (INIT_ARRAY)         0x320c30\n 0x000000000000001b (INIT_ARRAYSZ)       576 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x320e70\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x228\n 0x0000000000000005 (STRTAB)             0x14dc8\n 0x0000000000000006 (SYMTAB)             0x5030\n 0x000000000000000a (STRSZ)              194438 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x3237d0\n 0x0000000000000002 (PLTRELSZ)           29640 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x520a0\n 0x0000000000000007 (RELA)               0x45c50\n 0x0000000000000008 (RELASZ)             50256 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0x45a70\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0x4454e\n 0x000000006ffffff9 (RELACOUNT)          461\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "host_python": {
+      "path": "/tmp/opencode/a1-batch/priv-pylib/libmf_hybm_core.so",
+      "realpath": "/tmp/opencode/a1-batch/priv-pylib/libmf_hybm_core.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 3244688,
+      "sha256": "1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30",
+      "st_dev": 134,
+      "st_ino": 18765019,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x3135a0 contains 31 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x000000000000000e (SONAME)             Library soname: [libmf_hybm_core.so]\n 0x000000000000000c (INIT)               0x59468\n 0x000000000000000d (FINI)               0x2b61cc\n 0x0000000000000019 (INIT_ARRAY)         0x320c30\n 0x000000000000001b (INIT_ARRAYSZ)       576 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x320e70\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x228\n 0x0000000000000005 (STRTAB)             0x14dc8\n 0x0000000000000006 (SYMTAB)             0x5030\n 0x000000000000000a (STRSZ)              194438 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x3237d0\n 0x0000000000000002 (PLTRELSZ)           29640 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x520a0\n 0x0000000000000007 (RELA)               0x45c50\n 0x0000000000000008 (RELASZ)             50256 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000000000001e (FLAGS)              BIND_NOW\n 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n 0x000000006ffffffe (VERNEED)            0x45a70\n 0x000000006fffffff (VERNEEDNUM)         5\n 0x000000006ffffff0 (VERSYM)             0x4454e\n 0x000000006ffffff9 (RELACOUNT)          461\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "plugin_so": {
+      "path": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+      "realpath": "/tmp/opencode/a1-batch/site/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 263744,
+      "sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1",
+      "st_dev": 134,
+      "st_ino": 18763647,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x3ec30 contains 38 entries:\n  Tag        Type                         Name/Value\n 0x0000000000000001 (NEEDED)             Shared library: [libmf310p_device.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libmf_smem.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libmf310p_v2_trial_device.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libtorch.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc10.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libtorch_npu.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libascendcl.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libregister.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libopapi.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libtorch_cpu.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN:/usr/local/memfabric_hybrid/latest/aarch64-linux/lib64:$ORIGIN:$ORIGIN/lib:$ORIGIN/_cann_ops_custom/vendors/custom_transformer/op_api/lib]\n 0x000000000000000c (INIT)               0x8f60\n 0x000000000000000d (FINI)               0x313c0\n 0x0000000000000019 (INIT_ARRAY)         0x4e458\n 0x000000000000001b (INIT_ARRAYSZ)       24 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x4e470\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x1f0\n 0x0000000000000005 (STRTAB)             0x1f48\n 0x0000000000000006 (SYMTAB)             0x3a0\n 0x000000000000000a (STRSZ)              10804 (bytes)\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000003 (PLTGOT)             0x4efe8\n 0x0000000000000002 (PLTRELSZ)           5352 (bytes)\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000017 (JMPREL)             0x7a78\n 0x0000000000000007 (RELA)               0x4cd0\n 0x0000000000000008 (RELASZ)             11688 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffffe (VERNEED)            0x4bd0\n 0x000000006fffffff (VERNEEDNUM)         4\n 0x000000006ffffff0 (VERSYM)             0x497c\n 0x000000006ffffff9 (RELACOUNT)          376\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "d4_device_candidate": {
+      "path": "/tmp/opencode/d4/build/device_candidate_diag_on.so",
+      "realpath": "/tmp/opencode/d4/build/device_candidate_diag_on.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 2185952,
+      "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+      "st_dev": 134,
+      "st_ino": 18510914,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x12c908 contains 37 entries:\n  Tag        Type                         Name/Value\n 0x000000000000001d (RUNPATH)            Library runpath: [/usr/local/Ascend/ascend-toolkit/latest/aarch64-linux/lib64]\n 0x0000000000000001 (NEEDED)             Shared library: [libascendcl.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libruntime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [liberror_manager.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libprofapi.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libunified_dlog.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libmmpa.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libascend_dump.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc_sec.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000007 (RELA)               0x219b0\n 0x0000000000000008 (RELASZ)             6744 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          240\n 0x0000000000000017 (JMPREL)             0x23408\n 0x0000000000000002 (PLTRELSZ)           22680 (bytes)\n 0x0000000000000003 (PLTGOT)             0x21bbb8\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x238\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x9950\n 0x000000000000000a (STRSZ)              98393 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x7be0\n 0x0000000000000019 (INIT_ARRAY)         0x14c0e8\n 0x000000000000001b (INIT_ARRAYSZ)       32 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x14c0e0\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000000000000c (INIT)               0x138578\n 0x000000000000000d (FINI)               0x138590\n 0x000000006ffffff0 (VERSYM)             0x71b0\n 0x000000006ffffffe (VERNEED)            0x7afc\n 0x000000006fffffff (VERNEEDNUM)         4\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "device_so_installed": {
+      "path": "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_v2_trial_device.so",
+      "realpath": "/tmp/opencode/a1-batch/site/vllm_ascend/libmf310p_v2_trial_device.so",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 2185952,
+      "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19",
+      "st_dev": 134,
+      "st_ino": 18763646,
+      "readelf": {
+        "returncode": 0,
+        "output": "\nDynamic section at offset 0x12c908 contains 37 entries:\n  Tag        Type                         Name/Value\n 0x000000000000001d (RUNPATH)            Library runpath: [/usr/local/Ascend/ascend-toolkit/latest/aarch64-linux/lib64]\n 0x0000000000000001 (NEEDED)             Shared library: [libascendcl.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libruntime.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libm.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [libgcc_s.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]\n 0x0000000000000001 (NEEDED)             Shared library: [ld-linux-aarch64.so.1]\n 0x0000000000000001 (NEEDED)             Shared library: [liberror_manager.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libprofapi.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libunified_dlog.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libmmpa.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libascend_dump.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libc_sec.so]\n 0x0000000000000001 (NEEDED)             Shared library: [libstdc++.so.6]\n 0x0000000000000007 (RELA)               0x219b0\n 0x0000000000000008 (RELASZ)             6744 (bytes)\n 0x0000000000000009 (RELAENT)            24 (bytes)\n 0x000000006ffffff9 (RELACOUNT)          240\n 0x0000000000000017 (JMPREL)             0x23408\n 0x0000000000000002 (PLTRELSZ)           22680 (bytes)\n 0x0000000000000003 (PLTGOT)             0x21bbb8\n 0x0000000000000014 (PLTREL)             RELA\n 0x0000000000000006 (SYMTAB)             0x238\n 0x000000000000000b (SYMENT)             24 (bytes)\n 0x0000000000000005 (STRTAB)             0x9950\n 0x000000000000000a (STRSZ)              98393 (bytes)\n 0x000000006ffffef5 (GNU_HASH)           0x7be0\n 0x0000000000000019 (INIT_ARRAY)         0x14c0e8\n 0x000000000000001b (INIT_ARRAYSZ)       32 (bytes)\n 0x000000000000001a (FINI_ARRAY)         0x14c0e0\n 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)\n 0x000000000000000c (INIT)               0x138578\n 0x000000000000000d (FINI)               0x138590\n 0x000000006ffffff0 (VERSYM)             0x71b0\n 0x000000006ffffffe (VERNEED)            0x7afc\n 0x000000006fffffff (VERNEEDNUM)         4\n 0x0000000000000000 (NULL)               0x0\n",
+        "stderr": ""
+      }
+    },
+    "kver11_json": {
+      "path": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+      "realpath": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+      "symlink": false,
+      "status": "FILE",
+      "bytes": 205,
+      "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78",
+      "st_dev": 134,
+      "st_ino": 19279825
+    }
+  },
+  "source_repos": {
+    "memfabric_mirror_root": {
+      "path": "/home/w00804146/310P/memfabric_hybrid",
+      "head": {
+        "rc": 0,
+        "text": "54d6376d619325fb70831ce16c6ab60305b272ec\n",
+        "stderr": ""
+      },
+      "branch": {
+        "rc": 0,
+        "text": "diag/310p3-g1d-minimal-forensics-20261021\n",
+        "stderr": ""
+      },
+      "status": {
+        "rc": 0,
+        "text": "",
+        "stderr": ""
+      }
+    },
+    "vllm_root": {
+      "path": "/vllm-workspace/vllm",
+      "head": {
+        "rc": 0,
+        "text": "6e448d0ea9bf3d88d898b65449ca6dc2aec170ac\n",
+        "stderr": ""
+      },
+      "branch": {
+        "rc": 0,
+        "text": "",
+        "stderr": ""
+      },
+      "status": {
+        "rc": 0,
+        "text": "",
+        "stderr": ""
+      }
+    }
+  },
+  "checks": {
+    "historical_fixed_host_archive_valid": true,
+    "host_system_installed_fixed": true,
+    "host_python_installed_fixed": true,
+    "host_two_installed_paths_equal": true,
+    "plugin_file_frozen_valid": true,
+    "d4_candidate_frozen_valid": true,
+    "device_installed_is_frozen_d4": true,
+    "kver11_file_frozen_valid": true,
+    "all_frozen_candidate_files_present": true,
+    "actual_host_dlopen_path_proven": false,
+    "actual_device_kernel_so_loaded_proven": false,
+    "python_editable_import_frozen_proven": false,
+    "card_exclusivity_current_proven": false,
+    "kfc_and_first_write_correctness_proven": false,
+    "permission_to_deploy": false,
+    "permission_to_smoke": false
+  },
+  "status": "STATIC_EVIDENCE_ONLY",
+  "unproven": [
+    "actual library loaded by fresh child rank0 and rank1 process",
+    "kernel ELF/CANN registration path and loaded Device SO",
+    "V2_HOST_LIB and MemFabric runtime resolving identical bytes",
+    "healthy idle exclusive 16384 dev2,3 at device-start time",
+    "KFC auto-deploy and first-write correctness"
+  ],
+  "DEVICE_ACTION_APPROVED": false,
+  "DEPLOY_APPROVED": false,
+  "SMOKE_APPROVED": false
+}

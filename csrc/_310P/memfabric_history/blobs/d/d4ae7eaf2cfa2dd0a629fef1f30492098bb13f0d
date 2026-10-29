@@ -1,0 +1,39 @@
+# A1-R1 实机闭环独立复盘与下一轮优化焦点（2026-10-27）
+
+> **项目口径：**主研发线 `dev/310p-memfabric-mm-ar` 管方向和证据，A1工作线 `work/310p-mm-ar-large-m-a1-20261026`（PR#9 Draft）管实施。此文基于已上传证据的**二次静态审核**，不是新的310P设备实测，也不改Kernel/Serving/Stock默认。run_id `a1-r1-batch-20261027-001`、A1证据提交 `ff885ff559efea6523f8026e24704a0797c2ef8b`。
+>
+> **原始资料入口：**[现场完整报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/A1_R1_BATCH_REPORT_20261027.md)、[证据目录](https://github.com/10wvw01/vllm-ascend/tree/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027)、[L1 Confirm](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/s3_confirm/u1_confirm/a1_assessment.json)、[L3结果](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-large-m-a1-20261026/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_r1_batch_20261027/s5_l3/l3_result.json)。完整ascend_pt原始文件仅服务器`/tmp/opencode/a1-batch/l2`保存，已在`s4_l2/SERVER_ONLY_raw_traces.json`记录SHA和大小；本次不能宣称已本地逐条重解全部原始CSV。
+
+## 1. 总结性判定
+
+| 阶段 | 已核对状态 | 支持的事实与边界 |
+|---|---|---|
+| S0 | G0 / PRIVATE_LOAD PASS | 310P3物理卡16384（dev2,3）；通过私有PYTHONPATH与LD_LIBRARY_PATH装载真实Host `1dc46d7d…`、D4 `2a19390c…`、插件`8eb65de9…`、KVER11 `25e16b0a…`；PID maps有证据，系统和别人工作树两Host+Device安装SO前后SHA未变；原仓CPU 108 passed+27 subtests |
+| S1 | SMOKE PASS / ALLOW_SCREEN | M2048 Stock/V2双Rank位精确、协议status=0、首次MemFabric KFC/首写成功；没有本轮507014/507899/507018设备错误。最初一次PYTHONPATH误删CANN tbe导致ACL500001，排错后保全原始失败记录 |
+| S2/S3 L1 | 操作数值有效，但**错误的Serving参照系** | 8场ABBA完整算子，M2048 Stock 1649.0µs vs V2 1345.8µs，+22.5%；M4096 Stock 3043.8µs vs V2 2513.7µs，+21.1%。Stock是row-major F.linear，真实模型是NZ MatMul；**不能称为真实Stock加速**。M1024 −11.1%，非模型路由形状 |
+| S4 L2 | L2_VERIFIED（仓内逐层提取），原始Profiler服务器留存 | 每Rank每完整Step 10个o_proj+30个out_proj，M4096/K2048/N2048。真实Stock NZ-MM + HCCL AR，Rank0分别751.9+1390.9≈2142.8µs；Rank1 752.1+1165.5≈1917.6µs；V2分别2510.8/2429.7µs，**较真实Stock分别慢368.0/512.1µs每站点**（由两段独立p50加和的描述性近似，非严格成对p50）。额外copy设备记录0；不能把旧版contiguous 66µs照搬 |
+| S5 L3 | `L3_INCONCLUSIVE_OR_NO_GAIN`，明确是NO_GAIN方向 | 无Profiler四Serve ABBA各6预热+30请求，input4096/output1/concurrency1/TP2/Eager；双Rank已完成且经L2设备依赖校准的Forward→Logits Event：S1 Stock 2346.08ms、F1 V2 2372.20ms、F2 V2 2370.96ms、S2 Stock 2343.25ms。V2慢26.12/27.70ms，Stock跨场漂移仅2.83ms |
+| S6 L4 | L4_NOT_RUN_BY_DESIGN | 没有本轮4096/2048/50请求/并发10客户端正式TTFT，不能宣称TTFT已改善/已按该负载退化1.1%。只有L3_GO才能进入L4 |
+ 
+## 2. 最重要的方法论纠偏：真实MM参照系必须改成NZ
+
+U1 Stock使用row-major `F.linear`，M4096单MM-only约1869µs，真实Qwen3.6的`aclnnMatmulWeightNz`约752µs，后者快约2.5倍。融合D4本体独立U1与Serving均约2510µs，**不是Serving中融合突然变慢**；主要原因是独立U1选了比实际Serving弱的Stock MM。必须在现有U1保留row-major诊断臂基础上新增真正NZ权重布局/调用路径的`Stock_NZ_MM+HCCL`参照，尽量一致的权重stride/format、TP双Rank、HCCL跨流完成、warmup与ABBA，再谈正式算子级加速比。新基线应作为L1算子性能硬参照；否则再做十次row-major正收益也无法证明模型可获益。
+
+注意`aclnnMatmulWeightNz`与其他布局转换是否需要额外离线成本，按真实模型权重生命周期比较，不可给Stock或V2凭空加不应在Prefill热态路径中出现的转换税。
+
+## 3. 真正性能缺口及解释边界
+
+- Rank0目标站点V2约`2511−(752+1391)=+368µs`，Rank1约`2430−(752+1166)=+512µs`，持续40处/Rank。**仅靠每站点p50差×40的理想估算**分别为约14.7ms与20.5ms，但真实L3多26～28ms，不能据此将余差精确命名为12ms“Host税”：阶段重叠、相关性、跨Rank等待、尾部与计时窗口都可能参与，须做实测归因。Rank0/Rank1设备时钟未校准时不要直接相减其绝对trace时间。
+- L3 V2重尾显著：F1 p90 2517ms、F2 p90 2451ms，Stock约2345～2348ms，原始F1/F2事件系列有索引约0、6、12、19、25的共现尖峰且双Rank同步，**说明问题不像仅某一Rank偶发**。可能是共享池/SDMA消息进度、epoch/bookkeeping、通信进度或调度节拍，但**尚无因果取证**；不能拿70.6ms核离群直接断言尖峰全由SDMA引起。
+- Stock完成链Rank间HCCL中位差约225µs；两Rank不是相同通信相位，真实关键路径需按配对请求、等待与可见性判断。Model Step主要时间在其它层，40个目标站点即便无限加速对完整2.35秒Prefill的提升仍有限；按Stock现有站点链×40/全Step粗略得3.3%～3.7%量级的**过高上限粗估**，不能把它当可实现L3收益，更不能预言并发10 L4 TTFT下降同等百分比。
+- Event记录的是**Forward入口→Logits输出的已完成当前流事件**，仓内L2依赖与同请求双Rank对齐审计已作；这允许保守否定当前V2的L3正收益，但仍不是完整客户端/队列TTFT。原始完整Profiler CSV未上传，当前我们只校验了已提交的20份逐站点JSON与校准报告。
+- 首次本批环境有tbe模块路径缺失、现场有`pkill -f`误杀自身Shell、L3初版35/36事件需要64token flush，均在证据中留档，避免下批误复现。首次500001现场报告表示环境失败，并非本轮证明NPU硬件故障。
+
+## 4. 优先级决定与下一批最低新增实验
+
+1. **P0修正Stock参照**：在同一个A1实施分支做U1 `Stock_NZ`对照臂与真正真实Serving NZ器件路由一致；原row-major保留diagnostic。不新建长期分支、不覆盖冻结Host/Device SO、不动默认Stock。先CPU与两轮静审后同批实机测M2048/M4096（三臂Stock-row/Stock-NZ/V2），严禁用不同次p50相减伪造增益。
+2. **P0明确D4内部时间如何花掉**：在安全的、只对实验启用的短窗测MM、SDMA发送/规约、Core0完成握手、Add及等待；尽量使用已有AICore Event/Trace，不随意插入Device全局sync或破坏8核MM。现在还**不能证明是“NZ优化”而非“通信等待”占据D4额外时间**；应通过剖面验证哪一段最值钱。
+3. **P0消除V2周期性长尾**：独立保留6～7请求周期的异常序列与双Rank同步样本，针对Pool epoch、SDMA/IB mail、Core7参与以及Host pool bookkeeping做低侵入周期探针；不得因均值不错就剔除尖峰。
+4. **P1核查局部到完整Step的传导**：NZ基线 + D4分段数据就绪后，单变量修改正式Kernel，再按原同一批次方法复测L1/L2/L3。若L3仍无显著正增益，不浪费正式4096/2048长输出TTFT的4场实验。L3稳定正向才启动L4，安全/发布Gate E仍另管。
+
+**本轮主裁决**：`R1_SAFE_AND_CORRECT`，`L1_ROW_MAJOR_GAIN_ONLY`，`L2_REAL_NZ_STOCK_FASTER`，`L3_NO_POSITIVE_GAIN`，`L4_NOT_RUN_BY_DESIGN`，`STOCK_DEFAULT_RETAIN`。优化大M线继续，当前D4不晋级正式Qwen3.6 TTFT收益候选。

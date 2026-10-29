@@ -1,0 +1,43 @@
+name: 310P E4 layered pipeline CPU contracts
+on:
+  pull_request:
+    branches:
+      - dev/310p-memfabric-mm-ar
+      - work/310p-mm-ar-e3-chunk2048-20261028
+    paths:
+      - "csrc/_310P/memfabric_mm_ar_v2/**"
+      - ".github/workflows/310p_e4_cpu_only.yml"
+  workflow_dispatch:
+jobs:
+  cpu-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python3 -m pip install --disable-pip-version-check pytest
+      - name: E4 Python AST compile
+        run: |
+          python3 -m py_compile \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_arm.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_assess.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_shape_plan.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_packet_protocol.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_stage_guard.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_detached.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_test_protection.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_layered_contract.py
+      - name: E4 Shell AST
+        run: |
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_build.sh
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_campaign.sh
+      - name: Exhaustive 2049-shape geometry and packet Add CPU contracts
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_layered_contract.py
+      - name: E4 active lease + detached runner negative CPU contracts
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e4_test_protection.py
+      - name: Existing V2 CPU regression
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Project governance static gate
+        run: python3 tools/310p_mm_ar/project_gate.py --static

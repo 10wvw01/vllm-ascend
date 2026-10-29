@@ -1,0 +1,28 @@
+{
+  "pid": 2253459,
+  "argv": [
+    "/tmp/opencode/310p-a3cmp-20261029-001/venv/bin/python",
+    "/home/w00804146/310P/vllm-ascend-a3v3/csrc/_310P/memfabric_mm_ar_v3/tools/quick.py",
+    "_run",
+    "--a3",
+    "--a3-variant",
+    "a3-2",
+    "--compute-rows",
+    "1024",
+    "--manifest",
+    "/tmp/opencode/310p-a3cmp-20261029-001/v3-build-r2/manifest.json",
+    "--out",
+    "/tmp/opencode/310p-a3cmp-20261029-001/batch-r1/a3-2-c1024",
+    "--card",
+    "16384",
+    "--devices",
+    "2,3",
+    "--timeout",
+    "600",
+    "--lease-note",
+    "用户2026-10-29授权换卡16384/dev2,3（38144 dev4被外部租户持续占用19.8GB/51%DDR）。11:35-11:42曾观测到间歇外部TP2对（宿主PID，非本容器），11:42后双Die持续空闲；守护器fail-closed：会话中出现任何外部进程即STOP(97)整批，届时保留现场并须换新目录重启完整批次。批次覆盖窗口约1小时。"
+  ],
+  "head": "4d5ce62e867525f9dbef442c98a5f04d4945ada9",
+  "started_unix": 1793275440.5650098,
+  "baseline_performance_arms": []
+}

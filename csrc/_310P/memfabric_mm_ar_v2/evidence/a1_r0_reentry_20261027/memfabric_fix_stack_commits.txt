@@ -1,0 +1,5 @@
+5802f55026c16e153e783d8ef26a29f813d63dd9 2026-10-23 15:50:55 +0000 fix(310p): convert logical device id to physical for aclrtMemSetAccess
+131ee5ffd1a6ae9d4824cbb0cf4d32d99bbfdc5a 2026-10-19 14:01:04 +0000 fix(310p): prepare deploy-helper argv before fork (async-signal-safety)
+acd626cc252c1edbfbd74306049add681b585631 2026-10-19 01:50:31 +0000 fix(310p): move KFC probe+auto-deploy into a fork+exec helper process
+2f59dedba86945d08a6d85ef3b9a38dcf53a2439 2026-10-12 12:20:47 +0000 fix(310p): serve全设备同步死因修复——epoch有限纪+host心跳时钟+监督重拉(KVER v11)
+e33464f3fd5779348183789787845291dbbfa268 2026-10-12 08:03:11 +0000 docs(310p): 重大修正—json三算子路径在当前构建中被编译开关整体关闭 — BUILD_WITH_NEW_CANN定义在runtime/CMakeLists.txt:23被注释,wheel与本地构建so中NEW_CANN独有日志串均为0(strings双产物实测);设备无预置库非固件缺失而是此构建不需要鸡;A2/A3/A5有鸡降级为弱推断,F5改未解;补prepare_env.sh硬编码版本(仅a2/a3/HDK25.3.RC1驱动/固件7.8.0.2.212/CANN9.0.0);新增F14 F15实测条目

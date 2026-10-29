@@ -1,0 +1,34 @@
+name: 310P E3 real Chunk2048 CPU contracts
+on:
+  pull_request:
+    branches: [dev/310p-memfabric-mm-ar, work/310p-mm-ar-five-arm-dcci-20261028]
+    paths:
+      - "csrc/_310P/memfabric_mm_ar_v2/**"
+      - ".github/workflows/310p_e3_cpu_only.yml"
+  workflow_dispatch:
+jobs:
+  cpu-static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python3 -m pip install --disable-pip-version-check pytest
+      - name: E3 Python syntax
+        run: |
+          python3 -m py_compile \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e3_arm.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/perf/e3_assess.py \
+            csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e3_chunk2048_contract.py
+      - name: E3 shell syntax
+        run: |
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e3_build.sh
+          bash -n csrc/_310P/memfabric_mm_ar_v2/test/perf/e3_campaign.sh
+      - name: E3 4MiB packet / paired assessor contracts
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut/test_e3_chunk2048_contract.py
+      - name: Existing V2 CPU regression
+        run: python3 -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Project G0 governance
+        run: python3 tools/310p_mm_ar/project_gate.py --static

@@ -156,3 +156,123 @@
 
 **ADR-021执行补充｜2026-10-28｜最小保护工具代码就绪，尚待实际CPU/设备验收**：原E4分支[PR #21](https://github.com/10wvw01/vllm-ascend/pull/21)已补`e4_stage_guard.py`（每次torchrun前/中/后核目标双Die健康和可观测跨卡新PID，异常自动STOP并保留原始npu-smi证据，只终止本run进程组），`e4_detached.py`（独立Session启动/status/退出码及Screen-only限权），新增CPU负面测试与CI；`e4_campaign.sh`四处设备入口均接入守护并强制当前HEAD/Build绑定。**测试代码仍NOT_RUN，工具没有取得真实持续独占租约也不能保证测试环境安全**；新HEAD必须先CPU合同和G0，通过后重编私有SO，方可进入E4四候选设备Smoke，七臂短Screen仍非正式性能Confirm。
 
+
+
+## ADR-022｜2026-10-29｜V3用SDMA ADD求和；本轮只测V3并复用历史对照
+
+- 用户批准V3独立开发：MM写本地部分结果，READY之后以ADD_FP16执行owner分片Reduce，COPY All-Gather，保留独立输出与全部同步/首写保护。
+- 不允许全量双端原地ADD互改发送源；标签改为40位并拒绝epoch溢出；ADD不允许不确定重试。
+- MemFabric固定`beaf490b`/KVER28，V3与旧KVER11头/库不混用；当前源码占位自拷贝差异记录为长稳未闭环项。
+- 用户明确要求快速判断算子相对历史V2/真实NZ Stock的收益方向：默认只跑V3，旧臂不重测；
+  允许生成带来源和历史原判定的跨批差值，但不签同批正式性能GO，不自动补测。
+- 新工程[README](../../memfabric_mm_ar_v3/README.md)、[两轮审查](../../memfabric_mm_ar_v3/REVIEW.md)及一键短测入口统一归本项目主线管理。
+- 代码/CPU完成不等于设备PASS；私有BiSheng编译和G0后才能执行ADD→协议→融合→短测。Stock默认及原模型准入边界不变。
+
+
+## ADR-023｜2026-10-29｜上游同步与V3两仓私有部署执行合同
+
+- 权威GitCode来源`ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4`，镜像`b9d46f97955b11a8b7a892e9fd8d516e66346a65`，完整tree相同；V3改锁后者。
+- 采用GitHub插件进行源码树快照同步，保留原GitHub历史及上游来源，不宣称commit身份相同。
+- OpenCode只执行[固定执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)，不承担协议/源码修正或依赖选择。
+- 只更新我方MemFabric及V3两个新隔离源码树；不改上游/外部HaonanWu1/运行中的框架和Serving。
+- private SDK显式包含上游打包器漏掉的SDMA AICPU三件套，之后编V3私有SO；不执行共享安装器、不预部署四卡。
+- 默认仍为V3-only快速历史对照，无旧性能臂、模型或Confirm；服务器编译/设备验证仍NOT_RUN。
+
+## ADR-024｜2026-10-29｜V3首轮性能失败，按V2颗粒度重排三段流水
+
+- 依据：V3`6144af16`归档的R3原始双Rank采样，最佳group2048仍较历史V2/E3-G
+  慢17.29%/35.11%（M2048/4096）；正确性通过不构成性能达标。
+- 决策：保留SDMA ADD路线，重新设计MM/Reduce/Gather排布；固定chunk512/1024/2048，
+  沿用对应V2 MM tiling，区分chunk与packet，禁止把只重命名pipeline当作已有交叠。
+- 首要改动：当前Reduce提交与上一组Gather/输出解耦，合法交错邮件统一分发；
+  验证owner半片段单包及双UB MTE，逐项替代同步依赖；保持精确一次ADD、缓存可见性、
+  首写、输出生命周期及最终quiet/DONE。不改变独立ND输出语义来制造收益。
+- 新设计与最小验证合同：[V3.1复核](../../memfabric_mm_ar_v3/PERFORMANCE_REVIEW_20261029.md)。
+  先同V3内部最小诊断/逐项消融，再完整算子六配置两短轮；不重跑V2/Stock、不跑模型/TTFT。
+- 职责按用户最新规定：OpenCode负责执行、执行BUG修复、结果汇总、证据采集和远程提交；
+  研发负责方案/协议、实现审查和后续规划。覆盖ADR-023旧“只执行不修复”描述。
+- 本次为文档/设计裁决，V3.1未实现、CPU/CANN/设备均NOT_RUN，Stock默认不变。
+
+## ADR-025｜V3.1实现与有条件设备准入
+
+实现三段推进、合法交错邮件分发、双UB copy与4MiB包，chunk固定512/1024/2048。
+CPU88项PASS（含实际C++调度器480场异步模拟及负例），设备CANN编译/NPU均NOT_RUN。
+没有设备编译证据前不宣称实机准入已通过；服务器先编译再按G0和门禁执行。
+完整条件与交接见[准入单](../../memfabric_mm_ar_v3/V31_ADMISSION.md)。Stock默认不变，不重跑历史V2/Stock性能臂。
+
+## ADR-026｜2026-10-29｜V3.2排布从最终输出与源消费依赖反推
+
+采用[单Y输出槽与独立producer设计](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)。
+TP2的ADD完成→Gather天然保护被覆盖源，否决不必要的额外半份S；
+主改动是池内输出Storage持有、去最终copy、按整行带推进及公共非阻塞收件。
+不假设310P支持异步WaitIterateAll/GetTensorC，不照搬GPU warp/TMA。
+保持chunk512/1024/2048、八核MM、完整ND输出及既有数值标准。
+用户要求不新增独立归因设备轮，直接实现后验证完整链；新代码和性能均未验证。
+
+**2026-10-29接口约束追加**：MemFabric由其他团队维护。V3.2主方案A仅使用现有signal/wait/quiet，
+采用固定R/D/G发送与阻塞接收顺序，保留单Y输出及独立producer；1024场CPU协议交错排空通过。
+公共try_wait及逐片段自驱改为备选B，等待负责团队提供，不作为本轮交付依赖。
+详见[V3.2排布推导](../../memfabric_mm_ar_v3/V32_LAYOUT_SCHEDULE.md)，两套协议不允许会话内混用，设备性能尚UNKNOWN。
+
+## ADR-027｜V3.2主方案A编码，公共try_wait仅提交需求
+
+保留现有MemFabric版本及signal/wait/quiet。独立producer采用每group/core独占缓存行，
+避免将IB事件错误视为可累加通知。Core0按固定FIFO收发，取消工作核逐chunk放行等待。
+双槽Y由Storage持有，下一次acquire在双方流完成后协商空闲交集；完整计时必须包含该成本。
+协议模式在create协商，禁止混用31/32；generation每次只允许run一次。
+新增TorchNPU格式描述与Storage、别名/单边释放/槽耗尽/下游ND消费设备门禁。
+方案B接口[需求](../../memfabric_mm_ar_v3/MEMFABRIC_TRY_WAIT_REQUEST.md)供负责团队审核，未代发，
+不修改对方库或以短超时伪造非阻塞。设备准入仍待新CANN与Storage验证，性能UNKNOWN。
+
+## ADR-028｜A复核缺陷修复：准备、关闭一致性与引用回收
+
+采用双方Storage-ready prepare后才启动数据波、双方无输出租约后才close，统一Host控制信封，
+Host版本3202与旧32不兼容；MemFabric版本和设备固定FIFO顺序不变。
+任何不确定异常封禁，不发新设备操作或重试ADD；Host控制和prepare开销必须完整计入性能。
+上一波流完成后回收输入，新波输入保持有效。B不依赖EMPTY判断完成，仍以完整片段状态和排空作验收。
+本轮CPU反例回归不替代CANN、Storage或设备准入，不增加独立设备归因测试。
+
+## ADR-029｜A3定稿：固定S席位、NZ计算与连续通信批量解耦
+
+TP2借鉴HCCL DoublingDirect：S全波不变，Y先seed再接对端ADD，取消Gather而非减少跨Die字节数。
+保留现有64/128行NZ权重MM候选，compute与comm独立；完整成本包含seed，不假设免费双写。
+热路径本地固定槽、设备START，同流与最终quiet保护跨调用S复用，不逐chunk等待源回收。
+profile3301禁止旧协议混用；输入事件query回收；跨流/Graph不在本版范围。
+终止性资源失败必须通知peer START ready=0，不默默覆盖；公开wait仍可能等待对端READY，
+不得将A3描述成方案B的非阻塞自驱调度。设备准入仍待服务器编译和完整门禁。
+
+## ADR-030｜A3首READY合并帧校验
+
+独立START用于提前失败但非数学依赖；合并到首READY，在满足首范围S/Y就绪时同时确认元数据。
+正常MM无需先等peer，首READY严格校验前不得提交任何ADD。失败端不覆盖S/Y，错误通知先送出再Trap。
+取消初始fan-out和独立ACL状态清零任务；保留数据完成及输出生命周期所需操作。
+profile3302替代3301。核内清状态不改变错误终止合同，成功普通路径不增加quiet或Host同步。
+
+
+## ADR-031｜七核专职通信与Core0末尾席位同批评估
+
+保留原A3 profile3302，新增A3-2/3303与A3-tail/3304独立会话候选。
+连续通信范围为ND输出完整行；每MM座位独占S行并完成seed后发布epoch。
+Core0末尾候选必须先生产被当前批次覆盖的自有行，避免等待自身；不宣称完全无阻塞。
+7核负载取整可能显著增加最忙核工作，因此两种64/128行MM粒度均同批前后A3对照。
+既有首READY/ADD/最终排空/输出租约不变，不修改MemFabric，不增加Host热态同步。
+新设备编译与性能NOT_RUN，见[A3_SEAT_SCHEDULE](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+
+
+## ADR-032｜统一Tensor完整I/O计时及A3独立打点对照
+
+Stock/V2/V3/A3必须从就绪ND输入与NZ权重到完整ND输出ready同层级计时；
+必需reserve/wrap/seed/copy/事件不得剔除。Wall主指标、Event辅助，同下标双Rank max。
+采用独立进程Stock/V2前后控制和A3无打点前/Host/Device/无打点后，确认扰动与漂移。
+复用公开signal/wait/quiet，不改MemFabric。新A3私有device ABI增加trace地址，Host/Device同版重编。
+计数未校准仅标ticks，不跨核/Die直接相减或对重叠工作求100%占比。
+见[UNIFIED_TIMING](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)，设备验证NOT_RUN。
+
+
+## ADR-033｜用户授权全部研发资产汇入唯一主线并暂停算法推进
+
+2026-10-30明确授权整合V1/V2/V3，包括测试、实验数据及系列优化，覆盖以往仅单分支保留的研发资产。
+最新V3沿主线进入，V2各独立实验候选/工具/数据合并；同路径历史实现以去重blob和原路径快照保存。
+54条分支冻结HEAD及祖先历史保留，不删除分支、不覆盖历史证据。退役R2和C4只存历史上下文，
+正式Serving默认、现有V1/V2构建及模型集成不变；研发资产整合不等于发布验收。
+恢复与验证见[整合说明](../../memfabric_history/README.md)。后续工作须从统一主线恢复上下文。

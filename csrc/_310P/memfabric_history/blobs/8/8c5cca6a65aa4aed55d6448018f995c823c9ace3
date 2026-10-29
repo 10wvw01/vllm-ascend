@@ -1,0 +1,27 @@
+===== D1: ENVIRONMENT RECOVERY VERIFICATION 2026-10-26T15:15:25Z =====
+
+--- 1. production positions unchanged (must equal 88d39285 x2) ---
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so
+
+--- 2. private fixed SO still intact (this round's isolation artifact) ---
+1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30  /tmp/opencode/gate_e_s3r/fixed_host_lib/libmf_hybm_core.so
+
+--- 3. processes / ports ---
+CLEAN
+ports 8000/8581 FREE
+
+--- 4. devices 2,3 back to baseline ---
+| 16384   310P3                 | OK              | NA           72                0     / 0             |
+| 0       2                     | 0000:41:00.0    | 0            1930 / 44277                            |
+| 16384   310P3                 | OK              | NA           71                0     / 0             |
+| 1       3                     | 0000:41:00.0    | 0            1017 / 43693                            |
+| No running processes found in NPU 16384                                                                |
++===============================+=================+======================================================+
+3
+
+--- 5. worktrees ---
+vllm-ascend: 3 lines
+vllm-ascend-g1d: 0 lines
+vllm-ascend-g1d-e7ba8a5b: 0 lines
+(expected 3 / 0 / 0)

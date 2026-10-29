@@ -1,0 +1,12 @@
+A1-R2 device-2 occupation timeline (all Asia/Taipei 2026-10-27, read-only npu-smi):
+- 03:36 pre-launch G0: card 16384 both dies OK, no processes, hugepages 0/0, mem 1909/1020 MB.
+- 03:45 one_batch attempt1 started (g0_before.txt archived); batch STOPPED at NZ_REAL_ROUTE 03:45-03:46.
+- 03:57 pre-diagnostic: dev2 hugepages 0/0, mem 1926 MB, no process listed -> card still exclusive.
+- 04:01 route-fix diag run3 finished (all torchrun children exited, rc=0, analyse.done present).
+- ~04:04 observation: dev2 hugepages 205/205, mem 2362 MB, NEW host process 3554394 (492 MB) on chip0.
+- ~04:05-04:06: same process grew 492->30869 MB (~1GB/s, model-load pattern), hugepages 15392/15392.
+- 04:08-04:11: stable 30870 MB, AICore 0%, dev3 untouched (baseline). Process 3554394 not visible
+  in our PID namespace (other tenant / scheduled task). Our diag trace exports show no new files
+  after 04:01 (no orphan analyser). Attribution: external tenant workload on device 2.
+Decision: shared-environment exclusivity gate FAILED -> full STOP per user instruction
+(no card switch, no eviction, no restart, no shared SO changes).

@@ -1,0 +1,59 @@
+# A1-E4｜Attempt3b 换卡38144：五臂双Rank Smoke完成与部分Screen报告（2026-10-28）
+
+> **run_id**: e4-layered-20261028-004-attempt3b（用户明确授权换卡后执行）
+> **分支**: `work/310p-mm-ar-e4-layered-pipeline-20261028` @ `e818334de`（隔离构建绑定同HEAD重做）
+> **PR**: [#21](https://github.com/10wvw01/vllm-ascend/pull/21)｜**权威方向**：主线ADR-020/021、ADR-014四卡动态选卡
+> **一句话结论**：换卡38144后**五臂双Rank Smoke全部PASS**（委托核心设备回归完成），受守护Screen完成4/7场（stock/e1/e3g/e4t2）后因外部调度扩散至38144而按合同STOP；**守护器在同构锚上证实无性能扰动**（stock/e3g锚与attempt2无守护轮差<0.6%、p99逐值复现）；e4t8/e4t4/e4p三场Screen未跑成，**e4t8相对E3-G的方向问题本轮仍无法复检**。
+
+---
+
+## 1. 为什么换卡、为什么38144
+
+- attempt3在16384被宿主级外部负载持续分时占用（阵发40-90秒、占空比~50%），两次有界尝试均被守护器正确拦截。
+- 用户明确授权换卡（解除"不自动换卡"约束）。四卡现实：5664 die1被长期租户3589835（42.7GB）占用；43520 die1持续Alarm（ADR-014健康门禁排除）；**38144双Die+MCU健康、全天零进程观测**（外部负载当时全部打在16384/5664），唯一候选。
+- 38144已知风险：die4 hugepages 5860/5860被无主占用100%+13GB残留——**实测不阻塞**：基础torch_npu matmul、HCCL、MemFabric建池（e3g Smoke内完成）全部成功。
+
+## 2. 执行与门禁
+
+| 阶段 | 结果 | 关键证据 |
+|---|---|---|
+| 38144重新G0 | PASS | g0_38144/：双Die+MCU OK、零进程；四冻结SHA recheck全OK（Host`1dc46d7d`/D4`2a19390c`/插件`8eb65de9`/KVER11`25e16b0a`与历轮逐字节一致） |
+| 逻辑/物理映射探针 | PASS | map_probe/：`ASCEND_RT_VISIBLE_DEVICES=4,5`下双Rank真实matmul成功；外部npu-smi并行采样证明我方两PID（2826556/2826557）**仅落38144**（5664只有原租户）——不碰其他卡 |
+| 新HEAD隔离重编 | PASS | build/manifest.json绑定`e818334de`；候选SO SHA `08f73f2c…`第三次与attempt1/2/3逐字节一致（确定性编译）；正式D4符号未导出 |
+| 真实NZ路由（受守护） | PASS 4/4 | campaign/routes/：两Rank×M2048/4096各6次`aclnnMatmulWeightNz`+6次`hcom_allReduce`、0次TransData |
+| **五臂双Rank Smoke** | **全部PASS** | e3g/e4t2/e4t4/**e4t8**/e4p：双Rank **bit-exact、protocol status=0**、首写与池创建（chunk1024，在die4 hugepages满载下成功）全部通过；E4四臂在第二张卡上复证attempt2的正确性结论 |
+| 七臂Screen | **4/7场完成** | stock/e1两场在campaign内完成；e3g/e4t2两场由**手动续跑**（与campaign完全相同的守护调用）完成；screen_05_e4t4运行中被外部进程2932134入侵→守护器检测3>2→STOP清理我方进程组；e4t8/e4p按"no retry"合同未启动 |
+| 守护审计 | 全程干净 | campaign/lease_guard.jsonl：8+2=10个受守护阶段，零跨卡、零超额PID样本；仅有的2次STOP均为外部入侵的正确拦截（15:35边界preflight拦2884891；15:42运行中拦2932134） |
+| 收尾核验 | PASS | binaries_before/after SHA一致；npu_after卡回基线；无孤儿进程；store端口释放 |
+
+## 3. 部分Screen结果（4/7场，SCREEN_ONLY不签正式性能）
+
+卡38144、全程受守护、配对p50/p90/p99（µs）：
+
+| 臂 | M4096 p50/p90/p99 | M2048 p50/p90/p99 | attempt2(16384,无守护) M4096 p50 |
+|---|---|---|---|
+| stock | 2025.8 / 2053.9 / 2058.6 | 1106.3 / 1125.2 / 1128.7 | 2037.7 |
+| e1 | 2340.7 / 2395.8 / 2426.4 | 1269.2 / 1299.6 / 1313.0 | 2261.9 |
+| e3g | 2142.3 / 2197.8 / 2227.2 | 1478.4 / 1494.1 / 1499.5 | 2133.9 |
+| e4t2 | 2175.4 / 2236.2 / 2264.5 | 1459.1 / 1487.6 / 1489.2 | 2131.7 |
+
+- **守护器无性能扰动（委托核心检查项）**：stock锚2025.8 vs 无守护2037.7（跨卡差+0.58%）、e3g锚2142.3 vs 2133.9（+0.40%）；**p99近乎逐值复现**——e3g 2227.2 vs 2228.2（0.0%）、e1 2426.4 vs 2408.8（+0.7%）、stock 2058.6 vs 2107.5（−2.3%）。2秒`npu-smi`采样巡检不产生可测的p50/p99扰动。
+- **同构对照标定单场噪声带**：e4t2与e3g结构等价，本轮M4096差−1.55%（attempt2为−0.10%）、M2048差+1.31%（attempt2为−1.33%）→单场Screen在卡间/会话间的噪声带约**±1.5%**。attempt2的e4t8相对E3-G −2.71%仅约1.8倍噪声带——**强化"Screen只筛方向、正式裁决必须十四场Confirm"的既有判断**。
+- M4096 e3g对Stock差距本轮116.5µs（attempt2为96.2µs）；M2048 e3g落后Stock 33.6%（与attempt2的34.0%一致，单组结构性劣势跨卡复证）。
+- **e4t8/e4t4/e4p未跑成**：外部调度15:42起扩散至38144。e4t8相对E3-G与Stock的M4096表现及p90/p99长尾**本轮无新数据**，attempt2方向（−2.71%/差距38.5µs）维持原判待Confirm。
+
+## 4. 承诺与边界声明
+
+- 本轮零正式Kernel/Serving/Stock默认/共享MemFabric改动；未杀任何外部进程（2884891/2932134原样保留）、未清KFC、未覆盖SO；手动续跑仅复用campaign既有的`e4_stage`守护调用与summary计算逻辑，无任何合同外设备操作。
+- 38144的die4 hugepages无主满载与13GB残留为环境既有状态，未做任何清除；其长期可用性未知（外部调度已开始使用该卡）。
+- Screen为部分完成（4/7场、单场×30样本），不签任何正式性能；十四场Confirm未授权未尝试，`E4_CONFIRM_APPROVED`全程未设置。
+- 外部占用时间线（本轮）：16384全天阵发→38144于15:35/15:42两次被外部短任务进入→**当前四卡均无稳定独占窗口，管理员连续双Die独占租约仍是进入Confirm的P0前置**。
+
+## 5. 证据索引（evidence/e4_layered_20261028/attempt3b_card38144_20261028/）
+
+- `g0_38144/`：G0身份（健康/用量/板卡、四冻结SHA recheck、HEAD）
+- `map_probe/`：映射探针（探针脚本输出、并行npu-smi采样、守护JSONL、torchrun日志）
+- `build/`：manifest（HEAD绑定）、构建日志、符号表、SO SHA
+- `campaign/`：**主证据**——routes/（NZ路由4/4+CANN CSV）、sessions/（5份Smoke×2Rank JSON、4场Screen×2Rank JSON、全部torchrun日志）、lease_guard.jsonl（10阶段完整守护记录、2次STOP）、lease_guard_stop.npu.txt×2（入侵原始快照）、e4_screen_summary_partial.json、progress.txt、binaries_before/after.sha256、npu_before/after.txt、card_watch_30s.log
+- `launch_state/`：e4_detached的launch.json/result.json(STOP/1)/worker.log——如实记录campaign进程的原始STOP及手动续跑的来龙去脉
+- 现场保全：`/tmp/opencode/e4-{campaign,launch,build}-38144-attempt3b*`、`/tmp/opencode/e4-38144-map-probe-20261028`

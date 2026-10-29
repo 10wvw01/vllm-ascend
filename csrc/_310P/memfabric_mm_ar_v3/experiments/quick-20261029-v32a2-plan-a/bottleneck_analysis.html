@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>V3.2-A2 性能瓶颈可视化分析（2026-10-29）</title><style>
+body{font-family:-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+     max-width:1000px;margin:24px auto;padding:0 16px;color:#1e293b;background:#f8fafc}
+h1{font-size:22px;border-bottom:3px solid #ef4444;padding-bottom:8px}
+h2{font-size:17px;margin-top:34px;background:#eef2ff;padding:8px 12px;border-left:5px solid #6366f1;border-radius:4px}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;margin-top:10px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.tldr{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px 18px;margin-top:12px}
+.tldr li{margin:6px 0}
+.note{font-size:12px;color:#64748b;margin-top:6px}
+svg{width:100%;height:auto;display:block}
+b.r{color:#ef4444}b.g{color:#10b981}
+</style></head><body>
+<h1>V3.2-A2 为什么慢：性能瓶颈可视化分析</h1>
+<div class="note">数据来源：本轮六配置两轮实测（双Rank max后p50，完整接口窗口）＋历史批次对照。
+未开独立归因轮/Profiler（超授权），分层②为跨批估算。</div>
+
+<div class="tldr"><b>三句话结论</b>
+<ol>
+<li><b>最慢的大头是内核+通信管线本身</b>（占82%~94%）：Gather/输出搬运被串行进Cube停顿窗口、每chunk READY往返+两次quiet、逐tile PIPE_ALL屏障——这套结构相对Stock差约<b class="r">540~580µs</b>。</li>
+<li><b>A2接口是第二瓶颈</b>：每调用多付<b class="r">~170~420µs</b>（acquire流同步+两次Host协商+Storage包装），这是买"输出生命周期安全"的价格，M2048时占总耗时18%。</li>
+<li><b>不是抖动问题</b>：Rank不对称&lt;1%、p99/p50≤1.09；时间随总数据量走、不随chunk数走（边际~0.35µs/行甚至低于Stock的~0.46），输在固定结构成本，不在边际吞吐。</li>
+</ol></div>
+
+<h2>图1｜和 Stock / V2 D4 / V3.1 放在一起看：差距有多大</h2>
+<div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" font-family="-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+<rect x="90.0" y="60.0" width="840.0" height="280.0" rx="6" fill="#ffffff" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<line x1="90.0" y1="340.0" x2="930.0" y2="340.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="344.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">0</text>
+<line x1="90.0" y1="293.3" x2="930.0" y2="293.3" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="297.3" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">600</text>
+<line x1="90.0" y1="246.7" x2="930.0" y2="246.7" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="250.7" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,200</text>
+<line x1="90.0" y1="200.0" x2="930.0" y2="200.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="204.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,800</text>
+<line x1="90.0" y1="153.3" x2="930.0" y2="153.3" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="157.3" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">2,400</text>
+<line x1="90.0" y1="106.7" x2="930.0" y2="106.7" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="110.7" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,000</text>
+<line x1="90.0" y1="60.0" x2="930.0" y2="60.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="64.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,600</text>
+<text x="46.0" y="200.0" font-size="12" fill="#64748b" text-anchor="middle" font-weight="normal">µs</text>
+<g transform="rotate(-90 46 200.0)"></g>
+<text x="341.0" y="364.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=2048（输出8MiB/Rank）</text>
+<rect x="180.0" y="256.1" width="70.0" height="83.9" rx="4" fill="#10b981" opacity="1.0" />
+<text x="215.0" y="234.1" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">1,078</text>
+<text x="215.0" y="249.1" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">+0%</text>
+<rect x="264.0" y="233.6" width="70.0" height="106.4" rx="4" fill="#6366f1" opacity="1.0" />
+<text x="299.0" y="211.6" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">1,368</text>
+<text x="299.0" y="226.6" font-size="11" fill="#6366f1" text-anchor="middle" font-weight="normal">+27%</text>
+<rect x="348.0" y="211.2" width="70.0" height="128.8" rx="4" fill="#f59e0b" opacity="1.0" />
+<text x="383.0" y="189.2" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">1,656</text>
+<text x="383.0" y="204.2" font-size="11" fill="#f59e0b" text-anchor="middle" font-weight="normal">+54%</text>
+<rect x="432.0" y="183.0" width="70.0" height="157.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="467.0" y="161.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,019</text>
+<text x="467.0" y="176.0" font-size="11" fill="#ef4444" text-anchor="middle" font-weight="normal">+87%</text>
+<text x="761.0" y="364.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=4096（输出16MiB/Rank）</text>
+<rect x="600.0" y="182.7" width="70.0" height="157.3" rx="4" fill="#10b981" opacity="1.0" />
+<text x="635.0" y="160.7" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,023</text>
+<text x="635.0" y="175.7" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">+0%</text>
+<rect x="684.0" y="142.5" width="70.0" height="197.5" rx="4" fill="#6366f1" opacity="1.0" />
+<text x="719.0" y="120.5" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,540</text>
+<text x="719.0" y="135.5" font-size="11" fill="#6366f1" text-anchor="middle" font-weight="normal">+26%</text>
+<rect x="768.0" y="144.3" width="70.0" height="195.7" rx="4" fill="#f59e0b" opacity="1.0" />
+<text x="803.0" y="122.3" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,516</text>
+<text x="803.0" y="137.3" font-size="11" fill="#f59e0b" text-anchor="middle" font-weight="normal">+24%</text>
+<rect x="852.0" y="127.9" width="70.0" height="212.1" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="887.0" y="105.9" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,727</text>
+<text x="887.0" y="120.9" font-size="11" fill="#ef4444" text-anchor="middle" font-weight="normal">+35%</text>
+<rect x="100.0" y="18.0" width="14.0" height="14.0" rx="4" fill="#10b981" opacity="1.0" />
+<text x="120.0" y="30.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">真实NZ Stock</text>
+<rect x="276.0" y="18.0" width="14.0" height="14.0" rx="4" fill="#6366f1" opacity="1.0" />
+<text x="296.0" y="30.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">V2 D4</text>
+<rect x="387.0" y="18.0" width="14.0" height="14.0" rx="4" fill="#f59e0b" opacity="1.0" />
+<text x="407.0" y="30.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">V3.1最佳</text>
+<rect x="511.0" y="18.0" width="14.0" height="14.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="531.0" y="30.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">V3.2-A2最佳</text>
+<text x="480.0" y="400.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">柱上百分比 = 相对同M真实NZ Stock的时延增加；跨批方向性对照，非同批因果收益</text>
+</svg></div>
+<div class="note">V3.2最佳(M2048:2018.7 / M4096:2727.1)比Stock慢87%/35%，比V2 D4慢48%/7%，比V3.1慢22%/8%。</div>
+
+<h2>图2｜V3.2 的每一拍时间花在哪（分层拆解）</h2>
+<div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+<rect x="110.0" y="70.0" width="700.0" height="300.0" rx="6" fill="#ffffff" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<line x1="110.0" y1="370.0" x2="810.0" y2="370.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="374.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">0</text>
+<line x1="110.0" y1="320.0" x2="810.0" y2="320.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="324.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">600</text>
+<line x1="110.0" y1="270.0" x2="810.0" y2="270.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="274.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,200</text>
+<line x1="110.0" y1="220.0" x2="810.0" y2="220.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="224.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,800</text>
+<line x1="110.0" y1="170.0" x2="810.0" y2="170.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="174.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">2,400</text>
+<line x1="110.0" y1="120.0" x2="810.0" y2="120.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="124.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,000</text>
+<line x1="110.0" y1="70.0" x2="810.0" y2="70.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="102.0" y="74.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,600</text>
+<text x="66.0" y="220.0" font-size="12" fill="#64748b" text-anchor="middle" font-weight="normal">µs</text>
+<g transform="rotate(-90 66 220.0)"></g>
+<rect x="260.0" y="362.5" width="150.0" height="7.5" rx="4" fill="#94a3b8" opacity="1.0" />
+<rect x="260.0" y="332.3" width="150.0" height="30.2" rx="4" fill="#f97316" opacity="1.0" />
+<text x="335.0" y="351.4" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="bold">363</text>
+<rect x="260.0" y="194.3" width="150.0" height="138.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="335.0" y="267.3" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="bold">1,656</text>
+<text x="335.0" y="168.3" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">V3.2总计 2,108</text>
+<text x="335.0" y="184.3" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">(实测p50 2,018.7)</text>
+<text x="335.0" y="392.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=2048 chunk1024</text>
+<line x1="114.0" y1="280.1" x2="810.0" y2="280.1" stroke="#10b981" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="804.0" y="274.1" font-size="12" fill="#10b981" text-anchor="end" font-weight="normal">Stock 1,078</text>
+<line x1="114.0" y1="232.0" x2="810.0" y2="232.0" stroke="#f59e0b" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="804.0" y="226.0" font-size="12" fill="#f59e0b" text-anchor="end" font-weight="normal">V3.1 1,656</text>
+<rect x="590.0" y="362.7" width="150.0" height="7.3" rx="4" fill="#94a3b8" opacity="1.0" />
+<rect x="590.0" y="348.8" width="150.0" height="13.9" rx="4" fill="#f97316" opacity="1.0" />
+<rect x="590.0" y="135.4" width="150.0" height="213.4" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="665.0" y="246.1" font-size="13" fill="#ffffff" text-anchor="middle" font-weight="bold">2,560</text>
+<text x="665.0" y="109.4" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">V3.2总计 2,815</text>
+<text x="665.0" y="125.4" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">(实测p50 2,727.1)</text>
+<text x="665.0" y="392.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=4096 chunk1024</text>
+<line x1="114.0" y1="201.5" x2="810.0" y2="201.5" stroke="#10b981" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="804.0" y="195.5" font-size="12" fill="#10b981" text-anchor="end" font-weight="normal">Stock 2,023</text>
+<line x1="114.0" y1="156.6" x2="810.0" y2="156.6" stroke="#f59e0b" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="804.0" y="150.6" font-size="12" fill="#f59e0b" text-anchor="end" font-weight="normal">V3.1 2,560</text>
+<rect x="120.0" y="26.0" width="14.0" height="14.0" rx="4" fill="#94a3b8" opacity="1.0" />
+<text x="140.0" y="38.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">① Python/ctypes/同步返回(wall−event)</text>
+<rect x="120.0" y="48.0" width="14.0" height="14.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="140.0" y="60.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">② A2池接口增量(V3.2−V3.1跨批)</text>
+<rect x="120.0" y="70.0" width="14.0" height="14.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="140.0" y="82.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">③ 内核+通信管线(V3.1口径)</text>
+<text x="480.0" y="452.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">②为跨批估算(各配置区间M2048:170~420µs / M4096:170~240µs，受批间噪声±10%影响)；③即V3.1同法测量值</text>
+</svg></div>
+<div class="note">一根柱从下往上：①Python/ctypes/同步返回(~90µs) → ②A2池接口增量 → ③内核+通信管线(=V3.1口径)。
+②+①就是V3.2比V3.1多付的钱；③与Stock虚线的距离是内核结构差距。</div>
+
+<h2>图3｜chunk大小为什么不重要：耗时跟着总数据量走</h2>
+<div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" font-family="-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+<rect x="90.0" y="70.0" width="840.0" height="280.0" rx="6" fill="#ffffff" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<line x1="90.0" y1="350.0" x2="930.0" y2="350.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="354.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">0</text>
+<line x1="90.0" y1="303.3" x2="930.0" y2="303.3" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="307.3" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">600</text>
+<line x1="90.0" y1="256.7" x2="930.0" y2="256.7" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="260.7" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,200</text>
+<line x1="90.0" y1="210.0" x2="930.0" y2="210.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="214.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,800</text>
+<line x1="90.0" y1="163.3" x2="930.0" y2="163.3" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="167.3" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">2,400</text>
+<line x1="90.0" y1="116.7" x2="930.0" y2="116.7" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="120.7" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,000</text>
+<line x1="90.0" y1="70.0" x2="930.0" y2="70.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="74.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,600</text>
+<text x="46.0" y="210.0" font-size="12" fill="#64748b" text-anchor="middle" font-weight="normal">µs</text>
+<g transform="rotate(-90 46 210.0)"></g>
+<text x="375.0" y="396.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=2048（总量8MiB不变）</text>
+<rect x="210.0" y="171.3" width="80.0" height="178.7" rx="4" fill="#fca5a5" opacity="1.0" />
+<text x="250.0" y="151.3" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,297</text>
+<text x="250.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk512</text>
+<text x="250.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">4个chunk</text>
+<rect x="320.0" y="193.0" width="80.0" height="157.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="360.0" y="173.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,019</text>
+<text x="360.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk1024</text>
+<text x="360.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">2个chunk</text>
+<rect x="430.0" y="191.7" width="80.0" height="158.3" rx="4" fill="#fca5a5" opacity="1.0" />
+<text x="470.0" y="171.7" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,035</text>
+<text x="470.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk2048</text>
+<text x="470.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">1个chunk</text>
+<line x1="190.0" y1="193.0" x2="575.0" y2="193.0" stroke="#f59e0b" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="375.0" y="185.0" font-size="12" fill="#f59e0b" text-anchor="middle" font-weight="normal">同体积下几乎不变</text>
+<text x="795.0" y="396.0" font-size="14" fill="#1e293b" text-anchor="middle" font-weight="bold">M=4096（总量16MiB不变）</text>
+<rect x="630.0" y="88.2" width="80.0" height="261.8" rx="4" fill="#fca5a5" opacity="1.0" />
+<text x="670.0" y="68.2" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">3,366</text>
+<text x="670.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk512</text>
+<text x="670.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">8个chunk</text>
+<rect x="740.0" y="137.9" width="80.0" height="212.1" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="780.0" y="117.9" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,727</text>
+<text x="780.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk1024</text>
+<text x="780.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">4个chunk</text>
+<rect x="850.0" y="135.6" width="80.0" height="214.4" rx="4" fill="#fca5a5" opacity="1.0" />
+<text x="890.0" y="115.6" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,757</text>
+<text x="890.0" y="368.0" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="normal">chunk2048</text>
+<text x="890.0" y="384.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">2个chunk</text>
+<line x1="610.0" y1="137.9" x2="995.0" y2="137.9" stroke="#f59e0b" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="795.0" y="129.9" font-size="12" fill="#f59e0b" text-anchor="middle" font-weight="normal">同体积下几乎不变</text>
+<text x="480.0" y="412.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">chunk数从4/8减到1/2，耗时几乎不变（虚线）→ 耗时由总数据量(R/D/G搬运+MM)决定，不是逐chunk控制开销；chunk512的额外~280µs是波数/包数/quiet惩罚</text>
+</svg></div>
+
+<h2>图4｜管线结构问题：Gather被串行（当前 vs 研发目标三段交叠）</h2>
+<div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+<text x="480.0" y="28.0" font-size="15" fill="#1e293b" text-anchor="middle" font-weight="bold">当前Kernel流水：Gather与输出搬运被串行进Cube停顿窗口（结构示意，非实测分段）</text>
+<text x="150.0" y="52.0" font-size="13" fill="#1e293b" text-anchor="start" font-weight="bold">当前（V3/V3.1/V3.2同构）：每chunk循环 MM(g) → Finish(g-1) → SubmitReduce(g)</text>
+<rect x="150.0" y="60.0" width="760.0" height="44.0" rx="6" fill="#f8fafc" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="138.0" y="86.0" font-size="12" fill="#64748b" text-anchor="end" font-weight="normal">Cube (MM)</text>
+<rect x="150.0" y="112.0" width="760.0" height="44.0" rx="6" fill="#f8fafc" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="138.0" y="138.0" font-size="12" fill="#64748b" text-anchor="end" font-weight="normal">SDMA</text>
+<rect x="158.0" y="65.0" width="90.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="203.0" y="86.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM0</text>
+<rect x="254.0" y="117.0" width="60.0" height="34.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="284.0" y="138.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">R0</text>
+<rect x="320.0" y="117.0" width="200.0" height="34.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="420.0" y="138.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">Finish0 收件+quiet+Gather+quiet+输出搬运</text>
+<rect x="526.0" y="65.0" width="90.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="571.0" y="86.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM1</text>
+<line x1="522.0" y1="156.0" x2="522.0" y2="110.0" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3 3"/>
+<rect x="622.0" y="117.0" width="60.0" height="34.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="652.0" y="138.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">R1</text>
+<rect x="688.0" y="117.0" width="160.0" height="34.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="768.0" y="138.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">Finish1 …</text>
+<rect x="854.0" y="65.0" width="70.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="889.0" y="86.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM2</text>
+<line x1="850.0" y1="156.0" x2="850.0" y2="110.0" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3 3"/>
+<text x="910.0" y="172.0" font-size="12" fill="#ef4444" text-anchor="end" font-weight="normal">↑ Gather/输出搬运期间 MM 停等；M2048/chunk2048只有一组，完全没有交叠</text>
+<text x="150.0" y="192.0" font-size="13" fill="#1e293b" text-anchor="start" font-weight="bold">研发目标（V3.1重排合同）：MM(k) ‖ Reduce(k-1) ‖ Gather(k-2) 三段交叠</text>
+<rect x="150.0" y="200.0" width="760.0" height="44.0" rx="6" fill="#f8fafc" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="138.0" y="226.0" font-size="12" fill="#64748b" text-anchor="end" font-weight="normal">Cube (MM)</text>
+<rect x="150.0" y="252.0" width="760.0" height="44.0" rx="6" fill="#f8fafc" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<text x="138.0" y="278.0" font-size="12" fill="#64748b" text-anchor="end" font-weight="normal">SDMA</text>
+<rect x="158.0" y="205.0" width="150.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="233.0" y="226.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM0</text>
+<rect x="314.0" y="205.0" width="150.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="389.0" y="226.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM1</text>
+<rect x="470.0" y="205.0" width="150.0" height="34.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="545.0" y="226.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">MM2</text>
+<rect x="158.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="202.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">R0</text>
+<rect x="252.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#a855f7" opacity="1.0" />
+<text x="296.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">G0</text>
+<rect x="346.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="390.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">R1</text>
+<rect x="440.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#a855f7" opacity="1.0" />
+<text x="484.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">G1</text>
+<rect x="534.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="578.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">R2</text>
+<rect x="628.0" y="257.0" width="88.0" height="34.0" rx="4" fill="#a855f7" opacity="1.0" />
+<text x="672.0" y="278.0" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="bold">G2</text>
+<text x="910.0" y="312.0" font-size="12" fill="#a855f7" text-anchor="end" font-weight="normal">↑ Reduce/Gather在MM期间在途；已完成的旧tile才拷出（每波最多3个活跃tile）</text>
+<rect x="158.0" y="354.0" width="14.0" height="14.0" rx="4" fill="#3b82f6" opacity="1.0" />
+<text x="178.0" y="366.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">MM（Cube计算）</text>
+<rect x="158.0" y="376.0" width="14.0" height="14.0" rx="4" fill="#f97316" opacity="1.0" />
+<text x="178.0" y="388.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">Reduce提交</text>
+<rect x="158.0" y="398.0" width="14.0" height="14.0" rx="4" fill="#a855f7" opacity="1.0" />
+<text x="178.0" y="410.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">Gather</text>
+<rect x="158.0" y="420.0" width="14.0" height="14.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="178.0" y="432.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">Finish串行段（Core0收件/quiet/输出搬运）</text>
+<text x="480.0" y="456.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">该串行结构 + 每chunk READY往返/两次quiet + 逐tile输出搬运PIPE_ALL屏障 + Core0单生产者，构成③层相对Stock约540~580µs的管线差距</text>
+</svg></div>
+
+<h2>图5｜排除抖动：p50/p90/p99几乎贴着</h2>
+<div class="card"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" font-family="-apple-system,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif">
+<rect x="90.0" y="60.0" width="840.0" height="200.0" rx="6" fill="#ffffff" opacity="1.0" stroke="#e2e8f0" stroke-width="1"/>
+<line x1="90.0" y1="260.0" x2="930.0" y2="260.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="264.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">0</text>
+<line x1="90.0" y1="210.0" x2="930.0" y2="210.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="214.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">900</text>
+<line x1="90.0" y1="160.0" x2="930.0" y2="160.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="164.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">1,800</text>
+<line x1="90.0" y1="110.0" x2="930.0" y2="110.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="114.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">2,700</text>
+<line x1="90.0" y1="60.0" x2="930.0" y2="60.0" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="82.0" y="64.0" font-size="11" fill="#64748b" text-anchor="end" font-weight="normal">3,600</text>
+<text x="46.0" y="160.0" font-size="12" fill="#64748b" text-anchor="middle" font-weight="normal">µs</text>
+<g transform="rotate(-90 46 160.0)"></g>
+<rect x="210.0" y="146.1" width="46.0" height="113.9" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="233.0" y="126.1" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,050</text>
+<rect x="266.0" y="140.5" width="46.0" height="119.5" rx="4" fill="#fca5a5" opacity="1.0" />
+<rect x="322.0" y="140.1" width="46.0" height="119.9" rx="4" fill="#fecaca" opacity="1.0" />
+<text x="289.0" y="280.0" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">M2048 轮1</text>
+<text x="289.0" y="296.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">p99/p50 = 1.053</text>
+<rect x="400.0" y="147.8" width="46.0" height="112.2" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="423.0" y="127.8" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,019</text>
+<rect x="456.0" y="143.6" width="46.0" height="116.4" rx="4" fill="#fca5a5" opacity="1.0" />
+<rect x="512.0" y="140.8" width="46.0" height="119.2" rx="4" fill="#fecaca" opacity="1.0" />
+<text x="479.0" y="280.0" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">M2048 轮2</text>
+<text x="479.0" y="296.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">p99/p50 = 1.063</text>
+<rect x="590.0" y="108.5" width="46.0" height="151.5" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="613.0" y="88.5" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,727</text>
+<rect x="646.0" y="99.5" width="46.0" height="160.5" rx="4" fill="#fca5a5" opacity="1.0" />
+<rect x="702.0" y="94.5" width="46.0" height="165.5" rx="4" fill="#fecaca" opacity="1.0" />
+<text x="669.0" y="280.0" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">M4096 轮1</text>
+<text x="669.0" y="296.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">p99/p50 = 1.092</text>
+<rect x="780.0" y="105.2" width="46.0" height="154.8" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="803.0" y="85.2" font-size="12" fill="#1e293b" text-anchor="middle" font-weight="bold">2,786</text>
+<rect x="836.0" y="99.9" width="46.0" height="160.1" rx="4" fill="#fca5a5" opacity="1.0" />
+<rect x="892.0" y="99.2" width="46.0" height="160.8" rx="4" fill="#fecaca" opacity="1.0" />
+<text x="859.0" y="280.0" font-size="13" fill="#1e293b" text-anchor="middle" font-weight="bold">M4096 轮2</text>
+<text x="859.0" y="296.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">p99/p50 = 1.039</text>
+<rect x="290.0" y="26.0" width="14.0" height="14.0" rx="4" fill="#ef4444" opacity="1.0" />
+<text x="306.0" y="38.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">p50</text>
+<rect x="440.0" y="26.0" width="14.0" height="14.0" rx="4" fill="#fca5a5" opacity="1.0" />
+<text x="456.0" y="38.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">p90</text>
+<rect x="590.0" y="26.0" width="14.0" height="14.0" rx="4" fill="#fecaca" opacity="1.0" />
+<text x="606.0" y="38.0" font-size="12" fill="#1e293b" text-anchor="start" font-weight="normal">p99</text>
+<text x="480.0" y="312.0" font-size="11" fill="#64748b" text-anchor="middle" font-weight="normal">Rank不对称&lt;1%、p99/p50≤1.09 → 慢不在抖动/尾延迟/Host协商波动，而在每拍的固定结构成本</text>
+</svg></div>
+
+<h2>瓶颈排序与去向</h2>
+<div class="card"><ol>
+<li><b>③内核+通信管线（M2048约1.66ms / M4096约2.56ms，占82%~94%）</b>——需按研发侧复核方案重排：MM(k)‖Reduce(k-1)‖Gather(k-2)三段交叠、减少包与quiet、消除逐tile输出搬运串行；属方案/算法侧，交回研发决策。</li>
+<li><b>②A2池接口（每调用约170~420µs）</b>——acquire流同步+双Host协商是主成分；除非跨层复用输出槽摊薄，否则A2形态在中小M先天吃亏。</li>
+<li><b>①Python/ctypes（~90µs）</b>——占比小，非重点。</li>
+</ol>
+<div class="note">精确到MM/READY/Reduce/Gather/IB/MTE各自的设备耗时需要插桩归因轮（本轮未授权）；本页全部由既有样本数据+跨批对照推导。</div></div>
+</body></html>

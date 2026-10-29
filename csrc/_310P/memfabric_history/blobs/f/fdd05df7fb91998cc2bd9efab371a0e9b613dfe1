@@ -1,0 +1,38 @@
+name: 310P A1 R2 CPU-only readiness
+
+on:
+  push:
+    branches:
+      - work/310p-mm-ar-large-m-a1-20261026
+    paths:
+      - 'csrc/_310P/memfabric_mm_ar_v2/test/**'
+      - '.github/workflows/310p_a1_r2_cpu_only.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lightweight CPU dependency
+        run: python -m pip install 'pytest>=7,<9'
+      - name: R2 original-checkout CPU tests
+        run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Static Python source compile
+        run: |
+          python -m compileall -q csrc/_310P/memfabric_mm_ar_v2/test/perf
+          python -m compileall -q csrc/_310P/memfabric_mm_ar_v2/test/ut
+      - name: Bash execution-script syntax
+        shell: bash
+        run: |
+          P=csrc/_310P/memfabric_mm_ar_v2/test/perf
+          for f in "$P"/a1_r2_*.sh "$P"/a1_mm_shadow_*.sh "$P"/u1_run.sh "$P"/a1_prefill_serve_session.sh; do
+            bash -n "$f"
+          done

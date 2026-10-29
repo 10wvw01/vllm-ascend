@@ -1,0 +1,64 @@
+W1027 21:39:37.393000 1575296 site-packages/torch/distributed/run.py:852] 
+W1027 21:39:37.393000 1575296 site-packages/torch/distributed/run.py:852] *****************************************
+W1027 21:39:37.393000 1575296 site-packages/torch/distributed/run.py:852] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W1027 21:39:37.393000 1575296 site-packages/torch/distributed/run.py:852] *****************************************
+INFO 10-27 21:39:41 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 21:39:41 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 21:39:41 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 21:39:41 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-27 21:39:41 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-27 21:39:41 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-27 21:39:41 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 21:39:41 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-27 21:39:41 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-27 21:39:41 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+Traceback (most recent call last):
+  File "/tmp/opencode/e2-repro/e2_repro_trace.py", line 24, in <module>
+    from u1_spec import D4_DEVICE_SHA, MEMFABRIC_HOST_SHA, PLUGIN_SHA, KVER_SHA
+ModuleNotFoundError: No module named 'u1_spec'
+[ERROR] 2026-10-27-21:39:41 (PID:1575368, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+Traceback (most recent call last):
+  File "/tmp/opencode/e2-repro/e2_repro_trace.py", line 24, in <module>
+    from u1_spec import D4_DEVICE_SHA, MEMFABRIC_HOST_SHA, PLUGIN_SHA, KVER_SHA
+ModuleNotFoundError: No module named 'u1_spec'
+[ERROR] 2026-10-27-21:39:41 (PID:1575367, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception
+E1027 21:39:42.577000 1575296 site-packages/torch/distributed/elastic/multiprocessing/api.py:984] failed (exitcode: 1) local_rank: 0 (pid: 1575367) of binary: /usr/local/python3.12.13/bin/python3.12
+Traceback (most recent call last):
+  File "/usr/local/python3.12.13/bin/torchrun", line 6, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 362, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 991, in main
+    run(args)
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/run.py", line 982, in run
+    elastic_launch(
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 170, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/python3.12.13/lib/python3.12/site-packages/torch/distributed/launcher/api.py", line 317, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/tmp/opencode/e2-repro/e2_repro_trace.py FAILED
+------------------------------------------------------------
+Failures:
+[1]:
+  time      : 2026-10-27_21:39:42
+  host      : qwen-test
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 1575368)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-27_21:39:42
+  host      : qwen-test
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1575367)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+[ERROR] 2026-10-27-21:39:42 (PID:1575296, Device:-1, RankID:-1) ERR99999 UNKNOWN applicaiton exception

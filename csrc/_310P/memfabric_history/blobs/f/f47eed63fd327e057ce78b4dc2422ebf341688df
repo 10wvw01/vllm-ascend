@@ -1,0 +1,31 @@
+===== ENVIRONMENT RECOVERY VERIFICATION 2026-10-26T14:16:03Z =====
+
+--- 1. MemFabric production baselines (must equal S0.5b) ---
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so
+88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1  /usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so
+db7134b8a2fa56f7250097c36d6a530d38901743d5eb8055bf9168bb52aee401  /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch.so
+25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78  /usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json
+expected: 88d39285 x2 / db7134b8 / 25e16b0a
+
+--- 2. main tree SOs unchanged ---
+8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1  /home/<user>/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so
+b8ca96f0387c45ec08e61ec3606f1502da22944a61b139815b62a20695a06811  /home/<user>/310P/vllm-ascend/vllm_ascend/libmf310p_v2_trial_device.so
+expected: 8eb65de9 / b8ca96f0
+
+--- 3. no processes / ports ---
+CLEAN
+ports 8000/8581 FREE
+
+--- 4. devices back to baseline ---
+| 16384   310P3                 | OK              | NA           73                0     / 0             |
+| 0       2                     | 0000:41:00.0    | 0            1954 / 44277                            |
+| 16384   310P3                 | OK              | NA           72                0     / 0             |
+| 1       3                     | 0000:41:00.0    | 0            993  / 43693                            |
+| No running processes found in NPU 16384                                                                |
+3
+
+--- 5. worktree porcelain ---
+vllm-ascend: 4 lines
+vllm-ascend-g1d: 0 lines
+vllm-ascend-g1d-e7ba8a5b: 0 lines
+(main tree expected 3 pre-existing untracked; isolated expected 0; g1d expected 0)

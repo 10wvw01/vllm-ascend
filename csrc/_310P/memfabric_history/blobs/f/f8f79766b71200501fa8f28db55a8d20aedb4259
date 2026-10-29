@@ -1,0 +1,141 @@
+{
+  "schema": "A1_SERVER_REENTRY_READONLY_V1_SANITIZED",
+  "sanitized_from": "/tmp/opencode/a1_r0_evidence_20261027/reentry_inventory/environment_inventory.json",
+  "captured_at_utc": "2026-10-26T18:05:35.651953+00:00",
+  "vllm": {
+    "head": "235de9f6d13a394ffaaddde1db8843154aeb8813",
+    "branch": "work/310p-mm-ar-large-m-a1-20261026",
+    "tracked_clean": true,
+    "worktrees_note": "see evidence index for full porcelain listing"
+  },
+  "memfabric": {
+    "head": "5802f55026c16e153e783d8ef26a29f813d63dd9",
+    "branch": "fix/310p-setaccess-physical-devid-20261023",
+    "worktree": "/tmp/opencode/mf-fix (of /home/w00804146/310P/memfabric_hybrid)"
+  },
+  "memfabric_source": {
+    "src/hybm/csrc/common/hybm_physical_device_id.h": {
+      "status": "MISSING"
+    },
+    "src/hybm/csrc/driver/hybm_gva.cpp": {
+      "sha256": "52d62f80715b5c2e6f9549a5b83818ecd663bcba99b5b06b3c597896766b0f89",
+      "physical_mapper": true,
+      "setaccess_call_count": 1,
+      "logical_malloc_call_count": 1,
+      "uses_epoch_v11": false
+    },
+    "src/hybm/csrc/mm/hybm_acl_vmm_segment.cpp": {
+      "sha256": "25615a2677545f10ec61476d226aac9b0d0c046879c5e083aeb83cd7d64b8ee4",
+      "physical_mapper": true,
+      "setaccess_call_count": 3,
+      "logical_malloc_call_count": 1,
+      "uses_epoch_v11": false
+    },
+    "src/hybm/csrc/entity/hybm_sdma_orchestrator.cpp": {
+      "sha256": "761d06cbc48b3a29af74a86e9b5eae3cc56f2b3ccecc2cc0cd82e5630c7e10ac",
+      "physical_mapper": false,
+      "setaccess_call_count": 0,
+      "logical_malloc_call_count": 0,
+      "uses_epoch_v11": true
+    },
+    "three_setaccess_mapper_static_hint": false
+  },
+  "provided_paths": {
+    "host_system": {
+      "requested": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so",
+      "absolute": true,
+      "realpath": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/libmf_hybm_core.so",
+      "is_symlink": false,
+      "status": "FILE",
+      "size": 3240592,
+      "sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1"
+    },
+    "host_python": {
+      "requested": "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so",
+      "absolute": true,
+      "realpath": "/usr/local/python3.12.13/lib/python3.12/site-packages/memfabric_hybrid/lib/libmf_hybm_core.so",
+      "is_symlink": false,
+      "status": "FILE",
+      "size": 3240592,
+      "sha256": "88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1"
+    },
+    "plugin": {
+      "requested": "/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+      "absolute": true,
+      "realpath": "/home/w00804146/310P/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+      "is_symlink": false,
+      "status": "FILE",
+      "size": 263744,
+      "sha256": "8eb65de98c3d8664ff10b421c1d7ad31318dc720c3f5679cd4d34e187203bea1"
+    },
+    "device_so": {
+      "requested": "/tmp/opencode/d4/build/device_candidate_diag_on.so",
+      "absolute": true,
+      "realpath": "/tmp/opencode/d4/build/device_candidate_diag_on.so",
+      "is_symlink": false,
+      "status": "FILE",
+      "size": 2185952,
+      "sha256": "2a19390c83c3fe6b0bdb8946d88990cca66b331f765ca445dbda2e787c2d2a19"
+    },
+    "kver_json": {
+      "requested": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+      "absolute": true,
+      "realpath": "/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v11.json",
+      "is_symlink": false,
+      "status": "FILE",
+      "size": 205,
+      "sha256": "25e16b0af2f16989231ff0443698261257bd8142834783a0c1e4ad57cd9ebc78"
+    },
+    "model": {
+      "requested": "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8",
+      "absolute": true,
+      "realpath": "/home/models/Qwen/Qwen3.6-35B-A3B-w8a8",
+      "is_symlink": false,
+      "status": "DIRECTORY"
+    }
+  },
+  "host_system_python_same_hash": true,
+  "environment": {
+    "ASCEND_RT_VISIBLE_DEVICES": false,
+    "ASCEND_HOME_PATH": true,
+    "ASCEND_TOOLKIT_HOME": true,
+    "MF_SDMA_ORCH_JSON": false,
+    "V2_HOST_LIB": false,
+    "U1_DEVICE_SO_PATH": false,
+    "U1_CORE_SO_LIB64": false,
+    "U1_CORE_SO_PY": false,
+    "MF_KFC_BYPASS": false,
+    "MF310P_V2_NOWARMUP": false,
+    "MF310P_V2_AR_ONLY_NOWARMUP": false,
+    "MF_SDMA_ORCH_DEPLOY_HELPER": false,
+    "MF_SDMA_ORCH_EPOCH_BUDGET_S": false,
+    "LD_PRELOAD": false
+  },
+  "prohibited_bypass_variables_present": [],
+  "prohibited_epoch_sentinel": false,
+  "tool_versions": {
+    "python": "Python 3.12.13",
+    "cmake": "cmake version 4.4.3\n\nCMake suite maintained and supported by Kitware (kitware.co",
+    "ninja": "1.13.2.git.kitware.jobserver-pipe-1",
+    "c++": "c++ (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0\nCopyright (C) 2021 Free Software Fou",
+    "pip_packages": "present"
+  },
+  "host_readonly": {
+    "uname": "Linux <redacted-host> 6.6.0-72.0.0.76.oe2403sp1.aarch64 aarch64 GNU/Linux",
+    "user": "root (uid 0, container)",
+    "npu_smi_summary": "4 cards x 2 dies (8 devices); see card_selection.json for per-card health/occupancy",
+    "npu_smi_version": "26.1.1",
+    "other_task_processes": "present on cards 5664 (2 procs) and 43520 (2 procs); PIDs live in other container PID namespaces, not visible via host ps - preserved untouched",
+    "listening_ports_note": "raw ss -ltn listing withheld in sanitized copy (server-only evidence file socket_ports.txt)"
+  },
+  "unproven": [
+    "same-card dual-Die health/topology/tenant ownership",
+    "runtime dlopen/plugin/Host SO/KVER device registration",
+    "VMM physical-vs-logical probe on current CANN",
+    "KFC installed/auto-deploys on each selected Die",
+    "bit-exact and actual Stock/V2 performance"
+  ],
+  "G0_APPROVED": false,
+  "DEPLOY_APPROVED": false,
+  "SMOKE_APPROVED": false
+}

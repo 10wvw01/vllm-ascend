@@ -1,0 +1,77 @@
+# A1-E4｜分层流水、包级Add和连续M路由：首版源码及实机准入合同
+
+> 2026-10-28｜实现分支`work/310p-mm-ar-e4-layered-pipeline-20261028`从已验证E3 [PR #20](https://github.com/10wvw01/vllm-ascend/pull/20)的归档HEAD `78a95d6e6c60f017b7769e8030b33a58f063f062`派生。**唯一权威方向、E3成绩与E4 ADR在主线**[E3证据审核及E4准入](https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/E3_实机证据审核与E4分层流水准入_20261028.md)，本分支仅存实现和待验测试。E4 CPU/CANN/310P全部`NOT_RUN`，不得宣称收益或变长设备支持。
+
+## 1. 为什么做E4，为什么分两个技术轨道
+
+- M4096真NZ E3-G比E1快7.187%（2119.506 vs2271.836µs），离Stock2022.553仍差96.953µs。E3-G每核仍调用两次128行MM（共4个1024计算子块），通信共4条4MiB，512行后的DCache/Ready和Add按**2048逻辑组**从4轮减为2轮；152.330µs是整体净收益，`INNER_PHASE_UNKNOWN`。
+- M2048 E3-G因为单2048组失去跨组交叠慢于E1，且E1两场漂移6.192%导致该形状`INCONCLUSIVE_DRIFT`。2049～4095形状尚未上机；现Serving仅允许chunk256/512/1024并可Padding，E3私有Host仅M2048/4096。
+- E4先用**E4-0低风险Vector Add循环扫描**、**E4-A消费者Packet到达即分半组Add**检验关键路径，另用**E4-B纯CPU规划器**覆盖连续M，以避免在尚未确定通信协议前把变长尾块与实机候选耦合进一个Kernel。
+
+## 2. E4-0：严格单变量AddTile（FP16元素，不是行）
+
+以冻结E3-G的MM tile1024、2048同步组、2×4MiB数据包、producer及receiver ENTIRE cache、ReadyTree、quiet/DONE为同一底座。新设备文件`src/op_kernel/mf310p_v2_e4_layered_candidates.asc`提供四种组合：
+
+| arm | 真正变化 | 每Core M4096 Add循环（总512） | 实验解释 |
+|---|---|---:|---|
+| `e3g` | 冻结实机E3-G | 512 | 原生对照 |
+| `e4t2` | E4同构重编，AddTile2048 | 512 | 编译/代码结构对等性校验，排除复制后性能偏移 |
+| `e4t4` | AddTile4096 | 256 | 减少Queue/Copy/Add循环 |
+| `e4t8` | AddTile8192 | 128 | 继续减少循环，但UB每三路占48KiB，可能挤占MM Workspace |
+| `e4p` | AddTile2048+Packet到达即半组Add | 512 | 仅消费者开始时机不同；**不是提前发送或减少包数量** |
+
+E4各臂使用`Matmul<...,tiling1024>`，每2048组每核2×128行`mm.IterateAll`；每组2×4MiB`smem_shm_sdma_signal_at`，不使用未经验证8MiB单条SDMA。三个Vector队列需要`3 * ADD_TILE * sizeof(fp16)` UB：2048→12KiB、4096→24KiB、8192→48KiB；同时要保留当前Matmul本地Workspace和IB预算，**静态assert不意味着真实BiSheng资源能够通过**。
+
+## 3. E4-A：包级Add的精确核/信件协议
+
+E3-G原始地址布局是`2048行 ×4096B=8MiB`，按核0..7每核连续256行(1MiB)。因此**Packet0对应Core0..3、Packet1对应Core4..7**。Core0是唯一`smem_shm_sdma_wait_at`消费者；包可以乱序，必须以`imm=TagBase|(group*2+part)`以及dst/len/status识别、重复位图拒绝。E4-A只把当前`E3WaitGroup+ReleaseAdd`替换为`E4WaitPacketAndRelease`：
+
+- 成功收到Packet0，Core0向Core1/2/3各自的单producer/单consumer IBRelease事件`kIBReleaseBase+b`投递一次；对应核收到Release后DCCI失效自己的peer 256行，开始对应Add。
+- 收到Packet1则Core0释放Core4/5/6/7。两封信的接收顺序不重要；**Core0自己先消费两封邮件后才执行自己的256行Add**（当前Core0不可同时Wait和Add），这意味着提前Add可能只隐藏其他七核的一部分工作，不保证减少双Rank完成路径。
+- 两组各核仍需`WaitAddDone`全部完成才允许Core0 `smem_shm_sdma_quiet_at`和互发DONE；每核每2048组仅消费自己的Release一次，跨组下一次才复用事件。不得通过`signal`返回成功就假定运输完成。
+- **不修改Producer的MM组织、DCCI或ReadyTree**。如果Packet0提前完成却没有收益，不能误判“提前MM发包也无效”，因为早发根本没有实现。
+- 此首版属于协议修改，现阶段的源码静态合同只是准入准备；**必须先针对IB事件复用、跨Rank偏斜、mail乱序/重复、507014/507015、长窗口循环进行独立审查，不能编译通过就直接完整性能测试**。
+
+## 4. E4-B：连续M仅为离线规划器，不改Serving
+
+`test/perf/e4_shape_plan.py`穷尽 M=2048..4096共2049个整数，计算最少Padding至256对齐且每组行数来自`{2048,1024,512,256}`、总计不超过4096，并列出每组起点/有效行数/通信packet分割。示例：
+
+| 真实M | 逻辑组 | 规划padding |
+|---:|---|---:|
+| 2048 | [2048] | 0 |
+| 2049 | [2048,256] | 255 |
+| 2560 | [2048,512] | 0 |
+| 3072 | [2048,1024] | 0 |
+| 3073 | [2048,1024,256] | 255 |
+| 3584 | [2048,1024,512] | 0 |
+| 4095 | [2048,2048] | 1 |
+| 4096 | [2048,2048] | 0 |
+
+**重要**：规划器只是验证形状覆盖、容量、输出裁剪和候选组合的CPU工具；目前E4私有Host仍明确**仅允许M2048/4096**，没有可执行混合组/尾块设备Kernel。静态路由函数默认一律`stock`，只有同一精确M的真实NZ、双Rank正确性、L1稳定且正增益、L3确认、Graph条件均独立审签后才具备`e4`选择资格。不能把`plan()`输出直接当Serving设备执行计划。
+
+## 5. 代码、执行路径与证据保护
+
+- `src/op_kernel/mf310p_v2_e4_layered_candidates.asc`：4种私有变体，源代码保留两种packet处理；只复用E3-G已测几何。
+- `test/perf/e4_private_host.cpp`：`kind=2 E1,3 E3-G,4 E4-T2048,5 E4-T4096,6 E4-T8192,7 E4-PacketAdd`；pool仍chunk1024；不修改正式Host create API、Serving或全局HCCL。
+- `test/perf/e4_build.sh`：私有编译E1/E3-G/E4，私有Host，校验导出符号并SHA绑定源/HEAD和SO。不安装/覆盖任何正式SO。
+- `test/perf/e4_arm.py`：真实NZ Stock及双Rank其他臂分离进程、首写保护、交替输入、bit-exact/status0、事件完成时间；目前只M2048和4096。
+- `test/perf/e4_campaign.sh`：G0前置；真实NZ路由4/4；E3-G及E4四臂双Rank Smoke → 7臂各30次短Screen（只筛选、不可签速度） → **显式`E4_CONFIRM_APPROVED=YES`且门禁PASS才执行14臂两次反向平衡Confirm**，每场20热身+100测量，采原始RankJSON及前后SHA。若Screen无前景，默认停止，不浪费14场。
+- `test/perf/e4_assess.py`：14场配对RankMax p50/p90/p99、严格5%场间漂移、逐臂相对E3-G及真NZ Stock。
+- `test/ut/test_e4_layered_contract.py`：2049全部M规划、错误形状拒绝、E4-A唯一Core0消费者和分核释放、AddTile/ABI、机器评估器正反案例。
+- `.github/workflows/310p_e4_cpu_only.yml`：只做Python/Shell语法、CPU UT和治理项目门，不代表上机编译PASS。
+
+## 6. 研发与上机先决条件（当前全待验）
+
+1. GitHub工作分支HEAD洁净；先执行原仓`test/ut`及新增E4合同，至少**两轮静审**、`python -m py_compile`、`bash -n`。任何新增候选源码不能靠注释断言“已经支持设备”。
+2. 每次实机前重新G0四卡只读检查、独占物理单卡双Die/后台30s连续巡检、CANN9.1 BiSheng dav-2002、冻结Host/Plugin/D4/KVER11实际路径与SHA一致。若编译不支持8192 AddTile，记录`BUILD_UNSUPPORTED`并停测；不能静默删除变体冒充完成。
+3. 一组E4-A的mail等待和IB释放更改属于高风险：**优先短双RankSmoke**，包含M2048/4096、重复调用、交替输入、不同rank启动偏斜、组间事件复用。出现507014/507015/507899/错误mail或数值错误，立即STOP并保存PLoG/异常路径，不做自动重试/换卡。
+4. 只有真正的Smoke PASS且短Screen有价值后，明确人工授权正式14场；任何形状任一臂>5%漂移时整体标`INCONCLUSIVE_DRIFT`，不得挑好场次签性能或用独立MM-only数值相减作内部分段。
+5. E4-B非对齐形状实机仍是另一个待开发的安全阶段，未实现变长设备Kernel前禁止开放Serving自动路由；即使L1正向，仍要L2真实站点与L3 Prefill设备Step确认后才可评估L4 TTFT。Stock始终产品默认。
+
+## 7. 第一轮实机结果（2026-10-28，run_id=e4-layered-20261028-001）
+
+- G0（卡16384/dev2,3、四冻结SHA）、原仓UT 80项、E4合同UT、2049-M穷尽规划、py_compile/bash -n/治理静态门、**E1/E3-G/E4四实例BiSheng dav-2002隔离编译一次通过（AddTile8192无BUILD_UNSUPPORTED）**、真实NZ路由4/4（6×MatmulWeightNz+6×HCCL、0 TransData）全部**PASS**。
+- attempt1因宿主外部进程PID 506263占用四卡触发"设备被占用→STOP"合同止损（E3-G Smoke已过，E4四臂未执行）；等待窗口后attempt2（09:39–10:0x）在16384独占下完成**全部五臂双Rank Smoke（e3g/e4t2/e4t4/e4t8/e4p，全部bit-exact/status0/首写成功，e4t8无507015类资源异常，e4p的Core0唯一邮件消费者协议实机成立）与七臂短Screen（stock/e1/e3g/e4t2/e4t4/e4t8/e4p，各30样本）**；全程零外部进程、零协议/IB/KFC异常，结束后卡回G0基线。十四场Confirm未授权未运行。
+- **Screen方向性结果（不签正式性能）**：M4096配对p50——Stock 2037.7 / E1 2261.9 / E3-G 2133.9 / e4t2 2131.7 / e4t4 2112.5 / **e4t8 2076.2** / e4p 2105.3µs；**e4t8相对E3-G −2.71%（−57.7µs），对Stock差距从96.2µs（与E3 Confirm的96.953µs高度复现）缩至38.5µs**；e4t2与E3-G −0.10%确认无重建漂移；e4p −1.34%（结构性上限兑现）；**M2048四臂全部与E3-G持平（±1.3%），仍落后Stock约32–34%，消费者侧Add变化无解单组交叠损失**。
+- **下一轮Confirm最优先e4t8（AddTile8192）**，次优先e4t4；e4p暂缓让位；M2048按core-ownership重排/1024+1024混合组另立新候选。
+- 完整取证与逐项证据见 [第一轮实机验证报告](../evidence/e4_layered_20261028/A1_E4_第一轮实机验证报告_20261028.md)、[STOP事件分析](../evidence/e4_layered_20261028/stop_incident/STOP_INCIDENT_ANALYSIS.md)。

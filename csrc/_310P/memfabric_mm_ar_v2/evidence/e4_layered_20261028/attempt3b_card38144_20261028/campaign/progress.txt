@@ -1,0 +1,22 @@
+REAL_NZ_ROUTE_PROVEN
+SMOKE_START e3g
+SMOKE_PASS e3g
+SMOKE_START e4t2
+SMOKE_PASS e4t2
+SMOKE_START e4t4
+SMOKE_PASS e4t4
+SMOKE_START e4t8
+SMOKE_PASS e4t8
+SMOKE_START e4p
+SMOKE_PASS e4p
+SCREEN_BEGIN screen_01_stock
+SCREEN_BEGIN screen_02_e1
+SCREEN_BEGIN screen_03_e3g
+SCREEN_STOP screen_03_e3g
+SCREEN_BEGIN screen_03_e3g (manual continuation)
+SCREEN_ARM_DONE screen_03_e3g
+SCREEN_BEGIN screen_04_e4t2 (manual continuation)
+SCREEN_ARM_DONE screen_04_e4t2
+SCREEN_BEGIN screen_05_e4t4 (manual continuation)
+SCREEN_STOP screen_05_e4t4 (manual continuation; preserve evidence, no retry)
+E4_SCREEN_PARTIAL_4_OF_7 / CONFIRM_NOT_AUTHORIZED (card 38144, manual continuation)

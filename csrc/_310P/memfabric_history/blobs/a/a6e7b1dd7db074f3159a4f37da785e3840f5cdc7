@@ -1,0 +1,13 @@
+(Worker_TP1 pid=129923) INFO 10-23 17:16:04 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)
+(Worker_TP0 pid=129887) INFO 10-23 17:16:04 [memfabric_mm_ar_v2_serve.py:146] [mf310p-v2] first fused call verified bit-exact vs stock (M=4096, aligned=True)
+(APIServer pid=129210) INFO 10-23 17:16:11 [loggers.py:310] Engine 000: Avg prompt throughput: 409.6 tokens/s, Avg generation throughput: 0.3 tokens/s, Running: 3 reqs, Waiting: 2 reqs, GPU KV cache usage: 2.3%, Prefix cache hit rate: 0.0%
+(APIServer pid=129210) INFO 10-23 17:16:21 [loggers.py:310] Engine 000: Avg prompt throughput: 819.2 tokens/s, Avg generation throughput: 0.5 tokens/s, Running: 5 reqs, Waiting: 0 reqs, GPU KV cache usage: 3.9%, Prefix cache hit rate: 0.0%
+(APIServer pid=129210) INFO 10-23 17:16:31 [loggers.py:310] Engine 000: Avg prompt throughput: 0.0 tokens/s, Avg generation throughput: 0.0 tokens/s, Running: 5 reqs, Waiting: 0 reqs, GPU KV cache usage: 3.9%, Prefix cache hit rate: 0.0%
+(Worker_TP1 pid=129923) ERROR 10-23 17:17:29 [multiproc_executor.py:1018]         An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+(Worker_TP1 pid=129923) ERROR 10-23 17:17:29 [multiproc_executor.py:1018]         An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+(Worker_TP0 pid=129887) ERROR 10-23 17:17:29 [multiproc_executor.py:959] [Error]: The aicore execution times out. 
+(Worker_TP0 pid=129887) ERROR 10-23 17:17:29 [multiproc_executor.py:959] EE9999[PID: 129887] 2026-10-23-17:17:29.233.677 (EE9999):  rtEventSynchronize execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]
+(Worker_TP0 pid=129887) ERROR 10-23 17:17:29 [multiproc_executor.py:1018]         An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+(Worker_TP0 pid=129887) ERROR 10-23 17:17:29 [multiproc_executor.py:1018]         An error occurred in the kernel task, retCode=0x25, [aicore timeout].[FUNC:PreCheckTaskErr][FILE:davinci_kernel_task.cc][LINE:1262]
+(EngineCore pid=129565) ERROR 10-23 17:17:29 [core.py:1351] [Error]: The aicore execution times out. 
+(EngineCore pid=129565) ERROR 10-23 17:17:29 [core.py:1351] EE9999[PID: 129887] 2026-10-23-17:17:29.233.677 (EE9999):  rtEventSynchronize execution failed, reason=aicore timeout[FUNC:FuncErrorReason][FILE:error_message_manage.cc][LINE:69]

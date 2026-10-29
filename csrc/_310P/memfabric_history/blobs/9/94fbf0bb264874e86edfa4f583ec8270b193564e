@@ -1,0 +1,44 @@
+# E3实机证据审核与E4分层流水准入｜2026-10-28
+
+> **权威位置**：`dev/310p-memfabric-mm-ar`，只归档经审阅的证据、决策和下一阶段合同；**不将PR #20的Kernel/Host/Serving源码或大体量原始Profiler整体合入主线**。**已把E3关键52份原始文本证据和报告按Git blob原样归档在主线**：[E3主线证据目录](../evidence/e3_chunk2048_20261028/)与[52份核验清单](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)；逐目录源分支同名文件Git blob SHA全部一致，已不依赖PR #20才能读取双Rank原始采样、NZ路由、G0和SHA。PR #20仍保留大型Profiler及实验源代码，不删除实验分支。验收和优先级以主线PROJECT_CONTROL/DECISIONS/PERFORMANCE_BASELINES为准。
+
+## 一、可复核的E1/E2/E3证据
+
+| 批次 | 真实结果 | 效力 | 来源 |
+|---|---|---|---|
+| E1五臂 | M4096 E1 2274.167µs / StockNZ2017.499µs；E1比D4 +10.50%，但未超Stock | 同批M4096稳定；整批M2048 D4漂移5.685%导致总体INCONCLUSIVE | [E1实机报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-five-arm-dcci-20261028/csrc/_310P/memfabric_mm_ar_v2/docs/A1_FIVE_ARM_ONDEVICE_REPORT_20261028.md) |
+| E2实机attempt3 | M4096 Stock2022.624 / E1 2285.456 / E2-R2292.578 / E2-P2383.007 / E2-P512 2756.868µs；E2均无正向 | `E2_FULL_CHAIN_TIMING_VALID`；E2-P曾于attempt2在M4096触发507014且复现，根因未知，不继承READY路径 | [E2机器评估](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e2-pipeline-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/a1_e2_pipeline_20261028/campaign_attempt3/e2_assessment.json) |
+| E3八场（修复后）M2048 | Stock1078.412 / E1 1222.611 / E3-G1451.002 / E3-T1483.932µs | **M2048 INCONCLUSIVE_DRIFT**，E1两场漂移6.192%>5%；但E3-G分别慢于两场E1，方向性负 | [E3机器评估](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e3-chunk2048-20261028/csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json) |
+| E3八场（修复后）M4096 | Stock **2022.553** / E1 **2271.836** / E3-G **2119.506** / E3-T **2267.090** µs | M4096所有臂场间漂移≤2.02%，**E3-G vs E1 +7.187%（−152.330µs），vs Stock −4.574%（还差96.953µs）**；整批总体仍INCONCLUSIVE_DRIFT | [E3双Rank实机报告](https://github.com/10wvw01/vllm-ascend/blob/work/310p-mm-ar-e3-chunk2048-20261028/csrc/_310P/memfabric_mm_ar_v2/docs/A1_E3_CHUNK2048_实机报告_20261028.md) |
+
+**计时口径**：310P3物理卡16384、同卡dev2/dev3、TP2、FP16、K=N=2048、真实NZ `aclnnMatmulWeightNz` + HCCL Stock路由4/4、20热身/100正式、同下标双Rank max后取p50、同卡隔离候选SO、不混Profiler。E3八场 `stock,e1,e3g,e3t,e3t,e3g,e1,stock`全部完成，16份原始RankJSON bit-exact/status0；G0/硬件SHA前后一致。现场实验HEAD `3e58ae389784d21eca5fb4bf18bad0fc32de6279`，归档HEAD `78a95d6e6c60f017b7769e8030b33a58f063f062`，PR [#20](https://github.com/10wvw01/vllm-ascend/pull/20)仍Draft。
+
+## 二、E3已证实和不能宣称之处
+
+1. E3-G在M4096保留4×1024 MM子调用及4×4MiB传输，仅把2048行为单位的producer DCache/ReadyTree/接收侧DCache/ReleaseAdd从4轮减为2轮，并改变Core的256连续行所有权与完成顺序。净152.330µs为**整组调度效果**，`INNER_PHASE_UNKNOWN`，**不得把152µs全部归因于IB、Add或DCCI**。
+2. M2048一个2048组不具有跨组流水，两个1024组的E1可以重叠组间流程，导致E3-G显著落后；中间2049～4095完全没测，不能基于两个端点宣布任意M最优。
+3. E3-T在初次Smoke出现507015/retCode0x26：`e3Shape2048={256,...,256,256,64}`的256×256 FP32累加器占满256KiB L0C，后改`{256,...,128,256,64}`重编及复测通过。修复后T仍每核一次256行MM，但比G M4096慢147.584µs；具体内部分段成本不可直接宣称已测。
+4. E3-G是**下一轮M4096研究基线**，非当前全局性能冠军。已测M2048/4096均是Stock更快；真实Qwen L2 40站点、L3 Prefill设备Step和L4 TTFT，针对E3/E4均`NOT_RUN`，Stock仍产品默认。
+5. E3证据完整性待补：GitHub上可核对G0身份、评估JSON、16份Rank正式采样/Smoke/路由及before/after SHA，但报告引用的原始`bugfix1_l0c_overflow/smoke_e3t.log`、AICore摘录、`build/`两版manifest、`campaign_full/card_watch_30s.log`在所列证据目录未找到；这些应由现场OpenCode确认后追加、说明SERVER_ONLY或修正报告超链。此为**归档待补**，不改写机器数值。
+
+## 三、E4研发边界与实验次序
+
+**主目标**：MM计算子块、Transport Packet、producer/consumer会合组、Vector Add tile四种粒度解耦；提升M4096直至稳定超Stock，同时解决真实M∈[2048,4096]任意位置及Padding台阶。由E3证据分支派生唯一活跃实现分支`work/310p-mm-ar-e4-layered-pipeline-20261028`（依赖E3的独立Kernel源码），而**E4决策只以当前主线文档为权威**；PR必须明确标注堆叠依赖，禁止把E3旧`PROJECT_CONTROL`覆盖本主线。
+
+1. **E4-0 单变量低风险**：基于冻结E3-G MM2048组/2×4MiB发送/两包到齐Add不变，仅扫描AddTile=2048/4096/8192（单位**FP16元素，不是行**）；UB资源与MM workspace静态检查，bit-exact、真实TP2压力；从真实E3-G p50开始，增益无证据前不宣称改善。
+2. **E4-A 包级Add**：先保留E3-G的整个2048组MM+producer DCCI+ReadyTree与两包SDMA；待Packet0接收完成后，只通知负责前1024行的Core0～3执行Add；Packet1到达后通知Core4～7执行Add。**只有唯一Core0调用wait，8核不能各自wait；两次IB release/tag复用需证明不会丢信，DONE必须等所有Core完成Add，不能提前复用buffer**。需重新审阅每Core独立Ready/Release和AddDone生命周期；未证实上述合同不得上机。
+3. **E4-B 任意M与混合组**：正式Serving目前只支持chunk256/512/1024、补齐到4096以内，且E3私有Host仅允许M2048/4096。离线定义合法组序列`[2048]`、`[1024]`、`[256/512尾块]`的计算/通信/寄存布局与最后不满组的正确Padding，不可以把2048 E3直接粗暴补齐到4096。优先独立CPU路由规划器证明对全部2048..4096行不越界、双Rank一致、输出前M正确；随后实机逐形状。
+4. **早发SDMA最后再研究**：E3-G每核连续256行，第一次128行MM子调用结束并不意味着Packet0整1024行就绪；不能简单在第一次MM后发首包。要重排core ownership/数据布局，并单独证明producer缓存可见性及资源重用。优先让已到达包早Add，避免把DCCI/Ready次数再加回4轮。
+5. **验收**：Stock NZ + E1 + E3-G冻结锚点，M2048、2049、2304、2560、3072、3073、3328、3584、4095、4096至少10形状；先Screen后对潜在收益形状对称ABBA独立Confirm，包含padding拷贝及最终收尾；当前没有全局优化方案优于Stock，生产自动路由NO_GO。
+6. **功能/设备**：E4私有候选，正式Host、D4、Serving、HCCL/Stock默认及MemFabric KVER11零改动。委托实机前源级两轮审查、CPU合同、CANN编译可执行、G0健康独占及冻结SHA；发生507014/507015/507899、mail不符、bit-exact失败即STOP保全，不自动切卡。
+
+## 四、对未来迭代交接的可操作状态
+
+- **唯一权威**：本主线`PROJECT_CONTROL.md`、`DECISIONS.md`、`PERFORMANCE_BASELINES.md`、本文件。E3主线归档的[52份关键原始证据](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)作为独立可复核证据，PR#20为额外源码/Profiler参考；E4工作分支只含待审Kernel/测试。
+- **已经完成的E3实机**：上述机器数值和身份，来源可点击定位。不将E3旧工作分支中的过期`NOT_RUN`文档覆盖主线。
+- **下一步按职责**：助手在E4工作分支先完成至少CPU可核验的算法、独立Kernel及两轮静审、明确是否可实机；用户再让OpenCode进入310P3，不把尚未上机的状态说成性能PASS。
+
+## 2026-10-28｜E3主线实质证据归档完结
+
+- 已独立复制**52份**原始数据/文本：主线实机报告1、机器评估1、G0共5、正式16 RankJSON+Smoke4+逐场NPU8、四组真实NZ route JSON/CSV共8、Campaign原始身份与进度7、BUG首版README/progress2。每份源blob SHA与mainline同名文件**完全一致**，没有重算或改写样本。完整列于[归档Manifest](../evidence/e3_chunk2048_20261028/MAINLINE_ARCHIVE_MANIFEST.md)。
+- 唯一未归档的主要资料是重型CANN原始Profiler、原GitHub分支缺失的失败PLog/构建日志/30s卡巡检（目前标为SERVER_ONLY_OR_MISSING，不能宣称已归档）。这不影响机器评估JSON和16 Rank原始时序结果可在主线独立复核。

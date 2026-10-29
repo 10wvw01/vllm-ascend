@@ -1,0 +1,111 @@
+# V2 D2 + D3 第一轮：正式 Kernel 单变量 Add Tile 2048 优化
+
+> 日期：2026-10-23  
+> 状态：**D2 方案已选定；D3 源码已提交并完成静态审查，未运行 310P3 BiSheng/TP2 实机，性能与正确性均为 UNKNOWN。**  
+> 分支：`perf/310p-v2-d3-add-tile2048-20261023`；对照提交 `edebac40d226a8aeb08460b5a33a3283a842bba5`（Gate C + D1-A）。  
+> 代码位置：`src/op_kernel/mf310p_v2_kernel.asc`；CPU 合同：`test/ut/test_v2_d3_production_add_tile_source.py`。本分支**不允许直接合入**正式开发分支。
+
+## 1. D2 决策：为什么先选单变量 C2
+
+D1-A 实机验证 12 个 TP2 交叉会话（192 次 TP2 调用、双 Rank 384 条记录）均位精确，设备 Kernel/Event 无 ≥6ms 异常；带与不带 Profiler 的清洁性能近似一致。由此建立正式 4 Chunk、M=4096、chunk=1024、overlap=1 的受控基线：
+
+| 指标 | Rank0 | Rank1 |
+|---|---:|---:|
+| Formal Kernel p50（设备 Profiler，us） | 2526–2570 | 2547–2642 |
+| Formal Event p50（无 Profiler，us） | 2656–2731 | 2708–2796 |
+| LOOP4 Event p50（无 Profiler，us） | 3204–3247 | 3184–3271 |
+
+基线证据：`docs/V2_D1A_PROFILER_PERTURBASELINE_REPORT_20261022.md` 和 `evidence/gate_d1a_20261022/`。出现 23–45ms 的 Gate C 长尾机制仍 UNKNOWN，不能用“未复现”将其关闭；Gate E 507014/P0 独立 OPEN。
+
+候选决策：
+
+- **C2 Add Tile 1024→2048：有条件 GO 进入源码级单变量实验。** 不改可见性和协议；必要 UB 条件静态检查，充分性必须实机 BiSheng/资源结果确认。
+- **C1 CleanLines：仍 NO-GO 生产改动。** 每 Core、M4096 两位置合计 65536 次按 64B 循环维护；源代码数量真实，独占耗时和替代可见性合法性未知。
+- **C3 双缓冲/C4 IB-SDMA-DONE/C5 异步 MM：本轮 NO-GO。** 不能与 C2 混合优化。
+- 继续保留八核 MM、Core0 单一 signal、4 Chunk 和 overlap=1。
+
+## 2. D3 单变量生产代码实现
+
+仅修改 `src/op_kernel/mf310p_v2_kernel.asc`。共享 `mf310p_v2_kernel_common.h` **保持 kAddTile=1024**，诊断 `mf310p_v2_diagnostics.asc` 和 LOOP4 沿用原样，以防诊断对照污染。
+
+引入**仅生产使用**：
+- `kProductionAddTile=2048`（FP16 元素数）
+- `kProductionAddBytes=4096`（单队列一个 buffer）
+- `kProductionUBForVector=3*4096=12288`（原有三个 VECIN/VECOUT 队列共 6144B）
+- MM `mmUb` 静态预算相对原始减少 **6144B**，两处 Add 规约路径（Chunk 中间、最后收尾）同步更改，队列深度仍为 1。
+
+| 固定形状/资源 | 原版 Tile1024 | 候选 Tile2048 |
+|---|---:|---:|
+| 每个 Add tile 元素 | 1024 FP16 | 2048 FP16 |
+| 每个队列 buffer | 2048 B | 4096 B |
+| 三个向量队列合计 | 6144 B | 12288 B |
+| 每 Core / CHUNK1024 规约迭代 | 256 | 128 |
+| 每 Core / M4096 规约迭代 | 1024 | 512 |
+| MM 临时 UB 分配表达式 | `TOTAL_UB_SIZE - 6144 - 32` | `TOTAL_UB_SIZE - 12288 - 32` |
+| MM tiling / 核数 / Chunk / 同步和通讯 | 不变 | 不变 |
+
+静态断言验证基本 32B 对齐、最小 CHUNK=256 下整除、UB 总申请有正余量。**但正余量不等于 Matmul 临时 UB 足够**：正式核的 A=ND、C=GM/ND 等条件使用 `mm.SetLocalWorkspace()`；CANN 9.1 明确说明应由 Matmul tiling 的 `MatmulGetTmpBufSize` 给出所需空间（host tiling 形式），因此设备编译和资源检查是不可豁免门禁。参考：
+- https://www.hiascend.com/document/detail/en/CANNCommunityEdition/910/API/ascendcopapi/docs/en/api/SIMD-API/advanced_api/matrix_compute/Matmul-Kernel/SetLocalWorkspace.md
+- https://www.hiascend.com/document/detail/en/CANNCommunityEdition/910/API/ascendcopapi/docs/en/api/SIMD-API/advanced_api/matrix_compute/get_matmul_compute_space/MatmulGetTmpBufSize.md
+
+本轮没有改变：
+- `mm.IterateAll(cg)` → 本端 `CleanLines` → 8→1 `WaitReady` → Core0 `signal`；
+- 对端 `wait/mail` → `ReleaseAdd` → 对端 `CleanLines` → FP16 `Add`；
+- `WaitAddDone/quiet/DONE` 以及所有 Host/Serving/MemFabric ABI、SO 部署；
+- 诊断代码和公共头文件。
+
+## 3. 静态审查 Round 1：功能、数据几何、协议
+
+1. **单变量源码差异**：GitHub 对比基线时，正式核仅新增生产 Tile 常量、UB 预算与两段向量规约操作的长度替换；没有改通信实现。
+2. **几何检查**：支持 CHUNK256/512/1024，每 Core 元素数分别为 65536/131072/262144，均能被 1024/2048 整除；M4096 与 CHUNK1024 对应 4×128=512 次 Add/Core，无尾残留。
+3. **缓存/IB/Done**：逐位置确认 MM 后本端 DCCI、Signal 的 Core0 独占、邮件检查、对端 DCCI、IB ready/release/add-done、quiet 和 DONE 没有移除、交换或绕过。
+4. **有条件问题**：设备侧 `SetLocalWorkspace` 仍需证明 310P3 所需 Matmul 临时 UB 小于调整后的可用量。静态正数检查**不能关闭此问题**。
+
+**Round 1 结果：源码合同与整除检查 PASS；BiSheng / UB 真实资源占用 UNKNOWN。**
+
+## 4. 静态审查 Round 2：验证口径、收益和回滚
+
+1. 生产/诊断隔离：诊断 MM-only/LOOP4 仍使用旧 tile 1024，不再需要改变已有公共 tiling；生产 ON/OFF 构建必须分别测。
+2. 实测真实性：必须同 Rank、同设备、同形状、同版本 MemFabric、同 Host SO、同 Event/Kernel 计时口径并记录二进制 SHA；两个独立构建以单变量源码差异为准，不允许混用缓存或调试装载。
+3. 每个**双 Rank 配对请求**取 `max(rank0,rank1)` 作为 TP2 时间，不采用 `max(p50(rank0),p50(rank1))` 伪装成配对统计；原始分布和清洁分布都保存。
+4. 正确性先于性能：FP16 位精确、status=0、IB probe、M256/512/1024/2048/4096、M2049/3073/4095 的真实 Serving padding/tail 形状；输出槽反复使用 / 新地址首写分别验证。
+5. 无 Profiler External Event 为性能**主要验收**；Profiler Kernel/PMU仅辅助，不直接将 mac/mte2/scalar 相加或等同 SDMA/IB 阶段时间。
+6. 以 D1-A 两 Rank基线 ±3.3% 为噪声区间，**≥5%（约 130us）为首轮进入下一阶段的候选门槛**；有害性能倒退、任何数值或协议错误均 NO-GO。单层 +5% 还不足以宣称打平 Stock 或改善真实 Qwen 性能。
+
+**Round 2 结果：实验变量、验收规则及异常回滚门禁定义 PASS；性能收益和实机正确性 UNKNOWN。**
+
+## 5. OpenCode D4 实机执行建议（必须先确认 310P3 安全环境）
+
+**D4-0 准入（失败即停）**
+- 从本分支 `perf/310p-v2-d3-add-tile2048-20261023` 和基线 `edebac40d226...` 分别构建；先备份现有工作树、插件 SO、Host SO、设备侧 v11，核对双 die 5664 空闲和版本哈希。
+- Host 两路径 `libmf_hybm_core.so` 必须符合 D1-A 身份 `88d39285...`，JSON `libmf_sdma_orch_v11.json` 符合 `25e16b0a...`；设备侧 v11 探针 PASS；清除 G1-D v12/尾采样动态装载风险，不通过时禁止运行。
+- 不得因风险测试关闭首写保护、缓存维护或 IB、DONE。不得擅自更改 KVER11 协议。
+
+**D4-1 编译/UB**
+- 先运行全部 `test/ut` CPU 源码合同测试、诊断 ON/OFF 及基础 ABI 核验；
+- 再由 BiSheng 编译 310P3 正式核，记录 Compile/Reg/UB/Tiling/LocalWorkspace 的资源诊断；务必确认 Tile2048 时 Matmul 使用的 UB 临时空间**足够**，不是只满足 `TOTAL_UB_SIZE > 0`；
+- 编译/资源不支持 → 标 NO-GO 并保留日志，不跑设备。
+
+**D4-2 正确性短测**
+- 先双 Rank `M=4096 CHUNK=1024 overlap=1`；再 M256/512/1024/2048/4096（按已有测试入口合法形状选择），实机确认前向 FP16 bit-exact/status=0；
+- 另外使用已有完整 Serving/Adapter 入口验证非整 Chunk tail `2049/3073/4095`，不可将 Host 直调 `m%s->chunk_rows==0` 的限制误写成尾部已验证；
+- 最初使用 2 Rank 新进程、独立单变量、固定张量生命周期；首调及输出轮换测试安全，避免长压和 Graph。
+
+**D4-3 受控性能 A/B**
+- 依 D1-A 口径，以 **基线/候选/候选/基线（ABBA）** 两重复交叉；各每 Rank ≥3 次预热，建议每组至少 30 个有效 TP2 请求；导出逐次 NPU Event、wall、正确性和 status、SO/设备库 SHA；
+- 首选无 Profiler Event 配对数据。若进行 Profiler 取证，独立短会话，先无 PMU，必要时加 PipeUtilization；>=6ms 长尾单列不直接销毁；外部租户/会话污染按 D1-A 门禁隔离；
+- 只根据相同版本运行环境和同口径 A/B 推断候选收益；必须以 TP2 配对完成时间为主。
+
+**D4-4 真实 Serving 回归与恢复**
+- 单算子观察到可复现 ≥5% 收益、所有正确性 PASS 后，再执行 Qwen3.6 TP2 Eager 小范围 Prefill/TTFT/吞吐对照；禁止以单算子替代真实模型判据。
+- 未达到收益或有任何错误：恢复原 plugin/device lib，记录 hash、结果与 NO-GO，不合并优化分支。
+- Gate E 507014/P0 与 23–45ms 偶发长尾仍 OPEN，D4 短测不能关闭稳定性门禁。
+
+## 6. 交付物
+
+- 代码：`src/op_kernel/mf310p_v2_kernel.asc`，正式专用 tile 改为 2048、UB 同步调整。
+- CPU 合同：`test/ut/test_v2_d3_production_add_tile_source.py`。
+- 设计审查：本文件（D2 决策 + D3 两轮静态审查）。
+- 当前严格状态：**SOURCE-READY / COMPILER-UNKNOWN / DEVICE-UNKNOWN / PERF-UNKNOWN**。
+
+> 不合并到 `feat/310p-memfabric-public-api`，待 D4 的正确性、资源与真实模型结果决定接受或回滚。

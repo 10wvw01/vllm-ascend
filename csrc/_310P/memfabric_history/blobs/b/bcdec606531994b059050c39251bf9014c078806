@@ -1,0 +1,14 @@
+INFO 10-25 02:28:23 [__init__.py:52] Available plugins for group vllm.platform_plugins:
+INFO 10-25 02:28:23 [__init__.py:54] - ascend -> vllm_ascend:register
+INFO 10-25 02:28:23 [__init__.py:57] All plugins in this group will be loaded. Set `VLLM_PLUGINS` to control which plugins to load.
+INFO 10-25 02:28:23 [__init__.py:237] Platform plugin ascend is activated
+INFO 10-25 02:28:23 [platform.py:62] Breakable cudagraph is force disabled on Ascend because DeepSeek V4 PIECEWISE cudagraph is not supported yet.
+INFO 10-25 02:28:27 [importing.py:88] Triton not installed or not compatible; certain GPU-related functions will not be available.
+HAS_TRITON in config/vllm.py: False
+INFO 10-25 02:28:30 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=2048.
+INFO 10-25 02:28:30 [kernel.py:306] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 10-25 02:28:30 [platform.py:459] Model config is missing. Skipping Ascend-specific config updates.
+VllmConfig() FAILED: ValidationError 1 validation error for VllmConfig
+  Value error, Model Runner V2 requires Triton. [type=value_error, input_value=ArgsKwargs(()), input_type=ArgsKwargs]
+    For further information visit https://errors.pydantic.dev/2.13/v/value_error
+rc=0

@@ -1,0 +1,17 @@
+16:03:12 D4-4 dev6/7 E2E ABBA start (Host SO 1dc46d7d patched, both kernels correctness-validated on this pair)
+16:05:22 === dev67 E2E base_r1 (device_baseline_diag_on.so) ===
+16:16:26 SESSION_OK base_r1
+16:18:36 === dev67 E2E cand_r1 (device_candidate_diag_on.so) ===
+16:29:32 SESSION_OK cand_r1
+16:31:42 === dev67 E2E cand_r2 (device_candidate_diag_on.so) ===
+16:37:59 SESSION_OK cand_r2
+16:40:09 === dev67 E2E base_r2 (device_baseline_diag_on.so) ===
+16:53:36 SESSION_OK base_r2
+16:53:36 D4-4 dev67 E2E done: 4/4 sessions OK
+17:00:37 === dev67 E2E cand_r3 (device_candidate_diag_on.so) [one-shot with monitor] ===
+17:11:24 SESSION_OK cand_r3 (completed=20 failed=0)
+17:11:24 === dev67 E2E base_r3 (device_baseline_diag_on.so) [one-shot with monitor] ===
+17:17:35 SESSION_FAILED base_r3 (completed=0 failed=20 of 20 — HANG/ERROR CONFIRMED)
+17:17:35 repro experiment (cand_r3+base_r3) finished
+17:17:56 === dev67 E2E cand_r4 (device_candidate_diag_on.so) [one-shot with monitor] ===
+17:28:49 SESSION_OK cand_r4 (completed=20 failed=0)

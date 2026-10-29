@@ -1,0 +1,43 @@
+{
+  "schema": "MEMFABRIC_UPSTREAM_SYNC_V2",
+  "date_local": "2026-10-29",
+  "upstream_url": "https://gitcode.com/GDD_ESCC/memfabric_hybrid",
+  "github_url": "https://github.com/10wvw01/memfabric_hybrid",
+  "branch": "dev-v1.2.0",
+  "previous_github_head": "beaf490b01222bae268dc3f3a640b1d0267befd6",
+  "upstream_head": "ba3e7f42873b6f2a4e8d118c03a14d1f43d39ab4",
+  "upstream_change": "5776ba3f3091e60ce6c01765978e8c733f2f4c19",
+  "upstream_head_time": "2026-10-28T18:53:32+08:00",
+  "github_mirror_head": "b9d46f97955b11a8b7a892e9fd8d516e66346a65",
+  "upstream_tree": "59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103",
+  "github_tree": "59f1fb6f1e4b8e4e8fdc8128c74d605bc8f35103",
+  "whole_tree_identical": true,
+  "sync_mode": "connector snapshot commit; existing GitHub history preserved; upstream commit identities differ",
+  "changed_files": [
+    "src/hybm/csrc/driver/hybm_gva.cpp",
+    "src/hybm/csrc/mm/hybm_vmm_based_segment.cpp"
+  ],
+  "effect": "310P VMM SetAccess uses physical IDs while MallocPhysical keeps logical IDs",
+  "add_api_changed": false,
+  "kver": 28,
+  "device_validation": "NOT_RUN",
+  "v3_fix_branch": {
+    "branch": "fix/310p-v3-orch-deploy-helper-20261029",
+    "head": "db38d75e8485d31451302219eb7a1bfeb1dd107c",
+    "tree": "4fe624cabbf62d6475f79cc63bd19dcbedacb0e7",
+    "base": "b9d46f97955b11a8b7a892e9fd8d516e66346a65",
+    "base_is_github_mirror_of_upstream_head": true,
+    "reference_implementation": "fix-310p-kfc-deploy-helper@131ee5ff (mf-fix worktree; deployed production 88d39285 lineage)",
+    "reason": "V3 first device run 2026-10-28 proved the locked in-process KFC deploy chain unusable under torch_npu (launch 507018/aicpu 0x2a; kfc_min.so absent device-side on this server). Ported the production-validated fork+exec orch_deploy_helper and made it mandatory: probe, CUST migration, copy and verify all run in the helper child; missing/failed helper is a hard error with no in-process or assume-predeployed fallback.",
+    "changed_files": [
+      "src/hybm/csrc/entity/hybm_sdma_orchestrator.cpp",
+      "src/hybm/csrc/entity/hybm_sdma_orchestrator.h",
+      "tools/aicpu_kernel_deploy/Makefile",
+      "tools/aicpu_kernel_deploy/README.md",
+      "tools/aicpu_kernel_deploy/.gitignore",
+      "tools/aicpu_kernel_deploy/orch_deploy_helper.cpp"
+    ],
+    "untouched": "ADD opcodes, KVER28 kernel/contract, SetAccess physical-id fix, public SMEM headers",
+    "device_validation": "NOT_RUN_AT_LOCK_TIME"
+  }
+}

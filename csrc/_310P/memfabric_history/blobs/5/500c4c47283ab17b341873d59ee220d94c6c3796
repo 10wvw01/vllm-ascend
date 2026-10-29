@@ -1,0 +1,18 @@
+=== S3-R2 pre-launch admission checklist (all asserted before launch, 2026-10-26T16:4xZ) ===
+[PASS] A1 devices 2,3: health 9x OK (3 samples x 2 dies + card rows), no user processes, ports 8000/8581 free
+[PASS] A2 no leftover vllm/bench/guardian processes
+[PASS] A3 production unchanged: libmf_hybm_core.so=88d392850733d7f166ce28615a8fdbf164b604979df9d3fc8cd0c10c64fd7bc1 (2 positions), orch_deploy_helper=849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310 (X_OK), cust three-piece set db7134b8/74ad4668/25e16b0a
+[PASS] A4 fixed SO copy: 1dc46d7dcbe583a5dbb78b4c65a0b5e22f9f352976c53ed31b761fa744f91a30
+[PASS] A5 isolated worktree: porcelain=0, vllm_ascend_C=07c831f0, libmf310p_v2_trial_device=b8ca96f0, libmf310p_device=8447a55a
+[PASS] A6 CPU preload precheck: only private copy mapped; helper env X_OK assertion PASS
+[PASS] A7 guardian v2 pattern self-test: 7/7 fatal matched, 8/8 expected clean (incl. 507018 context discrimination)
+
+=== launch config deltas vs S3-R (ONLY these two env) ===
+MF_SDMA_ORCH_DEPLOY_HELPER=/usr/local/memfabric_hybrid/1.2.0/aarch64-linux/lib64/orch_deploy_helper
+MF_LOG_LEVEL=1 (INFO visibility, best-effort; INFO did not surface - level set in adapter init runs after orchestrator init; helper printf lines unaffected)
+
+=== session identity ===
+session: S3R2_FUSED_SMOKE_20261026T165006Z
+launcher log env assertion: helper sha 849f93c0b4a96877d3e839ae7ceec4b6c479a8de331213f0d7a270c1198bd310 confirmed at launch
+serve pid 578331, EngineCore 578690, Worker_TP0 579001, Worker_TP1 579026
+duration 90s window; bench 25 requests random_input_len=4096 output 256, max_concurrency 10

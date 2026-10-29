@@ -1,0 +1,39 @@
+{
+  "schema": "A1_L2_L3_CALIBRATION_ATTESTED_V1",
+  "run_id": "a1-r1-l3-20261027-001",
+  "l2_verified_report": "l2_verified_report.json",
+  "actual_40_target_sites_each_rank": true,
+  "same_model_input_and_matmul_M_4096": true,
+  "stock_hccl_and_d4_kernel_route_verified": true,
+  "rank0_rank1_requests_aligned": true,
+  "model_forward_to_logits_completed_dependencies_verified": true,
+  "no_extra_device_sync_by_probe": true,
+  "all_four_sessions_no_profiler": true,
+  "same_card_and_software_fingerprints": true,
+  "numerical_correctness_verified": true,
+  "no_unresolved_device_errors": true,
+  "event_resolution_ms": 0.001,
+  "evidence_files": [
+    "sessions/S1/a1_prefill_rank0_pid976724.jsonl",
+    "sessions/S1/a1_prefill_rank1_pid977237.jsonl",
+    "sessions/F1/a1_prefill_rank0_pid1016105.jsonl",
+    "sessions/F1/a1_prefill_rank1_pid1016605.jsonl",
+    "sessions/F2/a1_prefill_rank0_pid1065133.jsonl",
+    "sessions/F2/a1_prefill_rank1_pid1065648.jsonl",
+    "sessions/S2/a1_prefill_rank0_pid1112977.jsonl",
+    "sessions/S2/a1_prefill_rank1_pid1113485.jsonl"
+  ],
+  "verification_notes": {
+    "actual_40_target_sites_each_rank": "L2 real-trace extraction: 40 unique site kernels per rank per step x 5 steps x 2 arms (analysis/*_rank*_step*_sites.json); v2 serve routing log shows exactly 40 MemFabricMmArV2LinearMethod310 selections per worker (10 o_proj + 30 out_proj)",
+    "same_model_input_and_matmul_M_4096": "Client fixed 4096-token prompt asserted via usage on every request; L2 stock site kernels carry real shapes M=4096,K=2048,N=2048; V2 first-call gate logged M=4096 aligned=True",
+    "stock_hccl_and_d4_kernel_route_verified": "Stock: 40x MatMulV3(NZ) each paired with adjacent hcom_allReduce (median gap 0.8us); V2: 40x V2TrialKernel<tiling1024,1024> per step replacing that chain; serve-worker /proc maps prove libmf310p_v2_trial_device.so = priv-libs D4 2a19390c loaded in all 8 L3 workers; first-call bit-exact gate passed in F1/F2",
+    "rank0_rank1_requests_aligned": "Same sequential request stream served by TP2 pair; per-session rank0/rank1 events have 1:1 step_id sequences (36 each, strictly increasing); paired samples use per-request max",
+    "model_forward_to_logits_completed_dependencies_verified": "L2 downstream check: for all 400 stock site pairs the next compute kernel starts >= AR end (stream-ordered), all 400 v2 sites next kernel >= fused kernel end; probe drains only query()-completed events after natural sync",
+    "no_extra_device_sync_by_probe": "a1_prefill_event_probe.py contains no synchronize call; every event row records synchronization_inserted=false",
+    "all_four_sessions_no_profiler": "l3_event mode: no profiler config in serve args, A1_310P_PREFILL_EVENTS_DIR only; manifests record profiler=false",
+    "same_card_and_software_fingerprints": "ASCEND_RT_VISIBLE_DEVICES=2,3 (card 16384) for all sessions; identical frozen identity (1dc46d7d/2a19390c/8eb65de9/25e16b0a) in all manifests; private loading verified by worker maps in all 4 sessions",
+    "numerical_correctness_verified": "All 4x36 client requests returned 4096 prompt + 1 completion tokens with no server error; V2 arms: first fused call verified bit-exact vs stock in-process (2 workers x F1/F2)",
+    "no_unresolved_device_errors": "grep 507014/507899 across all serve logs: none; npu-smi before/after per session healthy",
+    "event_resolution_ms": "NPU Event timing recorded at microsecond granularity (values e.g. 2346.049ms with 3 decimal us precision); 1us = 0.001ms"
+  }
+}

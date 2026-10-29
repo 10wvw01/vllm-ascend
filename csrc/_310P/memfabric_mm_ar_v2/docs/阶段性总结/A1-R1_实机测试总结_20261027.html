@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>A1-R1 | 310P3 大M 融合算子实机测试总结</title>
+<style>
+:root{--ink:#18283d;--muted:#617185;--blue:#175cd3;--bg:#f4f7fb;--paper:white;--line:#dbe4ee;--good:#127657;--bad:#b43b43;--warn:#946410}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink)}
+header{background:#102b4b;color:#fff;padding:48px max(24px,calc((100vw - 1080px)/2));}header p{color:#c6d7e7}header h1{font-size:clamp(27px,4vw,43px);line-height:1.25;margin:6px 0 13px}.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#a8c7e6}
+main{max-width:1130px;padding:28px 24px 88px;margin:auto}section{margin:28px 0;padding:28px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 22px #17314c08}
+h2{margin:0 0 14px;font-size:22px}h3{font-size:17px;margin:22px 0 9px}p{margin:8px 0 13px}
+a{color:var(--blue);word-break:break-word}small,.muted{color:var(--muted)}.lead{font-size:18px;max-width:900px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat{background:#f3f7fb;border:1px solid var(--line);border-radius:10px;padding:18px}.stat strong{display:block;font-size:29px;line-height:1.3}.stat span{display:block;color:var(--muted);font-size:13px}.positive{color:var(--good)}.negative{color:var(--bad)}.neutral{color:var(--warn)}
+table{border-collapse:collapse;width:100%;min-width:650px;font-variant-numeric:tabular-nums}th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#eef4fa}tr:last-child td{border:0}.scroll{overflow-x:auto}.tag{font-size:12px;font-weight:700;border-radius:99px;background:#eef4fa;padding:4px 9px;white-space:nowrap}
+.note{border-left:4px solid #d29a37;padding:10px 16px;background:#fff9ee}.timeline{display:grid;gap:13px}.step{display:grid;grid-template-columns:100px 1fr;gap:12px}.step>strong{color:var(--blue)}.barset{display:grid;gap:12px;margin-top:12px}.barline{display:grid;grid-template-columns:150px 1fr 92px;align-items:center;gap:9px}.track{height:22px;background:#e6edf5;border-radius:4px;overflow:hidden}.fill{height:100%;background:#6588ba}.fill.fast{background:#1f9e7b}.fill.slow{background:#c76e6e}.barline b{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.flow>div{padding:15px;background:#eef4fa;border-radius:8px}.flow strong{display:block}.flow .loss{background:#fff0ef}.risk{color:var(--bad)}footer{color:var(--muted);font-size:13px}
+@media(max-width:800px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.flow{grid-template-columns:repeat(2,1fr)}.barline{grid-template-columns:116px 1fr 65px}.step{grid-template-columns:1fr;gap:1px}header{padding:36px 24px}}
+@media print{body{background:#fff}section{break-inside:avoid;box-shadow:none}a{color:var(--ink)}header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head>
+<body>
+<header>
+<div class="eyebrow">ASCEND 310P3 / QWEN3.6 / MEMFABRIC / A1-R1</div>
+<h1>大 M 融合算子 A1-R1 实机测试总结</h1>
+<p class="lead">工程闭环已完成；现版 D4 虽在行主序独立算子对照中加速约 21%，但面对真实模型 NZ-Stock 时仍然更慢，未获得 Prefill 关键路径收益。</p>
+<p>实验批次 <b>a1-r1-batch-20261027-001</b>　｜　日期 2026-10-27　｜　工作分支 <code>work/310p-mm-ar-large-m-a1-20261026</code>　｜　证据提交 <code>ff885ff5</code></p>
+</header>
+<main>
+<section aria-label="关键结果"><h2>结论速览</h2><div class="stats">
+<div class="stat"><span>G0 / 双 Rank 正确性</span><strong class="positive">PASS</strong><span>私有装载、KFC首写、M2048</span></div>
+<div class="stat"><span>L1 M4096 行主序 Stock 对照</span><strong class="positive">+21.1%</strong><span>不是模型真实 Stock 基线</span></div>
+<div class="stat"><span>L2 M4096 实际 NZ-Stock</span><strong class="negative">+368µs</strong><span>V2 每站点多出的 Rank0 耗时；Rank1约+512µs</span></div>
+<div class="stat"><span>L3 无 Profiler Prefill</span><strong class="negative">−1.1%</strong><span>V2 两场各慢约26～28ms；L4未跑</span></div></div>
+<p class="note"><b>核心纠偏：</b>本轮 L1 的 Stock 使用行主序 <code>F.linear</code>；真实 Qwen3.6 使用 <code>aclnnMatmulWeightNz</code>。当前测得的“融合算子加速”不能外推为“真实模型站点加速”。</p></section>
+<section><h2>1. 环境、软件身份和准入</h2><div class="scroll"><table><thead><tr><th>项目</th><th>本轮实测与证据</th></tr></thead><tbody>
+<tr><td>物理硬件</td><td>310P3 卡16384；dev2/dev3 同卡双Die；全程独占及前后健康取证</td></tr>
+<tr><td>Host MemFabric</td><td>物理 DeviceID 修复版 <code>1dc46d7d…</code>，私有 <code>LD_LIBRARY_PATH</code> 加载</td></tr>
+<tr><td>D4 Kernel</td><td>Device SO <code>2a19390c…</code>；Vector Add Tile2048、Chunk1024、8个MM Core、Overlap=1</td></tr>
+<tr><td>Python插件 / KVER11</td><td>插件 <code>8eb65de9…</code>、KVER <code>25e16b0a…</code>；跨Rank PID/maps证实实际装载</td></tr>
+<tr><td>CPU回归</td><td>108 passed + 27 subtests；共享双Host SO和Device SO安装位置前后SHA未变</td></tr>
+<tr><td>首次M2048 Smoke</td><td>Stock/V2双Rank逐样本位精确，V2 status=0、首写/建池/KFC/IB探针通过，机器验收 <b>ALLOW_SCREEN</b></td></tr>
+<tr><td>设备告警</td><td>本批次未发生507014 / 507899 / 507018；<b>不代表历史Gate E P0已根治</b></td></tr>
+</tbody></table></div></section>
+<section><h2>2. L1：8场ABBA独立算子</h2><p>双Rank Event配对、进程隔离HCCL与MemFabric、HCCL跨流完成审计、每M40次/会话。测量有效，<b>对照对象不等价于真实Serving</b>。</p>
+<div class="scroll"><table><thead><tr><th>M</th><th>Stock 行主序 完整链 p50</th><th>V2 D4 p50</th><th>V2加速</th><th>用途</th></tr></thead><tbody>
+<tr><td>1024</td><td>855.5µs</td><td>962.2µs</td><td class="negative">−11.1%</td><td>非正式路由，诊断用</td></tr>
+<tr><td>2048</td><td>1649.0µs</td><td>1345.8µs</td><td class="positive">+22.5%</td><td>需新增NZ参照</td></tr>
+<tr><td>4096</td><td>3043.8µs</td><td>2513.7µs</td><td class="positive">+21.1%</td><td>需新增NZ参照</td></tr>
+</tbody></table></div>
+<h3>M4096关键耗时对照（µs；越短越好）</h3>
+<div class="barset">
+<div class="barline"><span>U1 行主序 Stock</span><div class="track"><div class="fill" style="width:100%"></div></div><b>3043.8</b></div>
+<div class="barline"><span>U1 V2 D4</span><div class="track"><div class="fill fast" style="width:82.6%"></div></div><b>2513.7</b></div>
+<div class="barline"><span>Serving NZ Stock R0</span><div class="track"><div class="fill" style="width:70.4%"></div></div><b>≈2142.8</b></div>
+<div class="barline"><span>Serving V2 R0</span><div class="track"><div class="fill slow" style="width:82.5%"></div></div><b>2510.8</b></div>
+</div>
+<small>Serving Stock为NZ-MM与HCCL各自p50的名义合计，非严格相配对完整链p50；两种实验的形态不同，不将两表直接作正式同场ABBA。</small>
+</section>
+<section><h2>3. L2：真实Qwen3.6目标层归因</h2>
+<p>每个Rank每步40处真实目标层：10处 <code>o_proj</code> + 30处 <code>out_proj</code>；M=4096，K=N=2048；真实Stock为 <code>aclnnMatmulWeightNz → hcom_allReduce</code>，V2为 D4 单Kernel。额外contiguous设备拷贝记为0。</p>
+<div class="scroll"><table><thead><tr><th>每目标站点设备时间（p50）</th><th>Rank0</th><th>Rank1</th></tr></thead><tbody>
+<tr><td>真实Stock NZ-MM</td><td>751.9µs</td><td>752.1µs</td></tr>
+<tr><td>真实Stock HCCL AR</td><td>1390.9µs</td><td>1165.5µs</td></tr>
+<tr><td>Stock名义完整链</td><td><b>2142.8µs</b></td><td><b>1917.6µs</b></td></tr>
+<tr><td>V2 D4融合</td><td><b>2510.8µs</b></td><td><b>2429.7µs</b></td></tr>
+<tr><td>V2额外开销</td><td class="negative">≈368.0µs</td><td class="negative">≈512.1µs</td></tr>
+</tbody></table></div><p class="note">U1普通行主序MM-only约1869µs，真实NZ-MM约752µs（约快2.5倍）。<b>不能认定V2慢点全部来自MM：</b>MM、SDMA、IB等待、规约与Add内部尚缺真实分段计时。另据20份逐站点记录复算，短Profiler的Step0第10层 <code>out_proj_8</code> 在两个Rank分别出现约70.59ms/70.82ms的V2 Kernel离群点；它与后续无Profiler周期峰值不属于同一请求，尚不能认定因果相关。</p></section>
+<section><h2>4. L3：无Profiler的真实Prefill关键区间</h2>
+<p>input4096 / output1 / TP2 / Eager / concurrency1；四次独立Serve，6次预热+30次有效请求每场；采用双Rank按请求取较慢设备Event，已对照L2 Trace审核Forward入口到Logits的依赖完成性。</p>
+<div class="scroll"><table><thead><tr><th>会话</th><th>臂</th><th>配对p50</th><th>p90</th><th>特征</th></tr></thead><tbody>
+<tr><td>S1</td><td>Stock</td><td>2346.08ms</td><td>2347.85ms</td><td>稳</td></tr>
+<tr><td>F1</td><td>V2</td><td>2372.20ms</td><td class="negative">2517.36ms</td><td>周期重尾</td></tr>
+<tr><td>F2</td><td>V2</td><td>2370.96ms</td><td class="negative">2450.99ms</td><td>周期重尾</td></tr>
+<tr><td>S2</td><td>Stock</td><td>2343.25ms</td><td>2345.42ms</td><td>稳</td></tr>
+</tbody></table></div>
+<p><b>F1−S1=+26.12ms，F2−S2=+27.70ms</b>，Stock跨会话漂移2.83ms；当前候选方向为明确无正收益。V2两场长尾精确出现在测量序号 <b>0、6、12、19、25</b>（从0计），双Rank同步，Stock没有相应尖峰。<b>后续离线假设（非本次实测根因）：</b>每6～7次约14～17秒，接近MemFabric默认15秒Epoch换纪；需以5秒预算和真实换纪日志交叉验证，不能现在断言SDMA或Epoch已定责。</p>
+<div class="flow"><div><strong>L1</strong>行主序Stock下V2 +21%</div><div class="loss"><strong>L2</strong>真实NZ站点V2更慢</div><div class="loss"><strong>L3</strong>设备Prefill V2慢约1.1%</div><div><strong>L4</strong>正式TTFT尚未执行</div></div>
+</section>
+<section><h2>5. 异常和研发风险</h2><div class="timeline">
+<div class="step"><strong>环境组装</strong><div>初次PYTHONPATH漏掉CANN <code>tbe</code>路径导致500001；修复后重新成功。属本批环境组装失败，不视为证明设备损坏。</div></div>
+<div class="step"><strong>清理工具</strong><div><code>pkill -f</code>误匹配自身Shell；已改为明确PID清理，保留当次日志。</div></div>
+<div class="step"><strong>Event冲刷</strong><div>L3首次只有35/36条有效设备Event，追加64token非测量请求自然冲刷最后一条事件；正式测量仅4096token请求。</div></div>
+<div class="step"><strong>稳定性P0</strong><div>历史Gate E/507014偶发挂死与首写风险未由一次无异常短跑消除，<b class="risk">不能开启生产默认</b>。</div></div>
+</div></section>
+<section><h2>6. 下一阶段：P0闭环顺序</h2>
+<div class="timeline"><div class="step"><strong>P0-1 NZ Stock</strong><div>U1新增真实模型同源NZ布局与相同HCCL完成语义的主参照；保留row-major仅供历史诊断；先做M2048/M4096双RankABBA及真实op路线校验。</div></div>
+<div class="step"><strong>P0-2 2.5ms剖面</strong><div>以正式D4不改协议为前提，短Trace和受控诊断内核拆解MM、等待Ready、signal、SDMA完成mail、Add、IB/DONE尾部及相互重叠。没有实测前不得把剩余时间臆称Host税。</div></div>
+<div class="step"><strong>P0-3 周期长尾</strong><div>双Rank按请求序号相关联，在每6～7次尖峰附近取池epoch、Host控制路径和SDMA/IB进度；先离线复核周期，再用受控短窗判因，零新同步干扰主计时。</div></div>
+<div class="step"><strong>晋级条件</strong><div>改版V2在真实NZ L1下有收益、L2目标层路径可信、L3稳定明显正向之后，才启动4096/2048/TP2/并发10/50请求的正式L4；发布Gate E单列。</div></div></div>
+</section>
+<section><h2>7. 原始证据与版本核验</h2><p>
+<a href="https://github.com/10wvw01/vllm-ascend/blob/dev/310p-memfabric-mm-ar/csrc/_310P/memfabric_mm_ar_v2/docs/A1_R1_实机复盘与优化优先级_20261027.md">主线独立复盘</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/A1_R1_BATCH_REPORT_20261027.md">R1实机报告</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/s1_smoke/smoke_gate.json">Smoke机器门</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/s3_confirm/u1_confirm/a1_assessment.json">L1八场ABBA</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/s5_l3/l2_verified_report.json">L2逐层门</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/s5_l3/l3_result.json">L3原始结果</a>　 ·
+<a href="../../evidence/a1_r1_batch_20261027/s4_l2/SERVER_ONLY_raw_traces.json">服务器原始Profiler SHA清单</a>　 · <a href="../../evidence/a1_r1_batch_20261027/analysis/a1_r1_p0_offline_reaudit_20261027.json">P0离线复算：70ms异常及周期长尾</a>
+</p><p>源码核验：<code>src/op_kernel/mf310p_v2_kernel.asc</code>的正式生产常量为 <code>kProductionAddTile=2048</code>。Profiler的<code>V2TrialKernel&lt;tiling1024,1024&gt;</code>指MM Tiling/Chunk，不能据此判断Add Tile为1024。</p>
+<p class="muted">口径：此报告只复述和交叉核验已归档的A1-R1现场证据，不声称已在本次总结期间重复运行310P，也不将独立站点耗时累加视作精准的L3时延归因。HTML提供屏幕阅读与打印布局；GitHub代码视图可能显示HTML源文件，可下载本页在浏览器打开。</p></section>
+<footer>© 310P3 / V2 MM+MemFabric AllReduce · A1-R1 阶段性复盘 · 2026-10-27</footer>
+</main></body></html>
