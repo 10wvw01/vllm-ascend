@@ -85,3 +85,9 @@ Host和Device必须同版重编；旧3301会话不能混用。无新增设备性
 新增profile3303七核计算/专职通信、3304 Core0末尾计算，原3302保留。
 布局、风险、两轮审核与八会话执行入口见[A3_SEAT_SCHEDULE](A3_SEAT_SCHEDULE.md)。
 新增设备编译与实测NOT_RUN；原六门禁逐候选通过后才短测，不签设备GO。
+
+
+## 统一I/O计时与三A3阶段打点
+
+新增独立进程Stock/V2/V3/三A3对照、Host及Device独立打点与扰动控制，
+入口与准入限制见[UNIFIED_TIMING](UNIFIED_TIMING.md)。新设备编译与实测NOT_RUN。

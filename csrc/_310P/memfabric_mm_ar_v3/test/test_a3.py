@@ -19,13 +19,16 @@ def test_actual_a3_progress(tmp_path):
         and any(isinstance(t, ast.Name) and t.id == "harness" for t in n.targets)
     )
     harness = harness.split("struct Transport {")[0]
-    harness = harness.replace("#define __aicore__", "#define __gm__\nusing smem_shm_sdma_op_t=int;\n#define __aicore__")
+    harness = harness.replace(
+        "#define __aicore__",
+        "#define TRACE_NOW() 0\n#define __gm__\nusing smem_shm_sdma_op_t=int;\n#define __aicore__",
+    )
     harness = harness.replace("#include <cassert>", "#include <cassert>\n#include <vector>")
     harness += "\nvoid FlushLine(uint8_t*){}\n"
     transport = kernel[kernel.index("struct Transport {") : kernel.index("// One mailbox consumer")]
     progress = kernel[
         kernel.index("// A3 first READY") : kernel.index(
-            "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM>"
+            "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM, bool TRACE = false>"
         )
     ]
     runner = r"""
@@ -72,7 +75,7 @@ for(unsigned groups:{1,2,4,8})for(unsigned packets:{1,2,4,64}){
 }}
 """
     source = tmp_path / "a3.cpp"
-    source.write_text(harness + transport + progress + runner)
+    source.write_text("#define TRACE_NOW() 0\n" + harness + transport + progress + runner)
     binary = tmp_path / "a3"
     subprocess.run(["g++", "-std=c++17", "-O2", "-pthread", str(source), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True, timeout=90)
@@ -113,12 +116,13 @@ def test_actual_a3_mail_rejection(tmp_path):
     kernel = (HERE.parent / "src/op_kernel/mf310p_v3_kernel.asc").read_text()
     progress = kernel[
         kernel.index("// A3 first READY") : kernel.index(
-            "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM>"
+            "template <const MatmulApiStaticTiling& TILING, uint32_t MM_ROWS, bool MM, bool TRACE = false>"
         )
     ]
     source = tmp_path / "reject.cpp"
     source.write_text(
         r"""
+#define TRACE_NOW() 0
 #include <cstdint>
 #include <stdexcept>
 #include <cassert>

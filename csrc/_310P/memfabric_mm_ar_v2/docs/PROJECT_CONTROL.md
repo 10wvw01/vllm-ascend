@@ -529,3 +529,13 @@ c1024组2/4会话方向不一致，不签。12:06:42外部跨卡进程（同占5
 未杀租户、失败现场全保留、未重试ADD；不签整批GO。
 [实验记录](../../memfabric_mm_ar_v3/experiments/a3-compare-20261029-r2-card16384/README.md)。
 恢复：manifest已冻结，约20分钟独占窗口即可补完整批次（compare_a3.py start --card 16384 --devices 2,3）。
+
+
+## 统一完整I/O计时与A3阶段归因（代码完成，设备NOT_RUN）
+
+本轮在591a61fa实机归档之上补齐Stock/V2 D4/V3/三A3统一Tensor输入到ND输出ready边界。
+新增独立进程对照入口、Stock NZ/HCCL路由门、V2 D4/KVER11冻结、11会话前后对照；
+三A3有无打点前/Host/Device/无打点后，设备每核与座位独占cacheline，默认关闭。
+详见[统一计时合同与执行单](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)。
+每核占比与通信暴露等待分别统计，禁止重叠时长相加、Wall−Event当Host或fused−partial当MM。
+本地无CANN/TorchNPU/NPU，新设备编译、资源、数值、路由与归因NOT_RUN，Stock默认不变。

@@ -20,7 +20,7 @@ extern "C" int mf310p_v3_device_ib(uint64_t, uint64_t, uint32_t, uint32_t, aclrt
 
 extern "C" int mf310p_a3_device_run(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t,
     uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint32_t, uint32_t, uint32_t,
-    uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, aclrtStream);
+    uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint64_t, aclrtStream);
 
 struct mf310p_v3_context {
     smem_shm_t pool = nullptr;
@@ -97,7 +97,7 @@ int LaunchA3(mf310p_v3_context* s, uint64_t x, uint64_t w, uint32_t rows, uint32
         s->work + kA3CtrlOff, s->peer + kA3CtrlOff + 64,
         s->expectedWork + slot * kArenaBytes, s->expectedWork + kA3CtrlOff + 64,
         rows, compute, comm, s->rank, s->epoch ? s->epoch : 1, s->packet, mode, slot,
-        admit | (role << 1), enabled, s->stream);
+        admit | (role << 1), enabled, s->stamp && s->trace ? reinterpret_cast<uint64_t>(s->trace) : 0, s->stream);
 }
 bool A3Shape(mf310p_v3_context* s, uint32_t rows, uint32_t compute, uint32_t comm, uint32_t mode)
 {
@@ -283,7 +283,7 @@ extern "C" int mf310p_v3_trace_control(mf310p_v3_context* s, uint32_t enable)
     if (s->failed) return Error("failed session", -27);
     if (enable && !s->trace) {
         void* buffer = nullptr;
-        int rc = aclrtMalloc(&buffer, mfv3::kTraceBytes, ACL_MEM_MALLOC_HUGE_FIRST);
+        int rc = aclrtMalloc(&buffer, IsA3(s->protocol) ? 8192 : mfv3::kTraceBytes, ACL_MEM_MALLOC_HUGE_FIRST);
         if (rc) return Error("trace buffer allocation", rc);
         s->trace = buffer;
     }
@@ -292,11 +292,11 @@ extern "C" int mf310p_v3_trace_control(mf310p_v3_context* s, uint32_t enable)
 }
 extern "C" int mf310p_v3_trace_fetch(mf310p_v3_context* s, void* host, uint32_t bytes)
 {
-    if (!s || !host || bytes != mfv3::kTraceBytes) return Error("trace fetch arguments", -1);
+    if (!s || !host || bytes != (IsA3(s->protocol) ? 8192u : mfv3::kTraceBytes)) return Error("trace fetch arguments", -1);
     if (s->failed) return Error("failed session", -27);
     if (!s->trace) return Error("trace buffer not allocated", -5);
     // Caller must have synchronized the owning stream first.
-    return Error("trace D2H", aclrtMemcpy(host, bytes, s->trace, mfv3::kTraceBytes, ACL_MEMCPY_DEVICE_TO_HOST));
+    return Error("trace D2H", aclrtMemcpy(host, bytes, s->trace, bytes, ACL_MEMCPY_DEVICE_TO_HOST));
 }
 // Collective allocation is deliberately outside the kernel. A released Storage
 // becomes reusable only after the owning stream drains on BOTH ranks.

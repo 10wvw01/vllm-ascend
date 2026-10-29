@@ -42,10 +42,11 @@ def test_actual_a3_host_no_hot_sync_or_collective(tmp_path, creator, role):
     text = (
         text[:a]
         + r"""
-int a3Launches=0,lastAdmit=-1;
+int a3Launches=0,lastAdmit=-1;uint64_t lastTrace=0;
 extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t s,uint64_t,
 uint64_t,uint64_t,uint64_t ctrl,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t admit,uint32_t enabled,aclrtStream){
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t admit,uint32_t enabled,uint64_t trace,aclrtStream){
+lastTrace=trace;
 if(enabled){a3Launches++;lastAdmit=admit;assert(s==0x10000000+2*mfv3::kArenaBytes);
 assert(ctrl==s+mfv3::kArenaBytes);assert(y==0x10000000||y==0x10000000+mfv3::kArenaBytes);}return 0;}
 """
@@ -56,12 +57,15 @@ assert(ctrl==s+mfv3::kArenaBytes);assert(y==0x10000000||y==0x10000000+mfv3::kAre
         + r"""
 int main(){mf310p_v3_context* s=nullptr;assert(!mf310p_a3_create(0,"mock",4<<20,&s));
 assert(!mf310p_v3_ib_probe(s,64,(void*)1));assert(!mf310p_a3_warm(s,(void*)1));
+assert(!mf310p_v3_trace_control(s,1));assert(s->trace&&s->stamp);
+uint64_t captured[1024];assert(!mf310p_v3_trace_fetch(s,captured,sizeof(captured)));
+assert(mf310p_v3_trace_fetch(s,captured,4096));
 int sync=syncCalls,ctl=controlCalls,clears=asyncClears;unsigned slot,gen;uint64_t addr;
 for(unsigned i=0;i<2;i++){
 assert(!mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr));
 assert(slot==i&&gen==i+1);
 assert(!mf310p_a3_run(s,4096,8192,4096,1024,512,0,slot,gen,1,(void*)1));
-assert(lastAdmit==1);}
+assert(lastAdmit==1);assert(lastTrace==reinterpret_cast<uint64_t>(s->trace));}
 assert(mf310p_a3_reserve(s,4096,1024,512,0,(void*)1,&slot,&gen,&addr)==-23);
 assert(slot==0&&gen==3);
 assert(!mf310p_a3_run(s,4096,8192,4096,1024,512,0,slot,gen,0,(void*)1));

@@ -232,3 +232,11 @@ profile3302减少一封正常控制消息、计算前跨Rank等待、本地fan-o
 维持完整pool-return窗口、双Rank配对max及Host Wall；每臂跨轮和A3前后漂移>5%不签稳定收益。
 历史Stock仍只作跨批方向比较，不重跑旧性能臂；当前设备编译/数值/性能全部NOT_RUN。
 详见[席位设计和执行合同](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+
+
+## 统一计时/归因代码：无新增实机数字
+
+新合同ND_X_NZ_W_TO_READY_ND_Y_V1，统一Stock/V2/V3/A3 Tensor调用至输出完成，
+所有每次必需成本保留；无打点性能与Host/Device打点分别报告。旧历史结果不重标为新合同。
+11会话同批对照与V2冻结见[UNIFIED_TIMING](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)。
+打点扰动与漂移检查、每核ticks占比不等于全局串行分解；新设备编译/测量NOT_RUN。

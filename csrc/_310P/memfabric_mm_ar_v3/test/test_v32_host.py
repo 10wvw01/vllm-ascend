@@ -57,7 +57,7 @@ return 0;}
 #include <cassert>
 extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,aclrtStream){return 0;}
 int enabledLaunches=0;
 uint64_t g_traceSeen=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
@@ -209,7 +209,7 @@ def test_real_host_merged_wave_fallback(tmp_path):
 #include <cassert>
 extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,aclrtStream){return 0;}
 int enabledLaunches=0;
 uint64_t g_traceSeen=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,
@@ -275,7 +275,7 @@ def test_real_host_trace_control_and_fetch(tmp_path):
 #include <cassert>
 extern "C" int mf310p_a3_device_run(uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,
 uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint32_t,uint32_t,uint32_t,
-uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,aclrtStream){return 0;}
+uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint64_t,aclrtStream){return 0;}
 int enabledLaunches=0;
 uint64_t g_traceSeen=0;
 extern "C" int mf310p_v3_device_run(uint64_t,uint64_t,uint64_t,uint64_t y,uint64_t work,uint64_t,

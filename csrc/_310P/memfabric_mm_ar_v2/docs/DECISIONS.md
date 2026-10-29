@@ -257,3 +257,13 @@ Core0末尾候选必须先生产被当前批次覆盖的自有行，避免等待
 7核负载取整可能显著增加最忙核工作，因此两种64/128行MM粒度均同批前后A3对照。
 既有首READY/ADD/最终排空/输出租约不变，不修改MemFabric，不增加Host热态同步。
 新设备编译与性能NOT_RUN，见[A3_SEAT_SCHEDULE](../../memfabric_mm_ar_v3/A3_SEAT_SCHEDULE.md)。
+
+
+## ADR-032｜统一Tensor完整I/O计时及A3独立打点对照
+
+Stock/V2/V3/A3必须从就绪ND输入与NZ权重到完整ND输出ready同层级计时；
+必需reserve/wrap/seed/copy/事件不得剔除。Wall主指标、Event辅助，同下标双Rank max。
+采用独立进程Stock/V2前后控制和A3无打点前/Host/Device/无打点后，确认扰动与漂移。
+复用公开signal/wait/quiet，不改MemFabric。新A3私有device ABI增加trace地址，Host/Device同版重编。
+计数未校准仅标ticks，不跨核/Die直接相减或对重叠工作求100%占比。
+见[UNIFIED_TIMING](../../memfabric_mm_ar_v3/UNIFIED_TIMING.md)，设备验证NOT_RUN。

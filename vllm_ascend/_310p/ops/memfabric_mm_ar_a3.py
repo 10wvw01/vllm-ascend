@@ -8,6 +8,7 @@ No hot Host collective or stream synchronization. Not enabled in serving.
 from __future__ import annotations
 
 import ctypes
+import time
 
 try:
     from .memfabric_mm_ar_v3 import V3Session
@@ -30,6 +31,7 @@ class A3Session(V3Session):
         self.initialized = False
         self.inflight = []
         self.free_events = []
+        self.phase_log = None
         p, u, q = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint64
         signatures = {
             "mf310p_a3_warm": [p, p],
@@ -73,6 +75,7 @@ class A3Session(V3Session):
         import torch_npu
 
         with self.lock:
+            stamps = [time.perf_counter_ns()] if getattr(self, "phase_log", None) is not None else None
             self._ready()
             if not self.initialized:
                 raise RuntimeError("call initialize collectively after IB/ADD probes")
@@ -92,6 +95,8 @@ class A3Session(V3Session):
                     raise ValueError("A3 weight requires native NZ")
             inputs, self.pending = self.pending, []
             slot, generation, address = ctypes.c_uint32(), ctypes.c_uint32(), ctypes.c_uint64()
+            if stamps is not None:
+                stamps.append(time.perf_counter_ns())
             rc = self.lib.mf310p_a3_reserve(
                 self.handle,
                 x.shape[0],
@@ -103,6 +108,8 @@ class A3Session(V3Session):
                 ctypes.byref(generation),
                 ctypes.byref(address),
             )
+            if stamps is not None:
+                stamps.append(time.perf_counter_ns())
             if rc not in (0, -23):
                 self._check(rc, "A3 reserve")
             admitted = rc == 0
@@ -124,6 +131,8 @@ class A3Session(V3Session):
                 except BaseException as exc:
                     release()
                     admitted, reason = False, exc
+            if stamps is not None:
+                stamps.append(time.perf_counter_ns())
             if not self.free_events:
                 admitted, reason = False, RuntimeError("A3 pending input capacity exhausted; stop BOTH ranks")
             try:
@@ -145,15 +154,45 @@ class A3Session(V3Session):
                 if not admitted:
                     self.failed = True
                     raise RuntimeError("A3 first READY rejected locally; stop BOTH ranks") from reason
+                if stamps is not None:
+                    stamps.append(time.perf_counter_ns())
                 event = self.free_events.pop()
                 # Keep inputs BEFORE recording: record failure cannot free live input.
                 self.inflight.append((event, inputs))
                 event.record(self.stream)
+                if stamps is not None:
+                    stamps.append(time.perf_counter_ns())
+                    self.phase_log.append(
+                        dict(
+                            zip(
+                                ("validate_reap", "reserve", "wrap", "enqueue", "input_event"),
+                                ((b - a) / 1000 for a, b in zip(stamps, stamps[1:])),
+                            )
+                        )
+                    )
             except BaseException:
                 self.failed = True
                 self.pending.extend(inputs)  # preserve uncertain wave inputs
                 raise
             return out
+
+    def set_trace(self, enabled):
+        with self.lock:
+            self._ready()
+            self.stream.synchronize()
+            fn = self.lib.mf310p_v3_trace_control
+            fn.argtypes, fn.restype = [ctypes.c_void_p, ctypes.c_uint32], ctypes.c_int
+            self._check(fn(self.handle, int(enabled)), "A3 trace control")
+
+    def fetch_trace(self):
+        with self.lock:
+            self._ready()
+            self.stream.synchronize()
+            data = (ctypes.c_uint64 * 1024)()
+            fn = self.lib.mf310p_v3_trace_fetch
+            fn.argtypes, fn.restype = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint32], ctypes.c_int
+            self._check(fn(self.handle, data, ctypes.sizeof(data)), "A3 trace fetch")
+            return list(data)
 
     def synchronize_check(self):
         super().synchronize_check()

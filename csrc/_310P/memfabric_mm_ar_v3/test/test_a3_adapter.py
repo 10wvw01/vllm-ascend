@@ -140,3 +140,18 @@ def test_bounded_input_capacity_failure_still_notifies_peer(session):
     with pytest.raises(RuntimeError, match="first READY rejected"):
         session.run_pool(Input(), partial=True)
     assert session.failed and session.lib.admits == [0]
+
+
+def test_host_attribution_is_opt_in_and_preserves_output_lifetime(session):
+    session.phase_log = None
+    out = session.run_pool(Input(), partial=True)
+    assert session.phase_log is None
+    del out
+    session.phase_log = []
+    out = session.run_pool(Input(), partial=True)
+    assert len(session.phase_log) == 1
+    assert set(session.phase_log[0]) == {"validate_reap", "reserve", "wrap", "enqueue", "input_event"}
+    assert all(value >= 0 for value in session.phase_log[0].values())
+    assert session.lib.held  # attribution must not release a live output
+    del out
+    assert not session.lib.held
