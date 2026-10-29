@@ -176,6 +176,48 @@ def test_guard_stops_busy_cross_card_and_extra_pids():
         guard.assess(extra, stage_running=True)
 
 
+def test_guard_shared_card_mode_tolerates_external_pids_but_stays_recorded():
+    busy = guard.parse_info(snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 16384 0 | 111 |\n"), 38144)
+    checked = guard.assess(busy, stage_running=False, allow_external_target=True)
+    assert checked["target_pids"] == [111, 222]
+    assert checked["cross_card"] == [111]
+    assert checked["target_pid_origin"] == "shared_card_mode_external_pids_tolerated"
+    # Default stays exclusive: same snapshot must still fail without the flag.
+    with pytest.raises(guard.LeaseLost):
+        guard.assess(busy, stage_running=False)
+
+
+def test_guard_shared_card_run_stage_skips_idle_preflight(tmp_path, monkeypatch):
+    state = {"phase": 0}
+    sequences = [
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # external pair present at preflight
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n| 38144 0 | 333 |\n| 38144 1 | 444 |\n"),  # + own ranks
+        snapshot("| 38144 0 | 111 |\n| 38144 1 | 222 |\n"),  # external pair remains after exit
+    ]
+
+    def poll(_card):
+        raw = sequences[min(state["phase"], len(sequences) - 1)]
+        state["phase"] += 1
+        return raw, guard.parse_info(raw, 38144)
+
+    child = subprocess.Popen([sys.executable, "-c", "print('shared_stage_done')"], start_new_session=True)
+
+    def child_poll():
+        return 0 if state["phase"] >= len(sequences) else None
+
+    monkeypatch.setattr(guard, "sample", poll)
+    monkeypatch.setattr(guard.subprocess, "Popen", lambda *a, **k: child)
+    monkeypatch.setattr(child, "poll", lambda: child_poll())
+    rc = guard.run_stage(
+        38144, tmp_path / "guard.jsonl", 0.01, ["unused"], 5, allow_external_target=True
+    )
+    assert rc == 0
+    events = [json.loads(line) for line in (tmp_path / "guard.jsonl").read_text().splitlines()]
+    assert events[0]["lease_mode"] == "SHARED_CARD_OPERATOR_AUTHORIZED"
+    assert events[1]["event"] == "PREFLIGHT_PASS"
+    assert events[1]["target_pid_origin"] == "shared_card_mode_external_pids_tolerated"
+
+
 def test_guard_runtime_stop_preserves_unrelated_process(tmp_path, monkeypatch):
     calls = [0]
     unrelated = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])

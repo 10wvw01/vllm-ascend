@@ -88,6 +88,11 @@ def main():
     p.add_argument("--devices", default="4,5")
     p.add_argument("--lease-note", default="real exclusive lease required for whole campaign")
     p.add_argument("--timeout", type=int, default=1800)
+    p.add_argument(
+        "--allow-shared-card",
+        action="store_true",
+        help="operator-authorized shared-card run: tolerate external target PIDs; health stays fail-closed",
+    )
     a = p.parse_args()
     a.out = a.out.resolve()
     if a.action == "status":
@@ -136,6 +141,8 @@ def main():
                 "--timeout",
                 str(a.timeout),
             ]
+            if a.allow_shared_card:
+                command.append("--allow-shared-card")
             subprocess.run(command, check=True, timeout=30)
             deadline = time.monotonic() + a.timeout + 120
             while not (path / "result.json").exists():

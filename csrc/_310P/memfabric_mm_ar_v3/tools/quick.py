@@ -77,6 +77,7 @@ def run(a):
                 "lease_note": a.lease_note,
                 "baseline_arms": [],
                 "timeout_seconds": a.timeout,
+                "lease_mode": "SHARED_CARD_OPERATOR_AUTHORIZED" if a.allow_shared_card else "EXCLUSIVE",
                 "dependency_findings": manifest["dependency"]["findings"],
                 "scope": "short operator screen only, no release/Graph/model claim",
             },
@@ -137,7 +138,15 @@ def run(a):
             if a.a3:
                 command.extend(["--a3-variant", a.a3_variant, "--compute-rows", str(a.compute_rows)])
         result["device_test"] = "STARTED"
-        ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
+        ret = run_stage(
+            a.card,
+            a.out / "lease_guard.jsonl",
+            2,
+            command,
+            a.timeout,
+            deploy_flag_dir=a.out,
+            allow_external_target=a.allow_shared_card,
+        )
         result["exit_code"] = ret
         if ret:
             raise RuntimeError(f"V3 worker/lease guard stopped with {ret}; do not auto-retry")
@@ -191,6 +200,11 @@ def main():
         cmd.add_argument("--packet-bytes", type=int, choices=[1 << 20, 2 << 20, 4 << 20], default=4 << 20)
         cmd.add_argument("--timeout", type=int, default=600)
         cmd.add_argument("--lease-note", default="operator must obtain an exclusive dual-die window")
+        cmd.add_argument(
+            "--allow-shared-card",
+            action="store_true",
+            help="operator-authorized shared-card run: tolerate external target PIDs; health stays fail-closed",
+        )
     status = sub.add_parser("status")
     status.add_argument("--out", required=True, type=Path)
     a = p.parse_args()

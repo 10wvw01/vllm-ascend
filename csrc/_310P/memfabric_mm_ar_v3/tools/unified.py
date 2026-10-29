@@ -55,6 +55,7 @@ def run(a):
                 "lease_note": a.lease_note,
                 "arms": [a.arm],
                 "timeout_seconds": a.timeout,
+                "lease_mode": "SHARED_CARD_OPERATOR_AUTHORIZED" if a.allow_shared_card else "EXCLUSIVE",
                 "scope": "full Tensor input/output, independent process per arm; paired controls",
             },
         )
@@ -123,7 +124,15 @@ def run(a):
             str(a.compute_rows),
         ]
         result["device_test"] = "STARTED"
-        ret = run_stage(a.card, a.out / "lease_guard.jsonl", 2, command, a.timeout, deploy_flag_dir=a.out)
+        ret = run_stage(
+            a.card,
+            a.out / "lease_guard.jsonl",
+            2,
+            command,
+            a.timeout,
+            deploy_flag_dir=a.out,
+            allow_external_target=a.allow_shared_card,
+        )
         result["exit_code"] = ret
         if ret:
             raise RuntimeError(f"unified worker/lease guard stopped with {ret}; do not auto-retry")
@@ -160,6 +169,11 @@ def main():
         cmd.add_argument("--compute-rows", type=int, choices=[512, 1024], default=1024)
         cmd.add_argument("--timeout", type=int, default=900)
         cmd.add_argument("--lease-note", default="operator must obtain an exclusive dual-die window")
+        cmd.add_argument(
+            "--allow-shared-card",
+            action="store_true",
+            help="operator-authorized shared-card run: tolerate external target PIDs; health stays fail-closed",
+        )
     status = sub.add_parser("status")
     status.add_argument("--out", required=True, type=Path)
     a = p.parse_args()

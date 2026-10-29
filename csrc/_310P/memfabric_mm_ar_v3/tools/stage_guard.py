@@ -73,9 +73,25 @@ def parse_info(raw: str, card: int) -> dict:
     }
 
 
-def assess(snap: dict, *, stage_running: bool, max_rank_pids: int = 2, deploy_allowance: int = 0) -> dict:
+def assess(
+    snap: dict,
+    *,
+    stage_running: bool,
+    max_rank_pids: int = 2,
+    deploy_allowance: int = 0,
+    allow_external_target: bool = False,
+) -> dict:
+    """allow_external_target: operator-authorized shared-card lease; skips target occupancy
+    exclusivity checks (idle preflight, cross-card-on-target, own-PID count cap) while health,
+    parse and signal fail-closed checks stay active. Occupancy is still recorded, never waived."""
     target = snap["target"]
     outside = snap["outside"]
+    if allow_external_target:
+        return {
+            "target_pids": sorted(target),
+            "cross_card": sorted(target & outside),
+            "target_pid_origin": "shared_card_mode_external_pids_tolerated",
+        }
     if not stage_running and target:
         raise LeaseLost(f"target must be idle before stage, found PIDs={sorted(target)}")
     cross = target & outside
@@ -139,6 +155,7 @@ def run_stage(
     deploy_extra_pids: int = 2,
     window_extra_pids: int = 2,
     deploy_persist_s: float = 60.0,
+    allow_external_target: bool = False,
 ) -> int:
     if not log.is_absolute() or not log.parent.is_dir() or log.is_symlink():
         raise ValueError("absolute log under an existing directory required")
@@ -146,11 +163,17 @@ def run_stage(
         raise ValueError("stage command required")
     if deploy_extra_pids < 0 or window_extra_pids < 0 or not (1.0 <= deploy_persist_s <= 600.0):
         raise ValueError("deploy window bounds invalid")
-    record(log, "PREFLIGHT_START", argv=command, card=card)
+    record(
+        log,
+        "PREFLIGHT_START",
+        argv=command,
+        card=card,
+        lease_mode="SHARED_CARD_OPERATOR_AUTHORIZED" if allow_external_target else "EXCLUSIVE",
+    )
     last_raw = ""
     try:
         last_raw, before = sample(card)
-        checked = assess(before, stage_running=False)
+        checked = assess(before, stage_running=False, allow_external_target=allow_external_target)
     except LeaseLost as exc:
         record(log, "STOP", phase="PREFLIGHT", reason=str(exc))
         if last_raw:
@@ -179,8 +202,13 @@ def run_stage(
                 raise LeaseLost("V3 stage wall-clock deadline exceeded")
             last_raw, snapshot = sample(card)
             declared = deploy_window_open(deploy_flag_dir)
-            verified = assess(snapshot, stage_running=True, deploy_allowance=window_allowance())
-            if len(snapshot["target"]) > 2:
+            verified = assess(
+                snapshot,
+                stage_running=True,
+                deploy_allowance=window_allowance(),
+                allow_external_target=allow_external_target,
+            )
+            if not allow_external_target and len(snapshot["target"]) > 2:
                 # 分层：无窗口或超额>allowance 已在 assess 内 STOP；此处只剩
                 # "声明窗口内 3~6 个进程"——自有助手/编译基础设施子进程形态，仅有界容忍。
                 if not declared:
@@ -201,7 +229,12 @@ def run_stage(
                 record(
                     log,
                     "POST_STAGE_LEASE",
-                    **assess(final, stage_running=True, deploy_allowance=window_allowance()),
+                    **assess(
+                        final,
+                        stage_running=True,
+                        deploy_allowance=window_allowance(),
+                        allow_external_target=allow_external_target,
+                    ),
                 )
                 record(log, "STAGE_EXIT", exit_code=ret)
                 return ret
