@@ -29,11 +29,21 @@ def timed_call(op, stream, events, clock):
     return out, {"wall_us": wall, "event_us": e0.elapsed_time(e1) * 1000}
 
 
+def device_clock_unavailable(raw):
+    """dav-2002 (Ascend 310P3) has no AICore-readable cycle source: AscendC
+    GetSystemCycle() is REPORT_NOT_SUPPORT there and returns 0, and the SYS_CNT
+    instruction is rejected by the dav-2002 ISA. A fresh valid header with all
+    stamp slots zero proves the kernel ran but the clock reads zero."""
+    return raw[0] == 0x41335432 and not any(raw[8:])
+
+
 def decode_trace(raw, rows, compute, comm, epoch=None):
     if len(raw) != 1024 or raw[0] != 0x41335432 or list(raw[1:4]) != [rows, compute, comm]:
         raise ValueError("wrong trace geometry/version")
     if epoch is not None and raw[4] != epoch:
         raise ValueError("stale trace epoch")
+    if device_clock_unavailable(raw):
+        raise ValueError("device clock unavailable: all stamps are zero")
     h, bands, groups = compute // 8, rows // (compute // 8), rows // comm
 
     def delta(a, b):
@@ -192,31 +202,38 @@ def paired_report(a, b):
             elif case["stage"] == "device":
                 if not all("device" in sample for sample in samples):
                     raise ValueError("missing Device attribution")
-                expected_profile = {"a3": 3302, "a3-2": 3303, "a3-tail": 3304}[config["arm"]]
-                for sample in samples:
-                    raw = sample["device"]["raw"]
-                    decoded = decode_trace(raw, case["M"], config["compute_rows"], case["comm_rows"])
-                    if raw[5] != rank["rank"] or raw[6] != expected_profile or decoded != sample["device"]:
-                        raise ValueError("trace rank/profile/derived evidence mismatch")
-                item["units"] = "device_counter_ticks"
-                item["core_p50_producer_fraction"] = [
-                    {
-                        name: median(sample["device"]["cores"][c]["producer_fraction"][name] for sample in samples)
-                        for name in ("mm", "s_visibility", "seed_y_visibility", "publish")
+                if all(sample["device"].get("unavailable") for sample in samples):
+                    # 310P3 hardware has no AICore cycle source; recorded per session
+                    # with raw-header evidence by the worker. Timing stages stay valid.
+                    item["device_attribution"] = "UNAVAILABLE_DAV2002_NO_AICORE_CLOCK"
+                elif any(sample["device"].get("unavailable") for sample in samples):
+                    raise ValueError("mixed device clock availability within one case")
+                else:
+                    expected_profile = {"a3": 3302, "a3-2": 3303, "a3-tail": 3304}[config["arm"]]
+                    for sample in samples:
+                        raw = sample["device"]["raw"]
+                        decoded = decode_trace(raw, case["M"], config["compute_rows"], case["comm_rows"])
+                        if raw[5] != rank["rank"] or raw[6] != expected_profile or decoded != sample["device"]:
+                            raise ValueError("trace rank/profile/derived evidence mismatch")
+                    item["units"] = "device_counter_ticks"
+                    item["core_p50_producer_fraction"] = [
+                        {
+                            name: median(sample["device"]["cores"][c]["producer_fraction"][name] for sample in samples)
+                            for name in ("mm", "s_visibility", "seed_y_visibility", "publish")
+                        }
+                        for c in range(8)
+                    ]
+                    item["core0_tail_p50_ticks"] = {
+                        name: median(sample["device"]["tail"][name] for sample in samples)
+                        for name in ("drain", "quiet", "done", "final_quiet")
                     }
-                    for c in range(8)
-                ]
-                item["core0_tail_p50_ticks"] = {
-                    name: median(sample["device"]["tail"][name] for sample in samples)
-                    for name in ("drain", "quiet", "done", "final_quiet")
-                }
-                item["core0_local_wait_p50_ticks"] = median(
-                    sum(sample["device"]["local_wait_ticks"]) for sample in samples
-                )
-                item["core0_communication_p50_ticks"] = {
-                    name: median(sum(g[name] for g in sample["device"]["communication"]) for sample in samples)
-                    for name in ("ready_submit", "peer_ready_pump", "add_submit")
-                }
+                    item["core0_local_wait_p50_ticks"] = median(
+                        sum(sample["device"]["local_wait_ticks"]) for sample in samples
+                    )
+                    item["core0_communication_p50_ticks"] = {
+                        name: median(sum(g[name] for g in sample["device"]["communication"]) for sample in samples)
+                        for name in ("ready_submit", "peer_ready_pump", "add_submit")
+                    }
             else:
                 continue
             attribution.append(item)

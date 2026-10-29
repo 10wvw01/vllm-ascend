@@ -13,7 +13,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from quick_worker import digest, loaded_identity, physical_device, write
-from unified_metrics import CONTRACT, STAGES, decode_trace, timed_call
+from unified_metrics import CONTRACT, STAGES, decode_trace, device_clock_unavailable, timed_call
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "vllm_ascend/_310p/ops"))
@@ -283,7 +283,38 @@ def main():
                             if raw[4] <= last_trace_epoch:
                                 raise RuntimeError("stale/repeated trace epoch")
                             last_trace_epoch = raw[4]
-                            row["device"] = decode_trace(raw, m, a.compute_rows, comm)
+                            if report.get("device_clock", {}).get("available") is False:
+                                row["device"] = {"unavailable": True, "reason": report["device_clock"]["reason"]}
+                            else:
+                                try:
+                                    row["device"] = decode_trace(raw, m, a.compute_rows, comm)
+                                except ValueError as exc:
+                                    if device_clock_unavailable(raw):
+                                        # 310P3 hardware limit, not a protocol failure:
+                                        # kernel ran (fresh header/epoch) but the cycle
+                                        # source reads zero. Mark once, keep timing.
+                                        report["device_clock"] = {
+                                            "available": False,
+                                            "reason": "dav2002_no_aicore_clock",
+                                            "evidence_header": list(raw[:8]),
+                                            "detail": "AscendC GetSystemCycle() is REPORT_NOT_SUPPORT on"
+                                            " dav-2002 and returns 0; SYS_CNT is not in the dav-2002 ISA;"
+                                            " all stamp slots are zero while the trace header is fresh.",
+                                        }
+                                        row["device"] = {"unavailable": True, "reason": "dav2002_no_aicore_clock"}
+                                    else:
+                                        # Preserve the offending raw trace for diagnosis; scene retention.
+                                        report["device_trace_failure"] = {
+                                            "m": m,
+                                            "comm_rows": comm,
+                                            "repeat": repeat,
+                                            "i": i,
+                                            "epoch": raw[4],
+                                            "header": list(raw[:8]),
+                                            "raw": list(raw),
+                                            "error": str(exc),
+                                        }
+                                        raise
                         if stage == "host":
                             row["host_us"] = session.phase_log.pop()
                         del out  # release is after output-ready boundary for every arm

@@ -169,3 +169,45 @@ def test_workers_load_tensor_adapter_under_extension_name():
     expected = 'spec_from_file_location("mf310p_v32_tensor"'
     assert expected in unified, "unified_worker must load the Storage SO under its extension name"
     assert expected in quick, "quick_worker must load the Storage SO under its extension name"
+
+
+def test_device_clock_unavailable_is_detected_and_reported():
+    mod = __import__("unified_metrics")
+    header = [0x41335432, 2048, 512, 512, 7, 0, 3302, 0]
+    zeros = [0] * 1024
+    zeros[:8] = header
+    assert mod.device_clock_unavailable(zeros)
+    with pytest.raises(ValueError, match="device clock unavailable"):
+        mod.decode_trace(zeros, 2048, 512, 512)
+    # A real trace with nonzero stamps must not be flagged.
+    real = [0] * 1024
+    real[:8] = header
+    real[80:85] = [10, 20, 30, 40, 50]
+    real[16:20] = [5, 60, 70, 80]
+    for g in range(4):
+        base = 592 + g * 16
+        real[base : base + 8] = [1, 2, 3, 4, 5, 6, 7, 8]
+    real[720:725] = [1, 2, 3, 4, 5]
+    for core in range(1, 8):
+        real[16 + core * 8 : 20 + core * 8] = [5, 60, 70, 80]
+    for band in range(1, 32):
+        real[80 + band * 8 : 85 + band * 8] = [10, 20, 30, 40, 50]
+    assert not mod.device_clock_unavailable(real)
+    mod.decode_trace(real, 2048, 512, 512)
+
+
+def test_paired_report_accepts_unavailable_device_clock():
+    a, b = ranks()
+    for rank in (a, b):
+        for case in rank["cases"]:
+            if case["stage"] == "device":
+                for sample in case["samples"]:
+                    sample["device"] = {"unavailable": True, "reason": "dav2002_no_aicore_clock"}
+    result = paired_report(a, b)
+    for item in result["attribution"]:
+        if item["stage"] == "device":
+            assert item["device_attribution"] == "UNAVAILABLE_DAV2002_NO_AICORE_CLOCK"
+    # Mixed availability inside one case must still fail closed.
+    a["cases"][-1]["samples"][0]["device"] = {"units": "device_counter_ticks"}
+    with pytest.raises(ValueError, match="mixed device clock"):
+        paired_report(a, b)
