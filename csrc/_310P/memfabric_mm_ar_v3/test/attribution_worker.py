@@ -85,14 +85,17 @@ def main():
     }
     from memfabric_mm_ar_v32 import V32Session
 
+    # Declare the startup+deploy window BEFORE the first device op: V32Session
+    # creation forks torch_npu compile-infrastructure children and the MemFabric
+    # orch_deploy_helper, exactly like the quick worker's documented ordering.
+    deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
+    deploy_flag.write_text(json.dumps({"rank": rank, "phase": "startup+pool-create"}))
     tensor = manifest["tensor_adapter"]
     spec = importlib.util.spec_from_file_location("mf310p_v32_tensor", tensor["path"])
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     session = V32Session(manifest["host_so"], rank, a.store_url, packet_bytes=4 << 20, tensor_module=module)
     session.phase_log = []
-    deploy_flag = a.out / f"deploy_window_rank{rank}.flag"
-    deploy_flag.write_text(json.dumps({"rank": rank, "phase": "startup+pool-create"}))
     e0, e1 = torch.npu.Event(enable_timing=True), torch.npu.Event(enable_timing=True)
     try:
         data["loaded_libraries"] = loaded_identity(manifest)
