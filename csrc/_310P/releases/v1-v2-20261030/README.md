@@ -47,7 +47,7 @@ E3及E4原件也已在主线/无损历史快照，来源见审核JSON，不再�
 所选实现现有公共C入口与独立构建清单：[代码图谱](../../memfabric_mm_ar_v2/docs/CODE_MAP.md)、
 [接口与L1使用](../../memfabric_mm_ar_v2/docs/SELECTED_API.md)、[源码包身份](V2_CODE_PACKAGE.json)。
 selected句柄固定M2048/E1或M4096/T8，不用实验kind或全局预热地址表。
-E1/E4设备源未改；旧D4/Serving和历史脚本保留。新增Host/CMake/L1代码全量CPU450项+36子测试通过，
+E1/E4设备源未改；旧D4/Serving和历史脚本保留。新增Host/CMake/L1代码全量CPU452项+36子测试通过，
 新组合CANN/NPU为NOT_RUN，不将原SO成绩转记为新SO测量。
 当前`V2_SELECTED_SOURCE_SHA256SUMS`扩展为新代码包输入清单；`SOURCE_SHA256SUMS`及审计source_files
 保留首轮历史基底身份（包括旧CMake），不作为新构建的全量校验。V1查找延期，不是本轮待办。

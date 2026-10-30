@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 """New public V2 API identity and complete-call adapter, without NPU imports."""
-import copy
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,7 +8,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from L1_test import adapters
-from L1_test.core import catalog, sha, validate_runtime
+from L1_test.core import sha, validate_runtime
+from L1_test.worker import verify_maps
 
 
 def specification(tmp_path, version='V2-7'):
@@ -79,3 +79,24 @@ def test_selected_adapter_pins_outputs_before_pool_and_calls_only_public_api(tmp
     ctx.shapes=[2048,4096]
     with pytest.raises(ValueError,match='one matching fixed M'):
         adapters.create(version,spec,ctx,'off')
+
+
+def test_maps_reject_unfrozen_base_v2_device_in_selected_process(tmp_path, monkeypatch):
+    spec=specification(tmp_path)
+    base=tmp_path/'libmf310p_v2_trial_device.so'
+    base.write_bytes(b'CPU fixture')
+    mapped=[spec['library'],spec['selected_device_library'],str(base)]
+    maps='\n'.join('0000-1000 r-xp 0000 00:00 0 '+p for p in mapped)
+    monkeypatch.setattr(Path,'read_text',lambda self:maps)
+    with pytest.raises(RuntimeError,match='unfrozen MemFabric'):
+        verify_maps(spec,'V2-7')
+    spec['files'][str(base)]=sha(base)
+    assert verify_maps(spec,'V2-7')==sorted(mapped[1:])
+
+
+def test_stock_rejects_loaded_v2_device_without_mf_sdk_mapping(tmp_path, monkeypatch):
+    base=tmp_path/'libmf310p_v2_trial_device.so'
+    base.write_bytes(b'CPU fixture')
+    monkeypatch.setattr(Path,'read_text',lambda self:'0000-1000 r-xp 0000 00:00 0 '+str(base))
+    with pytest.raises(RuntimeError,match='Stock contains MemFabric'):
+        verify_maps({'files':{}},'STOCK')

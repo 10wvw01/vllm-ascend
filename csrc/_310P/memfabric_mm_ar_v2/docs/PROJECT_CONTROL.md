@@ -636,5 +636,7 @@ V2实测点选择及源码封存完成，2049～4095最优未知，不拼未经�
 统一L1显式api=v2_selected_v1接入，固定M、实际Device装载身份、错配置和历史私有ABI混入均检查。
 [代码图谱](CODE_MAP.md)、[接口使用](SELECTED_API.md)、[两轮复核](CODE_REVIEW_20261030.md)、
 [源码包身份](../../releases/v1-v2-20261030/V2_CODE_PACKAGE.json)为当前代码入口。
-全量CPU450项与36子测试PASS；含Host C++故障注入和CMake四开关组合。新入口CANN/NPU NOT_RUN，
+全量CPU452项与36子测试PASS；含Host C++故障注入和CMake四开关组合。新入口CANN/NPU NOT_RUN，
 不将旧SO成绩写为新构建实测；没有安排V1/V2重跑，无Serving默认切换，不查格式。
+
+装载复核补充：统一L1识别libmf_及libmf310p_两类库，新增未冻结基础Device和Stock误载V2 Device负面回归，全部452项与36子测试通过。

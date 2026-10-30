@@ -22,17 +22,18 @@
 - selected和diagnostics开关四组合均实际配置生成构建图；旧D4源与所选Device库分开，未混入E2/E3或私有Host。
 - L1通过api=v2_selected_v1显式选择；仍沿用V2-7/V2-15编号，历史ABI默认不换。
 - L1在建池前分配输出；完整计时/采样/统计与下游消费代码不变；实际装载selected Device也须在冻结files内。
+- 装载检查同时覆盖libmf_和libmf310p_命名；拒绝未冻结的基础Device与Stock进程误载V2库。
 
 ## 验证结果
 
 ```text
 python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test \
   csrc/_310P/memfabric_mm_ar_v3/test tools/310p_mm_ar csrc/_310P/tools/L1_test
-450 passed, 36 subtests passed
+452 passed, 36 subtests passed
 ```
 
-其中新增20项：12个真实Host源码+fake ACL/launch的C++故障/生命周期用例，
-4个实际CMake构建图组合，4个L1新API身份/分配时机/调用合同测试。
+其中新增22项：12个真实Host源码+fake ACL/launch的C++故障/生命周期用例，
+4个实际CMake构建图组合，6个L1新API身份/分配时机/调用/装载隔离合同测试。
 未执行格式检查。
 
 ## 实机与封存边界

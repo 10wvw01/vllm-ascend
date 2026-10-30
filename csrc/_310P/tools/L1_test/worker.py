@@ -54,7 +54,8 @@ def verify_maps(spec,version):
     for key in ('library','private_library','tensor_adapter','selected_device_library'):
         if key in spec and str(Path(spec[key]).resolve()) not in maps:
             raise RuntimeError(f'expected library not mapped: {key}')
-    mapped={line.split()[-1] for line in maps.splitlines() if '/libmf_' in line}
+    mapped={line.split()[-1] for line in maps.splitlines()
+            if '/libmf_' in line or '/libmf310p_' in line}
     if version=='STOCK' and mapped:
         raise RuntimeError('Stock contains MemFabric libraries')
     if mapped-frozen:
