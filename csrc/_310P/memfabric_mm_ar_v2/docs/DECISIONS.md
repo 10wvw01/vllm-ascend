@@ -373,3 +373,13 @@ V1只准备适配，历史身份与测量仍延期；本轮Stock/V2按新授权�
 缺失/失败终止；ADD/设备KVER28及合同无变化，不是MM/AR算法优化或try_wait_at接口实现。
 一套新SDK服务两版须分别编译与双Rank功能验证；不能据共用源码分支宣称旧SO已兼容，
 也不由此重标历史性能证据。现阶段只是更正执行说明，未修改SDK/算子/模板默认值，无新设备PASS。
+
+## ADR-043｜下游消费只验证，完整MM+AR为唯一计时边界
+
+用户不需要下游消费计时。L1_TENSOR_IO_V3仅ready，移除chain及operator/consumer拆分Event字段，
+统一两个Event，性能/速比只统计完整MM+AR的Wall/Event；每次必需工作保留在run内。
+下游前后独立验证，不读框架时钟/记录Event，不在采样与性能Profiler范围内；
+每M/双地址立即同Stream ADD后才同步，双Rank证据必须完整，错误仍STOP。
+campaign schema V2和新合同拒绝旧计划/指标，不能重标历史结果或把旧三Event开销直接混入新测量。
+不增加连续异步场景，不改变算子/ABI/Serving/SDK；43组170会话及shared/exclusive策略保留。
+完整CPU482项/36子测试通过，CANN/NPU本轮NOT_RUN；按新主线SHA重新生成/freeze后交OpenCode。

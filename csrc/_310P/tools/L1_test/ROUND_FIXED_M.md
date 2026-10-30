@@ -41,13 +41,16 @@ shared只放宽占用独占要求，不放宽健康/协议/数值；旧执行单
 原始V3、A2 classic与A3 START要用匹配历史源码/工件；CPU模板只提供恢复线索，不证明这些版本已有本轮设备PASS。
 
 每个候选/配置独立Stock→候选→候选→Stock，Stock独立组为两场Stock。
-默认一轮R=1、每场W=20/N=100、ready与chain都跑、无打点性能collection=off：
+默认一轮R=1、每场W=20/N=100、仅ready计时、无打点性能collection=off：
 **170个独立TP2会话**。每配置/每M/每场景/每采集阶段，Stock与候选各得到200个双Rank配对样本。
 每个序号先max(rank0,rank1)，再算术均值；保留全部样本，另报p50/p90/p99/std和漂移。
 不把43组的Stock合成一个跨配置/跨时间平均对照，不拿历史p50充当新均值。
 
 Stock的边界是就绪输入→完整NZ MM+HCCL输出可用；融合涵盖所有每次必需动作。
-chain会在算子后立即提交残差ADD并等其完成，不插入中间Host同步。冷态、路由及检查不计入热样本。
+下游ADD改为采样前后独立正确性门禁：算子后立即同Stream提交ADD，最后统一等待，不计时。
+热态循环不运行ADD，Wall/Event与速比只针对完整MM+AR。冷态、路由及检查不计入热样本。
+新合同L1_TENSOR_IO_V3 / campaign schema V2拒绝旧chain计划；旧结果保留，不重标或混入本轮。
+删除chain减少每场热态测量，但43组/170进程会话数不变；所有M和双Rank仍覆盖。
 
 ## 生成、冻结、启动
 

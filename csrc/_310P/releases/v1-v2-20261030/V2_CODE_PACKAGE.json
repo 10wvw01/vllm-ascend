@@ -136,18 +136,18 @@
     },
     {
       "path": "csrc/_310P/tools/L1_test/core.py",
-      "sha256": "bd8871675abfca45b1b8681861982fa95e8cf0ca2a406c2bb38f94a607fadbd0",
-      "git_blob_sha": "497e620d9992ab4ccd2d9b620afacec7164309ce"
+      "sha256": "4b16379909a70a18ce30331cb8809ded4dd6ddf49d03fcf807ef9196a5df9f31",
+      "git_blob_sha": "2c5f3813cb16e7bb16b7c32292f9d00dd81f2a1a"
     },
     {
       "path": "csrc/_310P/tools/L1_test/worker.py",
-      "sha256": "422ab04fd0a4266085c9645fe8853ea948053abf398f77273d5a0f2aa1fe3c09",
-      "git_blob_sha": "30844700279a32e91e669e347f4dd0ff8dbc6341"
+      "sha256": "947e16231dec5adce904d98f6d8aaa80e5d545fff853387555b53e6ef6dec319",
+      "git_blob_sha": "447fbbc7211aecdd362a85ca7fc60b755f20c09d"
     },
     {
       "path": "csrc/_310P/tools/L1_test/versions.json",
-      "sha256": "1646f0af9d0dbe3a8c765331d755b6b6566f04e1e673b1c2e5e21a3b23fddb0a",
-      "git_blob_sha": "34a8ace035cbf9f7d8abe1be84f6d750253a6db0"
+      "sha256": "a74e06b58bd9e8bc426c93c372b7f6dfa401cd8207977b13030493630e7a9bec",
+      "git_blob_sha": "50c76c51c0ec77b0e4b3d19c3a7d5c5c2b0b924a"
     },
     {
       "path": "csrc/_310P/tools/L1_test/runtime-v2-selected-template.json",
@@ -156,13 +156,13 @@
     },
     {
       "path": "csrc/_310P/tools/L1_test/cli.py",
-      "sha256": "963a2ab269f86174f7d26beb4cffcdffa78ad9424cb452431375af1f0727627e",
-      "git_blob_sha": "246eda5ad2fce10a136a15e5d41491f549c51ae3"
+      "sha256": "7fde37cf46b240aa970a97334dbaa7e3da4fec12e3c7f10ec5dbd016421d8171",
+      "git_blob_sha": "9d42ad69a6e467528b3b3b6a22b86577f63e713b"
     },
     {
       "path": "csrc/_310P/tools/L1_test/campaign.py",
-      "sha256": "cbeb41e5533ce7e2df1e4ab7d1211239a72eb6f95013f45f0cd19f42729a136a",
-      "git_blob_sha": "79fa0254471c748bb2f2a04e2f1bcd67b9e71af9"
+      "sha256": "cd184952c02cd0a4ebd6400e27da21406d59d1ce5cc6912c5f0b5571c689951e",
+      "git_blob_sha": "b6a6ed8520ccb22a0b0060adb84a6e6c7cf553a5"
     },
     {
       "path": "csrc/_310P/tools/L1_test/adapter_plugins/__init__.py",
@@ -190,11 +190,32 @@
       "git_blob_sha": "a89eae2f02ced65333ba5d7a9de97f97d099975c"
     }
   ],
-  "historical_audit_note": "SOURCE_SHA256SUMS/source_files keep the original audited base, including old CMake. V2_SELECTED_SOURCE_SHA256SUMS is the current selected code package input list.",
+  "historical_audit_note": "SOURCE_SHA256SUMS keeps the original audited baseline. source_files and V2_SELECTED_SOURCE_SHA256SUMS describe the current selected package inputs; historical performance identities remain unchanged.",
   "l1_integration_revision": {
     "base_mainline_head": "9b2e00875a35e8dc09af25a7d5a6128579414297",
     "cpu_tests": 475,
     "subtests": 36,
+    "review": "csrc/_310P/tools/L1_test/REVIEW_FIXED_M.md",
+    "matrix_cases": 43,
+    "tp2_sessions": 170,
+    "device_test": "NOT_RUN",
+    "operator_C_ABI_and_kernels_unchanged": true
+  },
+  "l1_measurement_revision": {
+    "base_mainline_head": "df6256ff26020bb8b8e6420e36831486b9ca2cf5",
+    "contract": "L1_TENSOR_IO_V3",
+    "campaign_schema": "MF310P_L1_FIXED_M_CAMPAIGN_V2",
+    "timed_scenarios": [
+      "ready"
+    ],
+    "metrics": [
+      "wall_us",
+      "event_us"
+    ],
+    "downstream_validation": "untimed immediate same-stream consumer before/after each M, both input addresses",
+    "cpu_tests": 482,
+    "subtests": 36,
+    "L1_tests": 59,
     "review": "csrc/_310P/tools/L1_test/REVIEW_FIXED_M.md",
     "matrix_cases": 43,
     "tp2_sessions": 170,

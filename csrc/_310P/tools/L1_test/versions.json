@@ -24,7 +24,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -50,7 +50,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -72,7 +72,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -95,7 +95,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -118,7 +118,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -141,7 +141,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "implementation_group": "V1_STANDALONE_PROTOTYPE",
       "release_role": "HISTORICAL_PROTOTYPE"
     },
@@ -170,7 +170,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "HISTORICAL_BASELINE"
     },
     {
@@ -195,7 +195,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "HISTORICAL_FORMAL_BUILD_BASELINE_NOT_SELECTED_BY_PERFORMANCE"
     },
     {
@@ -216,7 +216,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "REJECTED_HISTORICAL_CANDIDATE",
       "config": {
         "chunk_rows": 1024,
@@ -245,7 +245,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "PARAMETER_STUDY"
     },
     {
@@ -266,7 +266,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "REJECTED_SMALL_M"
     },
     {
@@ -290,7 +290,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "SERIAL_ATTRIBUTION_CONTROL"
     },
     {
@@ -312,7 +312,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "SERIAL_ATTRIBUTION_CONTROL"
     },
     {
@@ -334,7 +334,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "PERFORMANCE_SELECTED_M2048",
       "selected_api": "v2_selected_v1",
       "selected_M": 2048,
@@ -359,7 +359,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "REJECTED_VS_E1"
     },
     {
@@ -381,7 +381,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "REJECTED_VS_E1_WITH_FAILURE_HISTORY"
     },
     {
@@ -403,7 +403,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "REJECTED_VS_E1"
     },
     {
@@ -425,7 +425,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "M4096_STABLE_IMPROVEMENT_REFERENCE"
     },
     {
@@ -447,7 +447,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "NOT_PREFERRED_VS_E3G"
     },
     {
@@ -469,7 +469,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "E4_REGRESSION_ANCHOR"
     },
     {
@@ -491,7 +491,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "SCREEN_ONLY_ALTERNATIVE"
     },
     {
@@ -513,7 +513,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "PERFORMANCE_SELECTED_M4096_SCREEN_UNCERTAINTY_DISCLOSED",
       "selected_api": "v2_selected_v1",
       "selected_M": 4096,
@@ -538,7 +538,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "SCREEN_ONLY_ALTERNATIVE"
     },
     {
@@ -559,7 +559,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -581,7 +581,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -603,7 +603,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "v3",
       "config": {
         "comm_rows": 1024,
@@ -637,7 +637,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "v3",
       "session_api": "python_session_v1"
     },
@@ -660,7 +660,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "v32",
       "config": {
         "comm_rows": 1024,
@@ -694,7 +694,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "v32",
       "session_api": "python_session_v1"
     },
@@ -718,7 +718,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "a3",
       "adapter_variant": "a3",
       "config": {
@@ -755,7 +755,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "a3",
       "adapter_variant": "a3",
       "session_api": "python_session_v1"
@@ -785,7 +785,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "a3",
       "adapter_variant": "a3-2",
       "session_api": "python_session_v1"
@@ -815,7 +815,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "adapter_family": "a3",
       "adapter_variant": "a3-tail",
       "session_api": "python_session_v1"
@@ -838,7 +838,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -860,7 +860,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
       "release_role": "DIAGNOSTIC_ONLY"
     }
   ],

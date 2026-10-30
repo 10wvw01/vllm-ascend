@@ -1,5 +1,9 @@
 # 统一L1框架复核与交接
 
+当前合同已按用户要求升级L1_TENSOR_IO_V3：仅完整MM+AR计时，下游为前后独立不计时门禁。
+下列ready/chain、旧测试数量与服务器示例是原合同审核记录；当前操作见[L1执行单](../../tools/L1_test/OPENCODE_ROUND.md)
+与[最新复核](../../tools/L1_test/REVIEW_FIXED_M.md)。旧chain计划必须重新生成，不能修改标签混入新数据。
+
 2026-10-30，基底主线8e8c4def。范围仅工具、设计文档及历史数据读取；未修改Kernel、Host ABI、通信协议、Serving或MemFabric依赖。
 
 ## 第一轮：调用边界、生命周期与执行隔离

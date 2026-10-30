@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from L1_test.core import CONTRACT, ROOT, analyze, catalog, make_plan, pair_job, sha, validate_plan, validate_runtime
-from L1_test.worker import timed
+from L1_test.worker import timed, validate_downstream
 from L1_test.cli import clean_environment
 from L1_test.collect import import_legacy, read_profile
 
@@ -24,11 +24,14 @@ def reports(plan,job):
             for scene in plan['scenarios']:
                 # Opposite outliers: max(rank means)=55, mean(paired maxima)=100.
                 cases.append(dict(M=m,scenario=scene,warmup_count=plan['W'],samples=[
-                    dict(i=i,variant=i%2,correct=True,consumer_correct=True,
+                    dict(i=i,variant=i%2,correct=True,
                          **{k:([10,100][(i+rank)%2]) for k in
-                            ('wall_us','event_us','operator_event_us','consumer_event_us')})
+                            ('wall_us','event_us')})
                     for i in range(plan['N'])]))
         out.append(dict(contract=CONTRACT,plan=plan,job=job,rank=rank,status='PASS',cases=cases,
+                        downstream_validation=dict(status='PASS',timed=False,same_stream=True,cases=[
+                            dict(phase=phase,M=m,variant=v,correct=True)
+                            for phase in ('before','after') for m in plan['M'] for v in (0,1)]),
                         runtime_identity={'frozen':'one'},route={'verified':True}))
     return out
 
@@ -47,7 +50,7 @@ def test_stock_is_independent_and_equal_counts():
 
 
 def test_per_index_rank_max_before_mean_no_outlier_removal():
-    p=make_plan(['V3-5'],samples=2,warmup=2,shapes=[2048],scenarios=['chain'])
+    p=make_plan(['V3-5'],samples=2,warmup=2,shapes=[2048],scenarios=['ready'])
     result=analyze(p,paired(p))['results'][0]
     assert result['stats']['STOCK']['mean_us']==100
     assert result['stats']['V3-5']['n']==8
@@ -57,7 +60,7 @@ def test_per_index_rank_max_before_mean_no_outlier_removal():
 @pytest.mark.parametrize('mutation',[
     lambda r:r[1]['cases'][0]['samples'].pop(),
     lambda r:r[1]['cases'][0]['samples'][0].update(i=7),
-    lambda r:r[1]['cases'][0]['samples'][0].update(consumer_correct=False),
+    lambda r:r[1]['downstream_validation']['cases'][0].update(correct=False),
     lambda r:r[1]['cases'][0]['samples'][0].update(wall_us=float('nan')),
     lambda r:r[1]['cases'].append(copy.deepcopy(r[1]['cases'][0])),
     lambda r:r[1].update(runtime_identity={'frozen':'other'}),
@@ -123,7 +126,7 @@ def test_environment_leaks_and_trace_cannot_change_comparison(tmp_path):
     with pytest.raises(ValueError): validate_runtime(s,'STOCK')
 
 
-def test_downstream_is_before_only_final_join_in_chain():
+def test_operator_timing_excludes_downstream_and_gate_preserves_immediate_dependency(monkeypatch):
     calls=[]
     class Event:
         def record(self,stream): calls.append('event')
@@ -133,14 +136,37 @@ def test_downstream_is_before_only_final_join_in_chain():
     def op(): calls.append('op');return 5
     def consumer(y): calls.append('consumer');return y+1
     clock=iter([1000,201000])
-    y,z,row=timed(op,consumer,Stream(),[Event(),Event(),Event()],lambda:next(clock),'chain')
-    assert (y,z)==(5,6)
-    assert calls.index('op')<calls.index('consumer')<calls.index('join')
+    y,row=timed(op,Stream(),[Event(),Event()],lambda:next(clock))
+    assert y==5 and 'consumer' not in calls
     assert calls.count('join')==1 and row['wall_us']==200
+    assert set(row)=={'wall_us','event_us'} and calls.count('event')==2
     calls.clear()
-    clock=iter([1000,201000])
-    timed(op,consumer,Stream(),[Event(),Event(),Event()],lambda:next(clock),'ready')
-    assert calls.index('join')<calls.index('consumer')
+    def no_clock():raise AssertionError('functional downstream gate must not read a clock')
+    monkeypatch.setattr('L1_test.worker.time.perf_counter_ns',no_clock)
+    y,z=validate_downstream(op,consumer,Stream())
+    assert (y,z)==(5,6) and calls==['op','consumer','join']
+    assert row==dict(wall_us=200,event_us=100)
+
+
+def test_chain_and_old_contract_are_rejected_instead_of_relabelled():
+    with pytest.raises(ValueError,match='untimed'):make_plan(scenarios=['chain'])
+    plan=make_plan(samples=2,warmup=2)
+    plan['contract']='L1_TENSOR_IO_V2'
+    with pytest.raises(ValueError):validate_plan(plan)
+
+
+@pytest.mark.parametrize('change',[
+    lambda r:r[0].pop('downstream_validation'),
+    lambda r:r[0]['downstream_validation'].update(timed=True),
+    lambda r:r[0]['downstream_validation'].update(same_stream=False),
+    lambda r:r[0]['downstream_validation']['cases'].pop(),
+    lambda r:r[0]['downstream_validation']['cases'].append(copy.deepcopy(r[0]['downstream_validation']['cases'][0])),
+    lambda r:r[0]['cases'][0]['samples'][0].update(consumer_event_us=1),
+])
+def test_untimed_consumer_evidence_required_and_legacy_metrics_rejected(change):
+    plan=make_plan(samples=2,warmup=2,shapes=[2048]);job=plan['jobs'][0]
+    raw=reports(plan,job);change(raw)
+    with pytest.raises(ValueError):pair_job(plan,job,*raw)
 
 
 def test_csv_keeps_pipe_counters_without_inventing_stage_shares(tmp_path):
@@ -182,7 +208,7 @@ def test_historical_import_keeps_p50_and_coverage_limits():
 def test_campaign_launches_tp2_isolates_arms_and_stops_on_first_failure(tmp_path,monkeypatch,fail):
     from types import SimpleNamespace
     from L1_test import cli
-    p=make_plan(['V3-5'],samples=2,warmup=2,rounds=1,shapes=[2048],scenarios=['chain'])
+    p=make_plan(['V3-5'],samples=2,warmup=2,rounds=1,shapes=[2048],scenarios=['ready'])
     runtimes={'STOCK':{'version':'STOCK','environment':{}},
               'V3-5':{'version':'V3-5','environment':{'MF_SDMA_ORCH_JSON':'private-v28'}}}
     run=dict(plan=p,manifest=dict(card=16384,devices='2,3',runtimes=runtimes),

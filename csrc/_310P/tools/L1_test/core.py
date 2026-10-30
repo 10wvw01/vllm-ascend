@@ -8,8 +8,8 @@ import statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-CONTRACT = "L1_TENSOR_IO_V2"
-METRICS = ("wall_us", "event_us", "operator_event_us", "consumer_event_us")
+CONTRACT = "L1_TENSOR_IO_V3"
+METRICS = ("wall_us", "event_us")
 PHASES = ("host_prepare", "output_acquire_wrap", "enqueue", "mm", "seed", "local_ready_wait",
           "peer_ready_wait", "transport_submit", "receive_reduce", "gather", "output_copy", "drain_quiet_done")
 
@@ -23,7 +23,7 @@ def catalog():
     return {v["id"]: v for v in entries}
 
 
-def make_plan(versions=(), samples=100, warmup=20, rounds=2, mode="exclusive", scenarios=("ready", "chain"),
+def make_plan(versions=(), samples=100, warmup=20, rounds=2, mode="exclusive", scenarios=("ready",),
               shapes=(2048, 4096), collection="off", drift_limit=.05):
     known = catalog()
     if len(set(versions)) != len(versions) or any(v not in known for v in versions):
@@ -34,8 +34,8 @@ def make_plan(versions=(), samples=100, warmup=20, rounds=2, mode="exclusive", s
         raise ValueError("W>=2, N>=1, R>=1 with bounded integer counts required")
     if mode not in ("exclusive", "shared") or collection not in ("off", "host", "profiler"):
         raise ValueError("invalid mode or collector")
-    if not scenarios or len(set(scenarios)) != len(scenarios) or set(scenarios) - {"ready", "chain"}:
-        raise ValueError("invalid scenarios")
+    if list(scenarios) != ["ready"]:
+        raise ValueError("only ready is timed; downstream consumption is an untimed validation gate")
     if not shapes or len(set(shapes)) != len(shapes) or any(type(m) is not int or m < 1 or m > 4096 for m in shapes):
         raise ValueError("distinct physical M in [1,4096] required")
     if not math.isfinite(drift_limit) or not 0 < drift_limit < 1:
@@ -52,6 +52,7 @@ def make_plan(versions=(), samples=100, warmup=20, rounds=2, mode="exclusive", s
     return dict(contract=CONTRACT, W=warmup, N=samples, R=rounds, mode=mode, scenarios=list(scenarios),
                 M=list(shapes), collection=collection, stages=stages, drift_limit=drift_limit,
                 versions=list(versions), jobs=jobs, consumer="residual_add_fp16_ND", seed=4242,
+                consumer_validation="untimed_immediate_same_stream_before_after",
                 paired_samples_per_arm_per_case_per_stage=2*rounds*samples,
                 statistic="arithmetic mean of same-index two-rank maxima; all N retained")
 
@@ -174,6 +175,16 @@ def pair_job(plan, job, a, b):
             raise ValueError("mixed plans/jobs")
         if not report.get("route", {}).get("verified") or not report.get("runtime_identity"):
             raise ValueError("missing route/runtime evidence")
+        evidence = report.get("downstream_validation", {})
+        if (evidence.get("status") != "PASS" or evidence.get("timed") is not False
+                or evidence.get("same_stream") is not True):
+            raise ValueError("untimed same-stream downstream validation required")
+        expected_checks = {(phase, m, v) for phase in ("before", "after") for m in plan["M"] for v in (0, 1)}
+        checks = evidence.get("cases", [])
+        actual_checks = [(c.get("phase"), c.get("M"), c.get("variant")) for c in checks]
+        if (len(actual_checks) != len(expected_checks) or set(actual_checks) != expected_checks
+                or any(c.get("correct") is not True for c in checks)):
+            raise ValueError("missing/duplicate/failed downstream validation cases")
     if a["runtime_identity"] != b["runtime_identity"]:
         raise ValueError("different rank runtime identities")
     expected={(m,s) for m in plan["M"] for s in plan["scenarios"]}
@@ -189,8 +200,10 @@ def pair_job(plan, job, a, b):
             raise ValueError("unequal warmup/sample count")
         values={k:[] for k in METRICS}
         for i,(s,t) in enumerate(zip(left["samples"],other["samples"])):
-            if any(x["i"]!=i or x["variant"]!=i%2 or x["correct"] is not True or x["consumer_correct"] is not True for x in (s,t)):
+            if any(x["i"]!=i or x["variant"]!=i%2 or x["correct"] is not True for x in (s,t)):
                 raise ValueError("wrong sample/order/correctness")
+            if any(set(x) & {"consumer_event_us", "operator_event_us", "consumer_correct"} for x in (s,t)):
+                raise ValueError("legacy consumer timing/sample fields are not part of this contract")
             for metric in METRICS:
                 for x in (s,t):
                     if not math.isfinite(x[metric]) or x[metric]<=0:
@@ -259,4 +272,5 @@ def analyze(plan, jobs):
                                 for arm in row["stats"]}
                         results.append(row)
     return dict(contract=CONTRACT,plan=plan,results=results,release_go=False,
+                downstream_validation="PASS_UNTIMED",
                 note="Mean of per-index rank maxima. Shared drift retained. Parallel phase durations are not additive.")

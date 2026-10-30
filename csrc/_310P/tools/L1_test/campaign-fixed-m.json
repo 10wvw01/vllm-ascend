@@ -1,5 +1,5 @@
 {
-  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V1",
+  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V2",
   "profile": "full",
   "v2_history": false,
   "W": 20,
@@ -8,8 +8,7 @@
   "mode": "exclusive",
   "collection": "off",
   "scenarios": [
-    "ready",
-    "chain"
+    "ready"
   ],
   "M": [
     2048,
@@ -691,6 +690,7 @@
       "historical": false
     }
   ],
+  "consumer_validation": "untimed_immediate_same_stream_before_after",
   "case_count": 43,
   "tp2_sessions": 170,
   "paired_samples_per_arm_per_case_per_stage": 200,

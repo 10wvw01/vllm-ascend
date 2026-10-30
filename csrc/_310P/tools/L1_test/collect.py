@@ -6,7 +6,7 @@ import math
 import re
 from pathlib import Path
 
-from .core import PHASES, sha, summarize
+from .core import CONTRACT, PHASES, sha, summarize
 
 
 def read_profile(root, route_pattern):
@@ -36,7 +36,7 @@ def read_profile(root, route_pattern):
 
 
 def capabilities(version, collection, host_phases=False):
-    return dict(version=version,collection=collection,wall=True,event=True,downstream=True,
+    return dict(version=version,collection=collection,wall=True,event=True,downstream=True,downstream_timing=False,
                 host_call_total=collection=="host",host_detail_phases=host_phases,device_phase_wall=False,sdma_link_occupancy=False,
                 reason='310P3 dav-2002 existing AICore clock is unavailable; no synthetic phase durations')
 
@@ -83,7 +83,7 @@ def import_legacy(root):
         reports.append(dict(source=str(path.relative_to(root)),sha256=sha(path),
                             configuration=data['configuration'],cases=data['cases'],
                             attribution=data.get('attribution',[]),
-                            status='HISTORICAL_SHARED_CARD; p50 remains p50; not L1_TENSOR_IO_V2'))
+                            status=f'HISTORICAL_SHARED_CARD; p50 remains p50; not {CONTRACT}'))
     profiles=[]
     for path in sorted((root/'pipe-profiler').glob('kernel_details*.csv')):
         # Each archived filename is a final CSV, not all 18 entries in its source index.

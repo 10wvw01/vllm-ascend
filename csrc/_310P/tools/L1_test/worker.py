@@ -22,30 +22,29 @@ def save(path,data):
         f.write('\n')
 
 
-def timed(op,consumer,stream,events,clock,scenario,host=False):
-    start,middle,end=events
+def timed(op,stream,events,clock,host=False):
+    """Time only one complete operator; no downstream work is accepted here."""
+    start,end=events
     begin=clock()
     start.record(stream)
     call_begin=clock() if host else None
     output=op()
     call_end=clock() if host else None
-    middle.record(stream)
-    consumed=consumer(output) if scenario=='chain' else None
     end.record(stream)
     stream.synchronize()
     wall=(clock()-begin)/1000
-    row=dict(wall_us=wall,event_us=start.elapsed_time(end)*1000,
-             operator_event_us=start.elapsed_time(middle)*1000)
-    if scenario=='ready':
-        # Consumer verifies actual usability, but is outside the ready-output boundary.
-        middle.record(stream)
-        consumed=consumer(output)
-        end.record(stream)
-        stream.synchronize()
-    row['consumer_event_us']=middle.elapsed_time(end)*1000
+    row=dict(wall_us=wall,event_us=start.elapsed_time(end)*1000)
     if host:
         row['collection']={'host_us':{'adapter_call_including_blocking':(call_end-call_begin)/1000}}
-    return output,consumed,row
+    return output,row
+
+
+def validate_downstream(op,consumer,stream):
+    """Submit the consumer immediately, then join once; no clocks or timing events."""
+    output=op()
+    consumed=consumer(output)
+    stream.synchronize()
+    return output,consumed
 
 
 def verify_maps(spec,version):
@@ -79,7 +78,8 @@ def main():
         raise RuntimeError('direct physical TP2 required')
     out=a.run.parent/job['id']
     report=dict(contract=CONTRACT,plan=plan,job=job,rank=rank,status='RUNNING',cases=[],
-                runtime_identity=spec,route={})
+                runtime_identity=spec,route={},
+                downstream_validation=dict(status='RUNNING',timed=False,same_stream=True,cases=[]))
     try:
         import torch
         import torch.distributed as dist
@@ -118,22 +118,23 @@ def main():
         begin=time.perf_counter_ns()
         stage=job['stage']
         adapter=adapters.create(job['version'],spec,ctx,stage)
-        def checked(y,z,m,v):
+        def checked(y,m,v):
             collected=adapter.after_sample()
             if (tuple(y.shape)!=(m,2048) or y.dtype!=torch.float16 or torch_npu.get_npu_format(y)!=2
                     or not y.is_contiguous() or not torch.equal(y,refs[m][v])):
                 raise RuntimeError('full FP16/ND/bit-exact gate')
+            return collected
+        def downstream_gate(m,v,phase):
+            y,z=validate_downstream(lambda:adapter.run(xs[m][v],w,v),lambda y:y+residuals[m][v],stream)
+            checked(y,m,v)
             if not torch.equal(z,refs[m][v]+residuals[m][v]):
                 raise RuntimeError('downstream read gate')
-            return collected
+            report['downstream_validation']['cases'].append(dict(phase=phase,M=m,variant=v,correct=True))
+            del y,z
         # First-touch, cold allocations, pool initialization and route capture never become hot samples.
         for m in plan['M']:
             for v in (0,1):
-                y=adapter.run(xs[m][v],w,v)
-                z=y+residuals[m][v]
-                stream.synchronize()
-                checked(y,z,m,v)
-                del y,z
+                downstream_gate(m,v,'before')
         pattern=spec.get('route_pattern',r'aclnnMatmulWeightNz')
         route_cases=[]
         for m in plan['M']:
@@ -142,10 +143,9 @@ def main():
                 activities=[torch_npu.profiler.ProfilerActivity.CPU,torch_npu.profiler.ProfilerActivity.NPU],
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(route))):
                 y=adapter.run(xs[m][0],w,0)
-                z=y+residuals[m][0]
                 stream.synchronize()
-                checked(y,z,m,0)
-                del y,z
+                checked(y,m,0)
+                del y
             evidence=read_profile(route,pattern)
             names='\n'.join(row['name'] for row in evidence['rows'])
             if not evidence['verified'] or (job['version']=='STOCK' and not re.search('hcom.*allreduce|hccl.*allreduce',names,re.I)):
@@ -156,7 +156,7 @@ def main():
         report['runtime']=dict(torch=str(torch.__version__),torch_npu=str(torch_npu.__version__),physical_device=selected)
         report['cold_setup_us']=(time.perf_counter_ns()-begin)/1000
         flag.unlink()
-        events=tuple(torch.npu.Event(enable_timing=True) for _ in range(3))
+        events=tuple(torch.npu.Event(enable_timing=True) for _ in range(2))
         for m in plan['M']:
             for scenario in plan['scenarios']:
                 samples=[]
@@ -173,17 +173,21 @@ def main():
                         for i in range(count):
                             dist.barrier(group=cpu)
                             v=i%2
-                            y,z,row=timed(lambda:adapter.run(xs[m][v],w,v),lambda y:y+residuals[m][v],
-                                          stream,events,time.perf_counter_ns,scenario,stage=='host')
-                            detail=checked(y,z,m,v)
+                            y,row=timed(lambda:adapter.run(xs[m][v],w,v),
+                                        stream,events,time.perf_counter_ns,stage=='host')
+                            detail=checked(y,m,v)
                             if stage=='host' and detail.get('host_us'):
                                 row['collection']['host_us'].update(detail['host_us'])
-                            del y,z
+                            del y
                             if phase=='measure':
-                                samples.append(dict(i=i,variant=v,correct=True,consumer_correct=True,**row))
+                                samples.append(dict(i=i,variant=v,correct=True,**row))
                 case=dict(M=m,scenario=scenario,warmup_count=plan['W'],samples=samples)
                 report['cases'].append(case)
                 save(out/f'checkpoint-rank{rank}-m{m}-{scenario}.json',case)
+            # Outside the entire profiler/sample scope: functional gate only.
+            for v in (0,1):
+                downstream_gate(m,v,'after')
+        report['downstream_validation']['status']='PASS'
         if stage=='profiler':
             report['profile']=read_profile(out/f'profile-rank{rank}',pattern)
         report['capabilities']=capabilities(job['version'],stage,any(

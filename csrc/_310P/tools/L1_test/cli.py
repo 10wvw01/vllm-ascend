@@ -172,7 +172,7 @@ def main():
     plan.add_argument('--mode',choices=['exclusive','shared'],default='exclusive')
     plan.add_argument('--collection',choices=['off','host','profiler'],default='off')
     plan.add_argument('--M',nargs='+',type=int,default=[2048,4096])
-    plan.add_argument('--scenarios',nargs='+',choices=['ready','chain'],default=['ready','chain'])
+    plan.add_argument('--scenarios',nargs='+',choices=['ready'],default=['ready'])
     plan.add_argument('--out',type=Path,required=True)
     freeze=sub.add_parser('freeze')
     freeze.add_argument('--template',type=Path,required=True)

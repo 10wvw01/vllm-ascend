@@ -1,5 +1,7 @@
 # 固定M统一适配器与批次复核（2026-10-30）
 
+下述首两轮是L1_TENSOR_IO_V2历史审核；当前计时合同V3的修订与验证见末节，旧chain结论不沿用。
+
 基底：dev/310p-memfabric-mm-ar @ 9b2e00875a35e8dc09af25a7d5a6128579414297。
 本轮实现Stock/V1/V2/V3薄适配器，准备Stock+所选V2+V3八种迭代的完整固定M矩阵。
 V1不进入本轮测量；无CANN/NPU新执行，无算子Kernel/Host/协议改动。
@@ -37,3 +39,21 @@ python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test \
 CMake测试通过当前Python环境寻找cmake，去掉对临时虚拟环境绝对路径的依赖。
 35份版本文档重新生成，V3历史分支现在明确说明内置冻结session适配；CLI可从任意目录生成计划。
 未运行格式检查。所有PASS仅指CPU假后端、结构与元数据合同，不代表SDK/CANN/NPU准入。
+
+## 下游仅做不计时验证：L1_TENSOR_IO_V3复核
+
+基底主线df6256ff。用户明确下游消费无需计时。
+
+第一轮核对边界：timed只接受算子调用、Stream、两个Event与时钟，无consumer参数；
+热态W/N及路由/性能Profiler内无下游ADD，Wall/Event只覆盖一次完整MM+AR及最终等待。
+独立validate_downstream执行op→同Stream ADD→最后一次同步，框架不读时钟或记录Event。
+每M/双地址在采样前后均验证数值和协议；输出租约保留至消费完成，不将必需Host准备移出run。
+
+第二轮核对证据：计划只准ready，合同V3与campaign schema V2拒绝旧chain计划/结果。
+聚合要求双Rank全部M、双地址、before/after下游PASS且timed=false；缺失、重复、错算、
+旧consumer_event_us等字段拒绝。汇总只包含wall_us/event_us与PASS_UNTIMED，不生成消费耗时/速比。
+完整矩阵仍43组/170会话，形状/ABBA/样本均值公式及shared/exclusive约定不变。
+
+CPU回归482项及36子测试通过，其中L1框架59项；新增7项覆盖旧合同拒绝、
+下游无时钟/事件且依赖顺序不变、门禁证据遗漏/重复/伪计时及旧指标混入。
+35份VN-M文档与默认计划重新生成。无新CANN/NPU执行，不查格式，不签生产GO。

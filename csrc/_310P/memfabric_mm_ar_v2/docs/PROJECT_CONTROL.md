@@ -685,3 +685,19 @@ ADD指令、KVER28设备核/合同、SetAccess物理号修复未被该提交改�
 统一源码分支与统一SDK/旧SO兼容性分别确认；V2用新SDK须重建匹配Host/Device并过双Rank短测，
 不直接换JSON，不将历史v11成绩标作新SDK成绩。当前新组合设备验证仍NOT_RUN。
 [最新执行单](../../tools/L1_test/OPENCODE_ROUND.md)、ADR-042同步；本次仅文档澄清，不改算子或模板默认工件。
+
+## 2026-10-30｜下游只验证不计时，L1性能仅完整MM+AR
+
+用户明确“下游消费验证不需要计时”。基于df6256ff升级L1_TENSOR_IO_V3 / campaign schema V2：
+唯一ready计时，Wall/Event覆盖完整输入调用至输出/流完成；两个计时Event，不再有chain、
+operator_event_us或consumer_event_us。每次必需Host准备/包装/拷贝/seed/同步仍在run。
+下游ADD在采样前后、每M及双地址独立运行：op返回立即同Stream消费，最后才同步；
+只写PASS/失败证据，不读取框架时钟/计时Event，不在热态循环或Profiler性能范围内。
+聚合要求双Rank完整before/after证据且timed=false，缺失/重复/错算或旧指标字段均失败。
+逐样本完整输出与协议检查保留；均值仍每序号双Rank max后聚合，不丢样本。
+
+完整43组/170会话及shared快速W2/N10/R1、正式exclusive W20/N100/R1继续有效，
+删除的是第二个计时场景，会话数不变。新计划须重新生成并freeze，旧原件不重标/不混入。
+框架仍为单次完整调用基准与独立下游验证，尚未实现连续异步推理吞吐；不据此签模型TTFT。
+[执行单](../../tools/L1_test/OPENCODE_ROUND.md)、[复核](../../tools/L1_test/REVIEW_FIXED_M.md)、
+35份版本文档/默认计划/所选代码包身份同步；CPU482项及36子测试PASS，无新CANN/NPU或性能数字，不查格式。

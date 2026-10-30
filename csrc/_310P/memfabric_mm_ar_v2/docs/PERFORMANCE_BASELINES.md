@@ -332,3 +332,10 @@ V2整理装载复核：把libmf310p_ Device纳入与libmf_ SDK一致的冻结及
 正式性能另用exclusive/W20/N100/R1，每臂200个配对样本；不能由shared结果签稳定独占收益。
 模式变化只影响占用要求、采样配置及结论标签，完整Tensor I/O、ABBA、双Rank max后均值公式不变。
 本次仅执行约定与目录收敛，无新CANN/NPU或性能数字；既有历史成绩和限制不改写。
+
+## 2026-10-30｜下游消费移出性能采集，无新设备数据
+
+新合同L1_TENSOR_IO_V3仅完整MM+AR ready，两个Event，输出Wall/Event及逐样本双Rank max后均值。
+下游ADD改为前后独立功能门禁，无耗时/速比；summary单列PASS_UNTIMED。
+旧L1_TENSOR_IO_V2的chain和三Event结果保留原件，不重标、不与新合同合并统计。
+43组/170会话及shared快速/独占正式模式不变；尚无本次新CANN/NPU或性能数字。

@@ -1,5 +1,7 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
+> **最新计时合同L1_TENSOR_IO_V3：只测完整MM+AR，取消chain及下游耗时统计。** 下游ADD在采样前后独立验证，立即同Stream消费、最后同步；不进入热态循环或Profiler性能采集。重新生成计划并freeze，旧结果保留原合同。快速shared/正式exclusive及原地复用两仓的执行方式继续有效。
+
 > **2026-10-30最新L1执行约定：快速验证用shared，正式性能用exclusive。** 沿用服务器原有`vllm-ascend`和`memfabric_hybrid`两仓，核清工作区/运行任务后原地切已有分支，不再新clone/worktree。只在原仓内新增统一构建/结果子目录；优先复用匹配SDK。此次先shared、W2/N10/R1、完整43组，不自动追加独占轮。以[L1执行单](csrc/_310P/tools/L1_test/OPENCODE_ROUND.md)为准，覆盖旧执行单新建顶层目录/克隆及独占前置规定；健康、数值、协议及异常STOP保留。
 
 > **代码目录规则（2026-10-30）：310P融合算子相关实现、工具与实验代码集中在`csrc/_310P`；统一L1框架、入口与测试的唯一目录为`csrc/_310P/tools/L1_test`。**
@@ -204,6 +206,6 @@ V1查历史已按用户要求延期至下一次实机测试，本轮不再作为
 四家族适配器统一到csrc/_310P/tools/L1_test/adapter_plugins，仍共用L1计时/正确性/采集。
 [完整43组/170场矩阵](csrc/_310P/tools/L1_test/ROUND_FIXED_M.md)、
 [委托OpenCode执行](csrc/_310P/tools/L1_test/OPENCODE_ROUND.md)。
-M2048/4096，W20/N100/R1，Stock+所选V2+V3八种迭代各参数，独立Stock ABBA、ready+chain。
+M2048/4096，W20/N100/R1，Stock+所选V2+V3八种迭代各参数，独立Stock ABBA；当前仅ready计时，下游独立不计时验证。
 V1只补适配不测；旧V3的Python/工件必须匹配，缺失整批阻止，不用当前实现代旧名。
 475项CPU及36子测试通过，本轮无新CANN/NPU数据；新授权允许Stock/V2参与本批公平对照，生产默认不变。

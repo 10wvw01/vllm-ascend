@@ -2,7 +2,8 @@
 
 在310P3服务器执行一轮统一L1测验，M仅2048与4096，K=N=2048、FP16、单卡双Die/TP2。
 范围以主线`csrc/_310P/tools/L1_test/ROUND_FIXED_M.md`和`campaign-fixed-m.json`为准：
-完整范围43配置组/170独立TP2会话，ready+chain，无打点性能。
+完整范围43配置组/170独立TP2会话，仅ready完整MM+AR计时，无打点性能；下游ADD仅独立正确性验证。
+当前合同L1_TENSOR_IO_V3 / campaign schema V2，重新生成计划与freeze，不能沿用旧chain计划/结果。
 **用户最新执行规则：本轮先非独占快速验证，shared、W2/N10/R1；正式性能另用exclusive、W20/N100/R1。**
 两种模式明确生成不同计划/结果，不自动追加独占轮；快速轮不减实验组，只减少预热和样本。
 每组有自己的Stock ABBA；本轮明确重测Stock/V2以取得同批对照，V1仅准备适配，不测、不查旧数据。
@@ -98,7 +99,7 @@ python csrc/_310P/tools/L1_test/l1_bench.py campaign status --out "$RUN_DIR/froz
 大文件可制品包+SHA，但必须可取回，不能只有临时服务器路径。结果直接提交主线
 `csrc/_310P/tools/L1_test/experiments/<新的唯一run_id>/`，同步PROJECT_CONTROL/PERFORMANCE_BASELINES。
 
-先报告每组完成/STOP/NOT_RUN、实际源码/SO/SDK身份；再按M/ready/chain列完整Wall均值、p50/p90/p99、
+先报告每组完成/STOP/NOT_RUN、实际源码/SO/SDK身份；再按M/ready列完整Wall均值、p50/p90/p99、
 各组独立Stock、速比、漂移。诊断段不混到正式收益；不把不同配置Stock拼成一个平均，不把失败批次写成完整PASS。
 最后突出V3每次迭代与通信/计算粒度的收益或劣化，说明证据级别；不虚构设备内部阶段耗时或发布GO。
 
@@ -110,7 +111,7 @@ V2/V3共用本文件锁定的MemFabric fix分支/db38d75e；SDK按实际兼容�
 先核未提交内容和运行任务，安全后原地切换，SSH拉GitHub，
 不新增clone/worktree。构建放原仓build/310p_l1/<run_id>，结果放原仓
 csrc/_310P/tools/L1_test/experiments/<run_id>，不删旧目录。
-按本文件先做G0、CPU、匹配构建和双Rank短测，再执行完整43组：M2048/4096、ready+chain、
+按本文件先做G0、CPU、匹配构建和双Rank短测，再执行完整43组：M2048/4096、仅ready计时、下游单独验证，
 shared、W2/N10/R1、collection off，允许其他进程及漂移；保留健康/数值/协议门禁，首错STOP。
 V1不测，不自动追加独占轮或Profiler。回传双Rank原件、summary、失败清单、两仓/SDK/SO身份和目录清单，
 代码修复及实验归档直接提交上述主线；shared耗时仅作观察，不签正式性能结论。

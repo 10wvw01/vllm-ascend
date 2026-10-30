@@ -9,11 +9,11 @@ import sys
 import time
 from pathlib import Path
 
-from .core import ROOT, catalog, make_plan, sha
+from .core import CONTRACT, ROOT, catalog, make_plan, sha
 from .cli import check_manifest, clean_environment, execute, freeze_data
 from .worker import save
 
-SCHEMA = 'MF310P_L1_FIXED_M_CAMPAIGN_V1'
+SCHEMA = 'MF310P_L1_FIXED_M_CAMPAIGN_V2'
 
 
 def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclusive', collection='off', v2_history=False):
@@ -57,7 +57,8 @@ def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclus
     control = make_plan(samples=samples,warmup=warmup,rounds=rounds,mode=mode,collection=collection)
     jobs = sum(len(case_plan(dict(W=warmup,N=samples,R=rounds,mode=mode,collection=collection),c)['jobs']) for c in cases)
     return dict(schema=SCHEMA,profile=profile,v2_history=v2_history,W=control['W'],N=control['N'],R=control['R'],
-                mode=mode,collection=collection,scenarios=['ready','chain'],M=[2048,4096],cases=cases,
+                mode=mode,collection=collection,scenarios=['ready'],M=[2048,4096],cases=cases,
+                consumer_validation=control['consumer_validation'],
                 case_count=len(cases),tp2_sessions=jobs,paired_samples_per_arm_per_case_per_stage=2*rounds*samples,
                 V1='adapter available; historical source/binary lookup and measurement deferred',
                 policy='each candidate/config has its own common ABBA and Stock controls; no pooled cross-campaign Stock')
@@ -72,7 +73,7 @@ def validate_campaign(campaign):
 
 def case_plan(campaign, case):
     return make_plan([] if case['version']=='STOCK' else [case['version']],campaign['N'],campaign['W'],campaign['R'],
-                     campaign['mode'],('ready','chain'),case['M'],campaign['collection'])
+                     campaign['mode'],('ready',),case['M'],campaign['collection'])
 
 
 def runtime_template(campaign, repo='/ABS/REPO'):
@@ -216,18 +217,21 @@ def collect_summary(out):
         completed.append(case['id'])
         runtime=json.loads((path/'run.json').read_text())['manifest']['runtimes'][case['version']]
         analysis=json.loads((path/'analysis.json').read_text())
-        if analysis['plan']!=case_plan(campaign,case):
+        if analysis.get('contract')!=CONTRACT or analysis['plan']!=case_plan(campaign,case):
             raise ValueError('completed analysis belongs to a different plan')
+        if analysis.get('downstream_validation')!='PASS_UNTIMED':
+            raise ValueError('completed case lacks untimed downstream validation')
         for row in analysis['results']:
             version=case['version'];stat=row['stats'][version]
             rows.append(dict(experiment=case['id'],version=version,config=case['config'],M=row['M'],scenario=row['scenario'],
                              stage=row['stage'],metric=row['metric'],status=row['comparison_status'],n=stat['n'],
                              source_head=runtime['source_head'],mean_us=stat['mean_us'],std_us=stat['std_us'],
+                             downstream_validation=analysis['downstream_validation'],
                              p50_us=stat['p50_us'],p90_us=stat['p90_us'],p99_us=stat['p99_us'],
                              arm_drift=row['arm_drift'],stock_bracket_drift=row['stock_bracket_drift'],
                              stock_mean_us=row['stats']['STOCK']['mean_us'],speedup=row.get('speedup'),
                              latency_reduction=row.get('latency_reduction')))
-    return dict(schema=SCHEMA,completed=completed,pending=pending,case_status=case_status,rows=rows,release_go=False,
+    return dict(schema=SCHEMA,contract=CONTRACT,completed=completed,pending=pending,case_status=case_status,rows=rows,release_go=False,
                 note='Each config uses its own paired Stock controls; no pooling across case identities.')
 
 
