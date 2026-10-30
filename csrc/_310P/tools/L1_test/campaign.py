@@ -89,6 +89,15 @@ def case_plan(campaign, case):
 
 def runtime_template(campaign, repo='/ABS/REPO'):
     result=dict(card=16384,devices='2,3',cann='/ABS/CANN',runtimes={},admission_by_runtime={})
+    # Every case plan pairs candidates with STOCK arms, so the STOCK runtime and
+    # its admission slot must exist even when --cases omits the stock case.
+    if not any(c['version']=='STOCK' for c in campaign['cases']):
+        result['runtimes']['STOCK']=dict(version='STOCK',
+            source_head='REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA',environment={},
+            files=['/ABS/TORCH_NPU_LIBRARY.so'])
+        result['admission_by_runtime']['STOCK']=dict(g0_readonly='NOT_RUN',cpu_contract='NOT_RUN',
+            private_compile='NOT_RUN',dual_rank_smoke='NOT_RUN',binary_identity='NOT_RUN',
+            evidence_files=['/ABS/ADMISSION/STOCK.json'])
     for case in campaign['cases']:
         version=case['version']
         binding=case['runtime_key']
