@@ -4,6 +4,23 @@
 本轮按用户新要求新测Stock、V2与V3各组，构成同批公平对照；V1只补适配器，历史查找/测量继续延期。
 代码和计划已准备，**这里没有实机测量结果**。
 
+## 用户最新执行方式：快速非独占，正式独占
+
+| 用途 | mode | W / N / R | 结果用途 |
+|---|---|---|---|
+| 本次先执行快速验证 | shared | 2 / 10 / 1 | 接入、完整输出、下游消费与基本耗时；允许占用/漂移，OBSERVATIONAL_SHARED |
+| 后续正式性能 | exclusive | 20 / 100 / 1 | 整批独占，保留ABBA和漂移判定 |
+
+两者都覆盖完整43组/170会话；快速轮每臂每M每场景20个配对样本，正式轮200个。
+快速轮缩短采样，不删实验组，不自动追加独占轮。下文默认JSON保留正式计划；
+快速轮必须显式生成`--mode shared --warmup 2 --samples 10 --rounds 1`的新计划。
+shared只放宽占用独占要求，不放宽健康/协议/数值；旧执行单的“目标卡必须空闲”不适用于本轮shared。
+
+沿用服务器现有`vllm-ascend`及`memfabric_hybrid`两仓，安全核查后原地切已有分支，
+不新clone/worktree。构建/必要快照集中在原vllm仓`build/310p_l1/<run_id>/`；
+计划和结果集中在`csrc/_310P/tools/L1_test/experiments/<run_id>/`。这些仅是原仓子目录。
+优先复用匹配且冻结的SDK；详细依赖、原地切换条件与命令以[新执行单](OPENCODE_ROUND.md)为准。
+
 ## 默认完整矩阵
 
 | 组 | 编号 | 配置 | 配置组数 | M |
@@ -53,7 +70,7 @@ plan/template仅CPU；freeze在任何设备执行前核对**全部组**的文件
 任何缺失会返回BLOCKED_BEFORE_DEVICE，不创建一份假装完整的运行批次，也不自动跳过旧版本。
 start使用独立后台session；每个配置继承同一L1执行器/守护，异常STOP且不进入下一组，无自动ADD重试。
 
-默认exclusive要求整批固定健康双Die卡；若明确接受共享漂移，plan时指定`--mode shared`，
+正式exclusive要求整批固定健康双Die卡；本次快速轮已明确接受共享漂移，plan时指定`--mode shared`，
 结果会保留OBSERVATIONAL_SHARED标签。不得执行到一半自动改模式或换卡拼成绩。
 逐个runtime填写admission_by_runtime和可取回的证据文件；不只把NOT_RUN字符串改成PASS。
 

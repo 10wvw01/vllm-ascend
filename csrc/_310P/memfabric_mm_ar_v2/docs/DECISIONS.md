@@ -352,3 +352,15 @@ V1只准备适配，历史身份与测量仍延期；本轮Stock/V2按新授权�
 旧V3要实际冻结历史模块与SO，私有包隔离导入；任何工件/身份/门禁缺失在设备前整批阻止。
 每组新TP2进程和SDK隔离，首错STOP，不自动重试/回退/换卡；统一输出原始证据和配置独立汇总。
 本轮代码与CPU475项/36子测试完成，新CANN/NPU未运行；Serving默认、Kernel算法/协议和生产GO均不变。
+
+## ADR-041｜快速验证非独占，正式性能独占；原地复用两仓
+
+用户明确两种运行方式，快速验证非独占。本轮先shared、W2/N10/R1、off，完整43组170场；
+正式性能另用exclusive、W20/N100/R1。两mode独立计划、freeze和结果，shared只放宽独占/漂移，
+保留健康、数值与协议STOP，输出OBSERVATIONAL_SHARED，不因卡忙改回独占门禁。
+不自动追加exclusive/Profiler、不静默缩为active；不改框架全局默认或算子/采集语义。
+服务器仅复用现有vllm-ascend和memfabric_hybrid两个仓库，干净且无运行依赖后原地切已有分支。
+不新增clone/worktree；build/310p_l1/<run_id>与L1_test/experiments/<run_id>是原vllm仓内部子目录。
+历史源码必要时提取至统一build，优先复用匹配工件，旧结果不覆盖、不自动清理旧目录或共享安装。
+本规则覆盖旧独占前置/新顶层克隆建议；两仓SHA、SDK/KVER、实际SO和运行模式继续冻结。
+详见[当前执行单](../../tools/L1_test/OPENCODE_ROUND.md)。本次仅执行文档更新，无新设备PASS或性能结论。

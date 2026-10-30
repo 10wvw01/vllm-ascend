@@ -324,3 +324,11 @@ V2整理装载复核：把libmf310p_ Device纳入与libmf_ SDK一致的冻结及
 历史raw/prepare/START要冻结对应源码、Python与工件；没有实际二进制匹配则BLOCKED，不用当前版本代测。
 单轮结果仍要如实区分漂移/shared/diagnostic，不将200样本等同长期稳定性。
 当前475项CPU及36子测试通过，计划及模板均设备NOT_RUN，未新增任何Stock/V2/V3性能结论。
+
+## 2026-10-30｜快速非独占与正式独占分开归档，无新测量
+
+用户指定本轮先shared/W2/N10/R1/off，完整43组，配对样本每臂每M每场景20个；
+用于接入正确性与基本耗时观察，保留外部占用/漂移，标OBSERVATIONAL_SHARED。
+正式性能另用exclusive/W20/N100/R1，每臂200个配对样本；不能由shared结果签稳定独占收益。
+模式变化只影响占用要求、采样配置及结论标签，完整Tensor I/O、ABBA、双Rank max后均值公式不变。
+本次仅执行约定与目录收敛，无新CANN/NPU或性能数字；既有历史成绩和限制不改写。

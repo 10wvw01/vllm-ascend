@@ -655,3 +655,19 @@ active显式缩减为30组/118场，另外选择V2历史则64组/254场，打点
 [接入与矩阵](../../tools/L1_test/ROUND_FIXED_M.md)、[OpenCode执行单](../../tools/L1_test/OPENCODE_ROUND.md)、
 [两轮复核](../../tools/L1_test/REVIEW_FIXED_M.md)。475项CPU及36子测试PASS，未做新CANN/NPU测验。
 本轮依用户新要求允许新测Stock/V2同批对照，覆盖此前仅复用历史的范围限制；Stock生产默认不变。
+
+## 2026-10-30｜快速shared与正式exclusive分开，复用服务器两个原仓
+
+用户明确快速验证用非独占。本次先shared、W2/N10/R1、collection off，完整43组/170会话，
+每臂每M每场景20个配对样本；允许外部PID及漂移，保留健康/物理映射/SDK/数值/协议门禁。
+结果OBSERVATIONAL_SHARED，不因目标卡忙而拒绝，不自动追加正式独占轮或打点轮。
+后续正式性能另生成exclusive、W20/N100/R1计划，分别freeze/归档，不混合两类结果。
+框架已支持两mode，本次只明确执行策略和文档，不改算子、适配器、计时/统计或CLI全局默认。
+
+目录沿用现有vllm-ascend与memfabric_hybrid，干净且无运行依赖时原地切已有分支；
+vllm主线仍dev/310p-memfabric-mm-ar，V3 MemFabric锁fix/310p-v3-orch-deploy-helper-20261029@db38d75e。
+不新增clone/worktree；构建/必要快照集中原vllm仓build/310p_l1/<run_id>，
+计划/证据/结果集中csrc/_310P/tools/L1_test/experiments/<run_id>，不自动删除旧目录。
+优先复用匹配SDK；旧fresh源码构建要求不能解释成允许清除原MemFabric的build/output或另起顶层克隆。
+[执行单与简短提示词](../../tools/L1_test/OPENCODE_ROUND.md)、[模式与矩阵](../../tools/L1_test/ROUND_FIXED_M.md)、ADR-041同步。
+本次验证两mode计划生成和公共守护接线、现有源码包身份及项目元数据；无NPU新执行，无新性能数值，不查格式。
