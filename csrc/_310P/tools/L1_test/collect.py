@@ -50,16 +50,26 @@ def attribution(rank_reports):
                 for name,value in sample.get('collection',{}).get('host_us',{}).items():
                     if not math.isfinite(value) or value<0:
                         raise ValueError('invalid Host duration')
-                    host.setdefault(name,[]).append(value)
+                    host.setdefault(name,[]).extend([value]*sample.get('calls',1))
+            for block in case.get('host_blocks',[]):
+                for call in block['host_calls']:
+                    for name,value in call.items():
+                        if isinstance(value,bool):
+                            continue
+                        if not isinstance(value,(int,float)) or not math.isfinite(value) or value<0:
+                            raise ValueError('invalid operator Host phase duration')
+                        name={'enqueue_us':'entry_total','run_us':'enqueue'}.get(name,name.removesuffix('_us'))
+                        host.setdefault(name,[]).append(value)
             means={k:sum(v)/len(v) for k,v in host.items()}
             phases={}
             if 'validate_reap' in means:
                 phases['host_prepare']=means['validate_reap']
-            if 'reserve' in means and 'wrap' in means:
-                phases['output_acquire_wrap']=means['reserve']+means['wrap']
+            acquire='reserve' if 'reserve' in means else 'acquire'
+            if acquire in means and 'wrap' in means:
+                phases['output_acquire_wrap']=means[acquire]+means['wrap']
             if 'enqueue' in means:
                 phases['enqueue']=means['enqueue']
-            detailed={k:v for k,v in means.items() if k!='adapter_call_including_blocking'}
+            detailed={k:v for k,v in means.items() if k not in ('adapter_call_including_blocking','entry_total')}
             out.append(dict(version=report['job']['version'],stage=report['job']['stage'],rank=report['rank'],
                             M=case['M'],scenario=case['scenario'],host_mean_us=means,host_phase_us=phases,
                             largest_measured_host_stage=max(detailed,key=detailed.get) if detailed else None,
@@ -70,7 +80,8 @@ def attribution(rank_reports):
 
 def profile_statistics(rank_reports):
     return [dict(version=r['job']['version'],stage=r['job']['stage'],rank=r['rank'],
-                 kernels=r['profile']['kernel_statistics'],exclusive_phase_wall=False)
+                 kernels=r['profile']['kernel_statistics'],exclusive_phase_wall=False,
+                 collection_scope='operator execution groups; no numeric/status/downstream checks')
             for r in rank_reports if 'profile' in r]
 
 

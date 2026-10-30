@@ -1,5 +1,5 @@
 {
-  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V2",
+  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V3",
   "profile": "full",
   "v2_history": false,
   "W": 20,
@@ -8,7 +8,8 @@
   "mode": "exclusive",
   "collection": "off",
   "scenarios": [
-    "ready"
+    "ready",
+    "steady"
   ],
   "M": [
     2048,
@@ -690,6 +691,9 @@
       "historical": false
     }
   ],
+  "batch_size": 2,
+  "working_set": 4,
+  "case_ids": [],
   "consumer_validation": "untimed_immediate_same_stream_before_after",
   "case_count": 43,
   "tp2_sessions": 170,

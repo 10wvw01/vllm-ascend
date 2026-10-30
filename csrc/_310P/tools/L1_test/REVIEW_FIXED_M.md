@@ -57,3 +57,30 @@ CMake测试通过当前Python环境寻找cmake，去掉对临时虚拟环境绝�
 CPU回归482项及36子测试通过，其中L1框架59项；新增7项覆盖旧合同拒绝、
 下游无时钟/事件且依赖顺序不变、门禁证据遗漏/重复/伪计时及旧指标混入。
 35份VN-M文档与默认计划重新生成。无新CANN/NPU执行，不查格式，不签生产GO。
+
+## L1_TENSOR_IO_V4：调用层对齐与专业测量复核
+
+基底0bca98ff45a2afbf415ae3f800de3071f58503cb。用户要求专业优化，并明确以Stock为基准，
+V2/V3不对等部分必须在融合算子内修正。此前V3合同只删除下游计时，不解决调用层不一致；
+本节及MEASUREMENT_V4.md覆盖前述测量做法，历史记录不重标。
+
+第一轮静审核对调用/生命周期：V2/V3输出获取、Storage包装、租约和输入保活迁入算子src，
+公开入口是真实torch.ops.memfabric310p.mm_ar，L1插件只有薄加载/调用。
+raw底层Tensor保持持久首写身份，返回Storage别名持租约；A2/A3保留既有池语义/同步。
+输入事件完成才释放引用，后端/事件失败poison；上下文强注册至显式close，避免调用方丢弃对象后
+在途内存被GC；无隐式集合析构。原C ABI、C++/ASC Kernel和冻结Session算法未改。
+桥扩展复用已实机验证的pool_tensor.cpp，但新V2/raw用途本轮设备仍NOT_RUN。
+
+第二轮静审核对测量/证据：默认ready+有界steady，N恒为调用数，所有组输出保留至完成。
+组内无CPU barrier/数值/状态检查，组尾审计和阶段末数值如实声明；不存在每样本correct伪证据。
+A2/A3超2容量设备前拒绝，不偷偷扩大池/缩窗。尾块按调用数加权，steady分位数标块平均。
+空计时封套只报告不减除；预热收敛不冒充频率证书。ABBA/BAAB轮间交替，bootstrap重采独立轮次。
+shared观察、R1筛选、诊断不签收益；外部工厂调用层未审计不得签公平收益。
+Profiler只包执行组，Host细分完整保留（包括同组多个phase_log，不再只pop最后一次）。
+
+验证：新增真实CPU Torch dispatcher捕获证明mm_ar包住后端计算；
+假后端验证wrap处于dispatch内、两个输出/别名、输入事件保活、owner丢弃安全、满池不覆盖、
+组尾等待、尾块、精确调用数、容量/旧字段/伪校准拒绝及独立轮次结论。
+最终完整CPU回归记录见下方及V2_CODE_PACKAGE.json的V4修订；无CANN/NPU新执行，不查格式。
+
+最终验证：497项CPU测试及36子测试通过，其中L1为74项，含真实torch 2.10.0+cpu dispatcher；项目元数据门禁PASS。CANN/NPU、模型调用点与新入口性能仍NOT_RUN。

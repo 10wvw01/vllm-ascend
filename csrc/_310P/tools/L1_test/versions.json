@@ -24,7 +24,7 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -50,7 +50,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -72,7 +72,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -95,7 +95,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -118,7 +118,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_PUBLIC_API_ABI7",
       "release_role": "ABI7_CAPABILITY_OR_MODE_PENDING_SELECTION"
     },
@@ -141,7 +141,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "implementation_group": "V1_STANDALONE_PROTOTYPE",
       "release_role": "HISTORICAL_PROTOTYPE"
     },
@@ -170,8 +170,9 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "HISTORICAL_BASELINE"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "HISTORICAL_BASELINE",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-1",
@@ -195,8 +196,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "HISTORICAL_FORMAL_BUILD_BASELINE_NOT_SELECTED_BY_PERFORMANCE"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "HISTORICAL_FORMAL_BUILD_BASELINE_NOT_SELECTED_BY_PERFORMANCE",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-2",
@@ -216,7 +218,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "REJECTED_HISTORICAL_CANDIDATE",
       "config": {
         "chunk_rows": 1024,
@@ -245,8 +247,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "PARAMETER_STUDY"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "PARAMETER_STUDY",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-4",
@@ -266,7 +269,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "REJECTED_SMALL_M"
     },
     {
@@ -290,8 +293,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "SERIAL_ATTRIBUTION_CONTROL"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "SERIAL_ATTRIBUTION_CONTROL",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-6",
@@ -312,8 +316,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "SERIAL_ATTRIBUTION_CONTROL"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "SERIAL_ATTRIBUTION_CONTROL",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-7",
@@ -334,11 +339,12 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "PERFORMANCE_SELECTED_M2048",
       "selected_api": "v2_selected_v1",
       "selected_M": 2048,
-      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN"
+      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-8",
@@ -359,8 +365,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "REJECTED_VS_E1"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "REJECTED_VS_E1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-9",
@@ -381,8 +388,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "REJECTED_VS_E1_WITH_FAILURE_HISTORY"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "REJECTED_VS_E1_WITH_FAILURE_HISTORY",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-10",
@@ -403,8 +411,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "REJECTED_VS_E1"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "REJECTED_VS_E1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-11",
@@ -425,8 +434,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "M4096_STABLE_IMPROVEMENT_REFERENCE"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "M4096_STABLE_IMPROVEMENT_REFERENCE",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-12",
@@ -447,8 +457,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "NOT_PREFERRED_VS_E3G"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "NOT_PREFERRED_VS_E3G",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-13",
@@ -469,8 +480,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "E4_REGRESSION_ANCHOR"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "E4_REGRESSION_ANCHOR",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-14",
@@ -491,8 +503,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "SCREEN_ONLY_ALTERNATIVE"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "SCREEN_ONLY_ALTERNATIVE",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-15",
@@ -513,11 +526,12 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "PERFORMANCE_SELECTED_M4096_SCREEN_UNCERTAINTY_DISCLOSED",
       "selected_api": "v2_selected_v1",
       "selected_M": 4096,
-      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN"
+      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-16",
@@ -538,8 +552,9 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
-      "release_role": "SCREEN_ONLY_ALTERNATIVE"
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
+      "release_role": "SCREEN_ONLY_ALTERNATIVE",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-17",
@@ -559,7 +574,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -581,7 +596,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -603,7 +618,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "v3",
       "config": {
         "comm_rows": 1024,
@@ -637,9 +652,10 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "v3",
-      "session_api": "python_session_v1"
+      "session_api": "python_session_v1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V3-2",
@@ -660,7 +676,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "v32",
       "config": {
         "comm_rows": 1024,
@@ -694,9 +710,10 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "v32",
-      "session_api": "python_session_v1"
+      "session_api": "python_session_v1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V3-4",
@@ -718,7 +735,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "a3",
       "adapter_variant": "a3",
       "config": {
@@ -755,10 +772,11 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "a3",
       "adapter_variant": "a3",
-      "session_api": "python_session_v1"
+      "session_api": "python_session_v1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V3-6",
@@ -785,10 +803,11 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "a3",
       "adapter_variant": "a3-2",
-      "session_api": "python_session_v1"
+      "session_api": "python_session_v1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V3-7",
@@ -815,10 +834,11 @@
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "adapter_family": "a3",
       "adapter_variant": "a3-tail",
-      "session_api": "python_session_v1"
+      "session_api": "python_session_v1",
+      "public_tensor_entry": "torch.ops.memfabric310p.mm_ar"
     },
     {
       "id": "V2-19",
@@ -838,7 +858,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "DIAGNOSTIC_ONLY"
     },
     {
@@ -860,7 +880,7 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full MM+AR Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; downstream ADD is an untimed functional gate before/after sampling",
+      "timing": "L1_TENSOR_IO_V4 public Tensor input/output boundary; ready single-call or bounded steady group; includes every-call output acquisition/wrap/input retention/internal synchronization; downstream ADD is untimed; steady quantiles are block means",
       "release_role": "DIAGNOSTIC_ONLY"
     }
   ],

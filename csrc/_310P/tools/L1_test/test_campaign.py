@@ -9,7 +9,8 @@ import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from L1_test import campaign as c
-from L1_test.core import CONTRACT, analyze, pair_job
+from L1_test.core import CONTRACT, ROOT, analyze, pair_job
+from L1_test.testing import reports
 
 
 def test_complete_fixed_m_round_and_optional_history_have_distinct_bindings():
@@ -22,7 +23,7 @@ def test_complete_fixed_m_round_and_optional_history_have_distinct_bindings():
     for case in full['cases']:
         plan=c.case_plan(full,case)
         assert plan['W']==20 and plan['N']==100 and plan['R']==1
-        assert plan['scenarios']==['ready']
+        assert plan['scenarios']==['ready','steady']
         assert plan['consumer_validation']=='untimed_immediate_same_stream_before_after'
         if case['version']!='STOCK':assert [j['version'] for j in plan['jobs']]==['STOCK',case['version'],case['version'],'STOCK']
     active=c.make_campaign('active')
@@ -46,10 +47,12 @@ def test_campaign_cannot_silently_drop_or_relabel_experiments(change):
 @pytest.fixture
 def frozen_round(tmp_path,monkeypatch):
     plan=c.make_campaign(samples=2,warmup=2)
-    template=c.runtime_template(plan)
+    template=c.runtime_template(plan,repo=str(ROOT))
     files_dir=tmp_path/'fixtures';files_dir.mkdir()
     local={}
     def existing(path):
+        if path.startswith(str(ROOT/'csrc/_310P/common')) or path.endswith('/src/torch_adapter/tensor_entry.py'):
+            return path
         if path not in local:
             f=files_dir/str(len(local));f.write_bytes(('CPU_ONLY_FIXTURE:'+path).encode());local[path]=str(f)
         return local[path]
@@ -125,20 +128,9 @@ def simulated_case(out,case,plan,scale):
     c.save(directory/'run.json',dict(manifest=manifest))
     jobs={}
     for job in plan['jobs']:
-        reports=[]
-        for rank in (0,1):
-            value=scale*(1 if job['version']=='STOCK' else 2)+rank
-            cases=[]
-            for m in plan['M']:
-                for scene in plan['scenarios']:
-                    cases.append(dict(M=m,scenario=scene,warmup_count=plan['W'],samples=[dict(i=i,variant=i%2,
-                        correct=True,wall_us=value,event_us=value) for i in range(plan['N'])]))
-            reports.append(dict(contract=CONTRACT,rank=rank,status='PASS',job=job,plan=plan,cases=cases,
-                                downstream_validation=dict(status='PASS',timed=False,same_stream=True,cases=[
-                                    dict(phase=phase,M=m,variant=v,correct=True)
-                                    for phase in ('before','after') for m in plan['M'] for v in (0,1)]),
-                                route={'verified':True},runtime_identity={'CPU_fixture':job['version']}))
-        jobs[job['id']]=pair_job(plan,job,*reports)
+        value=scale*(1 if job['version']=='STOCK' else 2)
+        raw=reports(plan,job,values=lambda rank,i:value+rank,identity=manifest['runtimes'][job['version']])
+        jobs[job['id']]=pair_job(plan,job,*raw)
     c.save(directory/'analysis.json',analyze(plan,jobs))
     c.save(directory/'result.json',dict(status='PASS_L1_ONLY',device_test='CPU_SIMULATION_ONLY'))
 
@@ -152,7 +144,7 @@ def test_summary_does_not_pool_stock_or_confuse_configurations(frozen_round):
     assert len(result['completed'])==3 and len(result['pending'])==40 and result['release_go'] is False
     for case,expected in [('v3-1-g512-serial',201),('v3-1-g512-pipeline',301)]:
         rows=[r for r in result['rows'] if r['experiment']==case]
-        assert rows and all(r['stock_mean_us']==expected and r['n']==4 for r in rows)
+        assert rows and all(r['stock_mean_us']==expected and r['calls']==4 and r['n']==(4 if r['scenario']=='ready' else 2) for r in rows)
         assert {r['metric'] for r in rows}=={'wall_us','event_us'}
         assert all(r['downstream_validation']=='PASS_UNTIMED' for r in rows)
         assert all(r['config']['pipeline']==case.endswith('pipeline') for r in rows)

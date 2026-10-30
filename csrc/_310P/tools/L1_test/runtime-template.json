@@ -8,29 +8,41 @@
     "private_compile": "NOT_RUN",
     "dual_rank_smoke": "NOT_RUN",
     "binary_identity": "NOT_RUN",
-    "evidence_files": ["/ABS/PATH/TO/ACTUAL/ADMISSION/EVIDENCE.json"]
+    "evidence_files": [
+      "/ABS/PATH/TO/ACTUAL/ADMISSION/EVIDENCE.json"
+    ]
   },
   "runtimes": {
     "STOCK": {
       "version": "STOCK",
       "source_head": "REPLACE_WITH_ACTUAL_40_HEX_SOURCE_SHA",
-      "files": ["/ABS/PATH/TO/TORCH_NPU_LIBRARY.so"],
+      "files": [
+        "/ABS/PATH/TO/TORCH_NPU_LIBRARY.so"
+      ],
       "environment": {}
     },
     "V3-5": {
       "version": "V3-5",
       "source_head": "REPLACE_WITH_ACTUAL_40_HEX_SOURCE_SHA",
       "library": "/ABS/PATH/TO/PRIVATE/V3_HOST.so",
-      "tensor_adapter": "/ABS/PATH/TO/PRIVATE/mf310p_v32_tensor.so",
-      "supported_M": [2048, 4096],
+      "tensor_adapter": "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
       "route_pattern": "A3Kernel",
-      "config": {"compute_rows": 1024, "comm_rows": 1024},
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024
+      },
       "files": [
         "/ABS/PATH/TO/PRIVATE/V3_HOST.so",
         "/ABS/PATH/TO/PRIVATE/V3_DEVICE.so",
-        "/ABS/PATH/TO/PRIVATE/mf310p_v32_tensor.so",
         "/ABS/PATH/TO/PRIVATE/libmf_hybm_core.so",
-        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v28.json"
+        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so",
+        "/ABS/REPO/csrc/_310P/common/torch_tensor_entry.py",
+        "/ABS/REPO/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py"
       ],
       "environment": {
         "LD_LIBRARY_PATH": "/ABS/PATH/TO/PRIVATE/SDK/lib64:/ABS/PATH/TO/CANN/lib64",

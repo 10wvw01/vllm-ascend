@@ -383,3 +383,19 @@ V1只准备适配，历史身份与测量仍延期；本轮Stock/V2按新授权�
 campaign schema V2和新合同拒绝旧计划/指标，不能重标历史结果或把旧三Event开销直接混入新测量。
 不增加连续异步场景，不改变算子/ABI/Serving/SDK；43组170会话及shared/exclusive策略保留。
 完整CPU482项/36子测试通过，CANN/NPU本轮NOT_RUN；按新主线SHA重新生成/freeze后交OpenCode。
+
+## ADR-044｜Stock公开Tensor边界对齐；V4分离功能、延迟、有界连续及诊断
+
+用户明确V2/V3与Stock不对等部分在融合算子内调整。新增共同Torch dispatcher Tensor入口，
+把原L1中raw输出/每调用管理移入V2/V3算子src，L1只调用；原C ABI/Kernel和历史算法会话保留。
+冷态持久池合法，每次验证/获取/Storage包装/租约/输入保活及原有同步必须在计时调用内。
+上下文强注册到显式close，Storage别名共享租约，输入完成事件保活；不确定故障poison并保留池，禁止重试。
+这是公开Eager Tensor调用层对齐，不是模型调用点集成或Graph资格，不因包了一层就宣布性能通过。
+
+V4默认ready+有界steady，N表示调用总数，B2/工作集4；保留所有组输出，A2/A3容量2，超限设备前拒绝。
+组内无CPU barrier、数值或状态检查；组尾协议/地址审计、前后功能及阶段末组数值，证据明确范围。
+尾组按调用数加权；steady分位数只描述块均值。空封套校准不减除，预热收敛另报。
+轮间ABBA/BAAB交替，R1仅筛选，R>=3对独立轮次bootstrap；shared/诊断不签正式收益。
+公共入口、时钟/预热/漂移和不确定性都要满足才谈L1收益，不外推Qwen TTFT。
+完整矩阵保留、精确--cases显式定点迭代；快速shared/两原仓/主线归档/首错STOP继续有效。
+无新设备证据，须新桥/公开入口实际编译和双Rank短测后重新freeze，不把旧C ABI Smoke或历史成绩当作新入口PASS。

@@ -81,3 +81,16 @@ python csrc/_310P/tools/L1_test/l1_bench.py plan --versions V2-15 --M 4096 \
 
 计时继续采用统一ready/chain边界；持久输出建池前分配，首写及路由预热单列冷态，run内必需清零与提交都计时。
 本次只完成入口整理和CPU验证；不运行上述性能计划，不把V1历史查找作为V2前置。
+
+## 2026-10-30：与Stock对齐的公开Torch Tensor入口
+
+上述C ABI仍是实现层；新L1性能入口统一为
+`torch.ops.memfabric310p.mm_ar(X,W,context)->Y`。
+共同分发/租约在`csrc/_310P/common/torch_tensor_entry.py`，V2实现为
+`src/torch_adapter/tensor_entry.py`，不依赖L1测试模块。
+每次输出槽获取、TorchNPU Storage/Tensor包装和异步输入保活在算子调用内，计入热态；
+底层持久输出组冷态分配，仍保留首写地址身份。Y及其Storage别名未全部释放不得复用。
+支持原Stream的Eager FP16 ND X/NZ29 W，模型调用点集成/Graph仍NOT_RUN。
+桥可用`csrc/_310P/common/build_tensor_bridge.py`在原仓统一build子目录编译，SDK无依赖。
+旧C/Device ABI和Kernel不变，旧成绩不重标为新Tensor入口成绩；新入口须设备编译/双Rank短测。
+完整调用/输出保留与测量合同见[MEASUREMENT_V4.md](../../tools/L1_test/MEASUREMENT_V4.md)。

@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 from .collect import attribution, import_legacy, profile_statistics
-from .core import ROOT, analyze, catalog, make_plan, pair_job, sha, validate_plan, validate_runtime
+from .core import ROOT, analyze, catalog, execution_contract, make_plan, pair_job, sha, validate_plan, validate_runtime
 from .worker import save
 
 GUARD=ROOT/'csrc/_310P/memfabric_mm_ar_v3/tools'
@@ -25,6 +25,9 @@ def framework_identity():
     paths.update((ROOT/'vllm_ascend/_310p/ops').glob('memfabric_mm_ar*.py'))
     paths.update([ROOT/'csrc/_310P/tools/L1_test/versions.json',ROOT/'csrc/_310P/tools/L1_test/l1_bench.py',
                   GUARD/'stage_guard.py',ROOT/'csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py'])
+    paths.update([ROOT/'csrc/_310P/common/torch_tensor_entry.py',
+                  ROOT/'csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py',
+                  ROOT/'csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py'])
     return {str(p.relative_to(ROOT)):sha(p) for p in sorted(paths)}
 
 
@@ -60,6 +63,7 @@ def check_manifest(manifest,plan):
     for version in set(plan['versions'])|{'STOCK'}:
         spec=manifest['runtimes'][version]
         validate_runtime(spec,version)
+        execution_contract(version,spec,plan)
         if version!='STOCK' and not set(plan['M'])<=set(spec['supported_M']):
             raise ValueError(f'{version} does not admit all requested physical M values')
         if version!='STOCK' and not spec.get('route_pattern'):
@@ -172,7 +176,9 @@ def main():
     plan.add_argument('--mode',choices=['exclusive','shared'],default='exclusive')
     plan.add_argument('--collection',choices=['off','host','profiler'],default='off')
     plan.add_argument('--M',nargs='+',type=int,default=[2048,4096])
-    plan.add_argument('--scenarios',nargs='+',choices=['ready'],default=['ready'])
+    plan.add_argument('--scenarios',nargs='+',choices=['ready','steady'],default=['ready','steady'])
+    plan.add_argument('--batch-size',type=int,default=2)
+    plan.add_argument('--working-set',type=int,default=4)
     plan.add_argument('--out',type=Path,required=True)
     freeze=sub.add_parser('freeze')
     freeze.add_argument('--template',type=Path,required=True)
@@ -196,7 +202,8 @@ def main():
         from .campaign import main as campaign_main
         return campaign_main(a.arguments)
     elif a.action=='plan':
-        save(a.out,make_plan(a.versions,a.samples,a.warmup,a.rounds,a.mode,a.scenarios,a.M,a.collection))
+        save(a.out,make_plan(a.versions,a.samples,a.warmup,a.rounds,a.mode,a.scenarios,a.M,a.collection,
+                            batch_size=a.batch_size,working_set=a.working_set))
     elif a.action=='freeze':
         save(a.out,freeze_data(json.loads(a.template.read_text())))
     elif a.action=='import-legacy':

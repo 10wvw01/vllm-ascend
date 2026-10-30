@@ -83,9 +83,10 @@ def build():
         if entry.get('category'):
             usage+=' 本版为'+entry['category']+'，Eager完整MM+AR计划主动拒绝把它计作性能候选；原始专用脚本保留。'
         example_m=str(entry['selected_M']) if entry.get('selected_api') else '2048 4096'
+        window=' --batch-size 1' if entry['runtime'] in ('v1','external') else ''
         example='' if entry.get('category') else f'''```bash
 python csrc/_310P/tools/L1_test/l1_bench.py plan --versions {vid} --M {example_m} \\
-  --warmup 20 --samples 100 --rounds 2 --out /tmp/{vid}-plan.json
+  --warmup 20 --samples 100 --rounds 2{window} --out /tmp/{vid}-plan.json
 ```
 
 上述M仅为统一示例；本版实际合法M由匹配实现与`runtime.supported_M`约束，小M路径必须改为其已准入形状。
@@ -109,6 +110,7 @@ python csrc/_310P/tools/L1_test/l1_bench.py plan --versions {vid} --M {example_m
 - 输出：{entry['output']}。
 - 数学语义：`P_rank=FP16(linear(X_rank,W_NZ)); Y=FP16(P_0+P_1)`。这里只规定TP2局部FP16 MM后归约；不替代原量化包装层的输入合同。
 - 统一计时：{entry['timing']}。
+- 调用层：Stock的公开Tensor输入/输出边界；内建V2/V3由算子源码中的`torch.ops.memfabric310p.mm_ar`管理输出获取、包装和异步输入保活，L1不代办。详见[共同测量合同](../../../tools/L1_test/MEASUREMENT_V4.md)。
 - 权重NZ物化、持久会话初始化和首写保护属于冷态准备并单列；每次调用必需的动作仍计入热态。
 - 临时/池输出的租约由各实现保留到下游消费结束；不能提前释放或将同一底层地址当作两个独立输出。
 

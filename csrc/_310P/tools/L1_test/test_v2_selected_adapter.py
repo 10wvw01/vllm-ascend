@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from L1_test import adapters
 from L1_test.core import sha, validate_runtime
 from L1_test.worker import verify_maps
+from L1_test.testing import Tensor, context, bridge_file, public_files
 
 
 def specification(tmp_path, version='V2-7'):
@@ -18,7 +19,8 @@ def specification(tmp_path, version='V2-7'):
     lib.write_bytes(b'CPU fixture; not an NPU binary')
     device.write_bytes(b'CPU fixture; not an NPU binary')
     return dict(version=version, source_head='a'*40, api='v2_selected_v1', library=str(lib),
-                selected_device_library=str(device), files={str(p):sha(p) for p in (lib, device)},
+                selected_device_library=str(device), tensor_adapter=bridge_file(tmp_path),
+                files={**{str(p):sha(p) for p in (lib, device,Path(bridge_file(tmp_path)))},**public_files(version)},
                 supported_M=[2048 if version=='V2-7' else 4096])
 
 
@@ -56,19 +58,13 @@ def test_selected_adapter_pins_outputs_before_pool_and_calls_only_public_api(tmp
         events.append('load')
         return Library()
     monkeypatch.setattr(adapters.ctypes, 'CDLL', load)
-    class Tensor:
-        shape=(m,2048)
-        def data_ptr(self): return id(self)
-    def empty(*args, **kwargs):
-        events.append('allocate')
-        return Tensor()
-    ctx=SimpleNamespace(shapes=[m], rank=0, url='tcp://test', device='CPU-fixture',
-                        torch=SimpleNamespace(float16='half',empty=empty),
-                        stream=SimpleNamespace(npu_stream=7,synchronize=lambda:events.append('sync')))
+    ctx=context(events,shapes=[m])
     selected=adapters.create(version,spec,ctx,'off')
-    assert events[:6]==['allocate','allocate','sync','load','create','ib_probe']
-    x,w=Tensor(),Tensor()
-    assert selected.run(x,w,0) is selected.outputs[0]
+    assert [e[0] if isinstance(e,tuple) else e for e in events[:6]]==['allocate','allocate','sync','load','create','ib_probe']
+    x,w=Tensor(shape=(m,2048)),Tensor(fmt=29)
+    result=selected.run(x,w,0)
+    assert result is not selected.outputs[0] and result.data_ptr()==selected.outputs[0].data_ptr()
+    del result
     assert selected.after_sample()=={}
     bad=Tensor();bad.shape=(3072,2048)
     before=events.count('run')
@@ -85,13 +81,13 @@ def test_maps_reject_unfrozen_base_v2_device_in_selected_process(tmp_path, monke
     spec=specification(tmp_path)
     base=tmp_path/'libmf310p_v2_trial_device.so'
     base.write_bytes(b'CPU fixture')
-    mapped=[spec['library'],spec['selected_device_library'],str(base)]
+    mapped=[spec['library'],spec['selected_device_library'],str(base),spec['tensor_adapter']]
     maps='\n'.join('0000-1000 r-xp 0000 00:00 0 '+p for p in mapped)
     monkeypatch.setattr(Path,'read_text',lambda self:maps)
     with pytest.raises(RuntimeError,match='unfrozen MemFabric'):
         verify_maps(spec,'V2-7')
     spec['files'][str(base)]=sha(base)
-    assert verify_maps(spec,'V2-7')==sorted(mapped[1:])
+    assert verify_maps(spec,'V2-7')==sorted(mapped[1:3])
 
 
 def test_stock_rejects_loaded_v2_device_without_mf_sdk_mapping(tmp_path, monkeypatch):

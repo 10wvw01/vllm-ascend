@@ -37,13 +37,17 @@
         "/ABS/PATH/TO/PRIVATE/libmf310p_v2_trial_device.so",
         "/ABS/PATH/TO/PRIVATE/libmf_smem.so",
         "/ABS/PATH/TO/PRIVATE/libmf_hybm_core.so",
-        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json"
+        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
+        "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so",
+        "/ABS/REPO/csrc/_310P/common/torch_tensor_entry.py",
+        "/ABS/REPO/csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py"
       ],
       "environment": {
         "LD_LIBRARY_PATH": "/ABS/PATH/TO/PRIVATE:/ABS/PATH/TO/SDK/lib64:/ABS/PATH/TO/CANN/lib64",
         "MF_SDMA_ORCH_JSON": "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
         "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/PATH/TO/SDK"
-      }
+      },
+      "tensor_adapter": "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so"
     },
     "V2-15": {
       "version": "V2-15",
@@ -61,13 +65,17 @@
         "/ABS/PATH/TO/PRIVATE/libmf310p_v2_trial_device.so",
         "/ABS/PATH/TO/PRIVATE/libmf_smem.so",
         "/ABS/PATH/TO/PRIVATE/libmf_hybm_core.so",
-        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json"
+        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
+        "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so",
+        "/ABS/REPO/csrc/_310P/common/torch_tensor_entry.py",
+        "/ABS/REPO/csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py"
       ],
       "environment": {
         "LD_LIBRARY_PATH": "/ABS/PATH/TO/PRIVATE:/ABS/PATH/TO/SDK/lib64:/ABS/PATH/TO/CANN/lib64",
         "MF_SDMA_ORCH_JSON": "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
         "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/PATH/TO/SDK"
-      }
+      },
+      "tensor_adapter": "/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so"
     }
   }
 }

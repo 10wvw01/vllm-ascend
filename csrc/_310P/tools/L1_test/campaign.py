@@ -13,10 +13,11 @@ from .core import CONTRACT, ROOT, catalog, make_plan, sha
 from .cli import check_manifest, clean_environment, execute, freeze_data
 from .worker import save
 
-SCHEMA = 'MF310P_L1_FIXED_M_CAMPAIGN_V2'
+SCHEMA = 'MF310P_L1_FIXED_M_CAMPAIGN_V3'
 
 
-def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclusive', collection='off', v2_history=False):
+def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclusive', collection='off', v2_history=False,
+                  batch_size=2,working_set=4,scenarios=('ready','steady'),case_ids=()):
     if profile not in ('full', 'active'):
         raise ValueError('profile must be full or active')
     if type(v2_history) is not bool:
@@ -54,10 +55,18 @@ def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclus
             for compute in (512,1024):
                 for group in (512,1024,2048):
                     add(f'v3-{n}-c{compute}-g{group}',version,dict(compute_rows=compute,comm_rows=group),api='python_session_v1')
-    control = make_plan(samples=samples,warmup=warmup,rounds=rounds,mode=mode,collection=collection)
-    jobs = sum(len(case_plan(dict(W=warmup,N=samples,R=rounds,mode=mode,collection=collection),c)['jobs']) for c in cases)
+    if case_ids:
+        if len(set(case_ids))!=len(case_ids) or set(case_ids)-{c['id'] for c in cases}:
+            raise ValueError('explicit case selection must name distinct registered configurations')
+        cases=[c for c in cases if c['id'] in case_ids]
+    control = make_plan(samples=samples,warmup=warmup,rounds=rounds,mode=mode,collection=collection,
+                        batch_size=batch_size,working_set=working_set,scenarios=scenarios)
+    common=dict(W=warmup,N=samples,R=rounds,mode=mode,collection=collection,batch_size=batch_size,
+                working_set=working_set,scenarios=list(scenarios))
+    jobs = sum(len(case_plan(common,c)['jobs']) for c in cases)
     return dict(schema=SCHEMA,profile=profile,v2_history=v2_history,W=control['W'],N=control['N'],R=control['R'],
-                mode=mode,collection=collection,scenarios=['ready'],M=[2048,4096],cases=cases,
+                mode=mode,collection=collection,scenarios=list(scenarios),M=[2048,4096],cases=cases,
+                batch_size=batch_size,working_set=working_set,case_ids=list(case_ids),
                 consumer_validation=control['consumer_validation'],
                 case_count=len(cases),tp2_sessions=jobs,paired_samples_per_arm_per_case_per_stage=2*rounds*samples,
                 V1='adapter available; historical source/binary lookup and measurement deferred',
@@ -66,14 +75,16 @@ def make_campaign(profile='full', samples=100, warmup=20, rounds=1, mode='exclus
 
 def validate_campaign(campaign):
     expected=make_campaign(campaign['profile'],campaign['N'],campaign['W'],campaign['R'],campaign['mode'],
-                           campaign['collection'],campaign['v2_history'])
+                           campaign['collection'],campaign['v2_history'],campaign['batch_size'],campaign['working_set'],
+                           campaign['scenarios'],campaign['case_ids'])
     if campaign != expected:
         raise ValueError('campaign differs from its complete canonical matrix')
 
 
 def case_plan(campaign, case):
     return make_plan([] if case['version']=='STOCK' else [case['version']],campaign['N'],campaign['W'],campaign['R'],
-                     campaign['mode'],('ready',),case['M'],campaign['collection'])
+                     campaign['mode'],campaign['scenarios'],case['M'],campaign['collection'],
+                     batch_size=campaign['batch_size'],working_set=campaign['working_set'])
 
 
 def runtime_template(campaign, repo='/ABS/REPO'):
@@ -128,6 +139,12 @@ def runtime_template(campaign, repo='/ABS/REPO'):
             if historical:
                 base['historical_identity_verified']=False
                 base['source_head']=entry['historical_source_hint']
+        if version.startswith(('V2-','V3-')):
+            old_bridge=base.get('tensor_adapter')
+            if old_bridge:base['files'].remove(old_bridge)
+            base['tensor_adapter']='/ABS/PRIVATE/TENSOR_BRIDGE/mf310p_tensor_bridge.so'
+            base['files'] += [base['tensor_adapter'],repo+'/csrc/_310P/common/torch_tensor_entry.py',
+                repo+'/csrc/_310P/'+('memfabric_mm_ar_v2' if version.startswith('V2-') else 'memfabric_mm_ar_v3')+'/src/torch_adapter/tensor_entry.py']
         result['runtimes'][binding]=base
         result['admission_by_runtime'][binding]=dict(g0_readonly='NOT_RUN',cpu_contract='NOT_RUN',private_compile='NOT_RUN',
             dual_rank_smoke='NOT_RUN',binary_identity='NOT_RUN',evidence_files=['/ABS/ADMISSION/'+binding+'.json'])
@@ -226,7 +243,12 @@ def collect_summary(out):
             rows.append(dict(experiment=case['id'],version=version,config=case['config'],M=row['M'],scenario=row['scenario'],
                              stage=row['stage'],metric=row['metric'],status=row['comparison_status'],n=stat['n'],
                              source_head=runtime['source_head'],mean_us=stat['mean_us'],std_us=stat['std_us'],
-                             downstream_validation=analysis['downstream_validation'],
+                             downstream_validation=analysis['downstream_validation'],calls=stat['calls'],
+                             quantile_scope=stat['quantile_scope'],batch_size=campaign['batch_size'],
+                             working_set=campaign['working_set'],benefit_verdict=row['benefit_verdict'],
+                             paired_round_speedup=row['paired_round_speedup'],
+                             timer_overhead_ratio=row['max_timer_overhead_ratio'],warmup_stable=row['warmup_stable'],
+                             execution_contracts=row['execution_contracts'],
                              p50_us=stat['p50_us'],p90_us=stat['p90_us'],p99_us=stat['p99_us'],
                              arm_drift=row['arm_drift'],stock_bracket_drift=row['stock_bracket_drift'],
                              stock_mean_us=row['stats']['STOCK']['mean_us'],speedup=row.get('speedup'),
@@ -287,6 +309,9 @@ def main(argv=None):
     plan.add_argument('--samples',type=int,default=100);plan.add_argument('--warmup',type=int,default=20)
     plan.add_argument('--rounds',type=int,default=1);plan.add_argument('--mode',choices=('exclusive','shared'),default='exclusive')
     plan.add_argument('--collection',choices=('off','host','profiler'),default='off');plan.add_argument('--v2-history',action='store_true')
+    plan.add_argument('--batch-size',type=int,default=2);plan.add_argument('--working-set',type=int,default=4)
+    plan.add_argument('--scenarios',nargs='+',choices=('ready','steady'),default=['ready','steady'])
+    plan.add_argument('--cases',nargs='+',default=[])
     plan.add_argument('--out',type=Path,required=True)
     template=sub.add_parser('template');template.add_argument('--campaign',type=Path,required=True);template.add_argument('--out',type=Path,required=True)
     freeze=sub.add_parser('freeze');freeze.add_argument('--campaign',type=Path,required=True);freeze.add_argument('--template',type=Path,required=True);freeze.add_argument('--out',type=Path,required=True)
@@ -296,7 +321,8 @@ def main(argv=None):
             child.add_argument('--store-url',default='tcp://127.0.0.1:8594');child.add_argument('--job-timeout',type=int,default=1800)
     args=parser.parse_args(argv)
     if args.action=='plan':
-        data=make_campaign(args.profile,args.samples,args.warmup,args.rounds,args.mode,args.collection,args.v2_history)
+        data=make_campaign(args.profile,args.samples,args.warmup,args.rounds,args.mode,args.collection,args.v2_history,
+                           args.batch_size,args.working_set,args.scenarios,args.cases)
         save(args.out,data);print(json.dumps(dict(cases=data['case_count'],tp2_sessions=data['tp2_sessions'],device_test='NOT_RUN')))
     elif args.action=='template':
         data=json.loads(args.campaign.read_text());validate_campaign(data);save(args.out,runtime_template(data,str(ROOT)))

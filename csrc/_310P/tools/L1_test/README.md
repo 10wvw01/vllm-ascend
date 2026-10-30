@@ -1,138 +1,114 @@
-# 统一L1独立Stock、版本对照与性能采集框架
+# 统一L1 Stock对照与性能采集
 
-入口：`python csrc/_310P/tools/L1_test/l1_bench.py`。本框架不依赖V3测试入口启动，Stock可独立运行；复用现有只读占卡守护。所有融合实现只放在薄适配层，计划、计时、正确性、统计及采集共用。新工具当前仅CPU验证，CANN/NPU NOT_RUN。
+唯一入口：`python csrc/_310P/tools/L1_test/l1_bench.py`。
+310P3单卡双Die/TP2，M=2048/4096，K=N=2048，FP16 ND输入、NZ29权重、完整ND SUM输出。
+完整合同见[MEASUREMENT_V4.md](MEASUREMENT_V4.md)，适配见[ADAPTER_GUIDE.md](ADAPTER_GUIDE.md)。
+代码/CPU验证已完成，**新的公共Tensor入口及V4测量的CANN/NPU仍NOT_RUN**。
 
-## 完整算子计时与不计时的下游验证
+## 以Stock为基准的真实调用层
 
-- 固定310P3单卡双Die、TP=2、Eager；FP16 ND `X[M,2048]`、已物化NZ29 `W[2048,2048]`；输出为两Rank局部FP16线性层结果之SUM，FP16 ND `[M,2048]`。
-- 唯一计时场景`ready`：调用前开始，完整输出及所属流依赖完成后结束。Stock包含原生NZ `F.linear`和HCCL SUM；融合包含所有每次必要的reserve/wrap、padding、MM、seed、通信、拷贝、完成事件等成本。
-- 下游消费是独立功能门禁：采样前、每个M采样后分别用两个地址执行`Y=op(X,W); Z=Y+residual; stream.synchronize()`。算子与ADD之间没有额外Host同步；不读取时钟、不记录计时Event、不采集ADD性能，不计算ADD加速比。
-- 热态W/N循环只运行完整算子，不运行下游ADD。每个输出仍检查形状、FP16、ND/连续、位精确和协议状态；独立门禁检查ADD结果。CPU参考先按本地FP16 MM，再Gloo FP32求两Rank和后转回FP16；参考与检查都在计时区外。
-- 输入生成、NZ权重转换、持久池初始化和首写保护在热态窗口外；`cold_setup_us`另报适配器建池/首调/路由的准备时间，不冒充完整应用冷启动。池租约保留到下游结束，输出释放在窗口后。
-- 不把持久预分配成本强加给使用池的实现，也不把每次必需成本移到预热期。非齐整M只有实现实际支持且spec准入才运行；padding若属于算子必须在run内部，不用错误形状凑样本。
+Stock独立进程调用原生`F.linear(X,W_NZ)`再HCCL SUM；融合独立进程调用
+`torch.ops.memfabric310p.mm_ar(X,W,context) -> Tensor Y`。
+两者都从就绪Tensor输入开始，直到完整输出及所属Stream完成结束。
+V2/V3的每次输出获取、Storage包装、租约、输入异步保活都在融合算子代码中完成，计入调用。
+L1薄适配器不再预分配/预包装输出。持久池可在冷态初始化，实际每次成本不可外移。
+公开入口代码：[共同入口](../../common/torch_tensor_entry.py)、
+[V2实现](../../memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py)、
+[V3实现](../../memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py)。
+原C ABI和冻结会话作为实现层保留，Serving默认不变，模型调用点集成尚未验证。
 
-合同升级为`L1_TENSOR_IO_V3`：旧chain计时及两个拆分Event字段已删除，计划拒绝chain。
-新计划/结果须重新freeze，不能重标旧合同结果；当前仍为单次完整调用基准，不代表连续异步推理吞吐。
+## 三种相互独立的证据
 
-## 预热、次数与平均公式
-
-先有双地址冷首调/下游门禁及每种M独立路由审计，再对每个形状执行**恰好W次预热＋N次测量**，所有臂相同W/N/R。默认W=20、N=100、R=2。每个臂启动独立TP2进程，Stock只建HCCL+CPU Gloo，融合只建CPU Gloo并使用自己的冻结SDK。V2/V3可共用MemFabric源码分支；若实际工件使用不同SDK，按进程隔离。
-
-每轮顺序为Stock→候选→候选→Stock（ABBA）；独立Stock则每轮两个Stock会话。每次样本i先同下标配对两个Rank，再统计：
-
-\[
-t_i=\max(t_{0,i},t_{1,i}),\qquad \bar t=\frac{1}{n}\sum_{i=0}^{n-1}t_i.
-\]
-
-每个形状/场景/采集阶段的有效n为`2×R×N`，Stock和候选一致；所有N样本保留，不删慢样本，不把先求Rank均值/中位数再max当作配对均值。主指标Wall覆盖调用、统一事件记录及最后流同步；Event为辅助，不能由Wall−Event反推出Host准备时间。另报p50/p90/p99、总体标准差、最小/最大、速比`mean_stock/mean_candidate`、时延缩短`1-mean_candidate/mean_stock`。
-
-性能只输出`wall_us`和`event_us`，统一使用两个计时Event。下游门禁单列`downstream_validation`，
-双Rank均须有全部M、双地址、采样前后的正确性证据；缺失/失败则不能生成成功比较。
-Profiler测量范围也不包含下游门禁，报告不再产生下游耗时或速比。
-
-## 独占与共享
-
-`exclusive`必须由现场落实覆盖整批的双Die租约；每次新进程之前、运行中及结束由既有stage_guard采样占用/健康，异常只终止自有进程组。守护不是硬件排他锁，PID命名空间及子会话间空隙限制保留。
-
-`shared`容忍外部进程和漂移，保留原始PID/占用记录及全部样本，输出`OBSERVATIONAL_SHARED`，不因噪声挑数据或自动改为独占结论。健康异常、解析失败、协议/数值错误仍STOP；无自动ADD重试、换卡、部署四卡或杀租户。
-
-用户2026-10-30指定：快速验证先用`shared`（本轮W2/N10/R1），正式性能另用`exclusive`（W20/N100/R1）。
-快速轮不要求目标卡空闲，不自动追加独占轮；两种结果分别冻结、归档，不混为同一证据级别。
-
-独占性能标签还核查Stock夹逼、候选重复、跨轮及无打点前后漂移（默认5%）。超过则`INCONCLUSIVE_DRIFT`；结果执行成功不代表发布GO。
-
-## 共用采集，不为每版另写统计脚本
-
-`--collection off`用于无打点性能；`host`或`profiler`会生成无打点前→诊断→无打点后的完整ABBA序列，诊断相对前后基线报告扰动。各阶段样本数一致，每个会话重新预热。
-
-| 量 | 公共采集方法 | 解释边界 |
+| 路径 | 操作与边界 | 结论 |
 |---|---|---|
-| 完整算子 | Wall＋Event＋逐样本双Rank原始JSON | 公平比较的主数据 |
-| 下游消费 | 独立前后功能门禁，只有PASS/失败证据 | 不计时、不参与速比 |
-| Host调用总段 | 仅host阶段对adapter.run计时 | 含可能的Host阻塞；不是纯CPU指令时间 |
-| acquire/wrap/enqueue等 | A2/A3现有phase_log；其他版本无此能力则缺失 | Host阶段可重叠设备工作；不与Kernel时长相加 |
-| 原生MM/HCCL或融合Kernel | 每种M独立窗口外路由审计；可选正式样本Profiler | 必须真实命中；不能用一个M的路由证明另一个M |
-| MAC/Scalar/MTE/Vector | Profiler Level1 PipeUtilization原始CSV | 管线重叠，不构成互斥阶段占比；Scalar不能直接等于wait |
-| MM/seed/本地等待/peer等待/ADD提交/排空内部墙钟 | 统一schema预留，现有设备时钟无效则UNKNOWN | 310P3现有AICore周期读取失败；不返回0或伪造耗时 |
-| SDMA真实链路占用 | UNKNOWN，另需可用硬件链路证据 | 提交时间、Kernel总时间都不能替代 |
+| 功能 | 前后立即同Stream ADD；冷态连续提交保留每个Y，检查数值/格式/别名 | 下游依赖与输出生命周期；不计时 |
+| ready | 每次完整MM+AR，逐调用末尾等待 | 单次接口延迟 |
+| steady | B次连续提交，保留全部输出，只在组尾等待 | 有界组平均时间，不是单次尾延迟或完整模型吞吐 |
 
-仅少量版本适配负责调用本版ABI、状态读取与清理。历史实现从准确快照恢复，`external`版本提供冻结Python工厂`create_adapter(ctx, specification)`，返回对象包含`version`、`run(x,w,variant)->Tensor`、`after_sample()->dict`、`close()`。after_sample的状态审计不能替代run必须保证的输出完成依赖。工厂不能提供Stock回退；源码HEAD、适配器及所有SO/JSON都须入files，旧版本未准备好则阻止执行，绝不用最新版冒充。
+默认同时采ready与steady，B=2、输入工作集4组。每模式恰好W次预热、N次测量调用，
+不因计时单位不同增减调用；默认W20/N100。尾组按实际调用数处理。
+组间只做协议审计/地址检查与释放；没有逐样本CPU barrier或逐样本torch.equal。
+数值检查在功能门禁及阶段最后一组；原始报告明确该范围，不标每个样本correct。
+下游ADD不进入热态计时或性能Profiler。
 
-Graph、MM shadow、G1C/G1D和LOOP4是独立诊断类别，拒绝混入Eager完整候选。参数扫描逐次生成不同冻结manifest/结果目录，保留配置，不挑最优点拼臂。
+每臂/每M/每模式/每阶段共2×R×N次调用；ready计时单位同调用数，steady单位2×R×ceil(N/B)。
+对每个单位先取双Rank**总时长max**，均值为总时长之和/总调用数；尾组正确加权。
+保留原始Wall/Event、不删慢样本；分位数显式标注单次或块平均范围。
+Wall包含Host提交、Event与末尾等待；Event是Stream区间，不能称纯Kernel时间。
+空计时校准只报告、不减除；预热收敛、开销比例、工作集字节数都输出。
+
+每配置独立Stock ABBA；R的奇数轮为BAAB，避免固定顺序。独立Stock每轮两场。
+R1快速/独占轮都是筛选；R>=3才对独立轮次均值做配对bootstrap区间。
+收益判断还要求exclusive、漂移可接受、预热收敛和计时开销<=5%；不把5%漂移门槛当成1%增益证明。
+模型TTFT、长稳与Graph仍须各自验证，L1永不自动签发布GO。
+
+## 输出容量与生命周期
+
+A2/A3保留输出上限2；A2原内部同步如实计入，即使steady也不表示Host无阻塞。
+raw V2/V3的内部输出组在建池前分配，受首写地址表上限约束。
+V1/unknown external目前只允许B=1，超容量在设备前阻止，不静默缩窗。
+Y及所有Storage别名都释放才归还槽；未完成输入由事件保活。仅支持原Stream、Eager调用。
+发生不确定异步故障保留池与输入并STOP，不重试ADD、不回退Stock。
 
 ## 操作
 
-创建独立Stock计划（无需任何融合版本）：
-
 ```bash
+# 独立Stock，无融合库/环境
 python csrc/_310P/tools/L1_test/l1_bench.py plan --M 2048 4096 \
-  --warmup 20 --samples 100 --rounds 2 --mode exclusive --out /tmp/stock-plan.json
+  --mode shared --warmup 2 --samples 10 --rounds 1 --out /tmp/stock-plan.json
+# 当前V3定点迭代：显式选择，不静默替换完整矩阵
+python csrc/_310P/tools/L1_test/l1_bench.py campaign plan \
+  --cases v3-5-c512-g1024 v3-6-c512-g1024 v3-7-c512-g1024 \
+  --mode shared --warmup 2 --samples 10 --rounds 1 --out /tmp/v3-plan.json
 ```
 
-对照示例；共享模式换为`--mode shared`，归因加入`--collection host`或`profiler`：
+完整43配置组/170独立TP2会话见[ROUND_FIXED_M.md](ROUND_FIXED_M.md)，
+新合同`L1_TENSOR_IO_V4`、campaign schema V3须重新生成/freeze，不能重标旧结果。
+V1仅准备，不测；所选V2是M2048 E1/V2-7、M4096 T8/V2-15，仍保持同批Stock对照。
+各版本及历史恢复身份缺失就阻止所选批次，不用最新版冒充历史。
 
 ```bash
-python csrc/_310P/tools/L1_test/l1_bench.py plan --versions V2-1 V3-5 V3-6 V3-7 \
-  --warmup 20 --samples 100 --rounds 2 --out /tmp/compare-plan.json
+# 新桥与MemFabric SDK无依赖；可以V2/V3共用；只在设备服务器实际执行编译
+python csrc/_310P/common/build_tensor_bridge.py \
+  --out build/310p_l1/<run_id>/tensor_bridge --cann /actual/cann
+# 生成实际路径模板，填写完整工件/证据，不能只改NOT_RUN为PASS
+python csrc/_310P/tools/L1_test/l1_bench.py campaign template \
+  --campaign /tmp/v3-plan.json --out /tmp/runtime.json
+python csrc/_310P/tools/L1_test/l1_bench.py campaign freeze \
+  --campaign /tmp/v3-plan.json --template /tmp/runtime.json --out /tmp/fresh-run
+python csrc/_310P/tools/L1_test/l1_bench.py campaign start --out /tmp/fresh-run
+python csrc/_310P/tools/L1_test/l1_bench.py campaign status --out /tmp/fresh-run
 ```
 
-复制`runtime-template.json`填实际绝对路径、真实40位源码SHA、全部相关Host/Device SO/JSON/Python、已准入M及实际Kernel正则。Stock-only删除候选runtimes即可。先按各实现现有准入流程完成G0只读→CPU合同→私有编译→双Rank短Smoke/首写/状态/物理号→二进制装载核验，把真实门禁报告文件入admission并登记PASS；不能只改模板状态字符串。
+准入顺序仍是G0只读→CPU→私有编译→双Rank短Smoke→身份装载核验；
+短Smoke须包含新Tensor入口、持有两个输出及其别名、输入保活和立即下游消费。
+冻结公共Tensor Python源、Host/Device/Storage/SDK/SO/JSON和实际Kernel路由。
+freeze仅计算身份，不替代实际编译和门禁证据。执行前后重核，首错STOP。
+
+沿用服务器原有vllm-ascend与memfabric_hybrid两仓，安全原地切主线/锁定SDK分支，不新clone/worktree。
+build/310p_l1/<run_id>和L1_test/experiments/<run_id>是原仓内部子目录，拒绝覆盖旧结果。
+MemFabric V2/V3同源码分支；SDK兼容须分别构建/短测，不把旧SO换JSON当作证明。
+详细执行及SSH/仓库约束见[OPENCODE_ROUND.md](OPENCODE_ROUND.md)。
+快速shared W2/N10/R1接受占用/漂移，仅OBSERVATIONAL；不自动追加exclusive/Profiler。
+正式独占需现场整批租约；守护只是占用/健康监控，不能证明硬件排他锁。
+
+## 共用采集与结果
+
+`--collection off`测性能；host/profiler生成off-before→诊断→off-after，各臂次数相同。
+Profiler只包执行组，状态/数值/下游检查在捕获外。Host完整调用和A2/A3细分阶段均保留；
+旧版本缺细分为UNKNOWN。MAC/Scalar/MTE/Vector管线计数可重叠，不能相加凑100%，
+Scalar不等于wait。设备MM/等待/SDMA精确分段无可靠时钟时明确UNKNOWN。
+
+输出包括冻结计划/manifest、双Rank样本、checkpoint、路由/Profiler原件与SHA、guard/console、
+analysis、summary.json/csv、STOP/NOT_RUN清单。每配置保留独立Stock，
+报告calls、timing units、分位数范围、执行边界、内部同步、预热/计时质量、轮次区间及benefit_verdict。
+历史导入保留原p50和原合同，不转写成新均值。
 
 ```bash
-python csrc/_310P/tools/L1_test/l1_bench.py freeze --template /tmp/actual-runtime.json --out /tmp/frozen-runtime.json
-python csrc/_310P/tools/L1_test/l1_bench.py start --plan /tmp/compare-plan.json \
-  --manifest /tmp/frozen-runtime.json --out /tmp/l1-new-attempt
-python csrc/_310P/tools/L1_test/l1_bench.py status --out /tmp/l1-new-attempt
-```
-
-freeze只计算明确声明文件的SHA，不证明二进制可复现、自动审核G0或部署设备。框架代码、版本表和框架HEAD也冻结，执行前后重核工件；每次复测用全新目录，拒绝覆盖，后台独立session不受交互工具超时直接中止。
-
-输出：run.json、launch.json、各作业console/guard日志、每形状每场景checkpoint、双Rank完整JSON、路由CSV/SHA、可选Profiler原件、paired.json、analysis.json、result.json。失败保留stop_rank与现场；不继续后续臂。结果不含模型TTFT/Graph验收。服务器仍使用SSH链接GitHub，私有构建，不覆盖共享安装。
-
-旧批次可离线导入，保留其原合同和p50，不伪装成新均值：
-
-```bash
-python csrc/_310P/tools/L1_test/l1_bench.py import-legacy \
-  --root csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1 \
-  --out /tmp/legacy-evidence.json
-```
-
-版本索引分别位于V1/V2/V3工程的`docs/VERSION_INDEX.md`。35份统一版本文档涵盖使用、输入输出、流程图、步骤说明、耗时证据与未知项。
-
-## 2026-10-30主线执行规则
-
-统一框架已按用户要求直接合入`dev/310p-memfabric-mm-ar`。后续实机从主线取完整SHA，修复、脚本、原始数据和结论直接回主线，不再以工作分支或PR合入为测试前置。沿用现有vllm-ascend/memfabric_hybrid两仓，安全后原地切已有分支，不新clone/worktree；每轮仅在原仓内新建构建/结果子目录，具体位置见[执行单](OPENCODE_ROUND.md)。固定源码与SO/KVER/物理映射；并发主线有更新先核对，不强推。合入不等于设备GO，仍按G0→CPU→私有编译/短Smoke→正式采集推进。
-
-## 目录与调用方式
-
-框架模块、CLI、版本表、冻结模板、文档/证据生成器与CPU测试统一位于`csrc/_310P/tools/L1_test/`。
-直接入口可从任意工作目录执行（脚本路径使用绝对路径即可）；Rank worker通过`L1_test.worker`模块启动，子进程的PYTHONPATH由调度器设置为仓库`csrc/_310P/tools`。
-迁移后请按新主线SHA重新freeze运行manifest，记录新路径与文件SHA。
-
-```bash
-python csrc/_310P/tools/L1_test/l1_bench.py --help
 python -m pytest -q csrc/_310P/tools/L1_test --import-mode=importlib
 PYTHONPATH=csrc/_310P/tools python -m L1_test.build_docs
 PYTHONPATH=csrc/_310P/tools python -m L1_test.evidence
 ```
 
-
-## V2所选公共C API
-
-V2-7/M2048与V2-15/M4096可用runtime的`api: "v2_selected_v1"`调用新公共入口，
-模板为[runtime-v2-selected-template.json](runtime-v2-selected-template.json)。每份计划只含一个匹配M；
-历史私有ABI仍保留，未指定api时不替换。必须冻结`library`及实际装载的`selected_device_library`和全部SDK依赖。
-建池前固定输出分配，完整计时/下游消费与统一采集合同不变。
-[公共接口与状态](../../memfabric_mm_ar_v2/docs/SELECTED_API.md)：新入口只完成CPU验证，CANN/NPU为NOT_RUN；
-模板不是准入凭证，不自动运行设备任务。
-
-
-## Stock/V1/V2/V3简易适配与一轮固定M批次
-
-适配器按家族位于`adapter_plugins/stock.py`、`v1.py`、`v2.py`、`v3.py`；公共工厂仍是adapters.create。
-[接入合同](ADAPTER_GUIDE.md)、[本轮完整矩阵与命令](ROUND_FIXED_M.md)、[OpenCode执行单](OPENCODE_ROUND.md)。
-默认Stock+所选V2+V3八种迭代，M=2048/4096，43配置组/170独立TP2会话，W20/N100/R1，仅ready计时，下游单独不计时验证。
-每配置独立Stock ABBA与200配对样本，输出统一summary.json/csv及各组原始证据。
-V1只补适配不测；旧V3明确冻结Python会话和SO，缺任何组在设备前整批阻止，不能新代码代旧实验。
-可用`l1_bench.py campaign plan/template/freeze/start/status`，[默认CPU计划](campaign-fixed-m.json)已提交。
-[本轮复核](REVIEW_FIXED_M.md)：482项CPU及36子测试通过，真实设备测验尚NOT_RUN。
+CPU测试包括真实CPU Torch dispatcher、假会话/生命周期、统计负例；CPU环境需PyTorch。
+35份VN-M文档位于各版本docs/versions，入口为各`docs/VERSION_INDEX.md`。

@@ -13,30 +13,14 @@ from types import SimpleNamespace
 
 from . import adapters
 from .collect import capabilities, read_profile
-from .core import CONTRACT, ROOT, sha, validate_plan, validate_runtime
+from .core import CONTRACT, ROOT, execution_contract, validate_plan, validate_runtime
+from .measurement import disjoint, groups, measure_group, timed, warmup_quality
 
 
 def save(path,data):
     with Path(path).open('x') as f:
         json.dump(data,f,ensure_ascii=False,indent=2)
         f.write('\n')
-
-
-def timed(op,stream,events,clock,host=False):
-    """Time only one complete operator; no downstream work is accepted here."""
-    start,end=events
-    begin=clock()
-    start.record(stream)
-    call_begin=clock() if host else None
-    output=op()
-    call_end=clock() if host else None
-    end.record(stream)
-    stream.synchronize()
-    wall=(clock()-begin)/1000
-    row=dict(wall_us=wall,event_us=start.elapsed_time(end)*1000)
-    if host:
-        row['collection']={'host_us':{'adapter_call_including_blocking':(call_end-call_begin)/1000}}
-    return output,row
 
 
 def validate_downstream(op,consumer,stream):
@@ -79,6 +63,8 @@ def main():
     out=a.run.parent/job['id']
     report=dict(contract=CONTRACT,plan=plan,job=job,rank=rank,status='RUNNING',cases=[],
                 runtime_identity=spec,route={},
+                execution_contract=execution_contract(job['version'],spec,plan),
+                submission_validation=dict(status='RUNNING',timed=False,cases=[]),
                 downstream_validation=dict(status='RUNNING',timed=False,same_stream=True,cases=[]))
     try:
         import torch
@@ -100,13 +86,14 @@ def main():
         cpu=dist.new_group(backend='gloo') if job['version']=='STOCK' else dist.group.WORLD
         stream=torch.npu.current_stream()
         ctx=SimpleNamespace(torch=torch,dist=dist,linear=F.linear,rank=rank,url=run['store_url'],
-                            stream=stream,device=device,shapes=plan['M'])
+                            stream=stream,device=device,shapes=plan['M'],
+                            output_slots=report['execution_contract']['output_slots'])
         torch.manual_seed(plan['seed'])
         w=torch_npu.npu_format_cast(torch.randn((2048,2048),dtype=torch.float16,device=device),29)
         xs,refs,residuals={}, {}, {}
         for m in plan['M']:
             xs[m],refs[m],residuals[m]=[],[],[]
-            for v in (0,1):
+            for v in range(plan['working_set']):
                 torch.manual_seed(m+rank*17+v*1009)
                 x=torch.randn((m,2048),dtype=torch.float16,device=device)
                 ref=F.linear(x,w).float().cpu()
@@ -119,22 +106,47 @@ def main():
         stage=job['stage']
         adapter=adapters.create(job['version'],spec,ctx,stage)
         def checked(y,m,v):
-            collected=adapter.after_sample()
             if (tuple(y.shape)!=(m,2048) or y.dtype!=torch.float16 or torch_npu.get_npu_format(y)!=2
                     or not y.is_contiguous() or not torch.equal(y,refs[m][v])):
                 raise RuntimeError('full FP16/ND/bit-exact gate')
-            return collected
-        def downstream_gate(m,v,phase):
-            y,z=validate_downstream(lambda:adapter.run(xs[m][v],w,v),lambda y:y+residuals[m][v],stream)
-            checked(y,m,v)
-            if not torch.equal(z,refs[m][v]+residuals[m][v]):
-                raise RuntimeError('downstream read gate')
-            report['downstream_validation']['cases'].append(dict(phase=phase,M=m,variant=v,correct=True))
-            del y,z
+        def drain():
+            return getattr(adapter,'after_block',adapter.after_sample)()
+        def spans(outputs):
+            return [(y.data_ptr(),y.data_ptr()+y.numel()*y.element_size()) for y in outputs]
+        def check_group(outputs,m,first):
+            if not disjoint(spans(outputs)):
+                raise RuntimeError('retained group outputs overlap; no buffer overwrite is permitted')
+            for j,y in enumerate(outputs):
+                checked(y,m,(first+j)%plan['working_set'])
+        def op(m,i):
+            return adapter.run(xs[m][i%plan['working_set']],w,i%ctx.output_slots)
+        def downstream_gate(m,phase):
+            for first,count in groups(plan['gate_variants'],plan['batch_size']):
+                retained=[]
+                for i in range(first,first+count):
+                    v=(i+(phase=='after'))%plan['working_set']
+                    y,z=validate_downstream(lambda:adapter.run(xs[m][v],w,i%ctx.output_slots),
+                                            lambda y:y+residuals[m][v],stream)
+                    checked(y,m,v)
+                    if not torch.equal(z,refs[m][v]+residuals[m][v]):
+                        raise RuntimeError('downstream read gate')
+                    retained.append(y)
+                    report['downstream_validation']['cases'].append(dict(phase=phase,M=m,variant=i,correct=True))
+                    del y,z
+                if not disjoint(spans(retained)):
+                    raise RuntimeError('functional retained outputs overlap')
+                drain()
+                retained.clear()
         # First-touch, cold allocations, pool initialization and route capture never become hot samples.
         for m in plan['M']:
-            for v in (0,1):
-                downstream_gate(m,v,'before')
+            downstream_gate(m,'before')
+            retained=[op(m,i) for i in range(plan['batch_size'])]
+            stream.synchronize()
+            drain()
+            check_group(retained,m,0)
+            report['submission_validation']['cases'].append(dict(M=m,calls=plan['batch_size'],correct=True,disjoint=True))
+            retained.clear()
+        report['submission_validation']['status']='PASS'
         pattern=spec.get('route_pattern',r'aclnnMatmulWeightNz')
         route_cases=[]
         for m in plan['M']:
@@ -144,8 +156,9 @@ def main():
                 on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(route))):
                 y=adapter.run(xs[m][0],w,0)
                 stream.synchronize()
-                checked(y,m,0)
-                del y
+            drain()
+            checked(y,m,0)
+            del y
             evidence=read_profile(route,pattern)
             names='\n'.join(row['name'] for row in evidence['rows'])
             if not evidence['verified'] or (job['version']=='STOCK' and not re.search('hcom.*allreduce|hccl.*allreduce',names,re.I)):
@@ -157,41 +170,67 @@ def main():
         report['cold_setup_us']=(time.perf_counter_ns()-begin)/1000
         flag.unlink()
         events=tuple(torch.npu.Event(enable_timing=True) for _ in range(2))
+        calibration={}
+        for scenario in plan['scenarios']:
+            rows=[]
+            for _ in range(6):
+                _,part=measure_group(lambda i:None,0,plan['batch_size'],scenario,stream,events,time.perf_counter_ns)
+                rows.extend(part)
+            calibration[scenario]=dict(wall_us=sum(r['wall_us'] for r in rows)/sum(r['calls'] for r in rows),
+                                       event_us=sum(r['event_us'] for r in rows)/sum(r['calls'] for r in rows),
+                                       raw_units=rows,subtracted=False)
         for m in plan['M']:
             for scenario in plan['scenarios']:
-                samples=[]
-                for phase,count in [('warmup',plan['W']),('measure',plan['N'])]:
-                    profile_dir=out/f'profile-rank{rank}'/f'm{m}-{scenario}'
-                    capture=torch_npu.profiler.profile(
-                        activities=[torch_npu.profiler.ProfilerActivity.CPU,torch_npu.profiler.ProfilerActivity.NPU],
-                        experimental_config=torch_npu.profiler._ExperimentalConfig(
-                            profiler_level=torch_npu.profiler.ProfilerLevel.Level1,
-                            aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization),
-                        on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(profile_dir))
-                    ) if stage=='profiler' and phase=='measure' else nullcontext()
-                    with capture:
-                        for i in range(count):
-                            dist.barrier(group=cpu)
-                            v=i%2
-                            y,row=timed(lambda:adapter.run(xs[m][v],w,v),
-                                        stream,events,time.perf_counter_ns,stage=='host')
-                            detail=checked(y,m,v)
-                            if stage=='host' and detail.get('host_us'):
-                                row['collection']['host_us'].update(detail['host_us'])
-                            del y
-                            if phase=='measure':
-                                samples.append(dict(i=i,variant=v,correct=True,**row))
-                case=dict(M=m,scenario=scenario,warmup_count=plan['W'],samples=samples)
+                case=dict(M=m,scenario=scenario,warmup_count=plan['W'],samples=[],host_blocks=[],
+                          checking=plan['checking'],calibration=calibration[scenario],
+                          working_set=dict(inputs=plan['working_set'],weight_sets=1,
+                              input_bytes=m*2048*2*plan['working_set'],weight_bytes=2048*2048*2,
+                              cache_flush=False),validation=dict(status='RUNNING',scope='pre_post_and_last_group'))
+                warm=[]
+                for phase,total in [('warmup',plan['W']),('measure',plan['N'])]:
+                    dist.barrier(group=cpu)  # Phase boundary only, never between timed calls.
+                    retained=[];last_first=0
+                    for first,count in groups(total,plan['batch_size']):
+                        retained.clear()  # Previous group has completed; leases may now be returned.
+                        profile_dir=out/f'profile-rank{rank}'/f'm{m}-{scenario}'/f'block{first}'
+                        capture=torch_npu.profiler.profile(
+                            activities=[torch_npu.profiler.ProfilerActivity.CPU,torch_npu.profiler.ProfilerActivity.NPU],
+                            experimental_config=torch_npu.profiler._ExperimentalConfig(
+                                profiler_level=torch_npu.profiler.ProfilerLevel.Level1,
+                                aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization),
+                            on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(profile_dir))
+                        ) if stage=='profiler' and phase=='measure' else nullcontext()
+                        with capture:
+                            retained,rows=measure_group(lambda i:op(m,i),first,count,scenario,stream,events,
+                                                        time.perf_counter_ns,stage=='host')
+                        # Outside timers and profiler: bounded protocol audit, no Tensor comparisons here.
+                        detail=drain()
+                        if not disjoint(spans(retained)):
+                            raise RuntimeError('retained measurement outputs overlap')
+                        if phase=='measure':
+                            for row in rows:
+                                row['variants']=[i%plan['working_set'] for i in range(row['i'],row['i']+row['calls'])]
+                            case['samples'].extend(rows)
+                            if stage=='host' and detail.get('host_calls'):
+                                case['host_blocks'].append(dict(first=first,calls=count,host_calls=detail['host_calls']))
+                        else:
+                            warm.extend(r['wall_us']/r['calls'] for r in rows)
+                        last_first=first
+                    # Functional checks are phase-end, not interleaved with the sampling loop.
+                    check_group(retained,m,last_first)
+                    retained.clear()
+                case['warmup']=warmup_quality(warm)
+                case['validation']['status']='PASS'
+                average=sum(r['wall_us'] for r in case['samples'])/plan['N']
+                case['timer_overhead_ratio']=calibration[scenario]['wall_us']/average
                 report['cases'].append(case)
                 save(out/f'checkpoint-rank{rank}-m{m}-{scenario}.json',case)
-            # Outside the entire profiler/sample scope: functional gate only.
-            for v in (0,1):
-                downstream_gate(m,v,'after')
+            downstream_gate(m,'after')
         report['downstream_validation']['status']='PASS'
         if stage=='profiler':
             report['profile']=read_profile(out/f'profile-rank{rank}',pattern)
         report['capabilities']=capabilities(job['version'],stage,any(
-            'reserve' in s.get('collection',{}).get('host_us',{}) for c in report['cases'] for s in c['samples']))
+            bool(c.get('host_blocks')) for c in report['cases']))
         validate_runtime(spec,job['version'])
         adapter.close()
         report['status']='PASS'

@@ -16,24 +16,7 @@ from L1_test.cli import clean_environment
 from L1_test.collect import import_legacy, read_profile
 
 
-def reports(plan,job):
-    out=[]
-    for rank in (0,1):
-        cases=[]
-        for m in plan['M']:
-            for scene in plan['scenarios']:
-                # Opposite outliers: max(rank means)=55, mean(paired maxima)=100.
-                cases.append(dict(M=m,scenario=scene,warmup_count=plan['W'],samples=[
-                    dict(i=i,variant=i%2,correct=True,
-                         **{k:([10,100][(i+rank)%2]) for k in
-                            ('wall_us','event_us')})
-                    for i in range(plan['N'])]))
-        out.append(dict(contract=CONTRACT,plan=plan,job=job,rank=rank,status='PASS',cases=cases,
-                        downstream_validation=dict(status='PASS',timed=False,same_stream=True,cases=[
-                            dict(phase=phase,M=m,variant=v,correct=True)
-                            for phase in ('before','after') for m in plan['M'] for v in (0,1)]),
-                        runtime_identity={'frozen':'one'},route={'verified':True}))
-    return out
+from L1_test.testing import reports, public_files
 
 
 def paired(plan):
@@ -110,6 +93,8 @@ def test_no_historical_alias_substitution_or_unfrozen_library(tmp_path):
     spec=dict(version='V2-0',source_head='a'*40,files={str(f):sha(f)},library=str(f),supported_M=[2048])
     with pytest.raises(ValueError,match='historical'): validate_runtime(spec,'V2-0')
     spec['historical_identity_verified']=True
+    bridge=tmp_path/'bridge.so';bridge.write_bytes(b'CPU fixture')
+    spec['tensor_adapter']=str(bridge);spec['files'].update({str(bridge):sha(bridge),**public_files('V2-0')})
     validate_runtime(spec,'V2-0')
     f.write_bytes(b'changed')
     with pytest.raises(ValueError,match='mismatch'): validate_runtime(spec,'V2-0')
@@ -162,6 +147,10 @@ def test_chain_and_old_contract_are_rejected_instead_of_relabelled():
     lambda r:r[0]['downstream_validation']['cases'].pop(),
     lambda r:r[0]['downstream_validation']['cases'].append(copy.deepcopy(r[0]['downstream_validation']['cases'][0])),
     lambda r:r[0]['cases'][0]['samples'][0].update(consumer_event_us=1),
+    lambda r:r[0]['cases'][0]['samples'][0].update(correct=True),
+    lambda r:r[0].pop('submission_validation'),
+    lambda r:r[0]['execution_contract'].update(implementation_entry='ctypes_outside_Tensor'),
+    lambda r:r[0]['cases'][0]['calibration'].update(subtracted=True),
 ])
 def test_untimed_consumer_evidence_required_and_legacy_metrics_rejected(change):
     plan=make_plan(samples=2,warmup=2,shapes=[2048]);job=plan['jobs'][0]
@@ -243,8 +232,7 @@ def test_only_observed_host_phases_are_attributed_no_device_invention():
     job=next(j for j in p['jobs'] if j['stage']=='host')
     raw=reports(p,job)
     for rank in raw:
-        for s in rank['cases'][0]['samples']:
-            s['collection']={'host_us':dict(validate_reap=30,reserve=5,wrap=10,enqueue=20)}
+        rank['cases'][0]['host_blocks']=[dict(first=0,calls=2,host_calls=[dict(validate_reap=30,reserve=5,wrap=10,enqueue=20)])]
     row=attribution(raw)[0]
     assert row['host_phase_us']==dict(host_prepare=30,output_acquire_wrap=15,enqueue=20)
     assert 'host_prepare' not in row['missing_phases'] and 'mm' in row['missing_phases']

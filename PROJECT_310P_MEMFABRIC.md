@@ -1,6 +1,6 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
-> **最新计时合同L1_TENSOR_IO_V3：只测完整MM+AR，取消chain及下游耗时统计。** 下游ADD在采样前后独立验证，立即同Stream消费、最后同步；不进入热态循环或Profiler性能采集。重新生成计划并freeze，旧结果保留原合同。快速shared/正式exclusive及原地复用两仓的执行方式继续有效。
+> **最新L1合同L1_TENSOR_IO_V4：以Stock为基准统一公开Tensor调用层，默认ready+有界steady。** V2/V3每次输出获取、Storage包装、租约与输入保活已移入融合算子源码，经真实Torch dispatcher调用；L1不代办。下游ADD只功能验证。N为调用数、B2/工作集4，组内无额外检查，尾组加权；shared/R1只观察/筛选，模型TTFT与新入口CANN/NPU仍NOT_RUN。详见[完整测量合同](csrc/_310P/tools/L1_test/MEASUREMENT_V4.md)。新计划须重新生成/freeze，历史结果不重标。
 
 > **2026-10-30最新L1执行约定：快速验证用shared，正式性能用exclusive。** 沿用服务器原有`vllm-ascend`和`memfabric_hybrid`两仓，核清工作区/运行任务后原地切已有分支，不再新clone/worktree。只在原仓内新增统一构建/结果子目录；优先复用匹配SDK。此次先shared、W2/N10/R1、完整43组，不自动追加独占轮。以[L1执行单](csrc/_310P/tools/L1_test/OPENCODE_ROUND.md)为准，覆盖旧执行单新建顶层目录/克隆及独占前置规定；健康、数值、协议及异常STOP保留。
 

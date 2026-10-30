@@ -701,3 +701,26 @@ operator_event_us或consumer_event_us。每次必需Host准备/包装/拷贝/see
 框架仍为单次完整调用基准与独立下游验证，尚未实现连续异步推理吞吐；不据此签模型TTFT。
 [执行单](../../tools/L1_test/OPENCODE_ROUND.md)、[复核](../../tools/L1_test/REVIEW_FIXED_M.md)、
 35份版本文档/默认计划/所选代码包身份同步；CPU482项及36子测试PASS，无新CANN/NPU或性能数字，不查格式。
+
+## 2026-10-30｜L1 V4：以Stock对齐公开Tensor调用层，增加有界连续提交
+
+用户要求专业优化，并强调Stock/V2/V3调用层必须对齐，融合端差异在算子内部修正。
+本轮从0bca98ff新增实际torch.ops.memfabric310p.mm_ar公开入口，位于csrc/_310P/common及V2/V3算子src。
+L1不再分配/包装V2/V3输出；获取槽、Storage包装、租约、输入保活在公开调用内，所有每次成本纳入计时。
+原C ABI/设备核及冻结算法Session保持，内部分配策略不强迫模仿Stock；模型调用点集成/Graph未启用。
+上下文显式close管理，Storage别名保留输出租约，输入事件完成再回收；失败保留不确定波、双Rank STOP。
+新TorchNPU桥可独立构建供V2/V3共用，仍须真实设备编译/短测，不用旧C接口Smoke替代新入口验证。
+
+合同L1_TENSOR_IO_V4 / campaign schema V3，默认ready+steady、B2、输入工作集4；N恒为每模式调用数。
+steady保留全部组输出，只在组尾等待；A2原内部同步保留，A2/A3输出窗口上限2。
+组内移除CPU barrier/完整数值/协议读取；阶段起点对齐、组尾审计、前后功能及阶段末组数值检查，明确范围。
+Wall/Event分开解释、校准不减除、尾块加权、分位数标范围、ABBA/BAAB交替；
+R<3只筛选、shared只观察，R>=3才对独立轮次bootstrap，仍不签模型/发布GO。
+完整43组170场保留，--cases可显式定点迭代；不作为缺历史版本后的静默降级。
+
+[完整合同](../../tools/L1_test/MEASUREMENT_V4.md)、[两轮静审](../../tools/L1_test/REVIEW_FIXED_M.md)、
+[执行单](../../tools/L1_test/OPENCODE_ROUND.md)及35份VN-M文档已同步。
+快速shared W2/N10/R1、两原仓原地复用/主线直接归档规则不变；不自动追加独占/Profiler。
+新CANN/NPU、公开入口实测性能及模型TTFT仍NOT_RUN；新计划须重新生成/freeze，旧成绩保持历史身份。
+
+最终验证：497项CPU测试及36子测试通过，其中L1为74项，含真实torch 2.10.0+cpu dispatcher；项目元数据门禁PASS。CANN/NPU、模型调用点与新入口性能仍NOT_RUN。

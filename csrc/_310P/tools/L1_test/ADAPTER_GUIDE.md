@@ -1,62 +1,67 @@
-# L1_test 简易算子适配器
+# L1_test 算子接入合同
 
-所有适配器统一使用：`create(version, spec, ctx, collection)`，返回`version`、`run(x,w,variant)`、
-`after_sample()`、`close()`。适配层只持有本版会话、输出和调用参数；公共worker负责预热、计时、
-参考值、下游消费、双Rank配对和统计，不为各实验复制测试循环。
+统一工厂`create(version,spec,ctx,collection)`；测试框架提供预热、计时、数值门禁、双Rank配对和统计。
+**以Stock的Tensor调用层为基准**，V2/V3每调用的工作必须落在融合算子内，不能由测试适配器代办。
 
-| 家族 | 实现文件 | run的工作 |
+| 家族 | L1薄适配 | 真正执行入口 |
 |---|---|---|
-| Stock | [stock.py](adapter_plugins/stock.py) | 原生NZ F.linear，再HCCL SUM |
-| V1 | [v1.py](adapter_plugins/v1.py) | 一次V1 Tensor op，显式q；本轮不安排V1测量 |
-| V2 | [v2.py](adapter_plugins/v2.py) | 基础T0/D4/C3/F2、历史私有候选或所选公共API |
-| V3各迭代 | [v3.py](adapter_plugins/v3.py) | 冻结V3Session/V32Session/A3Session的一次完整run/run_pool |
+| Stock | adapter_plugins/stock.py | 原生NZ F.linear → HCCL SUM，正常输出分配 |
+| V1 | adapter_plugins/v1.py | 原V1 Tensor op；本轮不测，连续窗口尚限1 |
+| V2 | adapter_plugins/v2.py | 公共torch.ops.memfabric310p.mm_ar → V2算子Tensor实现 → 原C ABI |
+| V3 | adapter_plugins/v3.py | 同一公共Torch入口 → V3算子Tensor实现 → 冻结算法会话 |
 
-外部工厂继续支持`create_adapter(ctx, specification)`，用于尚未匹配ABI的早期原型与专用诊断。
-Graph、MM shadow和G1取证不作为Eager完整算子混入本轮排名；小M专用核也不凭名字强行跑大M。
+## 调用与生命周期
 
-## 最小接口
+`ctx`提供torch、dist、linear、rank、url、stream、device、shapes；可显式指定内部输出槽数。
+`run(x,w)`返回完整FP16 ND Y，并在原Stream建立后续可读依赖；Host不需要在算子与下游之间同步。
+兼容参数`variant`不再控制V2/V3输出槽，输出选择由算子持有。
 
-- `ctx`提供torch、dist、linear、rank、url、stream、device、shapes；输入均已是就绪ND FP16与NZ29 FP16。
-- `run(x,w,variant)`返回完整ND FP16 Y。可以异步入队，但须建立同Stream下游可安全消费的依赖。
-- `variant`只表示两个输入/输出地址轮换，不是算法编号。图形模式、partial输出和Stock回退不能偷偷混入。
-- `after_sample()`在计时结束及正确性检查前读取协议状态，可返回`{'host_us': {...}}`；不支持细分则返回空dict。
-- `close()`完成必要同步和句柄销毁；异常通信波不自动重试、不自动回退Stock。
-- 每次调用必需的padding、复制、租约/包装、seed、同步/事件都留在run；持久初始化和真实首用由公共冷态门禁单列。
+每次的验证、输出获取、Storage包装、租约、输入保活、padding/copy/seed/同步都在算子入口内。
+持久底层池可以冷态建立，不能把每次必要动作提前到测试代码。
+共同实现：[torch_tensor_entry.py](../../common/torch_tensor_entry.py)；
+[V2](../../memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py)；
+[V3](../../memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py)。不导入L1框架，可以独立构造调用。
 
-统一合同`L1_TENSOR_IO_V3`只对完整MM+AR的ready边界计时。下游ADD在采样前后作为独立功能门禁：
-`run`返回后立即同Stream提交ADD，最后才同步，不读取时钟或计时Event；热态循环不执行ADD。
-适配器不需为消费验证提供另一套计时API。每样本的状态/完整输出检查仍保留，前后门禁缺失或失败则STOP。
+raw V2/V3由公开入口管理内部输出槽，每次wrap为TorchNPU Storage，Storage别名共同持租约；
+内部原始Tensor保持首写地址身份。输入由完成Event保活，失败保留不确定波的所有引用。
+A2/A3已有的输出池/输入保活保留，获取/包装在dispatcher调用内；A2内部同步如实计时。
+桥扩展来自既有pool_tensor.cpp，可用`common/build_tensor_bridge.py`独立构建并供V2/V3共用，不链接MemFabric。
 
-## V2接口选择
+`after_block()`（兼容`after_sample()`）在已完成组的计时及Profiler之外检查协议状态、回收完成输入。
+Host诊断返回`{'host_calls':[每调用相位dict,...]}`；原始计时行保留adapter_call_including_blocking。
+`close()`只能在输出及别名释放、完成确认后销毁；失败池不做重试/隐式集合清理。
 
-`api=v2_selected_v1`调用已整理的公共入口，V2-7只跑M2048，V2-15只跑M4096。
-`api=v2_trial_v1`可调用匹配T0/D4/C3/F2基础ABI。私有B/E候选仍用冻结的private_library与登记symbol/kind。
-基础算子不再无条件绑定AR-only诊断符号，因此诊断OFF仍可接入。
-原始输出在建池前分配，保留首写保护，热态不增加新同步。
+## 测量与能力
 
-## V3显式冻结Python会话
+合同L1_TENSOR_IO_V4默认ready+steady，N是算子调用数，B默认2，工作集默认4。
+调用层相同，内部分配/同步策略可以不同且须报告。超过实现输出保留上限在设备前拒绝，不缩窗口。
+所有Y在组内保留到完成，不忽略中间Y；组间检查地址不重叠/协议。
+前后数值/立即下游ADD、冷态连续提交、每阶段末组数值检查为不计时功能证据。
+干净采样不逐样本比较，不伪造每调用correct；不把有界steady结果当模型TTFT。
 
-本轮各组使用`api=python_session_v1`，不仅冻结SO，还冻结这些Python模块：
+## V2构建身份
 
-| 家族 | python_modules键 |
+`api=v2_selected_v1`固定V2-7/M2048、V2-15/M4096；原selected C ABI及E1/T8设备源不变。
+`api=v2_trial_v1`用于匹配T0/D4/C3/F2；私有B/E候选仍冻结private_library/symbol/kind。
+这些ABI都由算子公开Tensor入口包装，不能直接用L1裸指针out调用绕开输出成本。
+必须冻结新公共源、TorchNPU桥、实际Host/Device/SDK工件；新入口性能须单独测量。
+
+## V3历史恢复
+
+`api=python_session_v1`明确冻结`python_modules`及其文件SHA：
+
+| 家族 | 精确模块角色 |
 |---|---|
-| 原始V3/V3.1 | memfabric_mm_ar_v3 |
+| raw V3 | memfabric_mm_ar_v3 |
 | A2 classic/merged | memfabric_mm_ar_v3、memfabric_mm_ar_v32 |
-| A3 START/首READY/A3-2/tail | memfabric_mm_ar_v3、memfabric_mm_ar_a3 |
+| A3 START/首READY/7+1/tail | memfabric_mm_ar_v3、memfabric_mm_ar_a3 |
 
-值为文件绝对路径，并同时列入files。加载器建立按路径与SHA隔离的私有包，
-相对导入只能拿到该组冻结base；不通过全局sys.path寻找同名当前会话。
-V3-0、V3-2、V3-4还要求人工核对源码/工件并登记historical_identity_verified，不用最新SO替代历史实现。
-原始V3 packet=1MiB；其余本轮packet=4MiB。classic与merged标识固定，不能通过改参数把两个VN-M互换。
+隔离包按路径与SHA加载，相对导入不能拿当前base冒充旧实现。
+V3-0/2/4还须核对历史源码/二进制并登记historical_identity_verified；公共Tensor外层取当前主线，算法内层取匹配历史工件。
+raw V3 packet1MiB，其余本轮4MiB；classic/merged不能通过改参数偷换VN-M。
 
-raw版本直接复用预分配输出；pool-return版本保留原Storage租约，不额外分配一套闲置输出。
-A3-2/tail显式传variant；旧A3 START没有该参数时不强塞新接口。Host phase_log只在host阶段启用，
-旧模块没有相位数据则保持UNKNOWN，不创建假的阶段耗时。
+新增实验优先复用算子家族，只在versions.json及campaign登记参数；若ABI确变，在算子源码内实现新入口，L1继续薄调用。
+未知external保留冻结`create_adapter(ctx,specification)`扩展点，只允许已审计边界；不回退Stock。
+Graph/MM shadow/G1专用诊断不混入Eager候选。
 
-## 新增V3实验
-
-优先复用现有session家族，只在versions.json登记版本/参数，再在campaign.py登记配置组。
-若ABI确有变化，在adapter_plugins下增加一个同样的薄类；仍由同一worker计时，禁止复制一份独立统计脚本。
-源码HEAD、Python、Host/Device、SDK/KVER、Tensor Storage扩展均须冻结，实际装载的库也要匹配。
-
-[本轮矩阵与操作](ROUND_FIXED_M.md)；[委托OpenCode执行单](OPENCODE_ROUND.md)。
+[完整测量说明](MEASUREMENT_V4.md)、[矩阵](ROUND_FIXED_M.md)、[OpenCode执行单](OPENCODE_ROUND.md)。

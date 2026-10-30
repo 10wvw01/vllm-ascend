@@ -339,3 +339,13 @@ V2整理装载复核：把libmf310p_ Device纳入与libmf_ SDK一致的冻结及
 下游ADD改为前后独立功能门禁，无耗时/速比；summary单列PASS_UNTIMED。
 旧L1_TENSOR_IO_V2的chain和三Event结果保留原件，不重标、不与新合同合并统计。
 43组/170会话及shared快速/独占正式模式不变；尚无本次新CANN/NPU或性能数字。
+
+## 2026-10-30｜公开Tensor入口与L1 V4：无新设备成绩
+
+Stock继续完整F.linear+HCCL；V2/V3通过真正Torch dispatcher入口，输出获取/包装/保活由算子完成。
+新入口每次开销计入测量，旧裸指针/Session边界成绩不能重标为V4成绩。C/Device算法未改不等于入口性能已验证。
+ready与bounded steady各跑相同N调用，组内所有Y保留，尾组按实际调用数加权；
+均值=sum(max双Rank单位总时间)/sum调用数，steady分位数仅块平均。
+组间仍有协议审计，数值在功能门禁/阶段末；不声称无限连续模型吞吐或每样本完整数值核验。
+空计时开销不减除；独占R1仅筛选，R>=3独立轮次区间、预热/漂移/时钟开销共同限定收益结论。
+新合同L1_TENSOR_IO_V4/schema V3须新冻结；本轮仅CPU与静审，无新Stock/V2/V3设备耗时数字，历史选型不变。

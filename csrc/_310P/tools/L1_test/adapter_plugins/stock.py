@@ -13,5 +13,8 @@ class Native:
     def after_sample(self):
         return {}
 
+    def after_block(self):
+        return self.after_sample()
+
     def close(self):
         pass

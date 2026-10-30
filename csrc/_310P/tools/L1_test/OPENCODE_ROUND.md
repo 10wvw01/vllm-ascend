@@ -2,8 +2,8 @@
 
 在310P3服务器执行一轮统一L1测验，M仅2048与4096，K=N=2048、FP16、单卡双Die/TP2。
 范围以主线`csrc/_310P/tools/L1_test/ROUND_FIXED_M.md`和`campaign-fixed-m.json`为准：
-完整范围43配置组/170独立TP2会话，仅ready完整MM+AR计时，无打点性能；下游ADD仅独立正确性验证。
-当前合同L1_TENSOR_IO_V3 / campaign schema V2，重新生成计划与freeze，不能沿用旧chain计划/结果。
+完整范围43配置组/170独立TP2会话，ready与steady分别对完整MM+AR计时，默认B=2、输入工作集4组，无打点性能；下游ADD仅独立正确性验证。
+当前合同L1_TENSOR_IO_V4 / campaign schema V3，重新生成计划与freeze，不能沿用旧chain计划/结果。
 **用户最新执行规则：本轮先非独占快速验证，shared、W2/N10/R1；正式性能另用exclusive、W20/N100/R1。**
 两种模式明确生成不同计划/结果，不自动追加独占轮；快速轮不减实验组，只减少预热和样本。
 每组有自己的Stock ABBA；本轮明确重测Stock/V2以取得同批对照，V1仅准备适配，不测、不查旧数据。
@@ -46,6 +46,25 @@ V2/V3每场新TP2进程，冻结实际SDK/LD_LIBRARY_PATH/SO/JSON；如复现时
 
 ## 2. 构建与历史版本准备
 
+本轮以Stock公开Tensor调用为基准，V2/V3改为真正的
+`torch.ops.memfabric310p.mm_ar(X,W,context)->Y`，输出获取/Storage包装/租约/输入保活在算子源码内。
+旧C ABI/设备Kernel未改；不能继续用旧测试脚本的预分配out调用冒充新入口。
+公共入口源位于`csrc/_310P/common/torch_tensor_entry.py`及V2/V3的`src/torch_adapter/tensor_entry.py`，均须freeze。
+先在统一build子目录构建SDK无关的TorchNPU Storage桥：
+
+```bash
+python csrc/_310P/common/build_tensor_bridge.py \
+  --out build/310p_l1/<run_id>/tensor_bridge --cann /actual/cann
+```
+
+把生成SO的真实路径填入所有V2/V3 runtime的tensor_adapter并列入files；可共用一份桥。
+已有匹配Torch/CANN并核验SHA的mf310p_v32_tensor.so也可复用，不为改名强制重编，仍做新入口短测。
+短测必须通过公开Tensor入口，包含保留两个Y及其Storage别名、释放后复用、输入保活、立即下游ADD，
+以及原首写/双Rank状态/实际路由。不能只跑旧C接口Smoke就把新入口登记PASS。
+A2/A3池容量为2，默认B2；超过容量设备前拒绝，不扩大池/跳过租约/偷偷改小B。
+A2内部原有同步如实计入；本轮不把它优化掉。
+
+
 先CPU合同，再按各实现原门禁私有编译、G0、双Rank短正确性/首写/状态/下游消费及装载核验。
 G0保留占用原件，但shared不要求空闲；短Smoke也要采用共享守护。
 V3旧quick.py已有`--allow-shared-card`，使用该入口时显式传入并写明lease-note；
@@ -62,6 +81,10 @@ V2编译新selected入口：M2048 E1、M4096 T8；与旧Serving/D4区别记录�
 
 允许修复执行/路径/构建兼容BUG，修复入主线并记录实际源码差异，重做对应构建/门禁/冻结。
 不为本轮采集临时改变算法、增删同步或手工修正输出；设备异常/协议错误/错算先STOP保留现场。
+
+R1快速/独占结果只作筛选；shared只作观察。要确认小收益，另显式计划exclusive R>=3，
+检查预热/计时封套开销及轮次bootstrap区间；不自动追加本轮未授权的正式测量。
+Profiler与状态/数值检查分开，缺少核内可靠时钟仍UNKNOWN，不拼占比。
 
 ## 3. 生成并填真实runtime
 
@@ -111,7 +134,7 @@ V2/V3共用本文件锁定的MemFabric fix分支/db38d75e；SDK按实际兼容�
 先核未提交内容和运行任务，安全后原地切换，SSH拉GitHub，
 不新增clone/worktree。构建放原仓build/310p_l1/<run_id>，结果放原仓
 csrc/_310P/tools/L1_test/experiments/<run_id>，不删旧目录。
-按本文件先做G0、CPU、匹配构建和双Rank短测，再执行完整43组：M2048/4096、仅ready计时、下游单独验证，
+按本文件先做G0、CPU、匹配构建和双Rank短测，再执行完整43组：M2048/4096、ready+steady分别计时、B2/工作集4、下游单独验证，
 shared、W2/N10/R1、collection off，允许其他进程及漂移；保留健康/数值/协议门禁，首错STOP。
 V1不测，不自动追加独占轮或Profiler。回传双Rank原件、summary、失败清单、两仓/SDK/SO身份和目录清单，
 代码修复及实验归档直接提交上述主线；shared耗时仅作观察，不签正式性能结论。
