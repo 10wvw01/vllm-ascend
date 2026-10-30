@@ -70,7 +70,11 @@ def build():
                 '  D --> O["独立Y完整就绪；下游读取"]',
             ]
         rows='\n'.join(f'| {i+1} | {step} | UNKNOWN | 待采集；不凭名称判定瓶颈 |' for i,step in enumerate(flow))
-        if entry['runtime']=='external':
+        if entry.get('session_api'):
+            usage=f'统一L1的`runtimes.{vid}`使用`api=python_session_v1`；冻结匹配的Python会话、Host/Device/SDK和Storage扩展，复用本家族薄适配器，无需复制测量循环。详见[适配器合同](../../../tools/L1_test/ADAPTER_GUIDE.md)。'
+            if entry.get('historical_source_hint'):
+                usage+=f' 历史恢复线索：`{entry["historical_source_hint"]}`，必须核对实际工件，不用当前SO替代。'
+        elif entry['runtime']=='external':
             usage='该历史/诊断版本没有用当前SO替代执行。恢复匹配快照，按共同适配器协议提供冻结的`factory_file`；框架核验返回的`adapter.version`。'
         else:
             usage=f'在运行manifest的`runtimes.{vid}`填写本版冻结工件，运行统一入口；不变更产品Serving路由。'
@@ -137,7 +141,10 @@ Host各段在同一调用内可比较；其间可能与设备交叠，不能和�
 - 本次文档/CPU框架工作不改变Stock默认，不构成实机或发布GO。
 '''
         target.write_text(text)
-        indexes[family].append(f'| [{vid}](versions/{vid}.md) | {entry["legacy"]} | {entry["runtime"]} | {entry.get("category","完整候选/历史实现")} |')
+        execution=entry.get('session_api',entry['runtime'])
+        if entry.get('selected_api'):
+            execution+=' / '+entry['selected_api']
+        indexes[family].append(f'| [{vid}](versions/{vid}.md) | {entry["legacy"]} | {execution} | {entry.get("category","完整候选/历史实现")} |')
     for family,rows in indexes.items():
         path=ROOT/next(v['document'] for v in catalog().values() if v['id'].startswith(family+'-'))
         (path.parent.parent/'VERSION_INDEX.md').write_text(f'''# {family} 设计版本索引

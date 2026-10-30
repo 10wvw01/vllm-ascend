@@ -217,7 +217,11 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "REJECTED_HISTORICAL_CANDIDATE"
+      "release_role": "REJECTED_HISTORICAL_CANDIDATE",
+      "config": {
+        "chunk_rows": 1024,
+        "overlap": 1
+      }
     },
     {
       "id": "V2-3",
@@ -599,7 +603,16 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "v3",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": true,
+        "packet_bytes": 1048576
+      },
+      "session_api": "python_session_v1",
+      "historical_session_required": true,
+      "historical_source_hint": "f2c3eaf0f31c0270aba228baebbd157473e8de0c"
     },
     {
       "id": "V3-1",
@@ -617,13 +630,16 @@
       "notes": "独立普通输出Tensor，保留完整输出拷贝成本。",
       "config": {
         "comm_rows": 1024,
-        "pipeline": true
+        "pipeline": true,
+        "packet_bytes": 4194304
       },
       "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-1.md",
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "v3",
+      "session_api": "python_session_v1"
     },
     {
       "id": "V3-2",
@@ -644,7 +660,16 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "v32",
+      "config": {
+        "comm_rows": 1024,
+        "merged_wave": false,
+        "packet_bytes": 4194304
+      },
+      "session_api": "python_session_v1",
+      "historical_session_required": true,
+      "historical_source_hint": "0f638d5112de0b11b656f296ff6fb3c6e81d13d3"
     },
     {
       "id": "V3-3",
@@ -660,14 +685,18 @@
       ],
       "notes": "profile3203；推测槽不一致有原实现回退成本，均计入。",
       "config": {
-        "comm_rows": 1024
+        "comm_rows": 1024,
+        "merged_wave": true,
+        "packet_bytes": 4194304
       },
       "profile": 3203,
       "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-3.md",
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "v32",
+      "session_api": "python_session_v1"
     },
     {
       "id": "V3-4",
@@ -689,7 +718,17 @@
       "status": "HISTORICAL_REQUIRES_MATCHED_BUILD",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "a3",
+      "adapter_variant": "a3",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "session_api": "python_session_v1",
+      "historical_session_required": true,
+      "historical_source_hint": "34d7820e4d2ce07abaef2d0efaf1ad4499f844a4"
     },
     {
       "id": "V3-5",
@@ -709,13 +748,17 @@
       "profile": 3302,
       "config": {
         "compute_rows": 1024,
-        "comm_rows": 1024
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
       },
       "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-5.md",
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "a3",
+      "adapter_variant": "a3",
+      "session_api": "python_session_v1"
     },
     {
       "id": "V3-6",
@@ -735,13 +778,17 @@
       "profile": 3303,
       "config": {
         "compute_rows": 1024,
-        "comm_rows": 1024
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
       },
       "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-6.md",
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "a3",
+      "adapter_variant": "a3-2",
+      "session_api": "python_session_v1"
     },
     {
       "id": "V3-7",
@@ -761,13 +808,17 @@
       "profile": 3304,
       "config": {
         "compute_rows": 1024,
-        "comm_rows": 1024
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
       },
       "document": "csrc/_310P/memfabric_mm_ar_v3/docs/versions/V3-7.md",
       "status": "REGISTERED_CPU_ONLY_NEW_FRAMEWORK_NOT_NPU_VALIDATED",
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
-      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario"
+      "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
+      "adapter_family": "a3",
+      "adapter_variant": "a3-tail",
+      "session_api": "python_session_v1"
     },
     {
       "id": "V2-19",

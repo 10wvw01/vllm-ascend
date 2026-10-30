@@ -640,3 +640,18 @@ V2实测点选择及源码封存完成，2049～4095最优未知，不拼未经�
 不将旧SO成绩写为新构建实测；没有安排V1/V2重跑，无Serving默认切换，不查格式。
 
 装载复核补充：统一L1识别libmf_及libmf310p_两类库，新增未冻结基础Device和Stock误载V2 Device负面回归，全部452项与36子测试通过。
+
+
+## 2026-10-30｜四家族L1简易适配与Stock/V2/V3固定M一轮计划
+
+用户要求给Stock/V1/V2/V3各实验接统一L1并准备一轮M2048/4096，当前重点V3迭代。
+适配器拆为L1_test/adapter_plugins四家族，仍共用worker计时/正确性/统计/采集；V1适配可用但本轮不查历史、不测。
+V2修复诊断OFF仍强制绑定AR-only的问题并提前分配输出；所选公共接口算法与ABI未改。
+V3八种迭代显式配置，旧0/2/4按冻结Python+SO加载，包命名空间隔离不偷用当前代码。
+默认完整43组/170独立TP2会话，Stock+V2所选+全部V3参数，W20/N100/R1、ready+chain；
+每配置/每M/每场景/每阶段Stock与候选各200配对样本，逐样本Rank max再算均值，不跨配置合并Stock。
+active显式缩减为30组/118场，另外选择V2历史则64组/254场，打点三段完整510场。
+所有工件/历史身份/门禁前置预检，不齐整批BLOCKED；首错STOP不继续后组，无自动ADD重试。
+[接入与矩阵](../../tools/L1_test/ROUND_FIXED_M.md)、[OpenCode执行单](../../tools/L1_test/OPENCODE_ROUND.md)、
+[两轮复核](../../tools/L1_test/REVIEW_FIXED_M.md)。475项CPU及36子测试PASS，未做新CANN/NPU测验。
+本轮依用户新要求允许新测Stock/V2同批对照，覆盖此前仅复用历史的范围限制；Stock生产默认不变。

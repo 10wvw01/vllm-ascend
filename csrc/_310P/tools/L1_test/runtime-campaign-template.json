@@ -1,0 +1,416 @@
+{
+  "card": 16384,
+  "devices": "2,3",
+  "cann": "/ABS/CANN",
+  "runtimes": {
+    "STOCK": {
+      "version": "STOCK",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {},
+      "files": [
+        "/ABS/TORCH_NPU_LIBRARY.so"
+      ]
+    },
+    "V2-7": {
+      "version": "V2-7",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V11/libmf_sdma_orch_v11.json",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V2-7:/ABS/SDK_V11:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "library": "/ABS/PRIVATE/V2-7/vllm_ascend_C.so",
+      "supported_M": [
+        2048
+      ],
+      "files": [
+        "/ABS/PRIVATE/V2-7/vllm_ascend_C.so",
+        "/ABS/PRIVATE/V2-7/libmf310p_v2_trial_device.so",
+        "/ABS/PRIVATE/V2-7/libmf310p_v2_selected_device.so",
+        "/ABS/SDK_V11/libmf_smem.so",
+        "/ABS/SDK_V11/libmf_hybm_core.so",
+        "/ABS/SDK_V11/libmf_sdma_orch_v11.json"
+      ],
+      "route_pattern": "V2TrialKernel",
+      "api": "v2_selected_v1",
+      "selected_device_library": "/ABS/PRIVATE/V2-7/libmf310p_v2_selected_device.so"
+    },
+    "V2-15": {
+      "version": "V2-15",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V11/libmf_sdma_orch_v11.json",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V2-15:/ABS/SDK_V11:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "library": "/ABS/PRIVATE/V2-15/vllm_ascend_C.so",
+      "supported_M": [
+        4096
+      ],
+      "files": [
+        "/ABS/PRIVATE/V2-15/vllm_ascend_C.so",
+        "/ABS/PRIVATE/V2-15/libmf310p_v2_trial_device.so",
+        "/ABS/PRIVATE/V2-15/libmf310p_v2_selected_device.so",
+        "/ABS/SDK_V11/libmf_smem.so",
+        "/ABS/SDK_V11/libmf_hybm_core.so",
+        "/ABS/SDK_V11/libmf_sdma_orch_v11.json"
+      ],
+      "route_pattern": "E4Group2048Kernel",
+      "api": "v2_selected_v1",
+      "selected_device_library": "/ABS/PRIVATE/V2-15/libmf310p_v2_selected_device.so"
+    },
+    "V3-0": {
+      "version": "V3-0",
+      "source_head": "f2c3eaf0f31c0270aba228baebbd157473e8de0c",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3-0:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3-0/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/FROZEN_SOURCE/V3-0/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py"
+      },
+      "route_pattern": "V3Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3-0/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3-0/libmf310p_v3_device.so",
+        "/ABS/FROZEN_SOURCE/V3-0/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json"
+      ],
+      "historical_identity_verified": false
+    },
+    "V3-1": {
+      "version": "V3-1",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3_CURRENT:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py"
+      },
+      "route_pattern": "V3Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_device.so",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json"
+      ]
+    },
+    "V3-2": {
+      "version": "V3-2",
+      "source_head": "0f638d5112de0b11b656f296ff6fb3c6e81d13d3",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3-2:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3-2/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/FROZEN_SOURCE/V3-2/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_v32": "/ABS/FROZEN_SOURCE/V3-2/vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py"
+      },
+      "route_pattern": "V32Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3-2/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3-2/libmf310p_v3_device.so",
+        "/ABS/FROZEN_SOURCE/V3-2/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/FROZEN_SOURCE/V3-2/vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3-2/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3-2/mf310p_v32_tensor.so",
+      "historical_identity_verified": false
+    },
+    "V3-3": {
+      "version": "V3-3",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3_CURRENT:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_v32": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py"
+      },
+      "route_pattern": "V32Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_device.so",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+    },
+    "V3-4": {
+      "version": "V3-4",
+      "source_head": "34d7820e4d2ce07abaef2d0efaf1ad4499f844a4",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3-4:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3-4/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/FROZEN_SOURCE/V3-4/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/ABS/FROZEN_SOURCE/V3-4/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "route_pattern": "A3Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3-4/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3-4/libmf310p_v3_device.so",
+        "/ABS/FROZEN_SOURCE/V3-4/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/FROZEN_SOURCE/V3-4/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3-4/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3-4/mf310p_v32_tensor.so",
+      "historical_identity_verified": false
+    },
+    "V3-5": {
+      "version": "V3-5",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3_CURRENT:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "route_pattern": "A3Kernel",
+      "files": [
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_device.so",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+    },
+    "V3-6": {
+      "version": "V3-6",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3_CURRENT:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "route_pattern": "A3SeatKernel",
+      "files": [
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_device.so",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+    },
+    "V3-7": {
+      "version": "V3-7",
+      "source_head": "REPLACE_WITH_MATCHING_40_HEX_SOURCE_SHA",
+      "environment": {
+        "MF_SDMA_ORCH_JSON": "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/SDK_V28",
+        "LD_LIBRARY_PATH": "/ABS/PRIVATE/V3_CURRENT:/ABS/SDK_V28:/ABS/CANN/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "route_pattern": "A3SeatKernel",
+      "files": [
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_host.so",
+        "/ABS/PRIVATE/V3_CURRENT/libmf310p_v3_device.so",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/ABS/REPO/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/ABS/SDK_V28/libmf_smem.so",
+        "/ABS/SDK_V28/libmf_hybm_core.so",
+        "/ABS/SDK_V28/libmf_sdma_orch_v28.json",
+        "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+      ],
+      "tensor_adapter": "/ABS/PRIVATE/V3_CURRENT/mf310p_v32_tensor.so"
+    }
+  },
+  "admission_by_runtime": {
+    "STOCK": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/STOCK.json"
+      ]
+    },
+    "V2-7": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V2-7.json"
+      ]
+    },
+    "V2-15": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V2-15.json"
+      ]
+    },
+    "V3-0": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-0.json"
+      ]
+    },
+    "V3-1": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-1.json"
+      ]
+    },
+    "V3-2": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-2.json"
+      ]
+    },
+    "V3-3": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-3.json"
+      ]
+    },
+    "V3-4": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-4.json"
+      ]
+    },
+    "V3-5": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-5.json"
+      ]
+    },
+    "V3-6": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-6.json"
+      ]
+    },
+    "V3-7": {
+      "g0_readonly": "NOT_RUN",
+      "cpu_contract": "NOT_RUN",
+      "private_compile": "NOT_RUN",
+      "dual_rank_smoke": "NOT_RUN",
+      "binary_identity": "NOT_RUN",
+      "evidence_files": [
+        "/ABS/ADMISSION/V3-7.json"
+      ]
+    }
+  }
+}

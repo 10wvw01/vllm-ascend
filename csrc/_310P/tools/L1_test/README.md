@@ -116,3 +116,14 @@ V2-7/M2048与V2-15/M4096可用runtime的`api: "v2_selected_v1"`调用新公共�
 建池前固定输出分配，完整计时/下游消费与统一采集合同不变。
 [公共接口与状态](../../memfabric_mm_ar_v2/docs/SELECTED_API.md)：新入口只完成CPU验证，CANN/NPU为NOT_RUN；
 模板不是准入凭证，不自动运行设备任务。
+
+
+## Stock/V1/V2/V3简易适配与一轮固定M批次
+
+适配器按家族位于`adapter_plugins/stock.py`、`v1.py`、`v2.py`、`v3.py`；公共工厂仍是adapters.create。
+[接入合同](ADAPTER_GUIDE.md)、[本轮完整矩阵与命令](ROUND_FIXED_M.md)、[OpenCode执行单](OPENCODE_ROUND.md)。
+默认Stock+所选V2+V3八种迭代，M=2048/4096，43配置组/170独立TP2会话，W20/N100/R1，ready+chain。
+每配置独立Stock ABBA与200配对样本，输出统一summary.json/csv及各组原始证据。
+V1只补适配不测；旧V3明确冻结Python会话和SO，缺任何组在设备前整批阻止，不能新代码代旧实验。
+可用`l1_bench.py campaign plan/template/freeze/start/status`，[默认CPU计划](campaign-fixed-m.json)已提交。
+[本轮复核](REVIEW_FIXED_M.md)：475项CPU及36子测试通过，真实设备测验尚NOT_RUN。

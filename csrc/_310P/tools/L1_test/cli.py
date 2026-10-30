@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """One Stock-only / version campaign entry, lease guard, collector and report."""
 import argparse
+import copy
 import json
 import os
 import subprocess
@@ -18,11 +19,31 @@ FORBIDDEN=('ASCEND_RT_VISIBLE_DEVICES','MF_KFC_BYPASS','MF_SDMA_ORCH_DISABLE','M
 
 
 def framework_identity():
-    paths=set((ROOT/'csrc/_310P/tools/L1_test').glob('*.py'))
+    directory=ROOT/'csrc/_310P/tools/L1_test'
+    paths=set(directory.glob('*.py'))
+    paths.update((directory/'adapter_plugins').rglob('*.py'))
     paths.update((ROOT/'vllm_ascend/_310p/ops').glob('memfabric_mm_ar*.py'))
     paths.update([ROOT/'csrc/_310P/tools/L1_test/versions.json',ROOT/'csrc/_310P/tools/L1_test/l1_bench.py',
                   GUARD/'stage_guard.py',ROOT/'csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py'])
     return {str(p.relative_to(ROOT)):sha(p) for p in sorted(paths)}
+
+
+def freeze_data(template):
+    """Hash declared artifacts only; no discovery, build or device execution."""
+    data=copy.deepcopy(template)
+    for spec in data['runtimes'].values():
+        spec['files']={str(Path(path).resolve(strict=True)):sha(path) for path in spec['files']}
+        for key in ('library','private_library','factory_file','tensor_adapter','selected_device_library'):
+            if spec.get(key):
+                spec[key]=str(Path(spec[key]).resolve(strict=True))
+        if spec.get('python_modules'):
+            spec['python_modules']={k:str(Path(p).resolve(strict=True)) for k,p in spec['python_modules'].items()}
+        validate_runtime(spec,spec['version'])
+    data['admission']['evidence_files']={str(Path(path).resolve(strict=True)):sha(path)
+                                        for path in data['admission']['evidence_files']}
+    data['framework_head']=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    data['framework_files']=framework_identity()
+    return data
 
 
 def check_manifest(manifest,plan):
@@ -141,6 +162,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     sub=p.add_subparsers(dest='action',required=True)
     sub.add_parser('versions')
+    campaign=sub.add_parser('campaign')
+    campaign.add_argument('arguments',nargs=argparse.REMAINDER)
     plan=sub.add_parser('plan')
     plan.add_argument('--versions',nargs='*',default=[])
     plan.add_argument('--samples',type=int,default=100)
@@ -169,17 +192,13 @@ def main():
     a=p.parse_args()
     if a.action=='versions':
         print(json.dumps(catalog(),ensure_ascii=False,indent=2))
+    elif a.action=='campaign':
+        from .campaign import main as campaign_main
+        return campaign_main(a.arguments)
     elif a.action=='plan':
         save(a.out,make_plan(a.versions,a.samples,a.warmup,a.rounds,a.mode,a.scenarios,a.M,a.collection))
     elif a.action=='freeze':
-        data=json.loads(a.template.read_text())
-        for spec in data['runtimes'].values():
-            spec['files']={str(Path(path).resolve(strict=True)):sha(path) for path in spec['files']}
-            validate_runtime(spec,spec['version'])
-        data['admission']['evidence_files']={str(Path(path).resolve(strict=True)):sha(path) for path in data['admission']['evidence_files']}
-        data['framework_head']=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-        data['framework_files']=framework_identity()
-        save(a.out,data)
+        save(a.out,freeze_data(json.loads(a.template.read_text())))
     elif a.action=='import-legacy':
         save(a.out,import_legacy(a.root))
     else:

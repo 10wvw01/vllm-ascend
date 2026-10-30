@@ -3,6 +3,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,7 @@ SRC = ROOT / 'csrc/_310P/memfabric_mm_ar_v2/src'
 def test_selected_and_legacy_build_groups_are_independent(tmp_path, selected, diagnostics):
     cmake = shutil.which('cmake')
     if not cmake:
-        candidate = Path('/tmp/mf310p-l1-move-venv/bin/cmake')
+        candidate = Path(sys.executable).with_name('cmake')
         cmake = str(candidate) if candidate.is_file() else None
     assert cmake, 'CMake is required for build-graph regression'
     linked_src = tmp_path/'csrc/_310P/memfabric_mm_ar_v2/src'

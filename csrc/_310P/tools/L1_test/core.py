@@ -78,24 +78,43 @@ def validate_runtime(spec, version):
         if key not in allowed or not isinstance(value, str):
             raise ValueError(f"unapproved runtime environment key: {key}")
     if version == "STOCK":
-        if environment or any(spec.get(k) for k in ("library", "private_library", "factory_file", "api", "selected_device_library")):
+        if environment or any(spec.get(k) for k in ("library", "private_library", "factory_file", "api", "selected_device_library", "python_modules", "tensor_adapter")):
             raise ValueError("standalone Stock must not load fusion libraries/environment")
         return spec
     entry = catalog()[version]
     api = spec.get("api")
-    if api not in (None, "v2_selected_v1"):
+    if api not in (None, "v2_selected_v1", "v2_trial_v1", "python_session_v1"):
         raise ValueError("unknown runtime API")
     selected = api == "v2_selected_v1"
+    session = api == "python_session_v1"
+    base_v2 = api == "v2_trial_v1"
+    if base_v2 and version not in ("V2-0", "V2-1", "V2-2", "V2-3"):
+        raise ValueError("base V2 ABI is restricted to matching T0/D4/C3/F2 builds")
+    family = entry.get("adapter_family", entry["runtime"])
+    if session:
+        roles = {"v3": {"memfabric_mm_ar_v3"},
+                 "v32": {"memfabric_mm_ar_v3", "memfabric_mm_ar_v32"},
+                 "a3": {"memfabric_mm_ar_v3", "memfabric_mm_ar_a3"}}
+        modules = spec.get("python_modules", {})
+        if not version.startswith("V3-") or family not in roles or set(modules) != roles[family]:
+            raise ValueError("exact frozen Python session module roles required for V3")
+        for path in modules.values():
+            if not Path(path).is_absolute() or path not in spec["files"]:
+                raise ValueError("Python session module must be in frozen files")
     if selected:
         expected_m = {"V2-7": [2048], "V2-15": [4096]}
         if version not in expected_m or spec.get("supported_M") != expected_m[version] or spec.get("config"):
             raise ValueError("selected V2 requires its fixed version/M and no configuration override")
         if spec.get("private_library") or spec.get("factory_file"):
             raise ValueError("selected V2 cannot load a historical private adapter")
-    if entry.get("historical") and not spec.get("historical_identity_verified"):
+    if entry.get("historical") and spec.get("historical_identity_verified") is not True:
         raise ValueError("historical VN-M requires explicit source/binary audit, no alias substitution")
     if selected:
         required = ["library", "selected_device_library"]
+    elif base_v2:
+        required = ["library"]
+    elif session:
+        required = ["library"] + (["tensor_adapter"] if family in ("v32", "a3") else [])
     elif entry["runtime"] == "external":
         required = ["factory_file"]
     else:
@@ -113,9 +132,21 @@ def validate_runtime(spec, version):
     conf = {**entry.get("config", {}), **spec.get("config", {})}
     if set(spec.get("config", {})) - set(entry.get("config", {})):
         raise ValueError("unregistered configuration field")
-    if entry["runtime"].startswith("a3"):
+    if family == "a3" or entry["runtime"].startswith("a3"):
         if conf["compute_rows"] not in (512, 1024) or conf["comm_rows"] not in (512, 1024, 2048):
             raise ValueError("unsupported A3 compute/communication geometry")
+    if version.startswith("V3-"):
+        if conf["comm_rows"] not in ((256, 512, 1024, 2048) if family == "v3" else (512, 1024, 2048)):
+            raise ValueError("unsupported V3 communication geometry")
+        if conf.get("packet_bytes") not in (1 << 20, 4 << 20):
+            raise ValueError("unsupported frozen V3 packet size")
+        if family == "v3" and type(conf.get("pipeline")) is not bool:
+            raise ValueError("pipeline must be an explicit boolean")
+        if family == "v32" and (type(conf.get("merged_wave")) is not bool or
+                conf["merged_wave"] != entry["config"]["merged_wave"]):
+            raise ValueError("classic/merged identity differs from registered VN-M")
+    if entry["runtime"] == "v1" and conf.get("batch_basem_count", 1) not in (1, 2, 4):
+        raise ValueError("V1 q must be 1, 2 or 4")
     return spec
 
 

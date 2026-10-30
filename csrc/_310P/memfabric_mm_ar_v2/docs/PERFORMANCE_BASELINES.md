@@ -314,3 +314,13 @@ L1新增显式api=v2_selected_v1，输出先于建池分配，热态完整计时
 V1身份查找由用户延期到下次实机，本轮无新V1/V2设备运行或重测。代码包与历史成绩分别冻结，见V2_CODE_PACKAGE.json。
 
 V2整理装载复核：把libmf310p_ Device纳入与libmf_ SDK一致的冻结及Stock隔离检查；未新增设备性能数值。
+
+
+## 2026-10-30｜统一L1一轮固定M矩阵已准备，无新设备数值
+
+本轮按用户新要求将Stock和所选V2放进新同批对照，重点评V3八种迭代的全部登记配置，V1仍延期。
+默认43组/170场，W20/N100/R1，ready+chain，M2048/4096；每对照独立Stock ABBA，不跨配置/SDK/时间拼Stock。
+主指标仍为完整Wall、逐序号Rank max后均值，保留p50/p90/p99/std/漂移；每臂每case每阶段200样本。
+历史raw/prepare/START要冻结对应源码、Python与工件；没有实际二进制匹配则BLOCKED，不用当前版本代测。
+单轮结果仍要如实区分漂移/shared/diagnostic，不将200样本等同长期稳定性。
+当前475项CPU及36子测试通过，计划及模板均设备NOT_RUN，未新增任何Stock/V2/V3性能结论。

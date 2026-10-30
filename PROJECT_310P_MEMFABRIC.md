@@ -195,3 +195,13 @@ V2所选E1/M2048、T8/M4096已整理为固定形状公共C API与独立Device构
 [源码包](csrc/_310P/releases/v1-v2-20261030/V2_CODE_PACKAGE.json)。
 全量CPU452项+36子测试PASS，新入口CANN/NPU仍NOT_RUN，无新设备性能。
 V1查历史已按用户要求延期至下一次实机测试，本轮不再作为V2前置。
+
+
+## 2026-10-30｜Stock/V1/V2/V3简易L1适配与一轮固定M矩阵
+
+四家族适配器统一到csrc/_310P/tools/L1_test/adapter_plugins，仍共用L1计时/正确性/采集。
+[完整43组/170场矩阵](csrc/_310P/tools/L1_test/ROUND_FIXED_M.md)、
+[委托OpenCode执行](csrc/_310P/tools/L1_test/OPENCODE_ROUND.md)。
+M2048/4096，W20/N100/R1，Stock+所选V2+V3八种迭代各参数，独立Stock ABBA、ready+chain。
+V1只补适配不测；旧V3的Python/工件必须匹配，缺失整批阻止，不用当前实现代旧名。
+475项CPU及36子测试通过，本轮无新CANN/NPU数据；新授权允许Stock/V2参与本批公平对照，生产默认不变。

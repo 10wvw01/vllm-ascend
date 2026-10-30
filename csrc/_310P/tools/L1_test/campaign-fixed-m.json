@@ -1,0 +1,699 @@
+{
+  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V1",
+  "profile": "full",
+  "v2_history": false,
+  "W": 20,
+  "N": 100,
+  "R": 1,
+  "mode": "exclusive",
+  "collection": "off",
+  "scenarios": [
+    "ready",
+    "chain"
+  ],
+  "M": [
+    2048,
+    4096
+  ],
+  "cases": [
+    {
+      "id": "stock",
+      "version": "STOCK",
+      "runtime_key": "STOCK",
+      "config": {},
+      "M": [
+        2048,
+        4096
+      ],
+      "api": null,
+      "historical": false
+    },
+    {
+      "id": "v2-e1-m2048",
+      "version": "V2-7",
+      "runtime_key": "V2-7",
+      "config": {},
+      "M": [
+        2048
+      ],
+      "api": "v2_selected_v1",
+      "historical": false
+    },
+    {
+      "id": "v2-t8-m4096",
+      "version": "V2-15",
+      "runtime_key": "V2-15",
+      "config": {},
+      "M": [
+        4096
+      ],
+      "api": "v2_selected_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-0-g1024-serial",
+      "version": "V3-0",
+      "runtime_key": "V3-0",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": false,
+        "packet_bytes": 1048576
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-0-g1024-pipeline",
+      "version": "V3-0",
+      "runtime_key": "V3-0",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": true,
+        "packet_bytes": 1048576
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-0-g2048-serial",
+      "version": "V3-0",
+      "runtime_key": "V3-0",
+      "config": {
+        "comm_rows": 2048,
+        "pipeline": false,
+        "packet_bytes": 1048576
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-0-g2048-pipeline",
+      "version": "V3-0",
+      "runtime_key": "V3-0",
+      "config": {
+        "comm_rows": 2048,
+        "pipeline": true,
+        "packet_bytes": 1048576
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-1-g512-serial",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 512,
+        "pipeline": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-1-g512-pipeline",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 512,
+        "pipeline": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-1-g1024-serial",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-1-g1024-pipeline",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 1024,
+        "pipeline": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-1-g2048-serial",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 2048,
+        "pipeline": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-1-g2048-pipeline",
+      "version": "V3-1",
+      "runtime_key": "V3-1",
+      "config": {
+        "comm_rows": 2048,
+        "pipeline": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-2-g512",
+      "version": "V3-2",
+      "runtime_key": "V3-2",
+      "config": {
+        "comm_rows": 512,
+        "merged_wave": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-2-g1024",
+      "version": "V3-2",
+      "runtime_key": "V3-2",
+      "config": {
+        "comm_rows": 1024,
+        "merged_wave": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-2-g2048",
+      "version": "V3-2",
+      "runtime_key": "V3-2",
+      "config": {
+        "comm_rows": 2048,
+        "merged_wave": false,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-3-g512",
+      "version": "V3-3",
+      "runtime_key": "V3-3",
+      "config": {
+        "comm_rows": 512,
+        "merged_wave": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-3-g1024",
+      "version": "V3-3",
+      "runtime_key": "V3-3",
+      "config": {
+        "comm_rows": 1024,
+        "merged_wave": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-3-g2048",
+      "version": "V3-3",
+      "runtime_key": "V3-3",
+      "config": {
+        "comm_rows": 2048,
+        "merged_wave": true,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-4-c512-g512",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-4-c512-g1024",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-4-c512-g2048",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-4-c1024-g512",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-4-c1024-g1024",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-4-c1024-g2048",
+      "version": "V3-4",
+      "runtime_key": "V3-4",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": true
+    },
+    {
+      "id": "v3-5-c512-g512",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-5-c512-g2048",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-5-c1024-g512",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-5-c1024-g1024",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-5-c1024-g2048",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c512-g512",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c512-g2048",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c1024-g512",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c1024-g1024",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c1024-g2048",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c512-g512",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c512-g2048",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c1024-g512",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 512,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c1024-g1024",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c1024-g2048",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 1024,
+        "comm_rows": 2048,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    }
+  ],
+  "case_count": 43,
+  "tp2_sessions": 170,
+  "paired_samples_per_arm_per_case_per_stage": 200,
+  "V1": "adapter available; historical source/binary lookup and measurement deferred",
+  "policy": "each candidate/config has its own common ABBA and Stock controls; no pooled cross-campaign Stock"
+}
