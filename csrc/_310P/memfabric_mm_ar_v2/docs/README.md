@@ -1,5 +1,7 @@
 # 310P3 V2 MemFabric MM+AllReduce 工程
 
+> 2026-10-30版本规整：[正式版本选型与封版审核](RELEASE_SELECTION.md)。已锁定源码与历史证据，最终最优winner待历史查找补齐；本轮不安排重跑。
+
 > **当前项目信息请先读** [唯一项目控制台 PROJECT_CONTROL.md](PROJECT_CONTROL.md)（所属分支 `dev/310p-memfabric-mm-ar`），以及[分支治理](BRANCH_GOVERNANCE.md)、[性能账本](PERFORMANCE_BASELINES.md)、[正式决策](DECISIONS.md)。**本README下方G3时期状态仅为历史工程介绍，不能作为2026-10-25最新性能/稳定性/项目优先级。** 根目录入口：[PROJECT_310P_MEMFABRIC.md](../../../../PROJECT_310P_MEMFABRIC.md)。
 
 

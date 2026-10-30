@@ -1,0 +1,440 @@
+{
+  "schema": "MF310P_V1_V2_SELECTION_AUDIT_V1",
+  "date": "2026-10-30",
+  "audited_mainline_head": "df118af27528661f59456139ce9b388162d8ab21",
+  "status": "PENDING_HISTORICAL_EVIDENCE; NOT A FINAL BEST-VERSION RELEASE",
+  "rerun_requested": false,
+  "production_enable": false,
+  "formal_winner": {
+    "V1": null,
+    "V2": null
+  },
+  "V1": {
+    "canonical_implementation": "PUBLIC_API_ABI7",
+    "source_reference_head": "fa1c42179818f5516b390d8bce3d39a9d280808f",
+    "code_files_exact_match": 6,
+    "capability_entries": [
+      "V1-0",
+      "V1-1",
+      "V1-2",
+      "V1-3",
+      "V1-4"
+    ],
+    "note": "Entries describe capabilities/modes of one implementation; not five mutually exclusive binaries. q/mode optimum not proven by current raw evidence.",
+    "historical_eager_result": "SEL01: 0/3 natural attempts complete; no later matching recovery evidence located"
+  },
+  "V2": {
+    "current_build_reference": "V2-1 D4",
+    "most_evidenced_M4096_candidate": "V2-11 E3-G",
+    "M2048_directional_candidate": "V2-7 E1",
+    "M4096_screen_leader": "V2-15 E4-T8",
+    "note": "No universal winner across shapes. Do not compose a new untested hybrid route. Source hashes match the archived E4 build manifest."
+  },
+  "source_files": [
+    {
+      "path": "cmake/memfabric_310p.cmake",
+      "git_blob_sha": "f8f6157cbc48e56064f565a167e966c55660caa5",
+      "sha256": "9d536f64b4dc9f634a6de104033c84120e025ca796acaee983510e3e9544bcd2"
+    },
+    {
+      "path": "cmake/memfabric_310p_v2.cmake",
+      "git_blob_sha": "7676b41aca25470d8abdf07514787c25336d532d",
+      "sha256": "17572aa30ff8d4d173bbb8644c201489c26528381438b118959abb5e13c0298d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric310p_adapter.cpp",
+      "git_blob_sha": "d66be8b1abe7fbce737176679fd92b4379de4e51",
+      "sha256": "c6bc9b4f0c9d3c5c67f91aa4b01f6b6be4c116a8bd5824aba07b2e5c9deffc95"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric310p_adapter_api.h",
+      "git_blob_sha": "ddbb5f88a6e3f545901a0c21a49369ca071ac243",
+      "sha256": "55b8c049370631f1e5707d2756c2da180963a512898d92e9661babc12b04a79d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric310p_device.asc",
+      "git_blob_sha": "bf6c6d8241f03a729d3a8e59b11b887c5ba9f390",
+      "sha256": "3cc49fc5cb30dc1c7dc721fb74232fa648ec7f5516223ef86d39dbc628e23c6d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_binding.cpp",
+      "git_blob_sha": "bb9cde0d0ce51c75ec79e7e7c4b5f77df28d3545",
+      "sha256": "dba597ecb9de3254de5be53ed9feebb5dd81d2f375a5f293f2c9cca69ce85fce"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_runtime.cpp",
+      "git_blob_sha": "1cdae2e9ba26c6a585fa8abe44e38df3ceab4d10",
+      "sha256": "b174c3966518948f0e7acf44b1dae06d4bba2c66edd2d8cf52e268a5064fac57"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric_mm_ar_torch_adpt.h",
+      "git_blob_sha": "f8bda21b2e5096dcb3a12a6f6c7a6b83902c8631",
+      "sha256": "d408cb56a9a7098068e3baba7179218081658eb3ce62f911f25becd9864f34c9"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/CMakeLists.txt",
+      "git_blob_sha": "0ee40ed66367420164972430c38648a43d573fab",
+      "sha256": "407b0eec261b38771df3b76c7be8454c33c6c7250b29b662d54d789b012d641d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_g1c_flight_recorder.cpp",
+      "git_blob_sha": "70be72ca859a2cbb5f12d1380c93b9a981c599a1",
+      "sha256": "f80dcd763ccb9799c6bcdbdcf6f5914986db75a3156177d877cb548a0e139833"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_g1c_trace_layout.h",
+      "git_blob_sha": "6c26c92cf92a89ebfde7ab92f7ea8a10f6062bf9",
+      "sha256": "a74c6b5198ba7d38ba9c695a4e2df17691c1e31d12bfec012cb5226aef9a6922"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_adapter.cpp",
+      "git_blob_sha": "89e154b0a44171605aaaad3f9afa05e1c6f49fb0",
+      "sha256": "34e61b4557048e3c92eeb64880379509289e9e15b4e92670c9ec9f485e5dd6be"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_adapter_api.h",
+      "git_blob_sha": "3d7b50e22a86816992b2cad58dfd614b4a3d627e",
+      "sha256": "5f8261bf27111e2a45cd1314edba43cedbc05e0c88aca6b0b3de76a9700508b4"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_diagnostics.cpp",
+      "git_blob_sha": "01d193ed83031caa68e6a412720ca7ab7306513d",
+      "sha256": "f283a44e169df99dca10deef865b07fd148ca3138ddf1825b74cd95c9a24d278"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_diagnostics_api.h",
+      "git_blob_sha": "9a177520da8182f49fa1da246248863aa6218ab3",
+      "sha256": "26df9c04fb0ec5bc234c61143051b7362bd0cc3895221d5386647ac4ac541494"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_internal.h",
+      "git_blob_sha": "10bc2baa0065f153ff7ae4748ecf4df1a08969e3",
+      "sha256": "084342b9c1bcc40a90bfb959cda8608eaa8ac5c7e4e4d08454b84b80f72ab574"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_b2_full_mm_ar.asc",
+      "git_blob_sha": "7a011bcc9eb0d7029e310c57e4054fd33cc466d4",
+      "sha256": "c34beebfeb3597cb6a5861626f6eca1abe45cc103e12d000e0063e49e9405cfb"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_dcci_entire_candidate.asc",
+      "git_blob_sha": "faf14facd242e985a73197774fcfe378c43ac7f7",
+      "sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_diagnostics.asc",
+      "git_blob_sha": "ab43cdca086955f92d5f98b4a51c91f456e7c78a",
+      "sha256": "d07954f4c9d66e166a64125234561855c4e4814e6c0bab5bfdb36283476f9c6c"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e2_pipeline.asc",
+      "git_blob_sha": "5786861731bdc6482a3530d271e11b5d4752d18c",
+      "sha256": "7bda1388156131405ae69771fec37b460770b6d9a6b9ffcda5ff11dcbe68e1de"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e3_group2048.asc",
+      "git_blob_sha": "8128fcde38794dd5e5ce4c2c12d777f25cdd770a",
+      "sha256": "d871928809441a983cb73666207171e1484520046088eaaf19aea032f65fac42"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "git_blob_sha": "39d77d8a09849121781a6e6abc2a912cb3d73595",
+      "sha256": "4a11399db28e1762624310b8dfdee9095a22b381a2f95b7aa2bee3ee2f639325"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_g1c_kernel.asc",
+      "git_blob_sha": "a1b9b04ed5c1ca676d1a6a552428e4a431564d9d",
+      "sha256": "9b7a5c1c3587e12c1da100da2da23738336bdf96b7babce71bd2174e2523a326"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_g1c_trace.h",
+      "git_blob_sha": "f4a7cb0b9066b647fd71e8eab6bcdb52e09f1489",
+      "sha256": "55dba159c8859c1d2fddff91627cf2030223e9de36ebff4f21494c99c0962eed"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_g1d_trace.h",
+      "git_blob_sha": "854de3e5ad48687f50b6a3413cf26163e67351eb",
+      "sha256": "e2a2ac723094cae49aaef9c13f7939986e8c05222b4620dd847e420b2176b0c0"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel.asc",
+      "git_blob_sha": "9b193b15df5a55984c9676780fd076c6fe89fd75",
+      "sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel_common.h",
+      "git_blob_sha": "9337da4c1b3a6af44a4b86b075013dfe841ae850",
+      "sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_mm_shadow.asc",
+      "git_blob_sha": "8e1e0b130539ef654416a1788ace436c4f7db419",
+      "sha256": "576e45b8887902cb5fce4eb98241610bb55d34b07416c8a57d2a9da7c06cf885"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/mf310p_v2_g1c_observer.cpp",
+      "git_blob_sha": "753791132a1855c3209ad655b7cfdf4d5d83f08a",
+      "sha256": "11b7f324936902ee776ecb19c038853cff538f747c990350a358b1df601d2a87"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/mf310p_v2_serve.cpp",
+      "git_blob_sha": "d039ccfc26a9ac1c342abfc8526dd33aa5ee6378",
+      "sha256": "b9b673dc85a8029d7a425e82301117968047ba5bb06b3d25fe910559a1098d6c"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/mf310p_v2_serve_diagnostics.cpp",
+      "git_blob_sha": "478b65ce2a790c6032bb8d3e854ea40b9b68766b",
+      "sha256": "1b289f1b5bf026c83c1f70312479dd4fb458a2d46fff160551148fd1578e008f"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/mf310p_v2_serve_internal.h",
+      "git_blob_sha": "109b59d036e6176f298c915d6212110d119114a4",
+      "sha256": "1d709ec3582eead95be75f942edd6f120247541ad7248e5817ff3db1e8fb8f69"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/test/perf/e3_private_host.cpp",
+      "git_blob_sha": "f692bc1046f0838280c15a9ff7d6015c0fce49c2",
+      "sha256": "a3e8b2f687f97873c69edd3551b085bebaee3529d21a8cda2d15410551add13e"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/test/perf/e4_private_host.cpp",
+      "git_blob_sha": "42f5195c5a4f384e0e12ab8f3e181ba20b3338c6",
+      "sha256": "6c6ab31a15bbebfd345dd99c59626955c083139c941c4c2af9e9dc18e675ec60"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/test/perf/five_arm_private_host.cpp",
+      "git_blob_sha": "fa12aa6dcab6789bb721edc85ea68e12688ff77a",
+      "sha256": "2fc25cb45322ebe2e254241c4f04b6868e7ac8332745266ceded50d65ec40bc2"
+    },
+    {
+      "path": "vllm_ascend/_310p/ops/memfabric_mm_ar.py",
+      "git_blob_sha": "78a08b4d31f7804fe7b20cc6c30f98a5ff637a92",
+      "sha256": "0a5660531f75d00d46ff5f96c6b101b810706b27d74165fd6f56595a23cf036e"
+    },
+    {
+      "path": "vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py",
+      "git_blob_sha": "947a52f6da23ea21d3e523c4569d29ed6d795b0b",
+      "sha256": "87465c879b94f0c428f2dfbcc5408e1a816c24940df63a6aaab47f5c1c69908b"
+    }
+  ],
+  "evidence": [
+    {
+      "branch": "work/310p-mm-ar-five-arm-dcci-20261028",
+      "source_head": "bf28f01e6f2226771b86101da908033e00a2d1af",
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/a1_five_arm_20261028/five_arm_assessment.json",
+      "git_blob_sha": "248e6be528ecddf8c39792d68011df19f2a4b1ec",
+      "sha256": "bb2699de3e5fb133c4567ed782aac3869fcbe83de0de113bdc5d5200666c97c2"
+    },
+    {
+      "branch": "work/310p-mm-ar-e2-pipeline-20261028",
+      "source_head": "6b2408b4d18d55e60c44708a4f4534bfed72722b",
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/a1_e2_pipeline_20261028/campaign_attempt3/e2_assessment.json",
+      "git_blob_sha": "91c2070fd7e0bb19fb24c910f4f77ac75a9b017f",
+      "sha256": "6301673fd65d55f9ba609d0fe29cec3ca63388944f928b54dc74699fd7a6ecca"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e3_chunk2048_20261028/e3_assessment.json",
+      "git_blob_sha": "d901d26e4ed54fa59479304b621b4e5b270b7590",
+      "sha256": "a6f55c0e5c29213809d140253ee9695db7b4f9b138524718927e5b10889a7724"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_e4_screen_summary.json",
+      "git_blob_sha": "7eb9ad669449a085d7d6001305d4e23e5ed0d466",
+      "sha256": "a8d297c4c62dad11047fdb48f0f071068c71e8393f3935c566a9f64a6b00e060"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt3b_build_manifest.json",
+      "git_blob_sha": "2e66158d295c261ab4a6a69d466ba81c0faec4da",
+      "sha256": "44852b09b4b9fa89218904064027bac74c72fda2971ba3c0ab780c8c5119571d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/VALIDATION_REPORT.md",
+      "git_blob_sha": "1b74ce0a78d274b0e151112e04ffd5ee6b8d936d",
+      "sha256": "13db0dd0726c15476306a3f41ebc566000e5b8c1fc7b8c9d2737a5a563b8fe9f"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/docs/SEL01_STOCK_V1_V2_EAGER_4096_2048_TP2_BATCH10_REPORT_20261024.md",
+      "git_blob_sha": "78fb5d598fc2c35e867c09db3ffc19b291e041e9",
+      "sha256": "e9ca0727e0c5643a271519005ca47a13ccad6f8b824e9084db6d3daa8c5cf9cb"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt2_progress.txt",
+      "git_blob_sha": "2c25fb0b72fc95a3660c0d114200907733986f9a",
+      "sha256": "ecc4d794e77651d9a6354a36037729a26ebd018e31bd6aaea0b61e028177a90a"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/attempt2_3_mainline_archive/attempt3b_screen_partial_38144.json",
+      "git_blob_sha": "43a180a415844635cae43c8a814e2801da6ea945",
+      "sha256": "51de1f05354c7bd86f58ffb01f4fd3058ac1abf65c638fca08fd4958f1a47515"
+    }
+  ],
+  "batches": [
+    {
+      "batch": "five-arm",
+      "status": "INCONCLUSIVE_DRIFT",
+      "metric": "paired_sample_rank_max_p50_us; historical event full-chain",
+      "comparisons": [
+        {
+          "M": 2048,
+          "stable": false,
+          "arm_time_us": {
+            "e1": 1263.62,
+            "d4": 1362.044,
+            "b2": 1647.871,
+            "stock": 1070.417,
+            "b1": 2653.789
+          },
+          "drift": {
+            "e1": 0.01171,
+            "d4": 0.05685,
+            "b2": 0.03513,
+            "stock": 0.00453,
+            "b1": 0.00818
+          }
+        },
+        {
+          "M": 4096,
+          "stable": true,
+          "arm_time_us": {
+            "e1": 2274.167,
+            "d4": 2512.995,
+            "b2": 3092.519,
+            "stock": 2017.499,
+            "b1": 5031.231
+          },
+          "drift": {
+            "e1": 0.00129,
+            "d4": 0.00476,
+            "b2": 0.02015,
+            "stock": 0.00103,
+            "b1": 0.00863
+          }
+        }
+      ],
+      "git_blob_sha": "248e6be528ecddf8c39792d68011df19f2a4b1ec"
+    },
+    {
+      "batch": "e2",
+      "status": "E2_FULL_CHAIN_TIMING_VALID",
+      "metric": "paired_sample_rank_max_p50_us; historical event full-chain",
+      "comparisons": [
+        {
+          "M": 2048,
+          "stable": true,
+          "arm_time_us": {
+            "e2r": 1268.731,
+            "e1": 1236.081,
+            "e2p512": 1581.211,
+            "stock": 1087.533,
+            "e2p": 1328.021
+          },
+          "drift": {
+            "e2r": 0.0174,
+            "e1": 0.02002,
+            "e2p512": 0.0047,
+            "stock": 0.049,
+            "e2p": 0.04194
+          }
+        },
+        {
+          "M": 4096,
+          "stable": true,
+          "arm_time_us": {
+            "e2r": 2292.578,
+            "e1": 2285.456,
+            "e2p512": 2756.868,
+            "stock": 2022.624,
+            "e2p": 2383.007
+          },
+          "drift": {
+            "e2r": 0.00039,
+            "e1": 0.00197,
+            "e2p512": 0.017,
+            "stock": 0.00424,
+            "e2p": 0.00628
+          }
+        }
+      ],
+      "git_blob_sha": "91c2070fd7e0bb19fb24c910f4f77ac75a9b017f"
+    },
+    {
+      "batch": "e3",
+      "status": "INCONCLUSIVE_DRIFT",
+      "metric": "paired_sample_rank_max_p50_us; historical event full-chain",
+      "comparisons": [
+        {
+          "M": 2048,
+          "stable": false,
+          "arm_time_us": {
+            "stock": 1078.412,
+            "e3t": 1483.932,
+            "e1": 1222.611,
+            "e3g": 1451.002
+          },
+          "drift": {
+            "stock": 0.01293,
+            "e3t": 0.01615,
+            "e1": 0.06192,
+            "e3g": 0.01221
+          }
+        },
+        {
+          "M": 4096,
+          "stable": true,
+          "arm_time_us": {
+            "stock": 2022.553,
+            "e3t": 2267.09,
+            "e1": 2271.836,
+            "e3g": 2119.506
+          },
+          "drift": {
+            "stock": 0.00735,
+            "e3t": 0.01705,
+            "e1": 0.01581,
+            "e3g": 0.01335
+          }
+        }
+      ]
+    },
+    {
+      "batch": "e4-screen",
+      "status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+      "rank_pair_p50_us": {
+        "stock": {
+          "2048": 1088.372,
+          "4096": 2037.734
+        },
+        "e1": {
+          "2048": 1279.596,
+          "4096": 2261.888
+        },
+        "e3g": {
+          "2048": 1457.929,
+          "4096": 2133.945
+        },
+        "e4t2": {
+          "2048": 1438.49,
+          "4096": 2131.745
+        },
+        "e4t4": {
+          "2048": 1447.239,
+          "4096": 2112.513
+        },
+        "e4t8": {
+          "2048": 1461.406,
+          "4096": 2076.211
+        },
+        "e4p": {
+          "2048": 1451.106,
+          "4096": 2105.325
+        }
+      }
+    }
+  ],
+  "open_requests": [
+    "V1 latest ABI7 q/mode raw comparison and source/binary mapping",
+    "V1 later stability-fix/completion evidence if it exists; otherwise preserve NO-GO",
+    "V2 later E4-T8/E3-G/E1 balanced comparison/confirm evidence if it exists"
+  ],
+  "no_relabeling": "Historical p50 stays p50; different campaigns not pooled, shared/drift/SCREEN_ONLY labels retained."
+}

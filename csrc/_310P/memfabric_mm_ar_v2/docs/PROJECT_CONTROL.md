@@ -600,3 +600,14 @@ CPU 428项及36个子测试通过的事实保留；本次只追加执行规则�
 新增跨工作目录启动/worker模块发现与freeze路径回归；迁移后运行manifest按新主线SHA重新冻结。
 本轮仅目录及引用迁移，完整计时、统计、采样和协议语义不变，无新增实机数据；按用户要求不查格式。
 迁移后全量CPU回归430项及36个子测试通过，其中L1框架23项；项目静态与变更台账门禁通过。
+
+## 2026-10-30｜V1/V2全版本规整与封版证据审核
+
+用户要求从全部V1/V2选最优正式版，优先复用历史结果，缺证据由OpenCode查服务器而非重跑。
+[审核包](../../releases/v1-v2-20261030/README.md)锁定37个源码/构建输入；V1六核心文件与fa1c4217逐blob一致，V2 D4/E1/E3/E4的SHA与已有E4构建manifest全部匹配。
+five-arm和E2机器评估已从历史快照对象读出，E3/E4实体原件已复核，不能再把它们误报为缺失。
+[V1选型](../../memfabric_mm_ar/docs/RELEASE_SELECTION.md)：ABI7多能力不是互斥版本；默认q/单波/小M组合需找匹配原始对照，SEL-01 0/3自然场完成的失败事实保留。
+[V2选型](RELEASE_SELECTION.md)：当前D4仍是构建参考，E1偏向M2048，E3-G在M4096有稳定改善，E4-T8仅单场Screen最快；不能一刀切成全形状winner。
+登记表新增implementation_group/release_role用于归类；最终winner明确为空，源算子及构建/ABI/Serving零改动，不创建虚假final标签。
+待用户委托OpenCode按[只读查找单](../../releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)回传V1身份/配置/后续稳定性与E4后续复核原件，再完成最终版本选定和封版。
+本轮无CANN/NPU新执行，不因为新L1框架尚未实机而要求重测V1/V2；不查格式。

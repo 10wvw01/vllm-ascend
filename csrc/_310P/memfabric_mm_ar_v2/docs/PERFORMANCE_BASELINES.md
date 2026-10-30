@@ -278,3 +278,10 @@ Stock为NZ FP16 MM+HCCL完整输出。相同W/N/R，逐同下标双Rank max后�
 
 统一入口迁至`csrc/_310P/tools/L1_test/l1_bench.py`，计时边界、预热/样本数、双Rank配对均值、独占/共享与采集语义不变。
 此轮只验证目录迁移及调用链，CANN/NPU无新增执行；已有性能数值和UNKNOWN限制保留。
+
+## 2026-10-30｜V1/V2封版选型仅复用历史
+
+已有four-batch机器评估及源码身份归入[审核包](../../releases/v1-v2-20261030/README.md)，没有新性能数值。
+five-arm/E2评估在主线历史blob内可读取，不再要求服务器重复提供。旧p50、漂移/Screen标签和形状差异完整保留。
+V1 ABI7最新配置与后续稳定性证据待找；V2 E4-T8的2076.211µs/M4096仍是单场Screen，不升级为正式全形状winner。
+本轮不重跑、不拼新混合路由、不修改生产默认；完整数值与取舍见[RELEASE_SELECTION](RELEASE_SELECTION.md)。

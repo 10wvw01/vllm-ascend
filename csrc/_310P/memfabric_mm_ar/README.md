@@ -1,5 +1,7 @@
 # CUSTOM 310P3 MemFabric mm_ar fusion
 
+> 2026-10-30版本规整：[正式版本选型与封版审核](docs/RELEASE_SELECTION.md)。已锁定源码与历史证据，最终最优winner待历史查找补齐；本轮不安排重跑。
+
 > **CUSTOMIZED 310P3 ONLY**
 >
 > Qwen3.6 TP=2 matmul + allreduce 融合（`self_attn.o_proj` / GDN

@@ -165,3 +165,11 @@ PR #23内容（1415d479）按用户最新指令直接纳入`dev/310p-memfabric-m
 实验服务器使用SSH获取主线，核对并固定每轮完整SHA，保留隔离构建/结果目录和原始双Rank证据。
 详见[最新治理规则](csrc/_310P/memfabric_mm_ar_v2/docs/BRANCH_GOVERNANCE.md)。
 G0→CPU→私有编译/短Smoke→正式性能及故障STOP要求继续执行；新框架设备验证仍NOT_RUN。
+
+## 2026-10-30｜V1/V2规整与封版审核：复用历史，不重跑
+
+[审核与源码锁定包](csrc/_310P/releases/v1-v2-20261030/README.md)已整理37个源码/构建输入及四批历史机器评估。
+V1登记的批流水、小M、单波、generation/Graph是当前ABI7能力或模式，六个核心文件与public-api fa1c4217逐blob一致。
+V2 D4/E1/E3/E4源码SHA与历史构建manifest匹配；M2048倾向E1，M4096已有E3-G稳定改进证据和E4-T8最快Screen。
+最终唯一最优版尚缺V1配置/后续稳定性及E4后续复核原件，不把候选与生产正式封版混为一谈。
+[委托OpenCode只读查历史](csrc/_310P/releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)；不运行新实验，不改正式构建/Serving默认。
