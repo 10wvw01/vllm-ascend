@@ -1,0 +1,73 @@
+{
+  "card": 16384,
+  "devices": "2,3",
+  "cann": "/ABS/PATH/TO/ASCEND_TOOLKIT",
+  "admission": {
+    "g0_readonly": "NOT_RUN",
+    "cpu_contract": "NOT_RUN",
+    "private_compile": "NOT_RUN",
+    "dual_rank_smoke": "NOT_RUN",
+    "binary_identity": "NOT_RUN",
+    "evidence_files": [
+      "/ABS/PATH/TO/ACTUAL/ADMISSION/EVIDENCE.json"
+    ]
+  },
+  "runtimes": {
+    "STOCK": {
+      "version": "STOCK",
+      "source_head": "REPLACE_WITH_ACTUAL_40_HEX_SOURCE_SHA",
+      "files": [
+        "/ABS/PATH/TO/TORCH_NPU_LIBRARY.so"
+      ],
+      "environment": {}
+    },
+    "V2-7": {
+      "version": "V2-7",
+      "source_head": "REPLACE_WITH_ACTUAL_40_HEX_SOURCE_SHA",
+      "api": "v2_selected_v1",
+      "library": "/ABS/PATH/TO/PRIVATE/vllm_ascend_C.so",
+      "selected_device_library": "/ABS/PATH/TO/PRIVATE/libmf310p_v2_selected_device.so",
+      "supported_M": [
+        2048
+      ],
+      "route_pattern": "V2TrialKernel",
+      "files": [
+        "/ABS/PATH/TO/PRIVATE/vllm_ascend_C.so",
+        "/ABS/PATH/TO/PRIVATE/libmf310p_v2_selected_device.so",
+        "/ABS/PATH/TO/PRIVATE/libmf310p_v2_trial_device.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_smem.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_hybm_core.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json"
+      ],
+      "environment": {
+        "LD_LIBRARY_PATH": "/ABS/PATH/TO/PRIVATE:/ABS/PATH/TO/SDK/lib64:/ABS/PATH/TO/CANN/lib64",
+        "MF_SDMA_ORCH_JSON": "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/PATH/TO/SDK"
+      }
+    },
+    "V2-15": {
+      "version": "V2-15",
+      "source_head": "REPLACE_WITH_ACTUAL_40_HEX_SOURCE_SHA",
+      "api": "v2_selected_v1",
+      "library": "/ABS/PATH/TO/PRIVATE/vllm_ascend_C.so",
+      "selected_device_library": "/ABS/PATH/TO/PRIVATE/libmf310p_v2_selected_device.so",
+      "supported_M": [
+        4096
+      ],
+      "route_pattern": "E4Group2048Kernel",
+      "files": [
+        "/ABS/PATH/TO/PRIVATE/vllm_ascend_C.so",
+        "/ABS/PATH/TO/PRIVATE/libmf310p_v2_selected_device.so",
+        "/ABS/PATH/TO/PRIVATE/libmf310p_v2_trial_device.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_smem.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_hybm_core.so",
+        "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json"
+      ],
+      "environment": {
+        "LD_LIBRARY_PATH": "/ABS/PATH/TO/PRIVATE:/ABS/PATH/TO/SDK/lib64:/ABS/PATH/TO/CANN/lib64",
+        "MF_SDMA_ORCH_JSON": "/ABS/PATH/TO/PRIVATE/libmf_sdma_orch_v11.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/ABS/PATH/TO/SDK"
+      }
+    }
+  }
+}

@@ -74,10 +74,13 @@ def build():
             usage='该历史/诊断版本没有用当前SO替代执行。恢复匹配快照，按共同适配器协议提供冻结的`factory_file`；框架核验返回的`adapter.version`。'
         else:
             usage=f'在运行manifest的`runtimes.{vid}`填写本版冻结工件，运行统一入口；不变更产品Serving路由。'
+        if entry.get('selected_api'):
+            usage+=f' 本轮性能选中版本可填写`api={entry["selected_api"]}`，改用固定M={entry["selected_M"]}的公共C接口；详见[正式入口与代码梳理](../SELECTED_API.md)。旧私有ABI仍用于复现历史，不能把旧SO成绩赋给新构建。'
         if entry.get('category'):
             usage+=' 本版为'+entry['category']+'，Eager完整MM+AR计划主动拒绝把它计作性能候选；原始专用脚本保留。'
+        example_m=str(entry['selected_M']) if entry.get('selected_api') else '2048 4096'
         example='' if entry.get('category') else f'''```bash
-python csrc/_310P/tools/L1_test/l1_bench.py plan --versions {vid} --M 2048 4096 \\
+python csrc/_310P/tools/L1_test/l1_bench.py plan --versions {vid} --M {example_m} \\
   --warmup 20 --samples 100 --rounds 2 --out /tmp/{vid}-plan.json
 ```
 

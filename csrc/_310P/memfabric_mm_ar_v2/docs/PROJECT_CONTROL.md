@@ -624,3 +624,17 @@ T8/T4 M4096 Wall均值仅差0.128µs，近乎持平；保留Screen标签，不�
 [复算/工件身份/源码封存](../../releases/v1-v2-20261030/README.md)与[只查V1的OpenCode任务](../../releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)已更新。
 V2实测点选择及源码封存完成，2049～4095最优未知，不拼未经验证的新运行时，不改Serving默认。
 两轮静态复核、14份原件Git blob/源码SHA校验、31项CPU回归及项目元数据门禁通过；仅离线复算，无NPU新执行，不查格式。
+
+
+## 2026-10-30｜V2所选公共接口与构建代码梳理完成；V1延期
+
+按用户指令先完成V2，V1历史身份查找留到下一次实机。所选仍为M2048/E1、M4096/E4-T8，
+新增selected_api.h/selected_adapter.cpp固定M公共C API；每句柄只绑定一种配置/Stream，不混合路由。
+新selected.cmake独立构建E1/E4 Device并将公共Host编入扩展，摆脱test/perf私有Host加载；
+旧D4/Serving、诊断与历史候选保留。设备E1/E4/common、基础Host及内部结构原SHA不变。
+句柄持有预热/输出地址/poison状态，避免旧私有裸地址表跨销毁复用；保留首写保护、status清零及协议排空。
+统一L1显式api=v2_selected_v1接入，固定M、实际Device装载身份、错配置和历史私有ABI混入均检查。
+[代码图谱](CODE_MAP.md)、[接口使用](SELECTED_API.md)、[两轮复核](CODE_REVIEW_20261030.md)、
+[源码包身份](../../releases/v1-v2-20261030/V2_CODE_PACKAGE.json)为当前代码入口。
+全量CPU450项与36子测试PASS；含Host C++故障注入和CMake四开关组合。新入口CANN/NPU NOT_RUN，
+不将旧SO成绩写为新构建实测；没有安排V1/V2重跑，无Serving默认切换，不查格式。

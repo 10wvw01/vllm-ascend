@@ -26,7 +26,11 @@
 
 ## 代码目录
 
-- `src/op_kernel/mf310p_v2_kernel.asc`：正式算子；
+- 当前所选正式C入口：`src/op_host/mf310p_v2_selected_api.h`/`mf310p_v2_selected_adapter.cpp`，M2048/E1与M4096/T8，构建为`src/selected.cmake`。
+- 原E1/E4设备文件为封存源码，不因实验文件名移走或重写；旧D4/Serving保留兼容，见`docs/CODE_MAP.md`与`docs/SELECTED_API.md`。
+- 新入口代码/CPU通过不代表CANN/NPU通过；V1查历史延期到下一次实机测试。
+
+- `src/op_kernel/mf310p_v2_kernel.asc`：历史正式D4与现有Serving兼容算子；
 - `src/op_kernel/mf310p_v2_diagnostics.asc`：诊断核；
 - `src/op_host/`：Host公共API、诊断ABI；
 - `src/torch_adapter/`：PyTorch Op与Serving生命周期；

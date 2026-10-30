@@ -184,3 +184,14 @@ V2 M2048选E1、M4096选E4-T8，源码及实测点选型已封存；不因D4现�
 [性能选择与源码封存](csrc/_310P/releases/v1-v2-20261030/README.md)、
 [仅查V1成功身份的OpenCode任务](csrc/_310P/releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)、ADR-038为准。
 未测区间点不冒称最优，不新拼路由、不改Serving默认；本轮仅离线复算与CPU/源码验证。
+
+
+## 2026-10-30｜先完成V2公共入口代码整理，V1留待下次实机
+
+V2所选E1/M2048、T8/M4096已整理为固定形状公共C API与独立Device构建组，统一L1显式接入。
+所选设备核原文、旧D4/Serving及历史候选保留；不创造2049～4095阈值，不切换Serving默认。
+[代码图谱](csrc/_310P/memfabric_mm_ar_v2/docs/CODE_MAP.md)、
+[公共接口](csrc/_310P/memfabric_mm_ar_v2/docs/SELECTED_API.md)、
+[源码包](csrc/_310P/releases/v1-v2-20261030/V2_CODE_PACKAGE.json)。
+全量CPU450项+36子测试PASS，新入口CANN/NPU仍NOT_RUN，无新设备性能。
+V1查历史已按用户要求延期至下一次实机测试，本轮不再作为V2前置。

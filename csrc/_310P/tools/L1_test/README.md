@@ -106,3 +106,13 @@ python -m pytest -q csrc/_310P/tools/L1_test --import-mode=importlib
 PYTHONPATH=csrc/_310P/tools python -m L1_test.build_docs
 PYTHONPATH=csrc/_310P/tools python -m L1_test.evidence
 ```
+
+
+## V2所选公共C API
+
+V2-7/M2048与V2-15/M4096可用runtime的`api: "v2_selected_v1"`调用新公共入口，
+模板为[runtime-v2-selected-template.json](runtime-v2-selected-template.json)。每份计划只含一个匹配M；
+历史私有ABI仍保留，未指定api时不替换。必须冻结`library`及实际装载的`selected_device_library`和全部SDK依赖。
+建池前固定输出分配，完整计时/下游消费与统一采集合同不变。
+[公共接口与状态](../../memfabric_mm_ar_v2/docs/SELECTED_API.md)：新入口只完成CPU验证，CANN/NPU为NOT_RUN；
+模板不是准入凭证，不自动运行设备任务。

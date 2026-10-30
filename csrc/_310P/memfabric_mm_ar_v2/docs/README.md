@@ -1,5 +1,8 @@
 # 310P3 V2 MemFabric MM+AllReduce 工程
 
+> 当前代码入口：[所选V2代码图谱](CODE_MAP.md)、[公共C接口与L1使用](SELECTED_API.md)。E1/M2048、T8/M4096独立构建；新Host/CMake/L1已CPU验证，CANN/NPU未执行。V1历史查找延期至下次实机。
+
+
 > 2026-10-30版本规整：[正式版本选型与封版审核](RELEASE_SELECTION.md)。仅评M2048～4096，性能优先：V1选历史成功q4（准确身份待查），V2 M2048选E1/M4096选E4-T8，保留Screen与近乎持平说明；不重跑。
 
 > **当前项目信息请先读** [唯一项目控制台 PROJECT_CONTROL.md](PROJECT_CONTROL.md)（所属分支 `dev/310p-memfabric-mm-ar`），以及[分支治理](BRANCH_GOVERNANCE.md)、[性能账本](PERFORMANCE_BASELINES.md)、[正式决策](DECISIONS.md)。**本README下方G3时期状态仅为历史工程介绍，不能作为2026-10-25最新性能/稳定性/项目优先级。** 根目录入口：[PROJECT_310P_MEMFABRIC.md](../../../../PROJECT_310P_MEMFABRIC.md)。

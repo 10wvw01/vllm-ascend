@@ -78,13 +78,25 @@ def validate_runtime(spec, version):
         if key not in allowed or not isinstance(value, str):
             raise ValueError(f"unapproved runtime environment key: {key}")
     if version == "STOCK":
-        if environment or any(spec.get(k) for k in ("library", "private_library", "factory_file")):
+        if environment or any(spec.get(k) for k in ("library", "private_library", "factory_file", "api", "selected_device_library")):
             raise ValueError("standalone Stock must not load fusion libraries/environment")
         return spec
     entry = catalog()[version]
+    api = spec.get("api")
+    if api not in (None, "v2_selected_v1"):
+        raise ValueError("unknown runtime API")
+    selected = api == "v2_selected_v1"
+    if selected:
+        expected_m = {"V2-7": [2048], "V2-15": [4096]}
+        if version not in expected_m or spec.get("supported_M") != expected_m[version] or spec.get("config"):
+            raise ValueError("selected V2 requires its fixed version/M and no configuration override")
+        if spec.get("private_library") or spec.get("factory_file"):
+            raise ValueError("selected V2 cannot load a historical private adapter")
     if entry.get("historical") and not spec.get("historical_identity_verified"):
         raise ValueError("historical VN-M requires explicit source/binary audit, no alias substitution")
-    if entry["runtime"] == "external":
+    if selected:
+        required = ["library", "selected_device_library"]
+    elif entry["runtime"] == "external":
         required = ["factory_file"]
     else:
         required = ["library"]

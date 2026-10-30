@@ -1,0 +1,159 @@
+{
+  "schema": "MF310P_V2_SELECTED_CODE_PACKAGE_V1",
+  "package": "mf310p-v2-selected-api1-20261030",
+  "date": "2026-10-30",
+  "base_mainline_head": "56485231a0dde5fa83a461e5810954d2e8dc48ea",
+  "scope": {
+    "hardware": "310P3 single-card dual-die",
+    "TP": 2,
+    "K": 2048,
+    "N": 2048,
+    "dtype": "FP16",
+    "fixed_M": [
+      2048,
+      4096
+    ]
+  },
+  "selected": {
+    "2048": {
+      "catalog": "V2-7",
+      "name": "E1",
+      "pool_chunk_rows": 1024,
+      "mm_rows": 1024,
+      "group_rows": 1024,
+      "groups": 2,
+      "kernel_mode": 1,
+      "add_elements": 2048
+    },
+    "4096": {
+      "catalog": "V2-15",
+      "name": "E4-T8",
+      "pool_chunk_rows": 1024,
+      "mm_rows": 1024,
+      "group_rows": 2048,
+      "groups": 2,
+      "kernel_mode": 2,
+      "add_elements": 8192
+    }
+  },
+  "public_api_header": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_selected_api.h",
+  "public_api_abi": 1,
+  "selected_device_library": "libmf310p_v2_selected_device.so",
+  "host_library": "the same rebuilt vllm_ascend_C extension as the base trial context",
+  "state_ownership": "one fixed M/variant/stream per handle; no global/thread-local pointer-keyed warmup state",
+  "historical_device_sources_unchanged": true,
+  "base_pool_host_and_layout_unchanged": true,
+  "historical_performance": "PERFORMANCE_SELECTION.json; old SO evidence, not a measurement of the new binary",
+  "build_option": "VLLM_ASCEND_310P_V2_BUILD_SELECTED (ON when V2 is explicitly built); OFF restores legacy build set",
+  "L1_api": "v2_selected_v1",
+  "L1_fixed_shape_per_plan": true,
+  "runtime_hybrid_route": false,
+  "serving_default_changed": false,
+  "validation": {
+    "cpu_tests": 450,
+    "subtests": 36,
+    "new_host_fault_cases": 12,
+    "new_build_graph_combinations": 4,
+    "new_L1_contract_cases": 4,
+    "two_static_reviews": "csrc/_310P/memfabric_mm_ar_v2/docs/CODE_REVIEW_20261030.md",
+    "cmake_configure_version": "4.4.4",
+    "bisheng_compile": "NOT_RUN",
+    "dual_rank_npu": "NOT_RUN",
+    "new_binary_performance": "NOT_RUN",
+    "production_go": false
+  },
+  "V1_history_lookup": "DEFERRED_BY_USER_UNTIL_NEXT_HARDWARE_SESSION",
+  "source_files": [
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_dcci_entire_candidate.asc",
+      "git_blob_sha": "faf14facd242e985a73197774fcfe378c43ac7f7",
+      "sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_e4_layered_candidates.asc",
+      "git_blob_sha": "39d77d8a09849121781a6e6abc2a912cb3d73595",
+      "sha256": "4a11399db28e1762624310b8dfdee9095a22b381a2f95b7aa2bee3ee2f639325"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel_common.h",
+      "git_blob_sha": "9337da4c1b3a6af44a4b86b075013dfe841ae850",
+      "sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_kernel/mf310p_v2_kernel.asc",
+      "git_blob_sha": "9b193b15df5a55984c9676780fd076c6fe89fd75",
+      "sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_adapter.cpp",
+      "git_blob_sha": "89e154b0a44171605aaaad3f9afa05e1c6f49fb0",
+      "sha256": "34e61b4557048e3c92eeb64880379509289e9e15b4e92670c9ec9f485e5dd6be"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_adapter_api.h",
+      "git_blob_sha": "3d7b50e22a86816992b2cad58dfd614b4a3d627e",
+      "sha256": "5f8261bf27111e2a45cd1314edba43cedbc05e0c88aca6b0b3de76a9700508b4"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_trial_internal.h",
+      "git_blob_sha": "10bc2baa0065f153ff7ae4748ecf4df1a08969e3",
+      "sha256": "084342b9c1bcc40a90bfb959cda8608eaa8ac5c7e4e4d08454b84b80f72ab574"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar/memfabric310p_adapter_api.h",
+      "git_blob_sha": "ddbb5f88a6e3f545901a0c21a49369ca071ac243",
+      "sha256": "55b8c049370631f1e5707d2756c2da180963a512898d92e9661babc12b04a79d"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_selected_api.h",
+      "git_blob_sha": "6aee912e77aa15f02af76848a5a29892ba0dd2f4",
+      "sha256": "6f619491e5f55e281b91e7f6c313dec2ea93593191e72fdb1a50309990724964"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/op_host/mf310p_v2_selected_adapter.cpp",
+      "git_blob_sha": "475f3c0e6fcca4d2737ea7dd4dea2c6a8582c07c",
+      "sha256": "949edfd0072a8a72b6f2cf0cafaa3f4ff978842683546559ff22dc6346dca5a0"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/selected.cmake",
+      "git_blob_sha": "5fee6456ffc0af3f8511734ad36e71656fa53b26",
+      "sha256": "fa9636800bc3462a29672c0cce208298955dad21bbcbf5c2a534b1bf77df9078"
+    },
+    {
+      "path": "csrc/_310P/memfabric_mm_ar_v2/src/CMakeLists.txt",
+      "git_blob_sha": "0ee40ed66367420164972430c38648a43d573fab",
+      "sha256": "407b0eec261b38771df3b76c7be8454c33c6c7250b29b662d54d789b012d641d"
+    },
+    {
+      "path": "cmake/memfabric_310p_v2.cmake",
+      "git_blob_sha": "b79bb5c87a2dcdb6276d9313e128c136d03f5bda",
+      "sha256": "bd72fdcbb5d6f29f84dd309a1643427854aa1474ad3c0730959ce3df6b4f31c3"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/adapters.py",
+      "git_blob_sha": "dedbbdb5f26a83a5af13188fa2726334e2ba52e1",
+      "sha256": "7c77fd1d45bc36d074e9ac403bb5dc74ef2f2b1df43b30c76303c094b9e0549b"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/core.py",
+      "git_blob_sha": "591e9f11f6b8cb50cb243e1d59cf28e9ff122136",
+      "sha256": "c322d78d372bb40aca2353e9e5b160fcd244b57a3476fc67f4d0d291674c10a9"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/worker.py",
+      "git_blob_sha": "b9465bc0fb8b57f8dcccb1c7cb50f1726956ce4e",
+      "sha256": "6a674adb76bcf62f7c7f82ca82124e92569f40885bd76b941a463399c1d3c229"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/versions.json",
+      "git_blob_sha": "d1db8b2edf7c354f5928560a456621c155a7b5be",
+      "sha256": "3f52d6c1be05fe86268350ac3a492298b7bffa33afbebcfa5aaff174859f5a89"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/runtime-v2-selected-template.json",
+      "git_blob_sha": "80248d86d1460f6eb2ab7f15e43ba66ef873a648",
+      "sha256": "040ec279ace27803e30c89d4e2db0f0ce43bb02e0f67cfa3b5980a11e24a848b"
+    }
+  ],
+  "historical_audit_note": "SOURCE_SHA256SUMS/source_files keep the original audited base, including old CMake. V2_SELECTED_SOURCE_SHA256SUMS is the current selected code package input list."
+}

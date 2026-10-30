@@ -51,7 +51,7 @@ def timed(op,consumer,stream,events,clock,scenario,host=False):
 def verify_maps(spec,version):
     maps=Path('/proc/self/maps').read_text()
     frozen={str(Path(p).resolve()) for p in spec['files']}
-    for key in ('library','private_library','tensor_adapter'):
+    for key in ('library','private_library','tensor_adapter','selected_device_library'):
         if key in spec and str(Path(spec[key]).resolve()) not in maps:
             raise RuntimeError(f'expected library not mapped: {key}')
     mapped={line.split()[-1] for line in maps.splitlines() if '/libmf_' in line}

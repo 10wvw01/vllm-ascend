@@ -69,6 +69,51 @@ class Trial:
         self.check(self.lib.mf310p_v2_trial_destroy(self.handle))
 
 
+class SelectedV2:
+    """Fixed-shape selected C API; historical private adapters remain available."""
+    def __init__(self, spec, entry, ctx):
+        expected = {"V2-7": 2048, "V2-15": 4096}
+        self.m = expected[entry["id"]]
+        if list(ctx.shapes) != [self.m]:
+            raise ValueError("selected V2 requires one matching fixed M per plan")
+        self.ctx = ctx
+        # Pin outputs before creating the MemFabric pool; no late allocations.
+        self.outputs = [ctx.torch.empty((self.m, 2048), dtype=ctx.torch.float16, device=ctx.device)
+                        for _ in range(2)]
+        ctx.stream.synchronize()
+        self.lib = ctypes.CDLL(spec["library"], mode=ctypes.RTLD_LOCAL)
+        self.handle = ctypes.c_void_p()
+        self.raw = ctypes.c_void_p(ctx.stream.npu_stream)
+        p, u, q = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_uint64
+        signatures = {"create": [ctypes.c_int, ctypes.c_char_p, u, ctypes.POINTER(p)],
+                      "ib_probe": [p, u, p], "run": [p, q, q, q, p],
+                      "check_status": [p, ctypes.POINTER(q)], "destroy": [p]}
+        for name, args in signatures.items():
+            fn = getattr(self.lib, "mf310p_v2_selected_" + name)
+            fn.argtypes, fn.restype = args, ctypes.c_int
+        Trial.check(self.lib.mf310p_v2_selected_create(ctx.rank, ctx.url.encode(), self.m,
+                                                    ctypes.byref(self.handle)))
+        Trial.check(self.lib.mf310p_v2_selected_ib_probe(self.handle, 64, self.raw))
+
+    def run(self, x, w, variant):
+        if tuple(x.shape) != (self.m, 2048):
+            raise ValueError("selected V2 input differs from its fixed M")
+        out = self.outputs[variant]
+        Trial.check(self.lib.mf310p_v2_selected_run(
+            self.handle, x.data_ptr(), w.data_ptr(), out.data_ptr(), self.raw))
+        return out
+
+    def after_sample(self):
+        status = ctypes.c_uint64()
+        Trial.check(self.lib.mf310p_v2_selected_check_status(self.handle, ctypes.byref(status)))
+        Trial.check(status.value)
+        return {}
+
+    def close(self):
+        Trial.check(self.lib.mf310p_v2_selected_destroy(self.handle))
+        self.handle = ctypes.c_void_p()
+
+
 class Native:
     def __init__(self, ctx):
         self.ctx = ctx
@@ -161,6 +206,8 @@ def create(version, spec, ctx, collection):
         return Native(ctx)
     entry = catalog()[version]
     kind = entry["runtime"]
+    if spec.get("api") == "v2_selected_v1":
+        return SelectedV2(spec, entry, ctx)
     if kind == "external":
         module_spec = importlib.util.spec_from_file_location("frozen_l1_adapter", spec["factory_file"])
         module = importlib.util.module_from_spec(module_spec)

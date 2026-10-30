@@ -331,7 +331,10 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "PERFORMANCE_SELECTED_M2048"
+      "release_role": "PERFORMANCE_SELECTED_M2048",
+      "selected_api": "v2_selected_v1",
+      "selected_M": 2048,
+      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN"
     },
     {
       "id": "V2-8",
@@ -507,7 +510,10 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "PERFORMANCE_SELECTED_M4096_SCREEN_UNCERTAINTY_DISCLOSED"
+      "release_role": "PERFORMANCE_SELECTED_M4096_SCREEN_UNCERTAINTY_DISCLOSED",
+      "selected_api": "v2_selected_v1",
+      "selected_M": 4096,
+      "selected_api_status": "CPU_VERIFIED_CANN_AND_NPU_NOT_RUN"
     },
     {
       "id": "V2-16",
@@ -838,6 +844,8 @@
       "source_binary_mapping": "PENDING"
     },
     "performance_first": true,
-    "performance_selection": "csrc/_310P/releases/v1-v2-20261030/PERFORMANCE_SELECTION.json"
+    "performance_selection": "csrc/_310P/releases/v1-v2-20261030/PERFORMANCE_SELECTION.json",
+    "V1_work_status": "DEFERRED_BY_USER_UNTIL_NEXT_HARDWARE_SESSION",
+    "V2_code_package": "csrc/_310P/releases/v1-v2-20261030/V2_CODE_PACKAGE.json"
   }
 }
