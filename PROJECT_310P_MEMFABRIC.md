@@ -1,5 +1,7 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
+> **代码目录规则（2026-10-30）：310P融合算子相关实现、工具与实验代码集中在`csrc/_310P`；统一L1框架、入口与测试的唯一目录为`csrc/_310P/tools/L1_test`。**
+
 > **2026-10-30用户最新指令：后续直接在`dev/310p-memfabric-mm-ar`开发、修复、执行实机实验并归档。** 实验从主线固定完整SHA，使用隔离构建/结果目录；不再默认创建工作分支或等待PR合并才允许测试。G0、CPU合同、私有编译、短Smoke、正式性能及故障STOP要求继续有效。以下旧分支流转规定仅作历史背景，以本条为准。
 
 > **权威研发主线：`dev/310p-memfabric-mm-ar`。** 本文件及本分支下的 `PROJECT_CONTROL.md` 是当前状态的唯一权威入口；其他 `feat/`、`perf/`、`diag/`、`docs/` 分支为历史/取证/待评审资产，不得按名称推断最新状态。更新日：2026-10-28（UTC+8）。
@@ -148,7 +150,7 @@ Direct ADD无Gather、无逐波Host集合/同步、同流事件回收；seed完�
 
 ## 2026-10-30｜统一L1框架与VN-M设计文档交付，待设备验证
 
-用户恢复三项工程整理任务。新增[独立Stock/版本对照/统一采集入口](tools/310p_mm_ar/l1/README.md)，
+用户恢复三项工程整理任务。新增[独立Stock/版本对照/统一采集入口](csrc/_310P/tools/L1_test/README.md)，
 统一预热、相同N、逐样本双Rank max后算术均值、独占/共享及真实下游残差消费；不恢复算法调优或改Serving默认。
 [V1版本索引](csrc/_310P/memfabric_mm_ar/docs/VERSION_INDEX.md)、
 [V2版本索引](csrc/_310P/memfabric_mm_ar_v2/docs/VERSION_INDEX.md)、

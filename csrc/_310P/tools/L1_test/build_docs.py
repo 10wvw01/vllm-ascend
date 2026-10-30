@@ -77,7 +77,7 @@ def build():
         if entry.get('category'):
             usage+=' 本版为'+entry['category']+'，Eager完整MM+AR计划主动拒绝把它计作性能候选；原始专用脚本保留。'
         example='' if entry.get('category') else f'''```bash
-python tools/310p_mm_ar/l1_bench.py plan --versions {vid} --M 2048 4096 \\
+python csrc/_310P/tools/L1_test/l1_bench.py plan --versions {vid} --M 2048 4096 \\
   --warmup 20 --samples 100 --rounds 2 --out /tmp/{vid}-plan.json
 ```
 
@@ -147,7 +147,7 @@ Graph、MM shadow及G1C/G1D诊断单独列明，不能混入Eager完整MM+AR收�
 |---|---|---|---|
 {chr(10).join(rows)}
 
-框架合同见仓库`tools/310p_mm_ar/l1/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。
+框架合同见仓库`csrc/_310P/tools/L1_test/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。
 ''')
     print(f'generated {sum(map(len,indexes.values()))} source-resolved version documents and 3 indexes')
 

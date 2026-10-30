@@ -264,7 +264,7 @@ Host打点存在约+6.3%个例；本整合不重算或替换原始数据，也�
 新合同L1_TENSOR_IO_V2用完整Tensor输入到ND输出ready，另加真实下游残差ADD的chain场景；
 Stock为NZ FP16 MM+HCCL完整输出。相同W/N/R，逐同下标双Rank max后算术均值，所有样本保留。
 无打点性能与带前后控制的Host/Profiler诊断区分，独占检查跨轮/候选重复漂移，共享保留漂移而不签稳定GO。
-[统一入口](../../../../tools/310p_mm_ar/l1/README.md)、[36行历史Host阶段数值](L1_PERFORMANCE_EVIDENCE.md)。
+[统一入口](../../../../csrc/_310P/tools/L1_test/README.md)、[36行历史Host阶段数值](L1_PERFORMANCE_EVIDENCE.md)。
 后者保持旧合同p50范围，不变成新均值。Device时钟、SDMA真实占用与核内互斥阶段仍UNKNOWN。
 本轮无CANN/NPU新数值，不改写既有性能结论；不能由新CPU工具或文档推导任何新正收益。
 
@@ -273,3 +273,8 @@ Stock为NZ FP16 MM+HCCL完整输出。相同W/N/R，逐同下标双Rank max后�
 按用户指令将PR #23内容纳入`dev/310p-memfabric-mm-ar`，后续实验直接从主线固定SHA执行并归档。
 428项CPU测试及36个子测试不代表设备性能；新框架CANN/NPU仍NOT_RUN，既有历史数值与限制保持不变。
 新的性能记录仍必须保全双Rank原始样本、运行身份、独占/共享标签、完整输入输出合同及前后控制。
+
+## 2026-10-30｜L1框架目录迁移，无新增性能数值
+
+统一入口迁至`csrc/_310P/tools/L1_test/l1_bench.py`，计时边界、预热/样本数、双Rank配对均值、独占/共享与采集语义不变。
+此轮只验证目录迁移及调用链，CANN/NPU无新增执行；已有性能数值和UNKNOWN限制保留。

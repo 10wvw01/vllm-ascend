@@ -18,9 +18,9 @@ FORBIDDEN=('ASCEND_RT_VISIBLE_DEVICES','MF_KFC_BYPASS','MF_SDMA_ORCH_DISABLE','M
 
 
 def framework_identity():
-    paths=set((ROOT/'tools/310p_mm_ar/l1').glob('*.py'))
+    paths=set((ROOT/'csrc/_310P/tools/L1_test').glob('*.py'))
     paths.update((ROOT/'vllm_ascend/_310p/ops').glob('memfabric_mm_ar*.py'))
-    paths.update([ROOT/'tools/310p_mm_ar/l1/versions.json',ROOT/'tools/310p_mm_ar/l1_bench.py',
+    paths.update([ROOT/'csrc/_310P/tools/L1_test/versions.json',ROOT/'csrc/_310P/tools/L1_test/l1_bench.py',
                   GUARD/'stage_guard.py',ROOT/'csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py'])
     return {str(p.relative_to(ROOT)):sha(p) for p in sorted(paths)}
 
@@ -62,7 +62,7 @@ def clean_environment(spec):
     # No legacy tracing / LD_PRELOAD / fusion environment leaks into independent Stock.
     env={k:v for k,v in os.environ.items() if not (k.startswith(('MF_','MF310P_','MEMFABRIC_','VLLM_ASCEND_310P_')) or k in ('V2_HOST_LIB','LD_PRELOAD'))}
     env.update(spec.get('environment',{}))
-    env['PYTHONPATH']=str(ROOT/'tools/310p_mm_ar')
+    env['PYTHONPATH']=str(ROOT/'csrc/_310P/tools')
     return env
 
 
@@ -103,7 +103,7 @@ def execute(out):
             os.environ.clear()
             os.environ.update(env)
             command=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=2',
-                     '--module','l1.worker','--run',str(out/'run.json'),'--job',job['id']]
+                     '--module','L1_test.worker','--run',str(out/'run.json'),'--job',job['id']]
             result['device_test']='STARTED'
             with (path/'console.log').open('x') as log:
                 # Guard inherits this process's environment; stdout redirection is scoped to own child.
@@ -203,7 +203,7 @@ def main():
             out.mkdir(parents=True,exist_ok=False)
             save(out/'run.json',dict(plan=plan,manifest=manifest,manifest_sha256=sha(a.manifest),
                                     store_url=a.store_url,job_timeout=a.job_timeout))
-            command=[sys.executable,str(ROOT/'tools/310p_mm_ar/l1_bench.py'),'_run','--out',str(out)]
+            command=[sys.executable,str(ROOT/'csrc/_310P/tools/L1_test/l1_bench.py'),'_run','--out',str(out)]
             with (out/'console.log').open('x') as log:
                 child=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL,start_new_session=True)
             save(out/'launch.json',dict(pid=child.pid,argv=command,started_unix=time.time()))

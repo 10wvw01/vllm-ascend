@@ -28,4 +28,4 @@ Graph、MM shadow及G1C/G1D诊断单独列明，不能混入Eager完整MM+AR收�
 | [V2-19](versions/V2-19.md) | G1D minimal forensics | external | diagnostic |
 | [V2-20](versions/V2-20.md) | LOOP4 串行MM+AR隔离对照 | external | diagnostic |
 
-框架合同见仓库`tools/310p_mm_ar/l1/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。
+框架合同见仓库`csrc/_310P/tools/L1_test/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。

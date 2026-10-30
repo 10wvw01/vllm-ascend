@@ -1,5 +1,7 @@
 # MM+MemFabric AR 工程内专用开发助手约束（310P）
 
+> 用户要求310P相关代码归入`csrc/_310P`；统一L1框架、CLI和对应测试统一使用`csrc/_310P/tools/L1_test`。
+
 > **必须先阅读** 自有仓库根目录 `PROJECT_310P_MEMFABRIC.md` 以及本工程 `docs/PROJECT_CONTROL.md`、`docs/BRANCH_GOVERNANCE.md`、`docs/PERFORMANCE_BASELINES.md`、`docs/DECISIONS.md`。优先遵守仓库根的通用`AGENTS.md`，本文件只补充310P定制算子的特有研发规则。
 >
 > GitHub项目主线固定 `10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`；2026-10-30用户明确要求后续开发、修复、实机实验及数据归档直接在本主线完成，不再默认创建工作分支或等待PR合入；每轮固定主线完整SHA及工件身份，隔离构建/结果目录。外部 `HaonanWu1/vllm-ascend` 只能读，**禁止向其提交/推送/PR**。

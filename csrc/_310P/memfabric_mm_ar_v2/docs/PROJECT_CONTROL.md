@@ -566,7 +566,7 @@ b34901ba6d031e46386cbe5f1e7b07e813ac87ba合入主线（上次已归档d59fec7d�
 
 按用户“继续，不需要查格式”恢复此前三项工具与文档任务；以主线8e8c4def为基底，
 短分支work/310p-l1-framework-20261030交付，不推进MM/协议新优化、不改Stock默认。
-[统一框架合同和操作](../../../../tools/310p_mm_ar/l1/README.md)：独立Stock无需选择融合版本，
+[统一框架合同和操作](../../../../csrc/_310P/tools/L1_test/README.md)：独立Stock无需选择融合版本，
 ready/chain包含完整Tensor调用及下游真实残差ADD；W/N/R一致，Stock/候选ABBA独立TP2进程，
 先按样本取双Rank max再算术均值，保留全部N。独占与接受漂移的共享模式明确分开。
 公共Host/Profiler采集有无打点前后控制，按形状/场景隔离CSV；版本适配仅负责本版ABI/状态/生命周期。
@@ -587,6 +587,16 @@ CPU 428项及36个子测试通过的事实保留；本次只追加执行规则�
 后续开发、实机BUG修复、脚本、原始数据及分析直接回`dev/310p-memfabric-mm-ar`，不再默认使用任务分支或等待PR合入。
 服务器SSH获取主线，每轮固定完整SHA/tree与工件/SDK/KVER/物理映射；隔离构建及结果目录，修复后重冻结身份。
 [分支治理I节](BRANCH_GOVERNANCE.md)、[OpenCode执行单](../../memfabric_mm_ar_v3/OPENCODE_EXECUTION.md)、
-[统一L1入口](../../../../tools/310p_mm_ar/l1/README.md)已同步。
+[统一L1入口](../../../../csrc/_310P/tools/L1_test/README.md)已同步。
 现有G0、CPU、私有编译、双Rank短Smoke、正式对照、故障STOP及恢复SO SHA要求继续有效。
 本轮未运行NPU，主线合入不等于新框架已通过实机准入；Stock默认不变。按用户要求继续跳过格式检查。
+
+## 2026-10-30｜统一L1代码迁入310P工程目录
+
+按用户代码归属要求，将统一L1框架、CLI、版本登记、冻结模板、文档/证据生成器与CPU测试整体迁至
+`csrc/_310P/tools/L1_test`。新入口为`python csrc/_310P/tools/L1_test/l1_bench.py`。
+同步修正仓库根目录解析、包导入、后台CLI路径、torchrun的`L1_test.worker`模块、子进程PYTHONPATH及框架SHA清单。
+35份版本说明、索引、项目入口、操作示例与CI测试入口已更新；历史快照和原始实验文件保留原文。
+新增跨工作目录启动/worker模块发现与freeze路径回归；迁移后运行manifest按新主线SHA重新冻结。
+本轮仅目录及引用迁移，完整计时、统计、采样和协议语义不变，无新增实机数据；按用户要求不查格式。
+迁移后全量CPU回归430项及36个子测试通过，其中L1框架23项；项目静态与变更台账门禁通过。

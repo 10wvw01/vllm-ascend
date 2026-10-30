@@ -26,8 +26,8 @@
 CPU回归使用：
 
 ```bash
-PYTHONPATH=tools/310p_mm_ar:csrc/_310P/memfabric_mm_ar_v2/test/perf:csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts:csrc/_310P/memfabric_mm_ar_v3/test \
-python -m pytest -q tools/310p_mm_ar csrc/_310P/memfabric_mm_ar_v2/test csrc/_310P/memfabric_mm_ar_v3/test --import-mode=importlib
+PYTHONPATH=csrc/_310P/tools:tools/310p_mm_ar:csrc/_310P/memfabric_mm_ar_v2/test/perf:csrc/_310P/memfabric_mm_ar_v2/test/g3_e2e_scripts:csrc/_310P/memfabric_mm_ar_v3/test \
+python -m pytest -q tools/310p_mm_ar csrc/_310P/tools/L1_test csrc/_310P/memfabric_mm_ar_v2/test csrc/_310P/memfabric_mm_ar_v3/test --import-mode=importlib
 ```
 
 新增框架21项测试包含计划/统计污染、漂移、上下游边界、runtime/SO篡改、trace环境泄漏、历史别名、CSV管线、文档链接、完整模拟TP2调度及首失败STOP。
@@ -40,3 +40,10 @@ python -m pytest -q tools/310p_mm_ar csrc/_310P/memfabric_mm_ar_v2/test csrc/_31
 填写实际runtime-template并冻结证据；先W2/N2/R1短试，验证Stock-only、D4、A3三候选的ready/chain均正确和路由真实，再执行正式W20/N100/R2。
 独占/共享由现场明确选择，整批每臂同样N，完成全部前后对照。历史实现没有匹配工件/工厂时先报Blocked，不用最新版填空。
 归档双Rank原始JSON、路由、maps/SO/KVER/设备物理号、guard日志及恢复后的SO SHA。此文不构成已获得实机GO。
+
+## 2026-10-30目录迁移复核
+
+完整框架、入口与测试统一位于`csrc/_310P/tools/L1_test`。公共包改为`L1_test`，根目录解析相应调整；
+验证从其他工作目录直接运行CLI、以子进程环境发现worker模块，以及freeze记录新目录内全部框架文件的SHA。
+迁移后的23项框架测试通过；两项新增回归不调用NPU。CI也从新目录执行这些测试。
+35份文档和36行历史证据通过新位置的生成器重新生成，源实验内容未修改；仍不执行格式检查。

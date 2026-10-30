@@ -9,11 +9,11 @@ from unittest.mock import patch
 
 import pytest
 
-sys.path.insert(0,str(Path(__file__).parent))
-from l1.core import CONTRACT, ROOT, analyze, catalog, make_plan, pair_job, sha, validate_plan, validate_runtime
-from l1.worker import timed
-from l1.cli import clean_environment
-from l1.collect import import_legacy, read_profile
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
+from L1_test.core import CONTRACT, ROOT, analyze, catalog, make_plan, pair_job, sha, validate_plan, validate_runtime
+from L1_test.worker import timed
+from L1_test.cli import clean_environment
+from L1_test.collect import import_legacy, read_profile
 
 
 def reports(plan,job):
@@ -181,7 +181,7 @@ def test_historical_import_keeps_p50_and_coverage_limits():
 @pytest.mark.parametrize('fail',[False,True])
 def test_campaign_launches_tp2_isolates_arms_and_stops_on_first_failure(tmp_path,monkeypatch,fail):
     from types import SimpleNamespace
-    from l1 import cli
+    from L1_test import cli
     p=make_plan(['V3-5'],samples=2,warmup=2,rounds=1,shapes=[2048],scenarios=['chain'])
     runtimes={'STOCK':{'version':'STOCK','environment':{}},
               'V3-5':{'version':'V3-5','environment':{'MF_SDMA_ORCH_JSON':'private-v28'}}}
@@ -212,7 +212,7 @@ def test_campaign_launches_tp2_isolates_arms_and_stops_on_first_failure(tmp_path
 
 
 def test_only_observed_host_phases_are_attributed_no_device_invention():
-    from l1.collect import attribution
+    from L1_test.collect import attribution
     p=make_plan(['V3-5'],samples=2,warmup=2,collection='host',shapes=[2048],scenarios=['ready'])
     job=next(j for j in p['jobs'] if j['stage']=='host')
     raw=reports(p,job)
@@ -223,3 +223,35 @@ def test_only_observed_host_phases_are_attributed_no_device_invention():
     assert row['host_phase_us']==dict(host_prepare=30,output_acquire_wrap=15,enqueue=20)
     assert 'host_prepare' not in row['missing_phases'] and 'mm' in row['missing_phases']
     assert row['largest_measured_host_stage']=='validate_reap' and row['additive'] is False
+
+
+def test_relocated_entry_and_worker_resolve_from_another_directory(tmp_path):
+    import subprocess
+    entry=Path(__file__).with_name('l1_bench.py').resolve()
+    plan_path=tmp_path/'plan.json'
+    subprocess.run([sys.executable,str(entry),'plan','--samples','2','--warmup','2',
+                    '--rounds','1','--out',str(plan_path)],cwd=tmp_path,check=True,capture_output=True,text=True)
+    plan=json.loads(plan_path.read_text())
+    validate_plan(plan)
+    assert plan['versions']==[] and len(plan['jobs'])==2
+    env=clean_environment({'environment':{}})
+    result=subprocess.run([sys.executable,'-m','L1_test.worker','--help'],cwd=tmp_path,
+                          env=env,check=True,capture_output=True,text=True)
+    assert '--run' in result.stdout and '--job' in result.stdout
+
+
+def test_relocated_freeze_records_new_framework_paths(tmp_path):
+    import subprocess
+    frozen=tmp_path/'runtime.so';frozen.write_bytes(b'CPU-only identity fixture')
+    evidence=tmp_path/'evidence.json';evidence.write_text('{}')
+    template=tmp_path/'template.json'
+    template.write_text(json.dumps(dict(runtimes={'STOCK':dict(version='STOCK',source_head='a'*40,
+                        files=[str(frozen)],environment={})},admission=dict(evidence_files=[str(evidence)]))))
+    output=tmp_path/'frozen.json'
+    subprocess.run([sys.executable,str(Path(__file__).with_name('l1_bench.py')),'freeze',
+                    '--template',str(template),'--out',str(output)],cwd=tmp_path,check=True,capture_output=True,text=True)
+    result=json.loads(output.read_text())
+    paths=result['framework_files']
+    prefix='csrc/_310P/tools/L1_test/'
+    assert all(prefix+name in paths for name in ('cli.py','core.py','worker.py','versions.json','l1_bench.py'))
+    assert result['runtimes']['STOCK']['files'][str(frozen)]==sha(frozen)

@@ -7,7 +7,7 @@ import re
 import statistics
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 CONTRACT = "L1_TENSOR_IO_V2"
 METRICS = ("wall_us", "event_us", "operator_event_us", "consumer_event_us")
 PHASES = ("host_prepare", "output_acquire_wrap", "enqueue", "mm", "seed", "local_ready_wait",

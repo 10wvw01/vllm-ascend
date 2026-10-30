@@ -26,6 +26,8 @@ jobs:
         run: python -m pip install 'pytest>=7,<9'
       - name: CPU-only governance unit tests
         run: python -m unittest discover -s tools/310p_mm_ar -p 'test_*.py' -v
+      - name: Unified L1 framework CPU regression
+        run: python -m pytest -q csrc/_310P/tools/L1_test --import-mode=importlib
       - name: Existing V2 CPU/source-contract regression
         run: python -m pytest -q csrc/_310P/memfabric_mm_ar_v2/test/ut
       - name: Validate project entry and state files

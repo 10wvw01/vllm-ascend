@@ -15,4 +15,4 @@ Graph、MM shadow及G1C/G1D诊断单独列明，不能混入Eager完整MM+AR收�
 | [V3-6](versions/V3-6.md) | A3-2 七核计算+专职通信 | a3-2 | 完整候选/历史实现 |
 | [V3-7](versions/V3-7.md) | A3-tail Core0末尾计算 | a3-tail | 完整候选/历史实现 |
 
-框架合同见仓库`tools/310p_mm_ar/l1/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。
+框架合同见仓库`csrc/_310P/tools/L1_test/README.md`。旧设计、实验数据和失败记录保持原文；这些文档补充统一导航，不覆盖原记录。

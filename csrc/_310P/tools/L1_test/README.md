@@ -1,6 +1,6 @@
 # 统一L1独立Stock、版本对照与性能采集框架
 
-入口：`python tools/310p_mm_ar/l1_bench.py`。本框架不依赖V3测试入口启动，Stock可独立运行；复用现有只读占卡守护。所有融合实现只放在薄适配层，计划、计时、正确性、统计及采集共用。新工具当前仅CPU验证，CANN/NPU NOT_RUN。
+入口：`python csrc/_310P/tools/L1_test/l1_bench.py`。本框架不依赖V3测试入口启动，Stock可独立运行；复用现有只读占卡守护。所有融合实现只放在薄适配层，计划、计时、正确性、统计及采集共用。新工具当前仅CPU验证，CANN/NPU NOT_RUN。
 
 ## 统一输入输出及两种场景
 
@@ -56,24 +56,24 @@ Graph、MM shadow、G1C/G1D和LOOP4是独立诊断类别，拒绝混入Eager完�
 创建独立Stock计划（无需任何融合版本）：
 
 ```bash
-python tools/310p_mm_ar/l1_bench.py plan --M 2048 4096 \
+python csrc/_310P/tools/L1_test/l1_bench.py plan --M 2048 4096 \
   --warmup 20 --samples 100 --rounds 2 --mode exclusive --out /tmp/stock-plan.json
 ```
 
 对照示例；共享模式换为`--mode shared`，归因加入`--collection host`或`profiler`：
 
 ```bash
-python tools/310p_mm_ar/l1_bench.py plan --versions V2-1 V3-5 V3-6 V3-7 \
+python csrc/_310P/tools/L1_test/l1_bench.py plan --versions V2-1 V3-5 V3-6 V3-7 \
   --warmup 20 --samples 100 --rounds 2 --out /tmp/compare-plan.json
 ```
 
 复制`runtime-template.json`填实际绝对路径、真实40位源码SHA、全部相关Host/Device SO/JSON/Python、已准入M及实际Kernel正则。Stock-only删除候选runtimes即可。先按各实现现有准入流程完成G0只读→CPU合同→私有编译→双Rank短Smoke/首写/状态/物理号→二进制装载核验，把真实门禁报告文件入admission并登记PASS；不能只改模板状态字符串。
 
 ```bash
-python tools/310p_mm_ar/l1_bench.py freeze --template /tmp/actual-runtime.json --out /tmp/frozen-runtime.json
-python tools/310p_mm_ar/l1_bench.py start --plan /tmp/compare-plan.json \
+python csrc/_310P/tools/L1_test/l1_bench.py freeze --template /tmp/actual-runtime.json --out /tmp/frozen-runtime.json
+python csrc/_310P/tools/L1_test/l1_bench.py start --plan /tmp/compare-plan.json \
   --manifest /tmp/frozen-runtime.json --out /tmp/l1-new-attempt
-python tools/310p_mm_ar/l1_bench.py status --out /tmp/l1-new-attempt
+python csrc/_310P/tools/L1_test/l1_bench.py status --out /tmp/l1-new-attempt
 ```
 
 freeze只计算明确声明文件的SHA，不证明二进制可复现、自动审核G0或部署设备。框架代码、版本表和框架HEAD也冻结，执行前后重核工件；每次复测用全新目录，拒绝覆盖，后台独立session不受交互工具超时直接中止。
@@ -83,7 +83,7 @@ freeze只计算明确声明文件的SHA，不证明二进制可复现、自动�
 旧批次可离线导入，保留其原合同和p50，不伪装成新均值：
 
 ```bash
-python tools/310p_mm_ar/l1_bench.py import-legacy \
+python csrc/_310P/tools/L1_test/l1_bench.py import-legacy \
   --root csrc/_310P/memfabric_mm_ar_v3/experiments/a3-unified-shared-card-20261029-r1 \
   --out /tmp/legacy-evidence.json
 ```
@@ -93,3 +93,16 @@ python tools/310p_mm_ar/l1_bench.py import-legacy \
 ## 2026-10-30主线执行规则
 
 统一框架已按用户要求直接合入`dev/310p-memfabric-mm-ar`。后续实机从主线取完整SHA，修复、脚本、原始数据和结论直接回主线，不再以工作分支或PR合入为测试前置。每轮新建隔离构建/结果目录，固定源码与SO/KVER/物理映射；并发主线有更新先核对，不强推。合入不等于设备GO，仍按G0→CPU→私有编译/短Smoke→正式采集推进。
+
+## 目录与调用方式
+
+框架模块、CLI、版本表、冻结模板、文档/证据生成器与CPU测试统一位于`csrc/_310P/tools/L1_test/`。
+直接入口可从任意工作目录执行（脚本路径使用绝对路径即可）；Rank worker通过`L1_test.worker`模块启动，子进程的PYTHONPATH由调度器设置为仓库`csrc/_310P/tools`。
+迁移后请按新主线SHA重新freeze运行manifest，记录新路径与文件SHA。
+
+```bash
+python csrc/_310P/tools/L1_test/l1_bench.py --help
+python -m pytest -q csrc/_310P/tools/L1_test --import-mode=importlib
+PYTHONPATH=csrc/_310P/tools python -m L1_test.build_docs
+PYTHONPATH=csrc/_310P/tools python -m L1_test.evidence
+```
