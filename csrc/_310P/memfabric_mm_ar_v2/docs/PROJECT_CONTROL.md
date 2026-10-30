@@ -671,3 +671,17 @@ vllm主线仍dev/310p-memfabric-mm-ar，V3 MemFabric锁fix/310p-v3-orch-deploy-h
 优先复用匹配SDK；旧fresh源码构建要求不能解释成允许清除原MemFabric的build/output或另起顶层克隆。
 [执行单与简短提示词](../../tools/L1_test/OPENCODE_ROUND.md)、[模式与矩阵](../../tools/L1_test/ROUND_FIXED_M.md)、ADR-041同步。
 本次验证两mode计划生成和公共守护接线、现有源码包身份及项目元数据；无NPU新执行，无新性能数值，不查格式。
+
+## 2026-10-30｜MemFabric两算子共用源码分支，澄清历史SDK与公共部署修复
+
+用户指出V2/V3可用同一MemFabric分支。现行执行单统一源码依赖为
+fix/310p-v3-orch-deploy-helper-20261029@db38d75e8485d31451302219eb7a1bfeb1dd107c，
+不为算子版本另切MemFabric分支；已有SDK_V11/SDK_V28模板路径仅为历史工件示例。
+逐项核该提交相对b9d46f97的6个文件：公共Host编排器改为必须fork+exec部署助手，
+探测/CUST迁移/复制/校验在子进程完成，宿主零KFC；缺助手/失败明确拒绝。
+针对torch_npu进程内KFC非零退出导致上下文持续507018，以及V3首次建池部署失败；
+ADD指令、KVER28设备核/合同、SetAccess物理号修复未被该提交改动。
+本修复作用于公共部署路径，并非每次MM或通信chunk启动助手。
+统一源码分支与统一SDK/旧SO兼容性分别确认；V2用新SDK须重建匹配Host/Device并过双Rank短测，
+不直接换JSON，不将历史v11成绩标作新SDK成绩。当前新组合设备验证仍NOT_RUN。
+[最新执行单](../../tools/L1_test/OPENCODE_ROUND.md)、ADR-042同步；本次仅文档澄清，不改算子或模板默认工件。

@@ -364,3 +364,12 @@ V1只准备适配，历史身份与测量仍延期；本轮Stock/V2按新授权�
 历史源码必要时提取至统一build，优先复用匹配工件，旧结果不覆盖、不自动清理旧目录或共享安装。
 本规则覆盖旧独占前置/新顶层克隆建议；两仓SHA、SDK/KVER、实际SO和运行模式继续冻结。
 详见[当前执行单](../../tools/L1_test/OPENCODE_ROUND.md)。本次仅执行文档更新，无新设备PASS或性能结论。
+
+## ADR-042｜V2/V3共用MemFabric源码分支，SDK兼容单独取证
+
+按用户更正，两算子的MemFabric源码统一使用已有fix/310p-v3-orch-deploy-helper-20261029@db38d75e，
+不把V2/V3算法编号当作MemFabric分支或KVER分流规则。SDK_V11/SDK_V28仅标历史模板/成绩的工件身份。
+该提交只修公共建池部署链：强制独立orch_deploy_helper隔离torch_npu内KFC上下文故障，
+缺失/失败终止；ADD/设备KVER28及合同无变化，不是MM/AR算法优化或try_wait_at接口实现。
+一套新SDK服务两版须分别编译与双Rank功能验证；不能据共用源码分支宣称旧SO已兼容，
+也不由此重标历史性能证据。现阶段只是更正执行说明，未修改SDK/算子/模板默认值，无新设备PASS。

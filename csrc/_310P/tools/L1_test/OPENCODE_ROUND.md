@@ -12,10 +12,17 @@
 GitHub使用SSH：`git@github.com:10wvw01/vllm-ascend.git`，唯一研发主线`dev/310p-memfabric-mm-ar`。
 先读PROJECT_310P_MEMFABRIC.md、V2 AGENTS/PROJECT_CONTROL及上述本轮说明。
 直接沿用服务器原有`vllm-ascend`目录，切换/快进到上述主线；不再clone或新增worktree。
-MemFabric也沿用原有`memfabric_hybrid`目录；V3源码依赖锁定已有分支
+MemFabric也沿用原有`memfabric_hybrid`目录；V2/V3统一使用已有源码分支
 `fix/310p-v3-orch-deploy-helper-20261029`的`db38d75e8485d31451302219eb7a1bfeb1dd107c`，
 不能拿移动分支的新HEAD替代。两仓均先核工作区及运行任务：干净且不被任务依赖才原地切换；
 有未提交内容或运行任务依赖则保留现场并说明阻塞，不reset/clean、不另起仓库绕过。
+
+该分支修复公共SDMA编排器的建池部署：把探测、CUST迁移、复制和校验整体放到fork+exec的
+orch_deploy_helper中，隔离torch_npu宿主上下文的KFC故障；助手缺失/失败明确报错。
+db38d75e本次差异未改ADD指令、KVER28设备核或其通信合同，分支名中的v3不要求V2另用源码分支。
+模板中SDK_V11/SDK_V28是历史工件路径示例，不是“V2只能v11”的接口限制；可填同一套已通过验证的SDK。
+V2改用新SDK时必须匹配头文件重建Host/Device并做双Rank短测；不把旧v11二进制直接换JSON当作兼容。
+共用源码分支不等于已证明所有旧SO与新SDK二进制兼容，旧成绩继续保留原SDK身份。
 
 只新增仓库内部子目录，记录两仓完整SHA/tree：
 
@@ -33,7 +40,7 @@ MemFabric也沿用原有`memfabric_hybrid`目录；V3源码依赖锁定已有分
 快速轮使用shared：允许外部进程和性能漂移，不因目标卡非空闲而拒绝；仍核健康、物理映射、
 SDK身份、协议与数值，不驱赶其他任务。结果标OBSERVATIONAL_SHARED，耗时只作观察。
 正式性能使用exclusive：要求整批独占窗口，保留占用与漂移判定。不得运行中改模式、跨卡混算或杀租户。
-V2/v11与V3/v28每场新TP2进程、各自SDK/LD_LIBRARY_PATH/SO/JSON，不能混装同一进程。
+V2/V3每场新TP2进程，冻结实际SDK/LD_LIBRARY_PATH/SO/JSON；如复现时确需不同SDK，按进程隔离，不能混装。
 不替换共享安装，不绕过cache/首写/credit/IB/quiet/DONE，不启用生产Serving。
 
 ## 2. 构建与历史版本准备
@@ -99,7 +106,8 @@ python csrc/_310P/tools/L1_test/l1_bench.py campaign status --out "$RUN_DIR/froz
 
 目的：验证统一L1_test与Stock/V2/V3适配是否能在310P3双Die正确运行，并观察V3各实验的完整输入输出耗时。
 仅复用服务器现有vllm-ascend、memfabric_hybrid两个仓库。vllm-ascend切dev/310p-memfabric-mm-ar；
-MemFabric按本文件锁定的fix分支/db38d75e依赖。先核未提交内容和运行任务，安全后原地切换，SSH拉GitHub，
+V2/V3共用本文件锁定的MemFabric fix分支/db38d75e；SDK按实际兼容性验证后冻结。
+先核未提交内容和运行任务，安全后原地切换，SSH拉GitHub，
 不新增clone/worktree。构建放原仓build/310p_l1/<run_id>，结果放原仓
 csrc/_310P/tools/L1_test/experiments/<run_id>，不删旧目录。
 按本文件先做G0、CPU、匹配构建和双Rank短测，再执行完整43组：M2048/4096、ready+chain、
