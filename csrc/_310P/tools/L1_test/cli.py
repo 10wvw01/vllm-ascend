@@ -92,7 +92,10 @@ def clean_environment(spec):
     # No legacy tracing / LD_PRELOAD / fusion environment leaks into independent Stock.
     env={k:v for k,v in os.environ.items() if not (k.startswith(('MF_','MF310P_','MEMFABRIC_','VLLM_ASCEND_310P_')) or k in ('V2_HOST_LIB','LD_PRELOAD'))}
     env.update(spec.get('environment',{}))
-    env['PYTHONPATH']=str(ROOT/'csrc/_310P/tools')
+    # Keep CANN's python dependencies (tbe/TeFusion import paths sourced by
+    # set_env.sh) while the L1 framework stays first on the import path.
+    inherited=os.environ.get('PYTHONPATH','')
+    env['PYTHONPATH']=str(ROOT/'csrc/_310P/tools')+(os.pathsep+inherited if inherited else '')
     return env
 
 
