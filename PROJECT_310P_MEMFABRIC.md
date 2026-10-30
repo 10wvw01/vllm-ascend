@@ -173,3 +173,14 @@ V1登记的批流水、小M、单波、generation/Graph是当前ABI7能力或模
 V2 D4/E1/E3/E4源码SHA与历史构建manifest匹配；M2048倾向E1，M4096已有E3-G稳定改进证据和E4-T8最快Screen。
 最终唯一最优版尚缺V1配置/后续稳定性及E4后续复核原件，不把候选与生产正式封版混为一谈。
 [委托OpenCode只读查历史](csrc/_310P/releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)；不运行新实验，不改正式构建/Serving默认。
+
+
+## 2026-10-30｜V1/V2大M按性能选型，范围2048～4096
+
+用户确认范围2048～4096及“谁性能好，选谁”，不重跑旧版。V1选历史成功q4/batch_m1024，
+仅余成功记录与准确源码/二进制映射，不再要求最新全M或Decode/模型长稳修复作为本次前置。
+V2 M2048选E1、M4096选E4-T8，源码及实测点选型已封存；不因D4现有正式身份或E3-G复核更多而选慢版。
+14份原始Rank JSON复算完整Wall均值为1394.627/2175.690µs；T8/T4 M4096均值近乎持平，保留Screen标签。
+[性能选择与源码封存](csrc/_310P/releases/v1-v2-20261030/README.md)、
+[仅查V1成功身份的OpenCode任务](csrc/_310P/releases/v1-v2-20261030/OPENCODE_HISTORY_LOOKUP.md)、ADR-038为准。
+未测区间点不冒称最优，不新拼路由、不改Serving默认；本轮仅离线复算与CPU/源码验证。

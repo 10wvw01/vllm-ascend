@@ -196,7 +196,7 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "CURRENT_BUILD_REFERENCE_NOT_GLOBAL_WINNER"
+      "release_role": "HISTORICAL_FORMAL_BUILD_BASELINE_NOT_SELECTED_BY_PERFORMANCE"
     },
     {
       "id": "V2-2",
@@ -331,7 +331,7 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "M2048_DIRECTIONAL_CANDIDATE"
+      "release_role": "PERFORMANCE_SELECTED_M2048"
     },
     {
       "id": "V2-8",
@@ -507,7 +507,7 @@
       "input": "ND FP16 X[M,2048], NZ29 FP16 W[2048,2048], TP=2; historical wrapper follows its pinned source contract",
       "output": "ND FP16 Y[M,2048], two-rank SUM of local FP16 linear outputs; no outstanding writes at ready boundary",
       "timing": "Full Tensor call including mandatory per-call prepare/wrap/pad/copy/seed/protocol/completion; consumer in chain scenario",
-      "release_role": "M4096_SCREEN_LEADER_PENDING_HISTORY"
+      "release_role": "PERFORMANCE_SELECTED_M4096_SCREEN_UNCERTAINTY_DISCLOSED"
     },
     {
       "id": "V2-16",
@@ -809,12 +809,35 @@
   ],
   "naming": "VN-M: N is implementation generation; M is documentation ID, not matrix row count. Parameter sweeps stay configurations, not new implementations.",
   "release_review": {
-    "status": "PENDING_HISTORICAL_EVIDENCE",
+    "status": "PERFORMANCE_SELECTION_LOCKED; V1_SOURCE_BINARY_MAPPING_PENDING",
     "formal_winner": {
-      "V1": null,
-      "V2": null
+      "V1": {
+        "configuration": "q4/batch_m1024 historical successful large-M version",
+        "exact_source_binary_mapping": "PENDING"
+      },
+      "V2": {
+        "2048": "V2-7 E1",
+        "4096": "V2-15 E4-T8",
+        "2049-4095": "NOT_DETERMINED_FROM_EXISTING_POINT_DATA"
+      }
     },
     "rerun_requested": false,
-    "audit": "csrc/_310P/releases/v1-v2-20261030/SELECTION_AUDIT.json"
+    "audit": "csrc/_310P/releases/v1-v2-20261030/SELECTION_AUDIT.json",
+    "selection_scope": {
+      "M_min": 2048,
+      "M_max": 4096,
+      "V1_successful_large_M_only": true,
+      "allow_historical_source": true
+    },
+    "current_formal_build": {
+      "V2": "V2-1 D4"
+    },
+    "preferred_V1_historical_config": {
+      "q": 4,
+      "batch_m": 1024,
+      "source_binary_mapping": "PENDING"
+    },
+    "performance_first": true,
+    "performance_selection": "csrc/_310P/releases/v1-v2-20261030/PERFORMANCE_SELECTION.json"
   }
 }

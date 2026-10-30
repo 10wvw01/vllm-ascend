@@ -1,45 +1,48 @@
-# 委托OpenCode：只读查找V1/V2封版所需的既有历史数据
+# 委托OpenCode：只读查找已成功的大M V1封版身份
 
-目标是复用历史结果选定V1/V2正式算子。本次**不重跑任何实验**：不启动模型、benchmark、torchrun、设备Kernel、Graph或部署；不替换SO，不改SDK，不清理/切换现有工作区。只读取既有文件、Git对象和文件哈希，可创建独立归档输出目录。
+最新范围为用户确认的M=2048～4096、K=N=2048、FP16、310P3单卡双Die/TP2。
+V1从已经成功完成的大M算子测试中选，允许选历史实现，不强求最新全M版本。
+本次**不重跑任何实验**：不启动模型、benchmark、torchrun、设备Kernel、Graph或部署；
+不替换SO，不改SDK，不清理/切换现有工作区。只读取既有文件、Git对象和哈希，可创建独立归档目录。
 
 仓库使用SSH连接GitHub，项目唯一主线`10wvw01/vllm-ascend:dev/310p-memfabric-mm-ar`。
-先读主线`csrc/_310P/releases/v1-v2-20261030/README.md`及两个RELEASE_SELECTION说明。
-已在主线历史快照中的five-arm/E2评估、实体E3/e4 attempt2数据无需重复寻找或测量。
+先读本目录README及V1/V2的RELEASE_SELECTION，按ADR-038覆盖首轮审核中的旧前置要求。
 
-## 一、V1：最新完整ABI7的参数最优与身份对应
+## 必需查找：V1已成功的大M q扫描及对应历史快照
 
-当前六个核心文件与public-api `fa1c42179818f5516b390d8bce3d39a9d280808f`完全一致；最新单波M-split改动在2026-10-16（30306a0a），不能仅靠2026-09-29旧报告选q。
+2026-09-29的VALIDATION_REPORT R2/R3记录q=1/2/4正确性通过，成功大M测试中q=4更快；
+M4096约q1=3.31ms/q2=2.73ms/q4=2.36ms。已按性能选定q4/batch_m1024，现补齐该成功版本的准确身份。
 
-请找已有材料，回答：
+请只找已有材料，回答：
 
-1. q=1/2/4（batch_m=256*q）的原始性能/正确性记录，覆盖已有的小M、M1024/2048/4096及tail点即可；不要为凑矩阵运行新测试。
-2. `SMALL_M_PATH`、`SINGLE_WAVE_MAX_M`（1024/2048）、Graph/Eager、trace开关的实际值。区分单波、N-split和批流水，不能把它们当作不同二进制乱比较。
-3. 每份结果对应的完整源码HEAD/tree、是否有未提交修改、实际插件/V1 Device/Host SO、MemFabric版本及KVER完整SHA256、物理卡/Die与计时边界。已知SEL-01 V1 Device前缀8447a55a；需要具体原件与构建映射，不以当前安装版本推断旧版本。
-4. SEL-01之后是否已有同类decode自旋/507014的修复与完整成功记录。若没有，明确写“未发现后续修复/有效完成证据”，保留V1 Eager 0/3失败事实；不要用短Smoke或旧Graph成功覆盖它。
+1. 成功完成的M2048/4096 q扫描原件、双Rank正确性日志和原始性能CSV/日志。
+   保留预热/N、计时边界、Rank聚合与统计口径；摘要没有的信息写UNKNOWN，不从当前脚本反推。
+2. 对应历史源码完整HEAD/tree和当时未提交修改、q、实际批流水/单波路径及执行模式。
+   不要求匹配当前最新ABI7；找到实际跑成功的版本即可。不要用当前默认q1替换历史q4。
+3. 对应Device/Host/插件/SDK/KVER身份及SHA256、构建manifest或可复现的原始构建映射。
+   旧SO若已丢失，明确区分仅有源码/构建日志/报告，不用当前安装SO冒充。
 
-优先查这些已知位置（不存在则记不存在，不展开无界全盘扫描）：
+无需补齐小M、N-split、Decode、全模型Eager长稳，也无需查SEL-01之后的故障修复来解锁本轮选择。
+失败实验不参与成功记录的性能排名，已有原件保留；不要删除或改写。
 
-- `/tmp/opencode/phase4/`：op_q*.csv、op_small_q*.log、phase2_q*.log、Graph/Eager场次。
-- `/tmp/opencode/sel01_20261024_run02/`：manifest、原始双Rank/服务日志、路由、环境和失败记录。
-- `/tmp/opencode/`中已有small-M/nsplit/single-wave/q-sweep后续目录及日志。
-- `/home/w00804146/310P/vllm-ascend/`现有构建/ignored记录；其`csrc/_310P/memfabric_mm_ar_v2/tmp/opencode/20261020_310p3_asset_audit/`资产备份及SHA256SUMS、bundle索引。
+优先查已知位置，不做无界全盘扫描：
 
-## 二、V2：是否存在E4-T8之后的有效复核
+- `/tmp/opencode/phase4/`：`op_q*.csv`及同轮成功功能/正确性、环境和构建记录；
+  报告还记录`phase2_q{1,2,4}.log`、`phase3_functional4.log`，具体目录以实际文件为准。
+- `/tmp/opencode/`内已有q-sweep/层级性能/构建归档。
+- `/home/w00804146/310P/vllm-ascend/`现有构建与ignored资产，尤其
+  `csrc/_310P/memfabric_mm_ar_v2/tmp/opencode/20261020_310p3_asset_audit/`的bundle、SHA256SUMS及资产索引。
 
-已知2026-10-28 E4 attempt2仅一场30样本：M4096 T8=2076.211µs、G=2133.945µs、E1=2261.888µs；其进度写明Confirm未执行。attempt3b没有T8数据。
+## V2已按性能选定，无需查找或重跑
 
-请找后续已有的T8/G/E1（包含T4也可）重复/平衡对照或Confirm、以及若存在的E1/D4 M2048复核：
+按用户性能优先原则，V2 M2048选E1、M4096选E4-T8。原始14份Rank JSON已抽出并复算完整Wall，
+来源/源码/实际SO身份见PERFORMANCE_SELECTION.json。D4只保留历史/构建基线身份。
+不要求E4后续Confirm来解锁选择；本轮无需再查V2。
 
-- 完整Rank0/Rank1原始JSON/CSV、每样本序号、形状、warmup/iters、正确性/status。
-- 同批Stock前后、候选重复、漂移、守护/外部占用和STOP记录；不能只带汇总p50。
-- 构建manifest、源码/私有Host/Device SO与SDK/KVER SHA，前后哈希。已知E4 Device SHA为`08f73f2c1936b990a398643243c321582ca39f85cc8b1c80a21efd68cb8d92b2`；不同工件分批登记，不能混拼。
-- 若后续复核未执行或已丢失，明确区分“从未执行”“只找到汇总”“原件不存在”“尚未找到”，不自动补跑。
+## 回传与归档
 
-优先查`/tmp/opencode/e4-campaign-20261028/`、既有e4 campaign attempt2/3/3b/confirm目录及`/tmp/opencode/e4-build-attempt*-20261028/`；再看当前310P项目工作区中的未提交实验归档。
-
-## 三、回传格式与归档
-
-先输出简明表：`问题 → 找到/未找到/未执行 → 文件绝对路径 → SHA256 → 源码/SO/KVER → 能证明什么/不能证明什么`。
-提供未修改的原件及逐文件SHA256清单；大文件可以制品包加SHA，但必须可取回，不能只给临时路径。
-保留失败数据。报告、索引和可入库原件直接归档主线`csrc/_310P/releases/v1-v2-20261030/history_lookup/`，并更新PROJECT_CONTROL/PERFORMANCE_BASELINES；并发主线更新先核对，不强推。
-不要选最终winner或改正式算子；研发侧读完原件后完成最终选型与封版。
+输出表：`问题 → 找到/未找到/未执行 → 原件绝对路径 → SHA256 → 源码/SO/KVER → 能证明什么`。
+提供未修改原件及逐文件SHA256清单；大文件可制品包加SHA与可取回链接，不只给临时路径。
+报告、索引和可入库原件直接归档主线`csrc/_310P/releases/v1-v2-20261030/history_lookup/`，
+同步PROJECT_CONTROL/PERFORMANCE_BASELINES；并发主线更新先核对，不强推。
+不要改正式算子或宣告生产GO；研发侧按成功的大M结果完成历史版本选择与源码封版。

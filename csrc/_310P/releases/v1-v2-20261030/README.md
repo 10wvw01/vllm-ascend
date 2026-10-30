@@ -1,30 +1,43 @@
-# V1/V2 版本规整与封版审核（2026-10-30）
+# V1/V2 大M性能优先选型与源码封存（2026-10-30）
 
-当前完成源码/历史证据锁定与候选归类，**最终最优版本封版仍待历史证据补齐**。没有安排重跑，也没有更改正式构建、Serving路由或算子代码。
+范围固定为用户确认的**M=2048～4096，310P3单卡双Die/TP2、K=N=2048、FP16**。
+按现有成功结果选性能好的版本；不因文件名为“正式”、实验命名或验证轮数较多而改选更慢版本。
+V1/V2均不重跑，失败实验不参加成功记录的性能排名，原件与适用模式限制保留。
 
-- `SELECTION_AUDIT.json`：37个源码/构建输入的Git blob与SHA256、9项证据来源、四批机器评估及未决项。
-- `SOURCE_SHA256SUMS`：从仓库根目录执行`sha256sum -c csrc/_310P/releases/v1-v2-20261030/SOURCE_SHA256SUMS`可核对源码。
-- [V1规整与选型](../../memfabric_mm_ar/docs/RELEASE_SELECTION.md)。
-- [V2规整与选型](../../memfabric_mm_ar_v2/docs/RELEASE_SELECTION.md)。
-- [交给OpenCode的只读历史查找任务](OPENCODE_HISTORY_LOOKUP.md)。
+## 已选结果
 
-## 当前可作出的决定
+| 代际/测试点 | 性能选择 | 证据与封存状态 |
+|---|---|---|
+| V1 大M | 历史成功q=4、batch_m1024 | 旧成功q扫描优于q1/q2；M4096约2.36ms。配置已选，准确源码/二进制映射待服务器原件 |
+| V2 M2048 | V2-7 / E1 | E4 attempt2完整调用Wall均值1394.627µs，Event p50 1279.596µs；选定并锁源码 |
+| V2 M4096 | V2-15 / E4-T8 | 同批Wall均值2175.690µs，Event p50 2076.211µs；选定并锁源码，保留单轮Screen标签 |
+| V2 M2049～4095 | 尚无逐点最优记录 | 不凭两个端点发明切换阈值或声称整个连续区间已有最优实测 |
 
-| 代际 | 规整结果 | 可以锁定什么 | 最终封版阻塞 |
-|---|---|---|---|
-| V1 | 主线六个算子源码文件与public-api `fa1c4217`逐blob一致；小M/单波/批流水/generation是同一ABI7实现的能力 | 当前完整ABI7源码身份；旧prototype不作为优先候选 | 最新q/模式最优配置尚缺完整原始对照映射；SEL-01 Eager 0/3完成，未找到后续匹配修复成功证据 |
-| V2 | D4仍为当前构建参考；E1、E3-G、E4-T8按形状及证据级别分类 | D4/E1/E3/E4源码与历史E4构建manifest SHA完全一致；已有测试可复用 | E1偏向M2048，E3-G在M4096有两场稳定证据，E4-T8仅单场Screen更快；不能把它称为所有形状的正式最优 |
+V2数字均由同一批每臂30样本的原始双Rank数据复算：每个序号先取Rank max，再算均值/分位数。
+完整调用Wall含接口调用、提交及流完成等待，未去掉任何样本。历史Event p50保留原名，未冒充均值。
+T8与T4的M4096 Wall均值仅差0.128µs，实际上接近持平；T8中位耗时更低。
+本次按观测性能选择T8，不声称已证明长期或统计上稳定优于T4。
 
-**源码规整/锁定、性能最优选定、生产发布是不同状态。** 本次manifest不写虚假的正式winner、不创建final标签；补齐历史证据后再填写唯一选择、明确适用形状/模式和依赖版本。
+D4是现有CMake正式构建参考，但后续five-arm M4096同批E1已快于D4；**D4不因现有正式身份入选**。
+E3-G保留为回归/历史对照，不因其复核轮数更多而覆盖本次T8选择。Stock为另列对照，不能把代际内部选择写成超过Stock。
 
-## 已找到的数据，OpenCode无需重复收集
+## 封存与交付边界
 
-五臂与E2的机器评估已在主线历史快照中完整保全（并非丢失）：
+- `PERFORMANCE_SELECTION.json`：V2原始30样本复算、完整Wall/Event统计、按M选择、工件manifest、14份原件来源及哈希。
+- `evidence/e4_attempt2/`：14份未修改的原始Rank JSON，逐Git blob与主线历史快照一致。
+- `SELECTION_AUDIT.json`：37个源码/构建输入身份、历史批次和本次性能选择。`formal_winner`表示选型决定，生产启用仍为false。
+- `SOURCE_SHA256SUMS`：首轮锁定的全部37个审核输入。
+- `V2_SELECTED_SOURCE_SHA256SUMS`：选中V2设备源/共用依赖/私有入口和历史构建脚本的源码封存清单。
+- [V1选型](../../memfabric_mm_ar/docs/RELEASE_SELECTION.md)、[V2选型](../../memfabric_mm_ar_v2/docs/RELEASE_SELECTION.md)。
+- [OpenCode只读补齐V1成功版本身份](OPENCODE_HISTORY_LOOKUP.md)。只缺已有成功记录的映射，不补测、不强求最新ABI7。
 
-- five-arm assessment Git blob：`248e6be528ecddf8c39792d68011df19f2a4b1ec`。
-- E2 assessment Git blob：`91c2070fd7e0bb19fb24c910f4f77ac75a9b017f`。
+**V2已完成实测点的性能选择与源码封存；V1配置已选，完整历史源码封版待身份映射。**
+本次保留原有二进制/ABI和独立调用方式，不把新拼装的运行时混合路由冒称已经实机通过。
+不更改Serving默认或设备安装，也不发布虚假的生产GO/连续区间最优结论。
 
-可在仓库使用`git cat-file blob <SHA>`读取；来源路径、分支完整HEAD及SHA256均在本目录JSON。
-E3 assessment及E4 attempt2 Screen/attempt3b部分数据已在主线实体目录，保留原始漂移和Screen状态。
+## 已有历史证据，无需重复查找
 
-不将旧p50改成新框架算术均值，不混合不同批次绝对耗时求一个总冠军，不以新框架尚未上机为由要求V1/V2重测。
+five-arm assessment Git blob：`248e6be528ecddf8c39792d68011df19f2a4b1ec`；
+E2 assessment Git blob：`91c2070fd7e0bb19fb24c910f4f77ac75a9b017f`。
+E3及E4原件也已在主线/无损历史快照，来源见审核JSON，不再要求OpenCode重复收集。
+不跨批次拼绝对耗时排名；V1旧报告不是当前V2同批对照。

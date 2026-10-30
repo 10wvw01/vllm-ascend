@@ -1,6 +1,6 @@
 # CUSTOM 310P3 MemFabric mm_ar fusion
 
-> 2026-10-30版本规整：[正式版本选型与封版审核](docs/RELEASE_SELECTION.md)。已锁定源码与历史证据，最终最优winner待历史查找补齐；本轮不安排重跑。
+> 2026-10-30版本规整：[正式版本选型与封版审核](docs/RELEASE_SELECTION.md)。仅评M2048～4096，性能优先：V1选历史成功q4（准确身份待查），V2 M2048选E1/M4096选E4-T8，保留Screen与近乎持平说明；不重跑。
 
 > **CUSTOMIZED 310P3 ONLY**
 >

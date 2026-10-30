@@ -1,0 +1,427 @@
+{
+  "schema": "MF310P_PERFORMANCE_PRIORITY_SELECTION_V1",
+  "date": "2026-10-30",
+  "policy": "Select the fastest successful recorded fusion variant at each measured M; no preference for formal filename or evidence maturity. Preserve uncertainty and do not infer unmeasured shapes.",
+  "scope": {
+    "M_min": 2048,
+    "M_max": 4096,
+    "measured_M": [
+      2048,
+      4096
+    ],
+    "K": 2048,
+    "N": 2048,
+    "TP": 2,
+    "dtype": "FP16",
+    "hardware": "310P3 single-card dual-die"
+  },
+  "new_hardware_run": false,
+  "source_snapshot": {
+    "branch": "work/310p-mm-ar-e4-layered-pipeline-20261028",
+    "head": "5cff1b2d79e28c588607dbacb5bdeec098087349",
+    "path": "csrc/_310P/memfabric_history/snapshots/work__310p-mm-ar-e4-layered-pipeline-20261028.json.gz"
+  },
+  "original_campaign_status": "SCREEN_ONLY_NO_SIGNED_PERFORMANCE",
+  "aggregation": "For each sample i, max(rank0[i],rank1[i]); then arithmetic mean, median, p90 and p99. Retain all 30 samples. No mixing batches.",
+  "selection_primary_metric": "paired_rank_max_host_wall_arithmetic_mean_us",
+  "historical_event_metric_preserved": true,
+  "variants": {
+    "stock": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          null,
+          null
+        ],
+        "wall_mean_us": 1198.465667,
+        "wall_p50_us": 1194.06,
+        "wall_p90_us": 1243.601,
+        "wall_p99_us": 1260.3538,
+        "event_mean_us": 1096.374127,
+        "event_p50_us": 1088.3725,
+        "event_p90_us": 1145.2084,
+        "event_p99_us": 1157.30244
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          null,
+          null
+        ],
+        "wall_mean_us": 2149.83,
+        "wall_p50_us": 2141.745,
+        "wall_p90_us": 2195.671,
+        "wall_p99_us": 2228.5358,
+        "event_mean_us": 2045.577187,
+        "event_p50_us": 2037.73405,
+        "event_p90_us": 2083.48422,
+        "event_p99_us": 2108.176929
+      }
+    },
+    "e1": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1394.627333,
+        "wall_p50_us": 1398.185,
+        "wall_p90_us": 1451.704,
+        "wall_p99_us": 1625.6315,
+        "event_mean_us": 1234.961763,
+        "event_p50_us": 1279.596,
+        "event_p90_us": 1334.8156,
+        "event_p99_us": 1440.92696
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2353.501,
+        "wall_p50_us": 2340.975,
+        "wall_p90_us": 2458.565,
+        "wall_p99_us": 2501.058,
+        "event_mean_us": 2274.900303,
+        "event_p50_us": 2261.8884,
+        "event_p90_us": 2369.5266,
+        "event_p99_us": 2419.69952
+      }
+    },
+    "e3g": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1534.822,
+        "wall_p50_us": 1538.47,
+        "wall_p90_us": 1577.981,
+        "wall_p99_us": 1595.9823,
+        "event_mean_us": 1455.17786,
+        "event_p50_us": 1457.9295,
+        "event_p90_us": 1499.34581,
+        "event_p99_us": 1508.69852
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2222.332667,
+        "wall_p50_us": 2221.92,
+        "wall_p90_us": 2315.784,
+        "wall_p99_us": 2341.0325,
+        "event_mean_us": 2135.70567,
+        "event_p50_us": 2133.94545,
+        "event_p90_us": 2221.40608,
+        "event_p99_us": 2249.495489
+      }
+    },
+    "e4t2": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1591.383333,
+        "wall_p50_us": 1516.765,
+        "wall_p90_us": 1600.931,
+        "wall_p99_us": 2824.8591,
+        "event_mean_us": 1441.193593,
+        "event_p50_us": 1438.49,
+        "event_p90_us": 1466.5933,
+        "event_p99_us": 1522.53371
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2216.183,
+        "wall_p50_us": 2210.455,
+        "wall_p90_us": 2287.611,
+        "wall_p99_us": 2326.7126,
+        "event_mean_us": 2136.171927,
+        "event_p50_us": 2131.745,
+        "event_p90_us": 2193.37472,
+        "event_p99_us": 2232.305032
+      }
+    },
+    "e4t4": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1501.399333,
+        "wall_p50_us": 1522.47,
+        "wall_p90_us": 1559.583,
+        "wall_p99_us": 1567.9964,
+        "event_mean_us": 1426.14834,
+        "event_p50_us": 1447.23945,
+        "event_p90_us": 1483.9925,
+        "event_p99_us": 1491.87978
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2175.818,
+        "wall_p50_us": 2194.985,
+        "wall_p90_us": 2230.962,
+        "wall_p99_us": 2240.9417,
+        "event_mean_us": 2098.61973,
+        "event_p50_us": 2112.51295,
+        "event_p90_us": 2160.5497,
+        "event_p99_us": 2172.73537
+      }
+    },
+    "e4t8": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1557.222,
+        "wall_p50_us": 1564.18,
+        "wall_p90_us": 1615.921,
+        "wall_p99_us": 1736.3389,
+        "event_mean_us": 1448.848867,
+        "event_p50_us": 1461.406,
+        "event_p90_us": 1521.23921,
+        "event_p99_us": 1577.778439
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2175.689667,
+        "wall_p50_us": 2156.94,
+        "wall_p90_us": 2263.846,
+        "wall_p99_us": 2293.485,
+        "event_mean_us": 2095.43319,
+        "event_p50_us": 2076.21095,
+        "event_p90_us": 2182.8132,
+        "event_p99_us": 2206.60889
+      }
+    },
+    "e4p": {
+      "2048": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 1559.983333,
+        "wall_p50_us": 1531.385,
+        "wall_p90_us": 1599.5,
+        "wall_p99_us": 2117.9048,
+        "event_mean_us": 1450.57628,
+        "event_p50_us": 1451.1065,
+        "event_p90_us": 1516.4119,
+        "event_p99_us": 1530.4472
+      },
+      "4096": {
+        "samples": 30,
+        "warmup": 10,
+        "both_ranks_bit_exact": true,
+        "both_ranks_protocol_status": [
+          0,
+          0
+        ],
+        "wall_mean_us": 2199.307,
+        "wall_p50_us": 2190.96,
+        "wall_p90_us": 2288.789,
+        "wall_p99_us": 2318.4081,
+        "event_mean_us": 2112.99311,
+        "event_p50_us": 2105.32545,
+        "event_p90_us": 2202.69579,
+        "event_p99_us": 2231.02683
+      }
+    }
+  },
+  "selected_by_M": {
+    "2048": {
+      "arm": "e1",
+      "catalog_id": "V2-7",
+      "comparison_order_by_wall_mean": [
+        "e1",
+        "e4t4",
+        "e3g",
+        "e4t8",
+        "e4p",
+        "e4t2"
+      ],
+      "runner_up": "e4t4",
+      "winner_wall_mean_us": 1394.627333,
+      "runner_up_wall_mean_us": 1501.399333
+    },
+    "4096": {
+      "arm": "e4t8",
+      "catalog_id": "V2-15",
+      "comparison_order_by_wall_mean": [
+        "e4t8",
+        "e4t4",
+        "e4p",
+        "e4t2",
+        "e3g",
+        "e1"
+      ],
+      "runner_up": "e4t4",
+      "winner_wall_mean_us": 2175.689667,
+      "runner_up_wall_mean_us": 2175.818
+    }
+  },
+  "origins": [
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_01_stock_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_01_stock_rank0.json",
+      "git_blob_sha": "8b2dc4c7ebb789d7dcf595297704bb7ccf759f9c",
+      "sha256": "6902d7626aed7504cf34671c8e893efdd4b744407250d27db6c569a508a706c0"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_01_stock_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_01_stock_rank1.json",
+      "git_blob_sha": "4c232c57deee156e4f6d6157f5b98a2418e05dbd",
+      "sha256": "a8071eb7838afa17c2545291b123c04a201cc6e81428330c541b80d7dfda1f19"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_02_e1_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_02_e1_rank0.json",
+      "git_blob_sha": "63982dea267de62660168c1d5e086a10eb2854d8",
+      "sha256": "f6fa6988f48a8079cb2d9619b5bd4e66910e98a5088e54cd6ba8b379d8b57c8a"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_02_e1_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_02_e1_rank1.json",
+      "git_blob_sha": "1b5509e7ad079eccb7b710c3ceff3294ba7c3c14",
+      "sha256": "eea68a6109e2b9393b31243157a0697c41d30fc7c771b48537788bb05d5d764e"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_03_e3g_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_03_e3g_rank0.json",
+      "git_blob_sha": "54597ec2142c42b970cbbf14c577e09b208e89c4",
+      "sha256": "810522dee86caf9b680ccc8174698f2bf81ae493cdd97ef4bc2c7a3707b73cef"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_03_e3g_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_03_e3g_rank1.json",
+      "git_blob_sha": "47831cfa5b23ec37d18842320165267bc10b546e",
+      "sha256": "127335aed2a8c9070985cc246926dd06544c279d87c6f86b59ea48887ff14336"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_04_e4t2_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_04_e4t2_rank0.json",
+      "git_blob_sha": "dbdadd6762d31bea9490f4568179a70797e1aad3",
+      "sha256": "79066f408eca94d9ec59be8760d4ffb64e89bbd5b11ee3ea44509f3b3ac816e4"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_04_e4t2_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_04_e4t2_rank1.json",
+      "git_blob_sha": "3e29e3b8cdf0e320dda192aadcb276db5602eb91",
+      "sha256": "6a6cf1fcee6288e2a0837685bc9899f925ce689df5f5fd136d411639a127c598"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_05_e4t4_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_05_e4t4_rank0.json",
+      "git_blob_sha": "d152342eb4fe0ed38485c7c097e0d4ba59ce764c",
+      "sha256": "8c49210d2a5c683398c1ab4606b8419704f1c496e50423452b3eab4b055c721a"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_05_e4t4_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_05_e4t4_rank1.json",
+      "git_blob_sha": "cf8dfc501d09a33f7eea733ecf25bcdf6da1490f",
+      "sha256": "c0aa5a9247d4cffcc2c96fdacaf34fe0105645729da1242edbbd2ba86177feb3"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_06_e4t8_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_06_e4t8_rank0.json",
+      "git_blob_sha": "db69ea29d839da4f59c7a8f1fa15d2221a0d5256",
+      "sha256": "3721b0f95ded5bf546d702337d0cdc0f955a3a9593a00413a83ba761c9c74a6e"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_06_e4t8_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_06_e4t8_rank1.json",
+      "git_blob_sha": "c26468be1a18f930f34f28a22a0ad41c08def5a0",
+      "sha256": "0aaf8cd591eebf3a8e43d4746a0052d6f5a3f054f9423513757c1765198389c5"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_07_e4p_rank0.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_07_e4p_rank0.json",
+      "git_blob_sha": "3b382f00687ea27da2fc19ce545b6fca2ba65f5b",
+      "sha256": "3f256a133975e595612a929123052065d40df158319a1df6b882d1457e86e689"
+    },
+    {
+      "path": "csrc/_310P/releases/v1-v2-20261030/evidence/e4_attempt2/screen_07_e4p_rank1.json",
+      "original_path": "csrc/_310P/memfabric_mm_ar_v2/evidence/e4_layered_20261028/campaign_attempt2/sessions/screen_07_e4p_rank1.json",
+      "git_blob_sha": "30f67bb9bc11a3c2c1da6279b849c91d7923e21b",
+      "sha256": "09226365956b3eddf6f17def557f583b7a3e9f2d0883f42847e89b9400d0ec73"
+    }
+  ],
+  "limitations": [
+    "Single 30-sample Screen per variant, not a repeatability claim.",
+    "M4096 T8 and T4 wall means are practically tied; selected by observed mean, without a statistically established advantage.",
+    "No new hybrid runtime route implemented or validated.",
+    "M2049 through M4095 performance selection remains unknown.",
+    "Selection is within fusion variants; Stock is a separate faster reference in this campaign."
+  ],
+  "selected_campaign_build_manifest": {
+    "schema": "E4_LAYERED_ADD_BUILD_V1",
+    "mainline": "dev/310p-memfabric-mm-ar",
+    "work_head": "5b727e9f9153e8292c6022a14b63e974dfb0db03",
+    "device_arch": "dav-2002",
+    "isolated_not_installed": true,
+    "source_sha256": "08ab1c72a94aa197b05317243c8c16561e60ea25151c985c2cb76adc952235ef",
+    "e3_source_sha256": "d871928809441a983cb73666207171e1484520046088eaaf19aea032f65fac42",
+    "e4_source_sha256": "4a11399db28e1762624310b8dfdee9095a22b381a2f95b7aa2bee3ee2f639325",
+    "private_host_source_sha256": "6c6ab31a15bbebfd345dd99c59626955c083139c941c4c2af9e9dc18e675ec60",
+    "private_host_so": "/tmp/opencode/e4-build2/libmf310p_e4_private_host.so",
+    "private_host_sha256": "114c6c42235b8b657592fda7f3d89618fdfe5a98a673d38a7a4b66a0d7d311c5",
+    "frozen_baseline_source_sha256": "9d7d22aded3740cb3afae86cc44d55f6676236ce9076221113bab1f3bb129b17",
+    "common_sha256": "9f2d38035fbd83b0b9ffcf1e1b5edc2707e296cc5c32c8a14c81ac3c1034c3eb",
+    "candidate_so": "/tmp/opencode/e4-build2/libmf310p_e4_candidates.so",
+    "candidate_sha256": "08f73f2c1936b990a398643243c321582ca39f85cc8b1c80a21efd68cb8d92b2",
+    "npu_correctness": "NOT_RUN",
+    "perf": "NOT_RUN",
+    "formal_d4_binary_intact": "MUST_VERIFY_PRE_AND_POST_AT_G0"
+  }
+}
