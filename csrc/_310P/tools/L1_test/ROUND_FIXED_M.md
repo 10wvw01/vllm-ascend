@@ -91,7 +91,7 @@ start使用独立后台session；每个配置继承同一L1执行器/守护，�
 - `--v2-history`：另外补21组V2大M历史对照/参数扫描，完整矩阵变64组、254场。
   包含T0/D4/C3、F2六点、B1/B2、E1/E2/E3/E4；所选公共API与历史私有API分开绑定。
   小M T1与不完整诊断不硬塞进大M性能排名。
-- `--collection host`或`profiler`：每组自动生成无打点前/诊断/无打点后三段；完整矩阵为510场。
+- `--collection host`、`profiler`或`msprof`：每组自动生成无打点前/诊断/无打点后三段；完整矩阵为510场。
   正式性能仍读无打点段，诊断保留扰动标签；设备内部阶段/SDMA占用缺证据则UNKNOWN。
 
 ## 输出与判读
@@ -103,3 +103,5 @@ start使用独立后台session；每个配置继承同一L1执行器/守护，�
 
 CPU适配器、调度器和假数据验证不等于310P实机。新入口/历史恢复版本都要先完成真实构建与双Rank短功能准入。
 本轮不改Serving默认、不运行模型TTFT或Graph；算法研发继续聚焦V3迭代。
+
+官方CLI与统一时间线现已补齐；msprof必须先探测并用freeze --msprof-tool冻结实际工具。默认off快速轮不自动追加诊断；独立诊断/定点三配置示例见[PROFILING.md](PROFILING.md)。

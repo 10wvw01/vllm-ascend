@@ -27,7 +27,7 @@ L1适配器只加载公开入口并传X/W，不分配输出、不提前包装Y�
 1. 功能门禁：采样前后完整数值/格式及立即同Stream下游ADD，不计时；冷态另做保留所有Y的连续提交检查。
 2. ready：逐调用记录完整输入到输出延迟，每次末尾同步；保留组内全部Y到组尾。
 3. steady：连续提交一组，保留全部Y，只在组尾记录完成并等待；每组总时长除调用数。
-4. host/profiler：独立诊断段及前后无打点对照，Profiler范围只包执行，不包状态、数值或ADD检查。
+4. host/profiler/msprof：独立诊断段及前后无打点对照。Torch捕获只包执行；外部CLI采整个应用，派生分析只取正式组标记，排除状态、数值和ADD。
 
 N始终是每臂每轮每M每模式的总算子调用数，W是预热总调用数。
 默认`batch_size=2`、`working_set=4`；尾组按实际调用数计，不补调用或丢输出。
@@ -66,3 +66,9 @@ V1/未知external尚未审计连续输出，窗口只允许1；显式请求B=1�
 新增TorchNPU Storage桥必须实际编译，原C/Device工件及公共Tensor Python源都须冻结。
 快速shared W2/N10/R1；正式独占仍单独授权执行，R1也只是性能筛选，不自动追加R3。
 CPU假后端与真实CPU Torch dispatcher测试只验证Host语义；CANN/NPU数值/路由/首写/连续提交仍交OpenCode验证。
+
+
+2026-10-31补充：官方采集器的可执行文件/能力/明确依赖与参数单独冻结，见[PROFILING.md](PROFILING.md)。
+统一解析Chrome时间线的显式flow ID和Stream任务，缺窗口/路由/身份则STOP；没有关联/内部阶段边界则UNKNOWN。
+时间线窗口含测量包装层，不能拿window_us替换Wall/Event；可见任务包络交叠不能冒充实际搬运交叠。
+诊断扩展未修改公开Tensor计时合同或默认off计划；须新主线SHA重新freeze。

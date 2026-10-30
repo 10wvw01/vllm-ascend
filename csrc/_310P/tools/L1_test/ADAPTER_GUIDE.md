@@ -65,3 +65,5 @@ raw V3 packet1MiB，其余本轮4MiB；classic/merged不能通过改参数偷换
 Graph/MM shadow/G1专用诊断不混入Eager候选。
 
 [完整测量说明](MEASUREMENT_V4.md)、[矩阵](ROUND_FIXED_M.md)、[OpenCode执行单](OPENCODE_ROUND.md)。
+
+官方Profiler/msprof接入复用同一算子run，不在适配器添加另一套算子调用。标记/工具启动和时间线分析由公共框架负责，见[PROFILING.md](PROFILING.md)。

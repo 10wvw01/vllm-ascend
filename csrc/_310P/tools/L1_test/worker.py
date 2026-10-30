@@ -15,6 +15,9 @@ from . import adapters
 from .collect import capabilities, read_profile
 from .core import CONTRACT, ROOT, execution_contract, validate_plan, validate_runtime
 from .measurement import disjoint, groups, measure_group, timed, warmup_quality
+from .profile_windows import label, marked_range
+from .profile_collect import scoped_statistics
+from .timeline import read_timeline, write_timeline
 
 
 def save(path,data):
@@ -149,22 +152,27 @@ def main():
         report['submission_validation']['status']='PASS'
         pattern=spec.get('route_pattern',r'aclnnMatmulWeightNz')
         route_cases=[]
-        for m in plan['M']:
-            route=out/f'route-rank{rank}'/f'm{m}'
-            with torch_npu.profiler.profile(
-                activities=[torch_npu.profiler.ProfilerActivity.CPU,torch_npu.profiler.ProfilerActivity.NPU],
-                on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(route))):
-                y=adapter.run(xs[m][0],w,0)
-                stream.synchronize()
-            drain()
-            checked(y,m,0)
-            del y
-            evidence=read_profile(route,pattern)
-            names='\n'.join(row['name'] for row in evidence['rows'])
-            if not evidence['verified'] or (job['version']=='STOCK' and not re.search('hcom.*allreduce|hccl.*allreduce',names,re.I)):
-                raise RuntimeError(f'actual NZ/fused/HCCL route unproven for M={m}')
-            route_cases.append(dict(M=m,**evidence))
-        report['route']=dict(verified=True,cases=route_cases)
+        # External msprof owns the process collector; never nest a Torch
+        # collector in that process. Export/route validation runs in the parent.
+        if stage!='msprof':
+            for m in plan['M']:
+                route=out/f'route-rank{rank}'/f'm{m}'
+                with torch_npu.profiler.profile(
+                    activities=[torch_npu.profiler.ProfilerActivity.CPU,torch_npu.profiler.ProfilerActivity.NPU],
+                    on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(route))):
+                    y=adapter.run(xs[m][0],w,0)
+                    stream.synchronize()
+                drain()
+                checked(y,m,0)
+                del y
+                evidence=read_profile(route,pattern)
+                names='\n'.join(row['name'] for row in evidence['rows'])
+                if not evidence['verified'] or (job['version']=='STOCK' and not re.search('hcom.*allreduce|hccl.*allreduce',names,re.I)):
+                    raise RuntimeError(f'actual NZ/fused/HCCL route unproven for M={m}')
+                route_cases.append(dict(M=m,**evidence))
+        report['route']=dict(verified=stage!='msprof',cases=route_cases,
+                             source='pending_external_export' if stage=='msprof' else 'torch_profiler_route_gate')
+        report['profile_windows']=[]
         report['mapped_libraries']=verify_maps(spec,job['version'])
         report['runtime']=dict(torch=str(torch.__version__),torch_npu=str(torch_npu.__version__),physical_device=selected)
         report['cold_setup_us']=(time.perf_counter_ns()-begin)/1000
@@ -200,9 +208,13 @@ def main():
                                 aic_metrics=torch_npu.profiler.AiCMetrics.PipeUtilization),
                             on_trace_ready=torch_npu.profiler.tensorboard_trace_handler(str(profile_dir))
                         ) if stage=='profiler' and phase=='measure' else nullcontext()
-                        with capture:
+                        window=label(job,rank,m,scenario,first,count)
+                        annotate=marked_range(window,stage,torch) if phase=='measure' and stage in ('profiler','msprof') else nullcontext()
+                        with capture, annotate:
                             retained,rows=measure_group(lambda i:op(m,i),first,count,scenario,stream,events,
                                                         time.perf_counter_ns,stage=='host')
+                        if phase=='measure' and stage in ('profiler','msprof'):
+                            report['profile_windows'].append(window)
                         # Outside timers and profiler: bounded protocol audit, no Tensor comparisons here.
                         detail=drain()
                         if not disjoint(spans(retained)):
@@ -229,6 +241,10 @@ def main():
         report['downstream_validation']['status']='PASS'
         if stage=='profiler':
             report['profile']=read_profile(out/f'profile-rank{rank}',pattern)
+            report['timeline']=read_timeline(out/f'profile-rank{rank}',report['profile_windows'],pattern,job['version']=='STOCK')
+            report['profile']['raw_csv_kernel_statistics']=report['profile']['kernel_statistics']
+            report['profile'].update(scoped_statistics(report['timeline']))
+            write_timeline(report['timeline'],out/f'timeline-rank{rank}')
         report['capabilities']=capabilities(job['version'],stage,any(
             bool(c.get('host_blocks')) for c in report['cases']))
         validate_runtime(spec,job['version'])

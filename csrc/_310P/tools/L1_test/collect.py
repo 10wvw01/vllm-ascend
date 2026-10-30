@@ -37,7 +37,7 @@ def read_profile(root, route_pattern):
 
 def capabilities(version, collection, host_phases=False):
     return dict(version=version,collection=collection,wall=True,event=True,downstream=True,downstream_timing=False,
-                host_call_total=collection=="host",host_detail_phases=host_phases,device_phase_wall=False,sdma_link_occupancy=False,
+                host_call_total=collection=="host",timeline=collection in ('profiler','msprof'),host_detail_phases=host_phases,device_phase_wall=False,sdma_link_occupancy=False,
                 reason='310P3 dav-2002 existing AICore clock is unavailable; no synthetic phase durations')
 
 
@@ -80,10 +80,30 @@ def attribution(rank_reports):
 
 def profile_statistics(rank_reports):
     return [dict(version=r['job']['version'],stage=r['job']['stage'],rank=r['rank'],
-                 kernels=r['profile']['kernel_statistics'],exclusive_phase_wall=False,
-                 collection_scope='operator execution groups; no numeric/status/downstream checks')
+                 kernels=r['profile']['kernel_statistics'],spanning_tasks=r['profile'].get('spanning_tasks',[]),exclusive_phase_wall=False,
+                 collection_scope='analysis restricted to operator execution ranges; external raw capture is process-wide')
             for r in rank_reports if 'profile' in r]
 
+
+
+def timeline_statistics(rank_reports):
+    rows=[]
+    from .timeline import WINDOW
+    for report in rank_reports:
+        for doc in report.get('timeline',{}).get('documents',[]):
+            for window in doc['windows']:
+                match=WINDOW.fullmatch(window['label'])
+                rows.append(dict(job=report['job'],rank=report['rank'],source=doc['source'],
+                    M=int(match[3]),scenario=match[4],first=int(match[5]),calls=int(match[6]),
+                    label=window['label'],window_us=window['window_us'],
+                    host_device_correlation=window['host_device_correlation'],device_timeline=window['device_timeline'],
+                    kind_union_us=window['kind_union_us'],
+                    visible_device_task_union_us=window['visible_device_task_union_us'],
+                    uncovered_visible_device_us=window['uncovered_visible_device_us'],
+                    visible_compute_communication_task_overlap_us=window['visible_compute_communication_task_overlap_us'],
+                    links=len(window['links']),host_to_device_flow_mean_us=window['host_to_device_flow_mean_us'],
+                    host_queue_flow_mean_us=window['host_queue_flow_mean_us'],status='DIAGNOSTIC_ONLY',internal_fused_overlap='UNKNOWN'))
+    return rows
 
 def import_legacy(root):
     """Read existing unified summaries without changing their p50 into an arithmetic mean."""

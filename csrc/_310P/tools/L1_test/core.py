@@ -33,7 +33,7 @@ def make_plan(versions=(), samples=100, warmup=20, rounds=2, mode="exclusive", s
         raise ValueError("Graph/diagnostic versions are not Eager full MM+AR candidates")
     if any(type(x) is not int for x in (warmup, samples, rounds)) or not (2 <= warmup <= 1000 and 1 <= samples <= 10000 and 1 <= rounds <= 20):
         raise ValueError("W>=2, N>=1, R>=1 with bounded integer counts required")
-    if mode not in ("exclusive", "shared") or collection not in ("off", "host", "profiler"):
+    if mode not in ("exclusive", "shared") or collection not in ("off", "host", "profiler", "msprof"):
         raise ValueError("invalid mode or collector")
     if not scenarios or len(set(scenarios)) != len(scenarios) or set(scenarios)-{'ready','steady'}:
         raise ValueError("only ready/steady time MM+AR; downstream consumption is an untimed gate")

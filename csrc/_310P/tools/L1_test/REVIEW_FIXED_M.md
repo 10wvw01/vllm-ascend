@@ -84,3 +84,24 @@ Profiler只包执行组，Host细分完整保留（包括同组多个phase_log�
 最终完整CPU回归记录见下方及V2_CODE_PACKAGE.json的V4修订；无CANN/NPU新执行，不查格式。
 
 最终验证：497项CPU测试及36子测试通过，其中L1为74项，含真实torch 2.10.0+cpu dispatcher；项目元数据门禁PASS。CANN/NPU、模型调用点与新入口性能仍NOT_RUN。
+
+## 2026-10-31：官方msprof与统一时间线，两轮静审
+
+基底b7c13b23。用户要求补齐官方独立采集和时间线归因缺口。
+第一轮核对启动/范围/身份：新collection msprof进入既有三段ABBA/BAAB，实际CLI按Rank exec启动，
+继承原守护进程组，不增加会话或绕过健康/物理映射；Torch采集与CLI互斥，冷态也不嵌套。
+实际help/版本命令/明确依赖SHA和最终参数冻结；应用/输出/设备/延时/持续时间/全系统范围不允许参数覆盖。
+MSTX只围正式测量组，CLI全进程原件保留，导出后父进程逐窗口核路由，不伪称原件无预热/检查。
+正式测量入口、Wall/Event、N/W/B、首写/协议和Kernel均未改变。
+
+第二轮核对解析/推断：独立导出时钟域；大时间戳Decimal相减；元数据优先分类；显式flow ID+唯一事件关联，
+缺失/重复不最近邻猜测；负返回偏移保留，关联时钟异常不截0。
+任务并集处理并行/嵌套，Stream空档只说可见性；通信包络可能含等待，不据包络交叠证明搬运已交叠。
+发现跨窗口持久AICPU任务会放大kernel_statistics，已改为spanning_tasks单列，不计完整寿命为单次算子。
+缺/重叠/重复正式窗口、缺路由、原件/CSV被改动均STOP；缺内部阶段或可选关联则UNKNOWN。
+Torch与msprof均输出同schema的timeline JSON/CSV及公共analysis，诊断始终DIAGNOSTIC_ONLY。
+
+CPU验证含真实CPU PyTorch Chrome导出、合成官方格式、msprof假命令探测/argv、双Rank启动/冻结/三段/STOP、
+窗口污染/身份篡改/有符号偏移/跨窗口任务。新实际msprof、CANN及310P采集NOT_RUN；无格式检查。
+
+最终CPU验证：529项及36子测试通过，其中L1为106项（本轮新增32项）。实际msprof/CANN/310P捕获仍NOT_RUN。

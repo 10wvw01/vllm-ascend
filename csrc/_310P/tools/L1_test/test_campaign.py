@@ -156,3 +156,20 @@ def test_recursive_framework_identity_covers_each_plugin():
     found=framework_identity()
     for name in ('stock','v1','v2','v3'):
         assert 'csrc/_310P/tools/L1_test/adapter_plugins/'+name+'.py' in found
+
+
+def test_msprof_tool_identity_is_copied_into_each_frozen_case(frozen_round):
+    from L1_test.profiler_tool import probe
+    plan,template,out=frozen_round
+    plan=c.make_campaign(samples=2,warmup=2,collection='msprof',case_ids=['v3-5-c512-g1024'])
+    binary=out.parent/'msprof'
+    binary.write_text('#!/bin/sh\necho "--application --output --msproftx"\n')
+    binary.chmod(0o755)
+    template['msprof']=probe(binary)
+    c.freeze_campaign(plan,template,out)
+    manifest=json.loads((out/'prepared/v3-5-c512-g1024/manifest.json').read_text())
+    assert manifest['msprof']==template['msprof']
+    assert manifest['msprof']['device_validation']=='NOT_RUN'
+    binary.write_text('changed')
+    with pytest.raises(ValueError,match='BLOCKED_BEFORE_DEVICE'):
+        c.freeze_campaign(plan,template,out.parent/'other')

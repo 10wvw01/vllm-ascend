@@ -166,6 +166,7 @@ def freeze_campaign(campaign, template, out):
             candidate['config']={**candidate.get('config',{}),**case['config']}
             manifest={k:copy.deepcopy(template[k]) for k in ('card','devices','cann')}
             manifest['admission']=copy.deepcopy(template['admission_by_runtime'][binding])
+            if template.get('msprof'):manifest['msprof']=copy.deepcopy(template['msprof'])
             manifest['runtimes']={'STOCK':copy.deepcopy(template['runtimes']['STOCK'])}
             if version!='STOCK':manifest['runtimes'][version]=candidate
             frozen=freeze_data(manifest)
@@ -249,6 +250,7 @@ def collect_summary(out):
                              paired_round_speedup=row['paired_round_speedup'],
                              timer_overhead_ratio=row['max_timer_overhead_ratio'],warmup_stable=row['warmup_stable'],
                              execution_contracts=row['execution_contracts'],
+                             timeline_windows=sum(1 for t in analysis.get('timeline_statistics',[]) if t['job']['stage']==row['stage'] and t['job']['version']==version and t['M']==row['M'] and t['scenario']==row['scenario']),
                              p50_us=stat['p50_us'],p90_us=stat['p90_us'],p99_us=stat['p99_us'],
                              arm_drift=row['arm_drift'],stock_bracket_drift=row['stock_bracket_drift'],
                              stock_mean_us=row['stats']['STOCK']['mean_us'],speedup=row.get('speedup'),
@@ -308,13 +310,14 @@ def main(argv=None):
     plan.add_argument('--profile',choices=('full','active'),default='full')
     plan.add_argument('--samples',type=int,default=100);plan.add_argument('--warmup',type=int,default=20)
     plan.add_argument('--rounds',type=int,default=1);plan.add_argument('--mode',choices=('exclusive','shared'),default='exclusive')
-    plan.add_argument('--collection',choices=('off','host','profiler'),default='off');plan.add_argument('--v2-history',action='store_true')
+    plan.add_argument('--collection',choices=('off','host','profiler','msprof'),default='off');plan.add_argument('--v2-history',action='store_true')
     plan.add_argument('--batch-size',type=int,default=2);plan.add_argument('--working-set',type=int,default=4)
     plan.add_argument('--scenarios',nargs='+',choices=('ready','steady'),default=['ready','steady'])
     plan.add_argument('--cases',nargs='+',default=[])
     plan.add_argument('--out',type=Path,required=True)
     template=sub.add_parser('template');template.add_argument('--campaign',type=Path,required=True);template.add_argument('--out',type=Path,required=True)
     freeze=sub.add_parser('freeze');freeze.add_argument('--campaign',type=Path,required=True);freeze.add_argument('--template',type=Path,required=True);freeze.add_argument('--out',type=Path,required=True)
+    freeze.add_argument('--msprof-tool',type=Path)
     for action in ('start','status','_run'):
         child=sub.add_parser(action);child.add_argument('--out',type=Path,required=True)
         if action!='status':
@@ -327,7 +330,9 @@ def main(argv=None):
     elif args.action=='template':
         data=json.loads(args.campaign.read_text());validate_campaign(data);save(args.out,runtime_template(data,str(ROOT)))
     elif args.action=='freeze':
-        print(json.dumps(freeze_campaign(json.loads(args.campaign.read_text()),json.loads(args.template.read_text()),args.out)))
+        template=json.loads(args.template.read_text())
+        if args.msprof_tool:template['msprof']=json.loads(args.msprof_tool.read_text())
+        print(json.dumps(freeze_campaign(json.loads(args.campaign.read_text()),template,args.out)))
     elif args.action=='status':
         print((args.out/'campaign-result.json').read_text() if (args.out/'campaign-result.json').exists() else
               json.dumps(dict(status='RUNNING_OR_INTERRUPTED',completed=sorted(p.stem for p in args.out.glob('completed-*.json')))))

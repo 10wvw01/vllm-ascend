@@ -9,7 +9,10 @@ import sys
 import time
 from pathlib import Path
 
-from .collect import attribution, import_legacy, profile_statistics
+from .collect import attribution, import_legacy, profile_statistics, timeline_statistics
+from .profile_collect import collect_external, load_reports
+from .profiler_tool import probe, validate_tool
+from .timeline import read_timeline, write_timeline
 from .core import ROOT, analyze, catalog, execution_contract, make_plan, pair_job, sha, validate_plan, validate_runtime
 from .worker import save
 
@@ -44,12 +47,14 @@ def freeze_data(template):
         validate_runtime(spec,spec['version'])
     data['admission']['evidence_files']={str(Path(path).resolve(strict=True)):sha(path)
                                         for path in data['admission']['evidence_files']}
+    if data.get('msprof'):validate_tool(data['msprof'])
     data['framework_head']=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     data['framework_files']=framework_identity()
     return data
 
 
 def check_manifest(manifest,plan):
+    if plan['collection']=='msprof':validate_tool(manifest.get('msprof',{}))
     if SERVER_CARDS.get(manifest.get('card'))!=manifest.get('devices'):
         raise ValueError('card/physical-device pair differs from server map')
     head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
@@ -97,7 +102,7 @@ def analyze_directory(out):
     jobs={}
     ranks=[]
     for job in plan['jobs']:
-        pair=[json.loads((out/job['id']/f'rank{rank}.json').read_text()) for rank in (0,1)]
+        pair=load_reports(out/job['id'],plan,job)
         expected=run['manifest']['runtimes'][job['version']]
         if any(r['runtime_identity']!=expected for r in pair):
             raise ValueError('rank runtime differs from the frozen run manifest')
@@ -106,6 +111,7 @@ def analyze_directory(out):
     result=analyze(plan,jobs)
     result['attribution']=attribution(ranks)
     result['kernel_statistics']=profile_statistics(ranks)
+    result['timeline_statistics']=timeline_statistics(ranks)
     return result
 
 
@@ -128,7 +134,7 @@ def execute(out):
             os.environ.clear()
             os.environ.update(env)
             command=[sys.executable,'-m','torch.distributed.run','--standalone','--nproc-per-node=2',
-                     '--module','L1_test.worker','--run',str(out/'run.json'),'--job',job['id']]
+                     '--module','L1_test.rank_launcher' if job['stage']=='msprof' else 'L1_test.worker','--run',str(out/'run.json'),'--job',job['id']]
             result['device_test']='STARTED'
             with (path/'console.log').open('x') as log:
                 # Guard inherits this process's environment; stdout redirection is scoped to own child.
@@ -147,8 +153,11 @@ def execute(out):
             os.environ.update(original_env)
             if rc:
                 raise RuntimeError(f'{job["id"]} STOP rc={rc}; no retry or next arm')
-            reports=[json.loads((path/f'rank{r}.json').read_text()) for r in (0,1)]
+            if job['stage']=='msprof':
+                for rank in (0,1):collect_external(path,plan,job,rank,spec)
+            reports=load_reports(path,plan,job)
             save(path/'paired.json',pair_job(plan,job,*reports))
+        check_manifest(manifest,plan)
         report=analyze_directory(out)
         save(out/'analysis.json',report)
         result.update(status='PASS_L1_ONLY',device_test='PASS')
@@ -174,7 +183,7 @@ def main():
     plan.add_argument('--warmup',type=int,default=20)
     plan.add_argument('--rounds',type=int,default=2)
     plan.add_argument('--mode',choices=['exclusive','shared'],default='exclusive')
-    plan.add_argument('--collection',choices=['off','host','profiler'],default='off')
+    plan.add_argument('--collection',choices=['off','host','profiler','msprof'],default='off')
     plan.add_argument('--M',nargs='+',type=int,default=[2048,4096])
     plan.add_argument('--scenarios',nargs='+',choices=['ready','steady'],default=['ready','steady'])
     plan.add_argument('--batch-size',type=int,default=2)
@@ -183,6 +192,7 @@ def main():
     freeze=sub.add_parser('freeze')
     freeze.add_argument('--template',type=Path,required=True)
     freeze.add_argument('--out',type=Path,required=True)
+    freeze.add_argument('--msprof-tool',type=Path)
     start=sub.add_parser('start')
     start.add_argument('--plan',type=Path,required=True)
     start.add_argument('--manifest',type=Path,required=True)
@@ -192,6 +202,15 @@ def main():
     for action in ('_run','status','analyze'):
         s=sub.add_parser(action)
         s.add_argument('--out',type=Path,required=True)
+    probe_cmd=sub.add_parser('msprof-probe')
+    probe_cmd.add_argument('--binary',type=Path,required=True)
+    probe_cmd.add_argument('--option',action='append',default=[])
+    probe_cmd.add_argument('--dependency',type=Path,action='append',default=[])
+    probe_cmd.add_argument('--out',type=Path,required=True)
+    timeline_cmd=sub.add_parser('timeline')
+    timeline_cmd.add_argument('--input',type=Path,required=True)
+    timeline_cmd.add_argument('--out',type=Path,required=True,help='fresh output prefix (.json and .csv)')
+    timeline_cmd.add_argument('--whole-trace',action='store_true')
     imp=sub.add_parser('import-legacy')
     imp.add_argument('--root',type=Path,required=True)
     imp.add_argument('--out',type=Path,required=True)
@@ -204,8 +223,14 @@ def main():
     elif a.action=='plan':
         save(a.out,make_plan(a.versions,a.samples,a.warmup,a.rounds,a.mode,a.scenarios,a.M,a.collection,
                             batch_size=a.batch_size,working_set=a.working_set))
+    elif a.action=='msprof-probe':
+        save(a.out,probe(a.binary,a.option,a.dependency))
+    elif a.action=='timeline':
+        write_timeline(read_timeline(a.input,whole_trace=a.whole_trace),a.out)
     elif a.action=='freeze':
-        save(a.out,freeze_data(json.loads(a.template.read_text())))
+        template=json.loads(a.template.read_text())
+        if a.msprof_tool:template['msprof']=json.loads(a.msprof_tool.read_text())
+        save(a.out,freeze_data(template))
     elif a.action=='import-legacy':
         save(a.out,import_legacy(a.root))
     else:

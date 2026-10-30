@@ -136,13 +136,13 @@
     },
     {
       "path": "csrc/_310P/tools/L1_test/core.py",
-      "sha256": "005e80e3a6a2d8f803132d713649b98cc5a0d0ff4472860de3f250076fbf84f0",
-      "git_blob_sha": "34f50f411f265990c56048bf592c0e2959720282"
+      "sha256": "d0194241b863e33f1c7ece1afb22edfe605a0c286208b8fc5bf6f36a7e4acd7a",
+      "git_blob_sha": "7021ec35faaee72d0c1ff49f8999289e0c4feba4"
     },
     {
       "path": "csrc/_310P/tools/L1_test/worker.py",
-      "sha256": "66d99ffc587e5dcee8710d1d845021d958ce9731bcedb7edac429ed3ccd151ec",
-      "git_blob_sha": "4bd86ffc41d2bd27cdd3cb9951580ac8394e9d0c"
+      "sha256": "9a2400e8988bc376f77dceb535d6c1c6d8020b3245719526a73f6af336113400",
+      "git_blob_sha": "f0319d68bd181aa34259901998b98e028fa90372"
     },
     {
       "path": "csrc/_310P/tools/L1_test/versions.json",
@@ -156,13 +156,13 @@
     },
     {
       "path": "csrc/_310P/tools/L1_test/cli.py",
-      "sha256": "5d084b13b923ec2f951f1b970024c9ee1f7518a28bb03dca340d2a367118c63b",
-      "git_blob_sha": "d0d6251d355036336937cfe3d061c889a687efe1"
+      "sha256": "bf99a517a42196c7086fdddd4c6369202b6ffe53be8ae6fba61a2c63afaa9260",
+      "git_blob_sha": "67263bb4842f458218b33c4a1f4e60393be35ab8"
     },
     {
       "path": "csrc/_310P/tools/L1_test/campaign.py",
-      "sha256": "5fde6e044a36fa550c3c1b3477d4348e1e943e11d69df052bd3a61fd68983e13",
-      "git_blob_sha": "8cfbe1975c85ef85b85c2d8dbed4e43ad7aa1674"
+      "sha256": "1c68117fd9aaf5fde9ba9fc3eea1fe24b77392948632164b4fefb7905e13da98",
+      "git_blob_sha": "5a75e0bf758787bd294e5c1705fe043d9ac50877"
     },
     {
       "path": "csrc/_310P/tools/L1_test/adapter_plugins/__init__.py",
@@ -226,8 +226,33 @@
     },
     {
       "path": "csrc/_310P/tools/L1_test/collect.py",
-      "sha256": "41446a4c3a55cc55412b8816f5b4ce306a19bdd5cc172c1a2c1d3addb75aaf88",
-      "git_blob_sha": "5b36649ad4b301ed952cbb83020e4c438656bfa3"
+      "sha256": "5b131aca896a8db21461be19b447b0c520cbf987508126f462412e1aad791ecd",
+      "git_blob_sha": "81432cf600e63ba63a0a23d4568cc49ffac18c54"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/profiler_tool.py",
+      "sha256": "37585b5877653c894db6595ae4fd1e9aa2e6b67aae839d7d83b34a4601d59001",
+      "git_blob_sha": "b1bb6208e991d655ec8af86a1bc5c8c02a0d75c9"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/profile_windows.py",
+      "sha256": "439175a7e95277e2b2588c30094e3212a54f353ebe50fbb645f644dd033f23a8",
+      "git_blob_sha": "e645cf1ea342854bf150f57a6d1b6b721ab6d242"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/profile_collect.py",
+      "sha256": "15912033e21cea8ac4ff9170777608125f866f25d62e3de947a1f154426b7f7b",
+      "git_blob_sha": "0d190b8c6a94ce2e662ada230cdf9a51f4688e2d"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/rank_launcher.py",
+      "sha256": "b525d5dac9d1afe31f0c4e149f3186396d6b50f078680ff93f0004b4e7e5e3a7",
+      "git_blob_sha": "cd627d52dfeb0b9d15a2bd9791b22a742e2d71d0"
+    },
+    {
+      "path": "csrc/_310P/tools/L1_test/timeline.py",
+      "sha256": "e9f427a038ba3386b90e334a14ef16dfb50abab90ba963d14871ebe0d1f2afbe",
+      "git_blob_sha": "1f32c071835e571223598b27554db024237ae9db"
     }
   ],
   "historical_audit_note": "SOURCE_SHA256SUMS keeps the original audited baseline. source_files and V2_SELECTED_SOURCE_SHA256SUMS describe the current selected package inputs; historical performance identities remain unchanged.",
@@ -285,6 +310,30 @@
     "operator_python_tensor_entry": "NEW",
     "device_test": "NOT_RUN",
     "model_callsite_integration": "NOT_RUN",
+    "production_go": false
+  },
+  "official_profiler_revision": {
+    "date": "2026-10-31",
+    "base_mainline_head": "b7c13b23ed1d233b4542f8a176ec1e6f909b9117",
+    "contract": "L1_TENSOR_IO_V4",
+    "collection": [
+      "off",
+      "host",
+      "profiler",
+      "msprof"
+    ],
+    "tool_probe_schema": "MF310P_MSPROF_TOOL_V1",
+    "timeline_schema": "MF310P_L1_TIMELINE_V1",
+    "cpu_tests": 529,
+    "subtests": 36,
+    "L1_tests": 106,
+    "new_tests": 32,
+    "real_cpu_torch_trace_export": "PASS",
+    "code_review": "csrc/_310P/tools/L1_test/REVIEW_FIXED_M.md",
+    "guide": "csrc/_310P/tools/L1_test/PROFILING.md",
+    "actual_msprof_310p_capture": "NOT_RUN",
+    "CANN_device_validation": "NOT_RUN",
+    "operator_C_ABI_kernels_and_Tensor_entry_unchanged": true,
     "production_go": false
   }
 }

@@ -724,3 +724,19 @@ R<3只筛选、shared只观察，R>=3才对独立轮次bootstrap，仍不签模�
 新CANN/NPU、公开入口实测性能及模型TTFT仍NOT_RUN；新计划须重新生成/freeze，旧成绩保持历史身份。
 
 最终验证：497项CPU测试及36子测试通过，其中L1为74项，含真实torch 2.10.0+cpu dispatcher；项目元数据门禁PASS。CANN/NPU、模型调用点与新入口性能仍NOT_RUN。
+
+## 2026-10-31｜官方msprof与统一时间线已编码，实机待验证
+
+用户要求补齐官方采集及时间线缺口。从b7c13b23新增collection msprof、msprof-probe、freeze --msprof-tool、timeline离线入口。
+每Rank独立CLI复用原TP2守护/进程组，与Torch Profiler互斥；原三段ABBA/BAAB和同W/N计数保留。
+实际help/版本/明确依赖SHA/参数冻结，不能用参数改应用/输出/设备/采集时间范围。
+CLI采全进程、MSTX只标正式组；Torch用CPU range同样标组。导出后统一按标记/显式flow ID分析，逐窗口核NZ/fused/HCCL路由。
+新增Host→Device/队列flow、任务并集、Stream可见空档和可见任务包络交叠，保留负偏移与关联缺失；不拼Rank时钟、不最近邻配对。
+原始数据/原rank报告不覆盖，增强报告及timeline JSON/CSV进入统一analysis/summary；缺/重叠/重复窗或身份/路由异常STOP。
+跨窗持久AICPU编排任务单列，不把其全寿命当一次算子；通信包络可能含wait，不据其交集证明SDMA搬运交叠。
+内部MM/等待/SDMA排空无边界仍UNKNOWN，真实链路占用无新证据。原Kernel/C ABI、公开Tensor计时和Serving默认未改。
+[采集/解释/官方来源](../../tools/L1_test/PROFILING.md)、[双轮复核](../../tools/L1_test/REVIEW_FIXED_M.md)、ADR-045同步。
+默认快速shared/off完整43组不自动变更；显式三A3定点诊断为36场，仍从服务器两原仓原地复用、主线直接归档。
+新msprof/CANN/310P采集NOT_RUN，不能因CPU/代码完成宣称实机或性能GO。
+
+最终CPU验证：529项及36子测试通过，其中L1为106项（本轮新增32项）。实际msprof/CANN/310P捕获仍NOT_RUN。

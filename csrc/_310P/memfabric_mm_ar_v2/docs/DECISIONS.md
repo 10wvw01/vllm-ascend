@@ -399,3 +399,16 @@ V4默认ready+有界steady，N表示调用总数，B2/工作集4；保留所有�
 公共入口、时钟/预热/漂移和不确定性都要满足才谈L1收益，不外推Qwen TTFT。
 完整矩阵保留、精确--cases显式定点迭代；快速shared/两原仓/主线归档/首错STOP继续有效。
 无新设备证据，须新桥/公开入口实际编译和双Rank短测后重新freeze，不把旧C ABI Smoke或历史成绩当作新入口PASS。
+
+## ADR-045｜官方msprof独立入口与显式关联的统一时间线
+
+2026-10-31，按用户要求补齐官方采集/时间线分析。
+collection msprof进入原off-before→诊断→off-after计划，逐Rank CLI通过exec继承原进程组，互斥于Torch Profiler。
+help/版本/明确依赖SHA和选项冻结，禁止参数覆盖应用/设备/输出/时间范围；工具/权限/产品支持须现场短测。
+Torch以CPU range、msprof以MSTX标正式组；CLI全进程原始数据保留，派生分析严格限定正式组，路由在导出后逐窗验证。
+只用导出flow ID/作用域/唯一事件建立关联，缺失/重复标UNKNOWN，不按时间接近猜测；各导出/Rank不擅自拼时钟。
+任务并集与Stream可见空档、提交/队列flow、可见计算/通信任务包络交集统一输出。
+通信包络可能含等待，不宣称真实搬运交叠；融合核内部阶段和SDMA链路占用缺证据继续UNKNOWN。
+跨窗持久AICPU任务单列，避免把进程寿命当算子时长。原应用报告/导出保留SHA，增强报告不覆盖原件。
+默认off计划、公开Tensor合同、MM/通信Kernel、Serving、SDK分支及shared/exclusive规则不变，不自动追加NPU诊断。
+本地只CPU/官方格式合成与真实CPU Torch导出，实际msprof/310P仍NOT_RUN，不凭工具补齐签性能/生产GO。

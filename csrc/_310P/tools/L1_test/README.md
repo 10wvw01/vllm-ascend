@@ -94,8 +94,8 @@ MemFabric V2/V3同源码分支；SDK兼容须分别构建/短测，不把旧SO�
 
 ## 共用采集与结果
 
-`--collection off`测性能；host/profiler生成off-before→诊断→off-after，各臂次数相同。
-Profiler只包执行组，状态/数值/下游检查在捕获外。Host完整调用和A2/A3细分阶段均保留；
+`--collection off`测性能；host/profiler/msprof生成off-before→诊断→off-after，各臂次数相同。
+Torch Profiler只包执行组；独立msprof采整个应用，统一分析用正式组标记排除冷态/预热/检查。Host完整调用和A2/A3细分阶段均保留；
 旧版本缺细分为UNKNOWN。MAC/Scalar/MTE/Vector管线计数可重叠，不能相加凑100%，
 Scalar不等于wait。设备MM/等待/SDMA精确分段无可靠时钟时明确UNKNOWN。
 
@@ -112,3 +112,15 @@ PYTHONPATH=csrc/_310P/tools python -m L1_test.evidence
 
 CPU测试包括真实CPU Torch dispatcher、假会话/生命周期、统计负例；CPU环境需PyTorch。
 35份VN-M文档位于各版本docs/versions，入口为各`docs/VERSION_INDEX.md`。
+
+
+## 官方msprof与统一时间线
+
+已补`--collection msprof`、`msprof-probe`、`freeze --msprof-tool`及`timeline`离线入口。
+每Rank CLI互斥于Torch Profiler，沿用同一TP2守护和off-before/diagnostic/off-after；
+工具help/版本/明确依赖SHA及实际选项冻结，不直接套另一CANN版本的参数。
+两种入口都按正式组标记解析官方Chrome时间线，输出Host→Device/队列关联、任务并集、
+Stream可见空档和计算/通信任务包络交叠；按显式flow ID关联，缺数据UNKNOWN，不时间最近邻配对。
+可见空档不等于硬件空闲，通信包络可能包含等待，融合核内部MM/SDMA交叠和真实链路占用仍不能从总时长推算。
+跨窗口持久AICPU任务单列，不把进程寿命当一次算子耗时。原始数据及应用报告保留SHA，不覆盖。
+详细命令、证据解释与官方来源见[PROFILING.md](PROFILING.md)。当前新CLI/310P采集仍NOT_RUN，CPU通过不替代现场短测。

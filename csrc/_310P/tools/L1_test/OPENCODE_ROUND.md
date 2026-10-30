@@ -138,3 +138,16 @@ csrc/_310P/tools/L1_test/experiments/<run_id>，不删旧目录。
 shared、W2/N10/R1、collection off，允许其他进程及漂移；保留健康/数值/协议门禁，首错STOP。
 V1不测，不自动追加独占轮或Profiler。回传双Rank原件、summary、失败清单、两仓/SDK/SO身份和目录清单，
 代码修复及实验归档直接提交上述主线；shared耗时仅作观察，不签正式性能结论。
+
+
+## 2026-10-31新增：官方诊断入口
+
+本次代码补齐独立msprof和统一时间线；前文默认shared/off完整43组不自动变成510场诊断。
+明确执行诊断时按[PROFILING.md](PROFILING.md)的原仓内部目录/探测/冻结流程操作：
+可明确选择三A3 c512/g1024，M2048/4096，shared W2/N10/R1，collection msprof；
+三配置共36场TP2（各Stock ABBA×off-before/msprof/off-after），与快速off结果分目录归档。
+先核新公开Tensor入口的原准入，再核msprof实际help、版本、依赖/参数及双Rank捕获形态；
+缺MSTX/Chrome导出/实际路由或数值/协议失败STOP。不能同时外套msprof又启用torch_npu.profiler。
+派生分析按正式组标记过滤；保留全进程原始采集、原rank报告和增强报告，以及timeline-rank JSON/CSV。
+不要把任务空档当硬件空闲、把通信包络重叠当真实数据搬运重叠、把Scalar时间当精确wait。
+无核内边界/可靠链路证据的部分保持UNKNOWN。代码与CPU已准备，新官方CLI/CANN/310P采集仍NOT_RUN。
