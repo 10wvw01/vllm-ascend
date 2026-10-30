@@ -68,7 +68,7 @@ def test_markers_own_execution_only_and_mstx_failure_is_terminal(monkeypatch):
             if self.fail:return None
             calls.append('start');return 0x10
         def mstxRangeEnd(self,token):
-            assert token==0x10;calls.append('end')
+            assert getattr(token,'value',token)==0x10;calls.append('end')
     monkeypatch.setattr(profile_windows,'_MSTX_LIB',None)
     monkeypatch.setattr(profile_windows,'_mstx_lib',lambda:FakeLib())
     with marked_range('label','msprof',None):calls.append('operator_and_join')
