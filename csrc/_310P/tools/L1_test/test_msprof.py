@@ -13,6 +13,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
 from L1_test.profiler_tool import probe,validate_tool,command
 from L1_test.profile_collect import collect_external,expected_windows,load_reports
 from L1_test.profile_windows import marked_range
+from L1_test import profile_windows
 from L1_test.core import make_plan,sha
 from L1_test.testing import reports
 
@@ -61,14 +62,20 @@ def test_unsupported_options_and_capture_scope_overrides_rejected(tmp_path,optio
 
 def test_markers_own_execution_only_and_mstx_failure_is_terminal(monkeypatch):
     calls=[]
-    mstx=SimpleNamespace(range_start=lambda name:calls.append('start') or 1,
-                         range_end=lambda token:calls.append('end'))
-    monkeypatch.setitem(sys.modules,'torch_npu.npu.mstx',SimpleNamespace(mstx=mstx))
+    class FakeLib:
+        def __init__(self,fail=False):self.fail=fail
+        def mstxRangeStartA(self,message,stream):
+            if self.fail:return None
+            calls.append('start');return 0x10
+        def mstxRangeEnd(self,token):
+            assert token==0x10;calls.append('end')
+    monkeypatch.setattr(profile_windows,'_MSTX_LIB',None)
+    monkeypatch.setattr(profile_windows,'_mstx_lib',lambda:FakeLib())
     with marked_range('label','msprof',None):calls.append('operator_and_join')
     calls.append('status_and_numeric')
     assert calls==['start','operator_and_join','end','status_and_numeric']
-    mstx.range_start=lambda name:0
-    with pytest.raises(RuntimeError,match='MSTX'): 
+    monkeypatch.setattr(profile_windows,'_mstx_lib',lambda:FakeLib(fail=True))
+    with pytest.raises(RuntimeError,match='MSTX'):
         with marked_range('label','msprof',None):pytest.fail('must not execute')
 
 
