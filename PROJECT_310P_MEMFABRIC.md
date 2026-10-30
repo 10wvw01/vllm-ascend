@@ -1,5 +1,7 @@
 # 310P3 单卡双 Die MM + MemFabric AllReduce 融合算子｜项目唯一入口
 
+> **2026-10-31｜L1定点验证轮完成（OBSERVATIONAL_SHARED）：新公共Tensor入口与统一计时全链路验证PASS，msprof诊断在候选臂发现CANN×MemFabric建池互斥STOP。** 快测6组22场全PASS（Stock/V2-7/V2-15/V3-5/6/7，卡38144 shared W2/N10/R1）：全部候选慢于同批Stock（V2-15≈0.91、V3-5/6 M4096≈0.83-0.84、V3-7≈0.57-0.69），与历史"接口成本为主因"方向一致，不签收益（shared/R1）。4个执行BUG修复已入主线（PYTHONPATH保留、模板STOCK runtime、MSTX改C API等）。msprof链路对Stock全通（20窗口route_verified+timeline导出）；**V2/V3候选场因MemFabric建池后msprof设备侧任务采集停止而按合同STOP**（隔离定界：排除fork+exec助手/aicpu开关/aic-mode；直调核与Stock对照正常；MemFabric锁定db38d75e，需研发侧决策），设备内部阶段/SDMA链路证据保持UNKNOWN。完整报告与原件：[L1_ROUND_REPORT_20261031.md](csrc/_310P/tools/L1_test/experiments/L1_ROUND_REPORT_20261031.md)及同目录三个run子目录。
+
 > **2026-10-31｜官方Profiler缺口已补：** L1_test新增独立msprof采集、工具/能力冻结，以及正式窗口的Host→Device/Stream时间线分析；与torch_npu.profiler互斥，保留前后无采集对照。流程与限制见[PROFILING.md](csrc/_310P/tools/L1_test/PROFILING.md)。CPU/合成导出验证不等于310P实机通过；新CLI设备采集仍NOT_RUN，默认off计划不自动扩为诊断。
 
 

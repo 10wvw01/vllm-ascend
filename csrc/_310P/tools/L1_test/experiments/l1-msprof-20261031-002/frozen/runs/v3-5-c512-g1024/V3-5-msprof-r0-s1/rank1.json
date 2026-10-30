@@ -1,0 +1,1000 @@
+{
+  "contract": "L1_TENSOR_IO_V4",
+  "plan": {
+    "contract": "L1_TENSOR_IO_V4",
+    "W": 2,
+    "N": 10,
+    "R": 1,
+    "mode": "shared",
+    "scenarios": [
+      "ready",
+      "steady"
+    ],
+    "M": [
+      2048,
+      4096
+    ],
+    "collection": "msprof",
+    "stages": [
+      "off-before",
+      "msprof",
+      "off-after"
+    ],
+    "drift_limit": 0.05,
+    "versions": [
+      "V3-5"
+    ],
+    "jobs": [
+      {
+        "id": "V3-5-off-before-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-msprof-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-off-after-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off-after"
+      }
+    ],
+    "consumer": "residual_add_fp16_ND",
+    "seed": 4242,
+    "consumer_validation": "untimed_immediate_same_stream_before_after",
+    "batch_size": 2,
+    "working_set": 4,
+    "gate_variants": 4,
+    "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+    "output_retention": "all_group_outputs_until_completion",
+    "paired_samples_per_arm_per_case_per_stage": 20,
+    "paired_units_per_arm": {
+      "ready": 20,
+      "steady": 10
+    },
+    "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+  },
+  "job": {
+    "id": "V3-5-msprof-r0-s1",
+    "candidate": "V3-5",
+    "block": 0,
+    "slot": 1,
+    "version": "V3-5",
+    "stage": "msprof"
+  },
+  "rank": 1,
+  "status": "PASS",
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 1,
+          "wall_us": 2278.42,
+          "event_us": 2203.099012374878,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 1,
+          "calls": 1,
+          "wall_us": 1743.83,
+          "event_us": 1647.655963897705,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 1,
+          "wall_us": 1691.47,
+          "event_us": 1623.358964920044,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 3,
+          "calls": 1,
+          "wall_us": 1731.81,
+          "event_us": 1637.4479532241821,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 1,
+          "wall_us": 1592.25,
+          "event_us": 1517.3439979553223,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 5,
+          "calls": 1,
+          "wall_us": 1591.3,
+          "event_us": 1494.1140413284302,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 1,
+          "wall_us": 1617.5,
+          "event_us": 1538.854956626892,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 7,
+          "calls": 1,
+          "wall_us": 1716.07,
+          "event_us": 1630.9109926223755,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 1,
+          "wall_us": 1600.35,
+          "event_us": 1529.088020324707,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 9,
+          "calls": 1,
+          "wall_us": 1594.89,
+          "event_us": 1481.7450046539307,
+          "variants": [
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 133.81416666666667,
+        "event_us": 8.682833125628045,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 250.84,
+            "event_us": 33.48999843001366
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 112.51,
+            "event_us": 33.09899941086769
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 120.28,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 127.44,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 140.95,
+            "event_us": 36.9269996881485
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 108.91,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 123.62,
+            "event_us": 0.05199999941396527
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 127.05,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 124.78,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 126.51,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 123.5,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 119.38,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 2
+      },
+      "timer_overhead_ratio": 0.07798987326918792
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 2,
+          "wall_us": 3058.75,
+          "event_us": 2982.6560020446777,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 2,
+          "wall_us": 3195.15,
+          "event_us": 3114.0620708465576,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 2,
+          "wall_us": 2960.67,
+          "event_us": 2867.8390979766846,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 2,
+          "wall_us": 3149.72,
+          "event_us": 3073.568105697632,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 2,
+          "wall_us": 2901.71,
+          "event_us": 2825.9899616241455,
+          "variants": [
+            0,
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 63.85,
+        "event_us": 0.03899999865097925,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 114.06,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 135.12,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 131.23,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 126.98,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 129.19,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 129.62,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 1
+      },
+      "timer_overhead_ratio": 0.04182497052273025
+    },
+    {
+      "M": 4096,
+      "scenario": "ready",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 1,
+          "wall_us": 2640.68,
+          "event_us": 2563.620090484619,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 1,
+          "calls": 1,
+          "wall_us": 2750.18,
+          "event_us": 2651.5889167785645,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 1,
+          "wall_us": 2587.42,
+          "event_us": 2511.6660594940186,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 3,
+          "calls": 1,
+          "wall_us": 2556.42,
+          "event_us": 2454.582929611206,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 1,
+          "wall_us": 2535.59,
+          "event_us": 2458.3070278167725,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 5,
+          "calls": 1,
+          "wall_us": 2716.75,
+          "event_us": 2623.307943344116,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 1,
+          "wall_us": 2737.46,
+          "event_us": 2652.4739265441895,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 7,
+          "calls": 1,
+          "wall_us": 2499.07,
+          "event_us": 2410.4690551757812,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 1,
+          "wall_us": 2586.27,
+          "event_us": 2514.167070388794,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 9,
+          "calls": 1,
+          "wall_us": 2551.32,
+          "event_us": 2454.530954360962,
+          "variants": [
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 133.81416666666667,
+        "event_us": 8.682833125628045,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 250.84,
+            "event_us": 33.48999843001366
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 112.51,
+            "event_us": 33.09899941086769
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 120.28,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 127.44,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 140.95,
+            "event_us": 36.9269996881485
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 108.91,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 123.62,
+            "event_us": 0.05199999941396527
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 127.05,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 124.78,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 126.51,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 123.5,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 119.38,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 67108864,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 2
+      },
+      "timer_overhead_ratio": 0.051149936266842395
+    },
+    {
+      "M": 4096,
+      "scenario": "steady",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 2,
+          "wall_us": 4730.62,
+          "event_us": 4645.079135894775,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 2,
+          "wall_us": 4766.2,
+          "event_us": 4687.942028045654,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 2,
+          "wall_us": 4794.96,
+          "event_us": 4710.2861404418945,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 2,
+          "wall_us": 4796.26,
+          "event_us": 4713.020801544189,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 2,
+          "wall_us": 4814.96,
+          "event_us": 4735.806941986084,
+          "variants": [
+            0,
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 63.85,
+        "event_us": 0.03899999865097925,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 114.06,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 135.12,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 131.23,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 126.98,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 129.19,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 129.62,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 67108864,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 1
+      },
+      "timer_overhead_ratio": 0.02671212818474668
+    }
+  ],
+  "runtime_identity": {
+    "version": "V3-5",
+    "source_head": "c0f75b2d369c0f897d204ae09430e5b642f2500b",
+    "environment": {
+      "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+      "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+      "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+      "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+    },
+    "api": "python_session_v1",
+    "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+    "supported_M": [
+      2048,
+      4096
+    ],
+    "route_pattern": "A3Kernel",
+    "python_modules": {
+      "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+      "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+    },
+    "files": {
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so": "c31aaa804b196fb2df904898c0942083833de9d24008fd3613d29b1bbfec2d4d",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so": "23649cebcddf712eae1ccf99139996f43ca8a097ee5528a1fbbd22e88e292a2c",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "fee6ca04c7efe5908318112446575de7c58cc0b4203b3172fc7c81e9766e7513",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py": "441345ff515b1ac51417a5b58128a668316593ce7d7d47de5e274c2d38ab3b0f",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "b66037accdfa3313b83a464e0f9f264d0505dbc04d381d0fa2ef565224101067",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "a27437858e0ab26642066498d06c6327e9d22e63b1551f2c82751deb6ba1cae2",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so": "094afddaee3baedb868281692ab48949e87e370e9c4e9ccc273b44d2e1409b9d",
+      "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+      "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py": "b33add0e07c0b3dfbe5b9fd5bb345cf0ad7f6e5574f6f25b7bbdb8bf25299775"
+    },
+    "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+    "config": {
+      "compute_rows": 512,
+      "comm_rows": 1024,
+      "packet_bytes": 4194304
+    }
+  },
+  "route": {
+    "verified": false,
+    "cases": [],
+    "source": "pending_external_export"
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+    "output_storage": "operator_owned_tensor_lease",
+    "max_retained_calls": 2,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "submission_validation": {
+    "status": "PASS",
+    "timed": false,
+    "cases": [
+      {
+        "M": 2048,
+        "calls": 2,
+        "correct": true,
+        "disjoint": true
+      },
+      {
+        "M": 4096,
+        "calls": 2,
+        "correct": true,
+        "disjoint": true
+      }
+    ]
+  },
+  "downstream_validation": {
+    "status": "PASS",
+    "timed": false,
+    "same_stream": true,
+    "cases": [
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 3,
+        "correct": true
+      }
+    ]
+  },
+  "profile_windows": [
+    "L1/V3-5-msprof-r0-s1/r1/m2048/ready/i0/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/ready/i2/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/ready/i4/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/ready/i6/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/ready/i8/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/steady/i0/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/steady/i2/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/steady/i4/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/steady/i6/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m2048/steady/i8/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/ready/i0/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/ready/i2/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/ready/i4/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/ready/i6/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/ready/i8/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/steady/i0/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/steady/i2/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/steady/i4/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/steady/i6/n2",
+    "L1/V3-5-msprof-r0-s1/r1/m4096/steady/i8/n2"
+  ],
+  "mapped_libraries": [
+    "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+    "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so"
+  ],
+  "runtime": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "physical_device": 5
+  },
+  "cold_setup_us": 38264691.94,
+  "capabilities": {
+    "version": "V3-5",
+    "collection": "msprof",
+    "wall": true,
+    "event": true,
+    "downstream": true,
+    "downstream_timing": false,
+    "host_call_total": false,
+    "timeline": true,
+    "host_detail_phases": false,
+    "device_phase_wall": false,
+    "sdma_link_occupancy": false,
+    "reason": "310P3 dav-2002 existing AICore clock is unavailable; no synthetic phase durations"
+  }
+}

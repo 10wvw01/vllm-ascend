@@ -1,0 +1,122 @@
+{
+  "M": 2048,
+  "scenario": "ready",
+  "warmup_count": 2,
+  "samples": [
+    {
+      "i": 0,
+      "calls": 1,
+      "wall_us": 1873.83,
+      "event_us": 1805.677056312561,
+      "variants": [
+        0
+      ]
+    },
+    {
+      "i": 1,
+      "calls": 1,
+      "wall_us": 1723.4,
+      "event_us": 1613.306999206543,
+      "variants": [
+        1
+      ]
+    }
+  ],
+  "host_blocks": [],
+  "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+  "calibration": {
+    "wall_us": 127.2975,
+    "event_us": 10.74866689790118,
+    "raw_units": [
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 291.44,
+        "event_us": 35.20800173282623
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 99.11,
+        "event_us": 33.4630012512207
+      },
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 105.7,
+        "event_us": 0.15700000221841037
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 126.61,
+        "event_us": 0.13000000035390258
+      },
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 110.9,
+        "event_us": 0.13000000035390258
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 117.62,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 119.33,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 111.58,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 109.46,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 112.21,
+        "event_us": 0.15700000221841037
+      },
+      {
+        "i": 0,
+        "calls": 1,
+        "wall_us": 108.4,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 1,
+        "calls": 1,
+        "wall_us": 115.21,
+        "event_us": 58.958999812603
+      }
+    ],
+    "subtracted": false
+  },
+  "working_set": {
+    "inputs": 4,
+    "weight_sets": 1,
+    "input_bytes": 33554432,
+    "weight_bytes": 8388608,
+    "cache_flush": false
+  },
+  "validation": {
+    "status": "PASS",
+    "scope": "pre_post_and_last_group"
+  },
+  "warmup": {
+    "status": "UNVERIFIED_SHORT_WARMUP",
+    "samples": 2
+  },
+  "timer_overhead_ratio": 0.07077529098778783
+}

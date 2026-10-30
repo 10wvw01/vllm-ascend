@@ -1,0 +1,579 @@
+{
+  "contract": "L1_TENSOR_IO_V4",
+  "plan": {
+    "contract": "L1_TENSOR_IO_V4",
+    "W": 2,
+    "N": 10,
+    "R": 1,
+    "mode": "shared",
+    "scenarios": [
+      "ready",
+      "steady"
+    ],
+    "M": [
+      2048
+    ],
+    "collection": "off",
+    "stages": [
+      "off"
+    ],
+    "drift_limit": 0.05,
+    "versions": [
+      "V2-7"
+    ],
+    "jobs": [
+      {
+        "id": "V2-7-off-r0-s0",
+        "candidate": "V2-7",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off"
+      },
+      {
+        "id": "V2-7-off-r0-s1",
+        "candidate": "V2-7",
+        "block": 0,
+        "slot": 1,
+        "version": "V2-7",
+        "stage": "off"
+      },
+      {
+        "id": "V2-7-off-r0-s2",
+        "candidate": "V2-7",
+        "block": 0,
+        "slot": 2,
+        "version": "V2-7",
+        "stage": "off"
+      },
+      {
+        "id": "V2-7-off-r0-s3",
+        "candidate": "V2-7",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off"
+      }
+    ],
+    "consumer": "residual_add_fp16_ND",
+    "seed": 4242,
+    "consumer_validation": "untimed_immediate_same_stream_before_after",
+    "batch_size": 2,
+    "working_set": 4,
+    "gate_variants": 4,
+    "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+    "output_retention": "all_group_outputs_until_completion",
+    "paired_samples_per_arm_per_case_per_stage": 20,
+    "paired_units_per_arm": {
+      "ready": 20,
+      "steady": 10
+    },
+    "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+  },
+  "job": {
+    "id": "V2-7-off-r0-s0",
+    "candidate": "V2-7",
+    "block": 0,
+    "slot": 0,
+    "version": "STOCK",
+    "stage": "off"
+  },
+  "rank": 0,
+  "status": "PASS",
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 1,
+          "wall_us": 1142.9,
+          "event_us": 1063.7240409851074,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 1,
+          "calls": 1,
+          "wall_us": 1155.52,
+          "event_us": 1067.5779581069946,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 1,
+          "wall_us": 1127.18,
+          "event_us": 1065.2860403060913,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 3,
+          "calls": 1,
+          "wall_us": 1161.21,
+          "event_us": 1072.6300477981567,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 1,
+          "wall_us": 1129.09,
+          "event_us": 1061.823010444641,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 5,
+          "calls": 1,
+          "wall_us": 1152.58,
+          "event_us": 1063.359022140503,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 1,
+          "wall_us": 1138.01,
+          "event_us": 1067.186951637268,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 7,
+          "calls": 1,
+          "wall_us": 1159.39,
+          "event_us": 1059.8440170288086,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 1,
+          "wall_us": 1123.61,
+          "event_us": 1059.7660541534424,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 9,
+          "calls": 1,
+          "wall_us": 1121.05,
+          "event_us": 1020.9380388259888,
+          "variants": [
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 136.01833333333335,
+        "event_us": 5.742166877704828,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 362.97,
+            "event_us": 34.818001091480255
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 115.28,
+            "event_us": 32.604001462459564
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 102.92,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 113.89,
+            "event_us": 0.15700000221841037
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 115.63,
+            "event_us": 0.13000000035390258
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 116.22,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 124.19,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 113.86,
+            "event_us": 0.13000000035390258
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 119.56,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 121.42,
+            "event_us": 0.13000000035390258
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 108.02,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 118.26,
+            "event_us": 0.15700000221841037
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 2
+      },
+      "timer_overhead_ratio": 0.11920411596062354
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 2,
+          "wall_us": 2168.05,
+          "event_us": 2081.5889835357666,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 2,
+          "wall_us": 2213.92,
+          "event_us": 2132.7080726623535,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 2,
+          "wall_us": 2160.65,
+          "event_us": 2092.0569896698,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 2,
+          "wall_us": 2115.32,
+          "event_us": 2041.7439937591553,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 2,
+          "wall_us": 2103.13,
+          "event_us": 2024.8439311981201,
+          "variants": [
+            0,
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 54.03333333333333,
+        "event_us": 12.2634995811192,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 92.44,
+            "event_us": 34.21799838542938
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 96.87,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 122.01,
+            "event_us": 58.61999839544296
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 110.96,
+            "event_us": 53.85499820113182
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 104.25,
+            "event_us": 0.155999994603917
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 121.87,
+            "event_us": 0.15700000221841037
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 1
+      },
+      "timer_overhead_ratio": 0.05021185935351534
+    }
+  ],
+  "runtime_identity": {
+    "version": "STOCK",
+    "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "environment": {},
+    "files": {
+      "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so": "83fb9a0eb249aef6bca7f8463047fcb4d3062cc4849f17ddf31a5e050c838842"
+    }
+  },
+  "route": {
+    "verified": true,
+    "cases": [
+      {
+        "M": 2048,
+        "kernel_statistics": [
+          {
+            "source": "qwen-test_98789_20261030190422081_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "name": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+            "n": 1,
+            "mean_us": 401.029,
+            "p50_us": 401.029,
+            "p90_us": 401.029,
+            "p99_us": 401.029,
+            "std_us": 0.0,
+            "min_us": 401.029,
+            "max_us": 401.029
+          },
+          {
+            "source": "qwen-test_98789_20261030190422081_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "name": "hcom_allReduce__612_0_1",
+            "n": 1,
+            "mean_us": 572.582,
+            "p50_us": 572.582,
+            "p90_us": 572.582,
+            "p99_us": 572.582,
+            "std_us": 0.0,
+            "min_us": 572.582,
+            "max_us": 572.582
+          }
+        ],
+        "verified": true,
+        "files": {
+          "qwen-test_98789_20261030190422081_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": "878d37db544ef704a25a226770609b66246697e4ceab75518c61d6b7d501fbbe"
+        },
+        "rows": [
+          {
+            "name": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+            "duration_us": 401.029,
+            "task_type": null,
+            "source": "qwen-test_98789_20261030190422081_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "raw": {
+              "Device_id": "4",
+              "Name": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3",
+              "Type": "N/A",
+              "Accelerator Core": "N/A",
+              "Start Time(us)": "1793387062157710.360\t",
+              "Duration(us)": "401.029",
+              "Wait Time(us)": "0",
+              "Block Num": "8"
+            }
+          },
+          {
+            "name": "hcom_allReduce__612_0_1",
+            "duration_us": 572.582,
+            "task_type": null,
+            "source": "qwen-test_98789_20261030190422081_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "raw": {
+              "Device_id": "4",
+              "Name": "hcom_allReduce__612_0_1",
+              "Type": "N/A",
+              "Accelerator Core": "COMMUNICATION",
+              "Start Time(us)": "1793387062158192.295\t",
+              "Duration(us)": "572.582",
+              "Wait Time(us)": "80.907",
+              "Block Num": "0"
+            }
+          }
+        ],
+        "warning": "Kernel durations and per-pipe busy counters overlap; not exclusive MM/wait/SDMA phases."
+      }
+    ],
+    "source": "torch_profiler_route_gate"
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "F.linear+HCCL",
+    "output_storage": "framework_allocation_per_call",
+    "max_retained_calls": 32,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "BACKEND_MANAGED",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "submission_validation": {
+    "status": "PASS",
+    "timed": false,
+    "cases": [
+      {
+        "M": 2048,
+        "calls": 2,
+        "correct": true,
+        "disjoint": true
+      }
+    ]
+  },
+  "downstream_validation": {
+    "status": "PASS",
+    "timed": false,
+    "same_stream": true,
+    "cases": [
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      }
+    ]
+  },
+  "profile_windows": [],
+  "mapped_libraries": [],
+  "runtime": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "physical_device": 4
+  },
+  "cold_setup_us": 5770502.09,
+  "capabilities": {
+    "version": "STOCK",
+    "collection": "off",
+    "wall": true,
+    "event": true,
+    "downstream": true,
+    "downstream_timing": false,
+    "host_call_total": false,
+    "timeline": false,
+    "host_detail_phases": false,
+    "device_phase_wall": false,
+    "sdma_link_occupancy": false,
+    "reason": "310P3 dav-2002 existing AICore clock is unavailable; no synthetic phase durations"
+  }
+}

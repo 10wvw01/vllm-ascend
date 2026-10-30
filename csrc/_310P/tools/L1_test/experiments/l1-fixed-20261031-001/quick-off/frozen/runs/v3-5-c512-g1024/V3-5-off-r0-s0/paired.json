@@ -1,0 +1,293 @@
+{
+  "job": {
+    "id": "V3-5-off-r0-s0",
+    "candidate": "V3-5",
+    "block": 0,
+    "slot": 0,
+    "version": "STOCK",
+    "stage": "off"
+  },
+  "runtime_identity": {
+    "version": "STOCK",
+    "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "environment": {},
+    "files": {
+      "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so": "83fb9a0eb249aef6bca7f8463047fcb4d3062cc4849f17ddf31a5e050c838842"
+    }
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "F.linear+HCCL",
+    "output_storage": "framework_allocation_per_call",
+    "max_retained_calls": 32,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "BACKEND_MANAGED",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          1148.19,
+          1152.12,
+          1129.77,
+          1185.47,
+          1140.33,
+          1160.63,
+          1143.74,
+          1153.57,
+          1139.16,
+          1180.01
+        ],
+        "event_us": [
+          1071.7450380325317,
+          1057.629942893982,
+          1053.333044052124,
+          1053.4119606018066,
+          1062.6300573349,
+          1064.869999885559,
+          1061.2499713897705,
+          1056.249976158142,
+          1062.2650384902954,
+          1076.693058013916
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 1153.299,
+          "p50_us": 1150.155,
+          "p90_us": 1180.556,
+          "p99_us": 1184.9786,
+          "std_us": 16.860765967179553,
+          "min_us": 1129.77,
+          "max_us": 1185.47,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 1062.0078086853027,
+          "p50_us": 1061.757504940033,
+          "p90_us": 1072.2398400306702,
+          "p99_us": 1076.2477362155914,
+          "std_us": 7.219061501366634,
+          "min_us": 1053.333044052124,
+          "max_us": 1076.693058013916,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.12210514095062235,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          1077.41,
+          1078.555,
+          1073.62,
+          1062.775,
+          1081.95
+        ],
+        "event_us": [
+          1042.5909757614136,
+          1042.122483253479,
+          1038.1250381469727,
+          1025.66397190094,
+          1039.4010543823242
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 1074.862,
+          "p50_us": 1077.41,
+          "p90_us": 1080.592,
+          "p99_us": 1081.8142,
+          "std_us": 6.603157275122252,
+          "min_us": 1062.775,
+          "max_us": 1081.95,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 1037.5807046890259,
+          "p50_us": 1039.4010543823242,
+          "p90_us": 1042.4035787582397,
+          "p99_us": 1042.5722360610962,
+          "std_us": 6.186259952658067,
+          "min_us": 1025.66397190094,
+          "max_us": 1042.5909757614136,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.054334882059278305,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 4096,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          2146.21,
+          2126.92,
+          2096.74,
+          2099.23,
+          2076.94,
+          2102.44,
+          2104.33,
+          2133.1,
+          2090.2,
+          2130.97
+        ],
+        "event_us": [
+          2071.8228816986084,
+          2038.228988647461,
+          2031.0940742492676,
+          2003.5159587860107,
+          2001.6670227050781,
+          2004.9738883972168,
+          2019.6619033813477,
+          2033.8540077209473,
+          2013.411045074463,
+          2035.0520610809326
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 2110.7079999999996,
+          "p50_us": 2103.385,
+          "p90_us": 2134.411,
+          "p99_us": 2145.0301,
+          "std_us": 21.0521147631301,
+          "min_us": 2076.94,
+          "max_us": 2146.21,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 2025.3281831741333,
+          "p50_us": 2025.3779888153076,
+          "p90_us": 2041.5883779525757,
+          "p99_us": 2068.799431324005,
+          "std_us": 20.378230121688,
+          "min_us": 2001.6670227050781,
+          "max_us": 2071.8228816986084,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.06674077340981062,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 4096,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          2027.065,
+          2020.725,
+          2030.84,
+          2025.045,
+          2021.45
+        ],
+        "event_us": [
+          1979.062557220459,
+          1977.3180484771729,
+          1993.046522140503,
+          1985.755443572998,
+          1972.3174571990967
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 2025.025,
+          "p50_us": 2025.045,
+          "p90_us": 2029.33,
+          "p99_us": 2030.6889999999999,
+          "std_us": 3.721474170271768,
+          "min_us": 2020.725,
+          "max_us": 2030.84,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 1981.500005722046,
+          "p50_us": 1979.062557220459,
+          "p90_us": 1990.130090713501,
+          "p99_us": 1992.7548789978027,
+          "std_us": 7.199720990110177,
+          "min_us": 1972.3174571990967,
+          "max_us": 1993.046522140503,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.02892081927589132,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    }
+  ]
+}

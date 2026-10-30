@@ -1,0 +1,118 @@
+{
+  "M": 2048,
+  "scenario": "steady",
+  "warmup_count": 2,
+  "samples": [
+    {
+      "i": 0,
+      "calls": 2,
+      "wall_us": 2201.65,
+      "event_us": 2117.863893508911,
+      "variants": [
+        0,
+        1
+      ]
+    },
+    {
+      "i": 2,
+      "calls": 2,
+      "wall_us": 2238.6,
+      "event_us": 2142.4739360809326,
+      "variants": [
+        2,
+        3
+      ]
+    },
+    {
+      "i": 4,
+      "calls": 2,
+      "wall_us": 2212.64,
+      "event_us": 2128.07297706604,
+      "variants": [
+        0,
+        1
+      ]
+    },
+    {
+      "i": 6,
+      "calls": 2,
+      "wall_us": 2219.81,
+      "event_us": 2135.3909969329834,
+      "variants": [
+        2,
+        3
+      ]
+    },
+    {
+      "i": 8,
+      "calls": 2,
+      "wall_us": 2203.02,
+      "event_us": 2120.4171180725098,
+      "variants": [
+        0,
+        1
+      ]
+    }
+  ],
+  "host_blocks": [],
+  "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+  "calibration": {
+    "wall_us": 54.781666666666666,
+    "event_us": 0.07591666508233175,
+    "raw_units": [
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 92.02,
+        "event_us": 0.13000000035390258
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 103.53,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 104.48,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 114.15,
+        "event_us": 0.15700000221841037
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 117.64,
+        "event_us": 0.155999994603917
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 125.56,
+        "event_us": 0.155999994603917
+      }
+    ],
+    "subtracted": false
+  },
+  "working_set": {
+    "inputs": 4,
+    "weight_sets": 1,
+    "input_bytes": 33554432,
+    "weight_bytes": 8388608,
+    "cache_flush": false
+  },
+  "validation": {
+    "status": "PASS",
+    "scope": "pre_post_and_last_group"
+  },
+  "warmup": {
+    "status": "UNVERIFIED_SHORT_WARMUP",
+    "samples": 1
+  },
+  "timer_overhead_ratio": 0.04946104331516748
+}

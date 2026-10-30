@@ -1,0 +1,324 @@
+{
+  "job": {
+    "id": "V3-7-off-r0-s1",
+    "candidate": "V3-7",
+    "block": 0,
+    "slot": 1,
+    "version": "V3-7",
+    "stage": "off"
+  },
+  "runtime_identity": {
+    "version": "V3-7",
+    "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "environment": {
+      "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+      "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+      "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+      "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+    },
+    "api": "python_session_v1",
+    "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+    "supported_M": [
+      2048,
+      4096
+    ],
+    "route_pattern": "A3SeatKernel",
+    "python_modules": {
+      "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+      "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+    },
+    "files": {
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so": "c31aaa804b196fb2df904898c0942083833de9d24008fd3613d29b1bbfec2d4d",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so": "23649cebcddf712eae1ccf99139996f43ca8a097ee5528a1fbbd22e88e292a2c",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "fee6ca04c7efe5908318112446575de7c58cc0b4203b3172fc7c81e9766e7513",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py": "441345ff515b1ac51417a5b58128a668316593ce7d7d47de5e274c2d38ab3b0f",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "b66037accdfa3313b83a464e0f9f264d0505dbc04d381d0fa2ef565224101067",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "a27437858e0ab26642066498d06c6327e9d22e63b1551f2c82751deb6ba1cae2",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so": "094afddaee3baedb868281692ab48949e87e370e9c4e9ccc273b44d2e1409b9d",
+      "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+      "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py": "b33add0e07c0b3dfbe5b9fd5bb345cf0ad7f6e5574f6f25b7bbdb8bf25299775"
+    },
+    "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+    "config": {
+      "compute_rows": 512,
+      "comm_rows": 1024,
+      "packet_bytes": 4194304
+    }
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+    "output_storage": "operator_owned_tensor_lease",
+    "max_retained_calls": 2,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          2212.8,
+          2169.13,
+          2025.72,
+          1994.8,
+          2065.13,
+          2053.94,
+          1906.99,
+          2035.75,
+          1911.21,
+          1886.54
+        ],
+        "event_us": [
+          2133.384943008423,
+          2075.650930404663,
+          1931.22398853302,
+          1887.1359825134277,
+          1980.4949760437012,
+          1950.9379863739014,
+          1820.363998413086,
+          1933.0470561981201,
+          1829.584002494812,
+          1789.16597366333
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 2026.2010000000002,
+          "p50_us": 2030.7350000000001,
+          "p90_us": 2173.4970000000003,
+          "p99_us": 2208.8697,
+          "std_us": 102.73734963001533,
+          "min_us": 1886.54,
+          "max_us": 2212.8,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 1933.0989837646484,
+          "p50_us": 1932.13552236557,
+          "p90_us": 2081.424331665039,
+          "p99_us": 2128.1888818740845,
+          "std_us": 104.52630698212471,
+          "min_us": 1789.16597366333,
+          "max_us": 2133.384943008423,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.07661413813349316,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          1863.96,
+          1811.36,
+          1819.93,
+          1884.755,
+          1825.945
+        ],
+        "event_us": [
+          1824.323058128357,
+          1769.9350118637085,
+          1781.0415029525757,
+          1844.2319631576538,
+          1788.5935306549072
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 1841.19,
+          "p50_us": 1825.945,
+          "p90_us": 1876.4370000000001,
+          "p99_us": 1883.9232000000002,
+          "std_us": 28.25104829913402,
+          "min_us": 1811.36,
+          "max_us": 1884.755,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 1801.6250133514404,
+          "p50_us": 1788.5935306549072,
+          "p90_us": 1836.268401145935,
+          "p99_us": 1843.435606956482,
+          "std_us": 28.02966301754897,
+          "min_us": 1769.9350118637085,
+          "max_us": 1844.2319631576538,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.03188866003131092,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 4096,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          3035.21,
+          3059.49,
+          2998.41,
+          3042.92,
+          3025.65,
+          3013.29,
+          3282.51,
+          3139.72,
+          3050.01,
+          3020.43
+        ],
+        "event_us": [
+          2958.098888397217,
+          2958.0729007720947,
+          2918.879985809326,
+          2939.6350383758545,
+          2951.1189460754395,
+          2915.5991077423096,
+          3207.3440551757812,
+          3042.604923248291,
+          2962.630033493042,
+          2914.8170948028564
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 3066.764,
+          "p50_us": 3039.065,
+          "p90_us": 3153.999,
+          "p99_us": 3269.6589000000004,
+          "std_us": 80.70666133597652,
+          "min_us": 2998.41,
+          "max_us": 3282.51,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 2976.880097389221,
+          "p50_us": 2954.595923423767,
+          "p90_us": 3059.07883644104,
+          "p99_us": 3192.517533302307,
+          "std_us": 84.47775897420172,
+          "min_us": 2914.8170948028564,
+          "max_us": 3207.3440551757812,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.0507943236555805,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 4096,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          2918.38,
+          2895.47,
+          2794.545,
+          2829.755,
+          2825.675
+        ],
+        "event_us": [
+          2875.2474784851074,
+          2855.560064315796,
+          2744.7400093078613,
+          2788.177490234375,
+          2774.3489742279053
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 2852.7650000000003,
+          "p50_us": 2829.755,
+          "p90_us": 2909.216,
+          "p99_us": 2917.4636,
+          "std_us": 46.436928946690635,
+          "min_us": 2794.545,
+          "max_us": 2918.38,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 2807.614803314209,
+          "p50_us": 2788.177490234375,
+          "p90_us": 2867.372512817383,
+          "p99_us": 2874.459981918335,
+          "std_us": 49.61973609197425,
+          "min_us": 2744.7400093078613,
+          "max_us": 2875.2474784851074,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.020520885835386065,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    }
+  ]
+}

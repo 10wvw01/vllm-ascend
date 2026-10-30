@@ -1,0 +1,81 @@
+{
+  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V3",
+  "profile": "full",
+  "v2_history": false,
+  "W": 2,
+  "N": 10,
+  "R": 1,
+  "mode": "shared",
+  "collection": "msprof",
+  "scenarios": [
+    "ready",
+    "steady"
+  ],
+  "M": [
+    2048,
+    4096
+  ],
+  "cases": [
+    {
+      "id": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "runtime_key": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "runtime_key": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    },
+    {
+      "id": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "runtime_key": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": [
+        2048,
+        4096
+      ],
+      "api": "python_session_v1",
+      "historical": false
+    }
+  ],
+  "batch_size": 2,
+  "working_set": 4,
+  "case_ids": [
+    "v3-5-c512-g1024",
+    "v3-6-c512-g1024",
+    "v3-7-c512-g1024"
+  ],
+  "consumer_validation": "untimed_immediate_same_stream_before_after",
+  "case_count": 3,
+  "tp2_sessions": 36,
+  "paired_samples_per_arm_per_case_per_stage": 20,
+  "V1": "adapter available; historical source/binary lookup and measurement deferred",
+  "policy": "each candidate/config has its own common ABBA and Stock controls; no pooled cross-campaign Stock"
+}

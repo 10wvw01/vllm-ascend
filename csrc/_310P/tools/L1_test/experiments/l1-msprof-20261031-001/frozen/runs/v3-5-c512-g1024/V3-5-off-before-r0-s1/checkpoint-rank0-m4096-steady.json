@@ -1,0 +1,118 @@
+{
+  "M": 4096,
+  "scenario": "steady",
+  "warmup_count": 2,
+  "samples": [
+    {
+      "i": 0,
+      "calls": 2,
+      "wall_us": 4794.77,
+      "event_us": 4696.900844573975,
+      "variants": [
+        0,
+        1
+      ]
+    },
+    {
+      "i": 2,
+      "calls": 2,
+      "wall_us": 4773.95,
+      "event_us": 4674.400806427002,
+      "variants": [
+        2,
+        3
+      ]
+    },
+    {
+      "i": 4,
+      "calls": 2,
+      "wall_us": 4783.3,
+      "event_us": 4686.379909515381,
+      "variants": [
+        0,
+        1
+      ]
+    },
+    {
+      "i": 6,
+      "calls": 2,
+      "wall_us": 4645.79,
+      "event_us": 4539.453029632568,
+      "variants": [
+        2,
+        3
+      ]
+    },
+    {
+      "i": 8,
+      "calls": 2,
+      "wall_us": 4673.2,
+      "event_us": 4560.259819030762,
+      "variants": [
+        0,
+        1
+      ]
+    }
+  ],
+  "host_blocks": [],
+  "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+  "calibration": {
+    "wall_us": 60.899166666666666,
+    "event_us": 2.220083263940372,
+    "raw_units": [
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 91.7,
+        "event_us": 26.249999180436134
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 125.43,
+        "event_us": 0.0779999973019585
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 122.12,
+        "event_us": 0.0779999973019585
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 120.1,
+        "event_us": 0.07899999764049426
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 129.57,
+        "event_us": 0.0779999973019585
+      },
+      {
+        "i": 0,
+        "calls": 2,
+        "wall_us": 141.87,
+        "event_us": 0.0779999973019585
+      }
+    ],
+    "subtracted": false
+  },
+  "working_set": {
+    "inputs": 4,
+    "weight_sets": 1,
+    "input_bytes": 67108864,
+    "weight_bytes": 8388608,
+    "cache_flush": false
+  },
+  "validation": {
+    "status": "PASS",
+    "scope": "pre_post_and_last_group"
+  },
+  "warmup": {
+    "status": "UNVERIFIED_SHORT_WARMUP",
+    "samples": 1
+  },
+  "timer_overhead_ratio": 0.025727320746629173
+}

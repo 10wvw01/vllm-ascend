@@ -1,0 +1,102 @@
+{
+  "schema": "MF310P_L1_DUAL_RANK_SMOKE_V1",
+  "card": 38144,
+  "devices": "4,5",
+  "mode": "shared",
+  "entry": "torch.ops.memfabric310p.mm_ar public Tensor entry via L1_test.worker TP2 session",
+  "gates": "bit-exact FP16 ND outputs, retained-output submission (2 outputs + storage aliases), release/reuse, input retention, immediate same-stream downstream ADD, protocol audit, real kernel route capture",
+  "framework_head": "b7adbbeb9(PYTHONPATH fix)",
+  "results": {
+    "STOCK": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/STOCK/STOCK-off-r0-s0/rank0.json",
+          "route": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/STOCK/STOCK-off-r0-s0/rank1.json",
+          "route": "aclnnMatmulWeightNz_MatMulV3Common_MatMulV3"
+        }
+      }
+    },
+    "V2-7": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V2-7/V2-7-off-r0-s1/rank0.json",
+          "route": "_ZN12_GLOBAL__N_113V2TrialKernelIL_ZNS_10tiling1024EELj1024EEEvPhS1_S1_S1_S1_S1_"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V2-7/V2-7-off-r0-s1/rank1.json",
+          "route": "_ZN12_GLOBAL__N_113V2TrialKernelIL_ZNS_10tiling1024EELj1024EEEvPhS1_S1_S1_S1_S1_"
+        }
+      }
+    },
+    "V2-15": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V2-15/V2-15-off-r0-s1/rank0.json",
+          "route": "_ZN12_GLOBAL__N_117E4Group2048KernelILj8192ELb0EEEvPhS1_S1_S1_S1_S1_S1_mS1_S1_S1"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V2-15/V2-15-off-r0-s1/rank1.json",
+          "route": "_ZN12_GLOBAL__N_117E4Group2048KernelILj8192ELb0EEEvPhS1_S1_S1_S1_S1_S1_mS1_S1_S1"
+        }
+      }
+    },
+    "V3-5": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-5/V3-5-off-r0-s1/rank0.json",
+          "route": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_10tiling1024EELj1024ELb1ELb0EEEvPhS1_S1_S1_S1_S"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-5/V3-5-off-r0-s1/rank1.json",
+          "route": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_10tiling1024EELj1024ELb1ELb0EEEvPhS1_S1_S1_S1_S"
+        }
+      }
+    },
+    "V3-6": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-6/V3-6-off-r0-s1/rank0.json",
+          "route": "_ZN12_GLOBAL__N_112A3SeatKernelIL_ZNS_10tiling1024EELj1024ELb1ELb0ELb0EEEvPhS1_S"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-6/V3-6-off-r0-s1/rank1.json",
+          "route": "_ZN12_GLOBAL__N_112A3SeatKernelIL_ZNS_10tiling1024EELj1024ELb1ELb0ELb0EEEvPhS1_S"
+        }
+      }
+    },
+    "V3-7": {
+      "status": "PASS",
+      "jobs": {
+        "rank0": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-7/V3-7-off-r0-s1/rank0.json",
+          "route": "_ZN12_GLOBAL__N_112A3SeatKernelIL_ZNS_10tiling1024EELj1024ELb1ELb1ELb0EEEvPhS1_S"
+        },
+        "rank1": {
+          "status": "PASS",
+          "report": "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-7/V3-7-off-r0-s1/rank1.json",
+          "route": "_ZN12_GLOBAL__N_112A3SeatKernelIL_ZNS_10tiling1024EELj1024ELb1ELb1ELb0EEEvPhS1_S"
+        }
+      }
+    }
+  },
+  "dual_rank_smoke": "PASS"
+}

@@ -1,0 +1,1060 @@
+{
+  "contract": "L1_TENSOR_IO_V4",
+  "plan": {
+    "contract": "L1_TENSOR_IO_V4",
+    "W": 2,
+    "N": 10,
+    "R": 1,
+    "mode": "shared",
+    "scenarios": [
+      "ready",
+      "steady"
+    ],
+    "M": [
+      2048,
+      4096
+    ],
+    "collection": "msprof",
+    "stages": [
+      "off-before",
+      "msprof",
+      "off-after"
+    ],
+    "drift_limit": 0.05,
+    "versions": [
+      "V3-5"
+    ],
+    "jobs": [
+      {
+        "id": "V3-5-off-before-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-off-before-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off-before"
+      },
+      {
+        "id": "V3-5-msprof-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-msprof-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "msprof"
+      },
+      {
+        "id": "V3-5-off-after-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "off-after"
+      },
+      {
+        "id": "V3-5-off-after-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off-after"
+      }
+    ],
+    "consumer": "residual_add_fp16_ND",
+    "seed": 4242,
+    "consumer_validation": "untimed_immediate_same_stream_before_after",
+    "batch_size": 2,
+    "working_set": 4,
+    "gate_variants": 4,
+    "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+    "output_retention": "all_group_outputs_until_completion",
+    "paired_samples_per_arm_per_case_per_stage": 20,
+    "paired_units_per_arm": {
+      "ready": 20,
+      "steady": 10
+    },
+    "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+  },
+  "job": {
+    "id": "V3-5-off-before-r0-s1",
+    "candidate": "V3-5",
+    "block": 0,
+    "slot": 1,
+    "version": "V3-5",
+    "stage": "off-before"
+  },
+  "rank": 1,
+  "status": "PASS",
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 1,
+          "wall_us": 1877.55,
+          "event_us": 1776.7970561981201,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 1,
+          "calls": 1,
+          "wall_us": 1730.71,
+          "event_us": 1622.7610111236572,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 1,
+          "wall_us": 1582.23,
+          "event_us": 1492.6819801330566,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 3,
+          "calls": 1,
+          "wall_us": 1560.72,
+          "event_us": 1448.5419988632202,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 1,
+          "wall_us": 1640.27,
+          "event_us": 1532.0830345153809,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 5,
+          "calls": 1,
+          "wall_us": 1709.45,
+          "event_us": 1580.2600383758545,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 1,
+          "wall_us": 1589.12,
+          "event_us": 1495.468020439148,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 7,
+          "calls": 1,
+          "wall_us": 1667.79,
+          "event_us": 1562.5,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 1,
+          "wall_us": 1676.71,
+          "event_us": 1597.9160070419312,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 9,
+          "calls": 1,
+          "wall_us": 1643.2,
+          "event_us": 1532.188057899475,
+          "variants": [
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 151.72083333333333,
+        "event_us": 5.739916627741574,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 317.53,
+            "event_us": 35.46899929642677
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 111.47,
+            "event_us": 32.63000026345253
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 127.52,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 146.64,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 142.0,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 141.84,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 137.7,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 132.1,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 139.42,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 145.83,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 142.36,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 136.24,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 2
+      },
+      "timer_overhead_ratio": 0.09097200361759429
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 2,
+          "wall_us": 3143.92,
+          "event_us": 3050.468921661377,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 2,
+          "wall_us": 2880.95,
+          "event_us": 2793.281078338623,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 2,
+          "wall_us": 3032.8,
+          "event_us": 2947.3180770874023,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 2,
+          "wall_us": 2932.68,
+          "event_us": 2844.635009765625,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 2,
+          "wall_us": 3055.36,
+          "event_us": 2972.4481105804443,
+          "variants": [
+            0,
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 72.94166666666666,
+        "event_us": 0.03916666537406854,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 138.81,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 146.22,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 157.06,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 128.81,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 153.16,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 151.24,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 33554432,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 1
+      },
+      "timer_overhead_ratio": 0.048480042926965006
+    },
+    {
+      "M": 4096,
+      "scenario": "ready",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 1,
+          "wall_us": 2416.14,
+          "event_us": 2335.8070850372314,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 1,
+          "calls": 1,
+          "wall_us": 2541.17,
+          "event_us": 2431.8490028381348,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 1,
+          "wall_us": 2513.7,
+          "event_us": 2434.0100288391113,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 3,
+          "calls": 1,
+          "wall_us": 2528.68,
+          "event_us": 2420.6249713897705,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 1,
+          "wall_us": 2436.7,
+          "event_us": 2357.4740886688232,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 5,
+          "calls": 1,
+          "wall_us": 2528.08,
+          "event_us": 2422.6560592651367,
+          "variants": [
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 1,
+          "wall_us": 2449.35,
+          "event_us": 2356.7190170288086,
+          "variants": [
+            2
+          ]
+        },
+        {
+          "i": 7,
+          "calls": 1,
+          "wall_us": 2679.12,
+          "event_us": 2570.9381103515625,
+          "variants": [
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 1,
+          "wall_us": 2396.82,
+          "event_us": 2317.760944366455,
+          "variants": [
+            0
+          ]
+        },
+        {
+          "i": 9,
+          "calls": 1,
+          "wall_us": 2553.31,
+          "event_us": 2432.1610927581787,
+          "variants": [
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 151.72083333333333,
+        "event_us": 5.739916627741574,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 317.53,
+            "event_us": 35.46899929642677
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 111.47,
+            "event_us": 32.63000026345253
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 127.52,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 146.64,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 142.0,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 141.84,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 137.7,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 132.1,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 139.42,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 145.83,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 1,
+            "wall_us": 142.36,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 1,
+            "calls": 1,
+            "wall_us": 136.24,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 67108864,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 2
+      },
+      "timer_overhead_ratio": 0.060583959288271504
+    },
+    {
+      "M": 4096,
+      "scenario": "steady",
+      "warmup_count": 2,
+      "samples": [
+        {
+          "i": 0,
+          "calls": 2,
+          "wall_us": 4784.98,
+          "event_us": 4692.577838897705,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 2,
+          "calls": 2,
+          "wall_us": 4777.89,
+          "event_us": 4693.905830383301,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 4,
+          "calls": 2,
+          "wall_us": 4796.78,
+          "event_us": 4712.707996368408,
+          "variants": [
+            0,
+            1
+          ]
+        },
+        {
+          "i": 6,
+          "calls": 2,
+          "wall_us": 4661.8,
+          "event_us": 4556.379795074463,
+          "variants": [
+            2,
+            3
+          ]
+        },
+        {
+          "i": 8,
+          "calls": 2,
+          "wall_us": 4655.66,
+          "event_us": 4567.1868324279785,
+          "variants": [
+            0,
+            1
+          ]
+        }
+      ],
+      "host_blocks": [],
+      "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+      "calibration": {
+        "wall_us": 72.94166666666666,
+        "event_us": 0.03916666537406854,
+        "raw_units": [
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 138.81,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 146.22,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 157.06,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 128.81,
+            "event_us": 0.07899999764049426
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 153.16,
+            "event_us": 0.0779999973019585
+          },
+          {
+            "i": 0,
+            "calls": 2,
+            "wall_us": 151.24,
+            "event_us": 0.0779999973019585
+          }
+        ],
+        "subtracted": false
+      },
+      "working_set": {
+        "inputs": 4,
+        "weight_sets": 1,
+        "input_bytes": 67108864,
+        "weight_bytes": 8388608,
+        "cache_flush": false
+      },
+      "validation": {
+        "status": "PASS",
+        "scope": "pre_post_and_last_group"
+      },
+      "warmup": {
+        "status": "UNVERIFIED_SHORT_WARMUP",
+        "samples": 1
+      },
+      "timer_overhead_ratio": 0.03080682847977082
+    }
+  ],
+  "runtime_identity": {
+    "version": "V3-5",
+    "source_head": "e44a71a13b58fd5e712d185a789ccc410f0ed7c8",
+    "environment": {
+      "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+      "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+      "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+      "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+    },
+    "api": "python_session_v1",
+    "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+    "supported_M": [
+      2048,
+      4096
+    ],
+    "route_pattern": "A3Kernel",
+    "python_modules": {
+      "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+      "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+    },
+    "files": {
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so": "c31aaa804b196fb2df904898c0942083833de9d24008fd3613d29b1bbfec2d4d",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so": "23649cebcddf712eae1ccf99139996f43ca8a097ee5528a1fbbd22e88e292a2c",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "fee6ca04c7efe5908318112446575de7c58cc0b4203b3172fc7c81e9766e7513",
+      "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py": "441345ff515b1ac51417a5b58128a668316593ce7d7d47de5e274c2d38ab3b0f",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "b66037accdfa3313b83a464e0f9f264d0505dbc04d381d0fa2ef565224101067",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "a27437858e0ab26642066498d06c6327e9d22e63b1551f2c82751deb6ba1cae2",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so": "094afddaee3baedb868281692ab48949e87e370e9c4e9ccc273b44d2e1409b9d",
+      "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+      "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py": "b33add0e07c0b3dfbe5b9fd5bb345cf0ad7f6e5574f6f25b7bbdb8bf25299775"
+    },
+    "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+    "config": {
+      "compute_rows": 512,
+      "comm_rows": 1024,
+      "packet_bytes": 4194304
+    }
+  },
+  "route": {
+    "verified": true,
+    "cases": [
+      {
+        "M": 2048,
+        "kernel_statistics": [
+          {
+            "source": "qwen-test_178855_20261030193836976_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+            "n": 1,
+            "mean_us": 1441.013,
+            "p50_us": 1441.013,
+            "p90_us": 1441.013,
+            "p99_us": 1441.013,
+            "std_us": 0.0,
+            "min_us": 1441.013,
+            "max_us": 1441.013
+          }
+        ],
+        "verified": true,
+        "files": {
+          "qwen-test_178855_20261030193836976_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": "28c67afbc35ebd641aaf5dba1b441a414ae9578d79329209af38cf4d1ce07d69"
+        },
+        "rows": [
+          {
+            "name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+            "duration_us": 1441.013,
+            "task_type": null,
+            "source": "qwen-test_178855_20261030193836976_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "raw": {
+              "Device_id": "5",
+              "Name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+              "Type": "N/A",
+              "Accelerator Core": "N/A",
+              "Start Time(us)": "1793389117059536.594\t",
+              "Duration(us)": "1441.013",
+              "Wait Time(us)": "0",
+              "Block Num": "8"
+            }
+          }
+        ],
+        "warning": "Kernel durations and per-pipe busy counters overlap; not exclusive MM/wait/SDMA phases."
+      },
+      {
+        "M": 4096,
+        "kernel_statistics": [
+          {
+            "source": "qwen-test_178855_20261030193856464_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+            "n": 1,
+            "mean_us": 10575.155,
+            "p50_us": 10575.155,
+            "p90_us": 10575.155,
+            "p99_us": 10575.155,
+            "std_us": 0.0,
+            "min_us": 10575.155,
+            "max_us": 10575.155
+          }
+        ],
+        "verified": true,
+        "files": {
+          "qwen-test_178855_20261030193856464_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv": "010d89d5ceb856992c7851cb893e0f46800ee3dcb541d734c3cfc6864604f316"
+        },
+        "rows": [
+          {
+            "name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+            "duration_us": 10575.155,
+            "task_type": null,
+            "source": "qwen-test_178855_20261030193856464_ascend_pt/ASCEND_PROFILER_OUTPUT/kernel_details.csv",
+            "raw": {
+              "Device_id": "5",
+              "Name": "_ZN12_GLOBAL__N_18A3KernelIL_ZNS_9tiling512EELj512ELb1ELb0EEEvPhS1_S1_S1_S1_S1_S1_S1_S1_S1_mmjjjjjjjjPm",
+              "Type": "N/A",
+              "Accelerator Core": "N/A",
+              "Start Time(us)": "1793389136535140.508\t",
+              "Duration(us)": "10575.155",
+              "Wait Time(us)": "0",
+              "Block Num": "8"
+            }
+          }
+        ],
+        "warning": "Kernel durations and per-pipe busy counters overlap; not exclusive MM/wait/SDMA phases."
+      }
+    ],
+    "source": "torch_profiler_route_gate"
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+    "output_storage": "operator_owned_tensor_lease",
+    "max_retained_calls": 2,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "submission_validation": {
+    "status": "PASS",
+    "timed": false,
+    "cases": [
+      {
+        "M": 2048,
+        "calls": 2,
+        "correct": true,
+        "disjoint": true
+      },
+      {
+        "M": 4096,
+        "calls": 2,
+        "correct": true,
+        "disjoint": true
+      }
+    ]
+  },
+  "downstream_validation": {
+    "status": "PASS",
+    "timed": false,
+    "same_stream": true,
+    "cases": [
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "before",
+        "M": 4096,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 2048,
+        "variant": 3,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 0,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 1,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 2,
+        "correct": true
+      },
+      {
+        "phase": "after",
+        "M": 4096,
+        "variant": 3,
+        "correct": true
+      }
+    ]
+  },
+  "profile_windows": [],
+  "mapped_libraries": [
+    "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+    "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so"
+  ],
+  "runtime": {
+    "torch": "2.10.0+cpu",
+    "torch_npu": "2.10.0.post4",
+    "physical_device": 5
+  },
+  "cold_setup_us": 72905807.64,
+  "capabilities": {
+    "version": "V3-5",
+    "collection": "off-before",
+    "wall": true,
+    "event": true,
+    "downstream": true,
+    "downstream_timing": false,
+    "host_call_total": false,
+    "timeline": false,
+    "host_detail_phases": false,
+    "device_phase_wall": false,
+    "sdma_link_occupancy": false,
+    "reason": "310P3 dav-2002 existing AICore clock is unavailable; no synthetic phase durations"
+  }
+}

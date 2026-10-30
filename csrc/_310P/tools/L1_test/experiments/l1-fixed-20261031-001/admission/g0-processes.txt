@@ -1,0 +1,15 @@
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root       10991  126  0.5 109681852 4554480 pts/4 Rl+ 18:01  31:25 opencode
+root         247  4.2  0.1 94807740 944604 pts/1 Sl+  09:18  23:28 opencode
+root       14165 31.9  0.1 89462884 909316 pts/5 Sl+  18:06   6:16 opencode
+root        2067  1.8  0.1 89327884 898064 pts/3 Sl+  09:34  10:04 opencode
+root        1532 42.8  0.1 89189804 889132 pts/2 Rl+  09:32 228:39 opencode
+root       10908  0.0  0.0   4272  3636 pts/4    Ss   17:59   0:00 bash
+root       13961  0.0  0.0   4276  3608 pts/5    Ss   18:06   0:00 bash
+root         168  0.0  0.0   4276  3356 pts/1    Ss   09:17   0:00 bash
+root        1453  0.0  0.0   4276  3352 pts/2    Ss   09:32   0:00 bash
+root        1988  0.0  0.0   4276  3332 pts/3    Ss   09:34   0:00 bash
+root           1  0.0  0.0   4272  3328 pts/0    Ss+  09:17   0:00 bash
+root       34062  0.0  0.0   3880  2820 ?        Ss   18:25   0:00 /usr/bin/bash -c RUN_ID=l1-fixed-20261031-001 BUILD=/home/w00804146/vllm-ascend/build/310p_l1/$RUN_ID EXP=/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/$RUN_ID mkdir -p "$BUILD" "$EXP/admission" npu-smi info > "$EXP/admission/g0-npu-smi.txt" npu-smi info -t health -i 38144 > "$EXP/admission/g0-health-38144.txt" 2>&1 npu-smi info -t usages -i 38144 > "$EXP/admission/g0-usages-38144.txt" 2>&1 ps aux --sort=-%mem | head -15 > "$EXP/admission/g0-processes.txt" cat "$EXP/admission/g0-health-38144.txt" | head -12; grep -A3 "Chip ID" "$EXP/admission/g0-usages-38144.txt" | head -12
+root       34122  0.0  0.0   6456  2508 ?        R    18:25   0:00 ps aux --sort=-%mem
+root       34123  0.0  0.0   2248  1012 ?        S    18:25   0:00 head -15

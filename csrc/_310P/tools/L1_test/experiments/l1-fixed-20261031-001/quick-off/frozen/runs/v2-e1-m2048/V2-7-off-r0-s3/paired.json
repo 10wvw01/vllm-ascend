@@ -1,0 +1,162 @@
+{
+  "job": {
+    "id": "V2-7-off-r0-s3",
+    "candidate": "V2-7",
+    "block": 0,
+    "slot": 3,
+    "version": "STOCK",
+    "stage": "off"
+  },
+  "runtime_identity": {
+    "version": "STOCK",
+    "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "environment": {},
+    "files": {
+      "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so": "83fb9a0eb249aef6bca7f8463047fcb4d3062cc4849f17ddf31a5e050c838842"
+    }
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "F.linear+HCCL",
+    "output_storage": "framework_allocation_per_call",
+    "max_retained_calls": 32,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "BACKEND_MANAGED",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "cases": [
+    {
+      "M": 2048,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          1219.31,
+          1251.57,
+          1245.21,
+          1233.79,
+          1198.43,
+          1251.0,
+          1248.49,
+          1282.91,
+          1214.5,
+          1228.68
+        ],
+        "event_us": [
+          1151.8490314483643,
+          1167.3959493637085,
+          1165.4939651489258,
+          1157.863974571228,
+          1116.5889501571655,
+          1167.5260066986084,
+          1163.0990505218506,
+          1194.5840120315552,
+          1119.1660165786743,
+          1144.8689699172974
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 1237.389,
+          "p50_us": 1239.5,
+          "p90_us": 1254.704,
+          "p99_us": 1280.0894,
+          "std_us": 22.583802802008353,
+          "min_us": 1198.43,
+          "max_us": 1282.91,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 1154.8435926437378,
+          "p50_us": 1160.4815125465393,
+          "p90_us": 1170.231807231903,
+          "p99_us": 1192.14879155159,
+          "std_us": 22.21076213417757,
+          "min_us": 1116.5889501571655,
+          "max_us": 1194.5840120315552,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.10820983104761325,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 2048,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          1109.57,
+          1138.475,
+          1127.29,
+          1122.795,
+          1125.84
+        ],
+        "event_us": [
+          1067.6305294036865,
+          1100.6510257720947,
+          1078.9844989776611,
+          1082.5519561767578,
+          1086.0544443130493
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 1124.7939999999999,
+          "p50_us": 1125.84,
+          "p90_us": 1134.001,
+          "p99_us": 1138.0276,
+          "std_us": 9.276422478520464,
+          "min_us": 1109.57,
+          "max_us": 1138.475,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 1083.17449092865,
+          "p50_us": 1082.5519561767578,
+          "p90_us": 1094.8123931884766,
+          "p99_us": 1100.067162513733,
+          "std_us": 10.707770296253656,
+          "min_us": 1067.6305294036865,
+          "max_us": 1100.6510257720947,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.04946104331516748,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    }
+  ]
+}

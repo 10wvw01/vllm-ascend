@@ -1,0 +1,191 @@
+{
+  "card": 38144,
+  "devices": "4,5",
+  "cann": "/usr/local/Ascend/cann-9.1.0",
+  "runtimes": {
+    "STOCK": {
+      "version": "STOCK",
+      "source_head": "e44a71a13b58fd5e712d185a789ccc410f0ed7c8",
+      "environment": {},
+      "files": [
+        "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so"
+      ]
+    },
+    "V3-5": {
+      "version": "V3-5",
+      "source_head": "e44a71a13b58fd5e712d185a789ccc410f0ed7c8",
+      "environment": {
+        "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+        "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+        "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "route_pattern": "A3Kernel",
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "files": [
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+        "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py",
+        "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py"
+      ],
+      "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so"
+    },
+    "V3-6": {
+      "version": "V3-6",
+      "source_head": "e44a71a13b58fd5e712d185a789ccc410f0ed7c8",
+      "environment": {
+        "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+        "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+        "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "route_pattern": "A3SeatKernel",
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "files": [
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+        "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py",
+        "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py"
+      ],
+      "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so"
+    },
+    "V3-7": {
+      "version": "V3-7",
+      "source_head": "e44a71a13b58fd5e712d185a789ccc410f0ed7c8",
+      "environment": {
+        "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+        "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+        "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+      },
+      "api": "python_session_v1",
+      "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+      "supported_M": [
+        2048,
+        4096
+      ],
+      "route_pattern": "A3SeatKernel",
+      "python_modules": {
+        "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+      },
+      "files": [
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+        "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so",
+        "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+        "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+        "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py",
+        "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py"
+      ],
+      "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so"
+    }
+  },
+  "admission_by_runtime": {
+    "STOCK": {
+      "g0_readonly": "PASS",
+      "cpu_contract": "PASS",
+      "private_compile": "PASS",
+      "binary_identity": "PASS",
+      "dual_rank_smoke": "PASS",
+      "evidence_files": [
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/g0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-l1-test.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-v3-v2.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v2-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v3-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/tensor-bridge-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/dual-rank-smoke.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/STOCK/STOCK-off-r0-s0/rank0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/STOCK/STOCK-off-r0-s0/rank1.json"
+      ]
+    },
+    "V3-5": {
+      "g0_readonly": "PASS",
+      "cpu_contract": "PASS",
+      "private_compile": "PASS",
+      "binary_identity": "PASS",
+      "dual_rank_smoke": "PASS",
+      "evidence_files": [
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/g0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-l1-test.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-v3-v2.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v2-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v3-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/tensor-bridge-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/dual-rank-smoke.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-5/V3-5-off-r0-s1/rank0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-5/V3-5-off-r0-s1/rank1.json"
+      ]
+    },
+    "V3-6": {
+      "g0_readonly": "PASS",
+      "cpu_contract": "PASS",
+      "private_compile": "PASS",
+      "binary_identity": "PASS",
+      "dual_rank_smoke": "PASS",
+      "evidence_files": [
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/g0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-l1-test.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-v3-v2.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v2-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v3-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/tensor-bridge-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/dual-rank-smoke.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-6/V3-6-off-r0-s1/rank0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-6/V3-6-off-r0-s1/rank1.json"
+      ]
+    },
+    "V3-7": {
+      "g0_readonly": "PASS",
+      "cpu_contract": "PASS",
+      "private_compile": "PASS",
+      "binary_identity": "PASS",
+      "dual_rank_smoke": "PASS",
+      "evidence_files": [
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/g0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-l1-test.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-v3-v2.log",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v2-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v3-build-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/tensor-bridge-manifest.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/dual-rank-smoke.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-7/V3-7-off-r0-s1/rank0.json",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/smoke/V3-7/V3-7-off-r0-s1/rank1.json"
+      ]
+    }
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "job": {
+    "id": "V2-15-off-r0-s2",
+    "candidate": "V2-15",
+    "block": 0,
+    "slot": 2,
+    "version": "V2-15",
+    "stage": "off"
+  },
+  "runtime_identity": {
+    "version": "V2-15",
+    "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "environment": {
+      "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+      "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+      "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+      "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+    },
+    "api": "v2_selected_v1",
+    "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/vllm_ascend_C.so",
+    "selected_device_library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_v2_selected_device.so",
+    "supported_M": [
+      4096
+    ],
+    "route_pattern": "E4Group2048Kernel",
+    "files": {
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/vllm_ascend_C.so": "bc89be9f41edf31846b29b9d3a33091aa491f3e12ae5c392e1f882e553631300",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_v2_trial_device.so": "a22f482ddd605a854efc423932adeca233be33dd7185d428e878fe155e883404",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_v2_selected_device.so": "6d6fdb178f017e1cfbcd9c6f877832aa8478182eab19643452ccb2579cc45fd1",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_device.so": "d044a0c339f798f84d4e10e4c199f50edb9d5ad7b81cc782c117591dffb19aaa",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "b66037accdfa3313b83a464e0f9f264d0505dbc04d381d0fa2ef565224101067",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "a27437858e0ab26642066498d06c6327e9d22e63b1551f2c82751deb6ba1cae2",
+      "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+      "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so": "094afddaee3baedb868281692ab48949e87e370e9c4e9ccc273b44d2e1409b9d",
+      "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+      "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py": "e5dcac7f389a1200893e2925c52656360a0f427ba08e42b5d5b84d3a025d0fd2"
+    },
+    "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so",
+    "config": {}
+  },
+  "execution_contract": {
+    "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+    "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+    "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+    "max_retained_calls": 32,
+    "output_slots": 2,
+    "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+    "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+    "model_callsite_integration": "NOT_RUN",
+    "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+  },
+  "cases": [
+    {
+      "M": 4096,
+      "scenario": "ready",
+      "paired_values": {
+        "wall_us": [
+          2270.27,
+          2423.17,
+          2436.75,
+          2242.21,
+          2317.25,
+          2238.81,
+          2279.74,
+          2377.82,
+          2301.85,
+          2291.04
+        ],
+        "event_us": [
+          2191.354990005493,
+          2300.520896911621,
+          2356.1720848083496,
+          2152.682065963745,
+          2238.384962081909,
+          2131.458044052124,
+          2204.608917236328,
+          2259.6089839935303,
+          2223.306894302368,
+          2183.073043823242
+        ]
+      },
+      "unit_calls": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 10,
+          "mean_us": 2317.891,
+          "p50_us": 2296.4449999999997,
+          "p90_us": 2424.5280000000002,
+          "p99_us": 2435.5278,
+          "std_us": 67.44330381142376,
+          "min_us": 2238.81,
+          "max_us": 2436.75,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        },
+        "event_us": {
+          "n": 10,
+          "mean_us": 2224.117088317871,
+          "p50_us": 2213.957905769348,
+          "p90_us": 2306.086015701294,
+          "p99_us": 2351.163477897644,
+          "std_us": 64.47260323323523,
+          "min_us": 2131.458044052124,
+          "max_us": 2356.1720848083496,
+          "calls": 10,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "timer_overhead_ratio": 0.05931716195226503,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    },
+    {
+      "M": 4096,
+      "scenario": "steady",
+      "paired_values": {
+        "wall_us": [
+          2189.5,
+          2202.995,
+          2297.23,
+          2137.8,
+          2226.085
+        ],
+        "event_us": [
+          2150.273561477661,
+          2161.1199378967285,
+          2253.1380653381348,
+          2096.4455604553223,
+          2186.1588954925537
+        ]
+      },
+      "unit_calls": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "metrics": {
+        "wall_us": {
+          "n": 5,
+          "mean_us": 2210.722,
+          "p50_us": 2202.995,
+          "p90_us": 2268.772,
+          "p99_us": 2294.3842,
+          "std_us": 52.05257674697763,
+          "min_us": 2137.8,
+          "max_us": 2297.23,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "event_us": {
+          "n": 5,
+          "mean_us": 2169.42720413208,
+          "p50_us": 2161.1199378967285,
+          "p90_us": 2226.3463973999023,
+          "p99_us": 2250.4588985443115,
+          "std_us": 51.087475554466245,
+          "min_us": 2096.4455604553223,
+          "max_us": 2253.1380653381348,
+          "calls": 10,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "timer_overhead_ratio": 0.02608484341637877,
+      "warmup_status": [
+        "UNVERIFIED_SHORT_WARMUP",
+        "UNVERIFIED_SHORT_WARMUP"
+      ]
+    }
+  ]
+}

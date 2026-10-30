@@ -1,0 +1,137 @@
+{
+  "contract": "L1_TENSOR_IO_V4",
+  "W": 2,
+  "N": 10,
+  "R": 1,
+  "mode": "shared",
+  "scenarios": [
+    "ready",
+    "steady"
+  ],
+  "M": [
+    2048,
+    4096
+  ],
+  "collection": "msprof",
+  "stages": [
+    "off-before",
+    "msprof",
+    "off-after"
+  ],
+  "drift_limit": 0.05,
+  "versions": [
+    "V3-7"
+  ],
+  "jobs": [
+    {
+      "id": "V3-7-off-before-r0-s0",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 0,
+      "version": "STOCK",
+      "stage": "off-before"
+    },
+    {
+      "id": "V3-7-off-before-r0-s1",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 1,
+      "version": "V3-7",
+      "stage": "off-before"
+    },
+    {
+      "id": "V3-7-off-before-r0-s2",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 2,
+      "version": "V3-7",
+      "stage": "off-before"
+    },
+    {
+      "id": "V3-7-off-before-r0-s3",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 3,
+      "version": "STOCK",
+      "stage": "off-before"
+    },
+    {
+      "id": "V3-7-msprof-r0-s0",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 0,
+      "version": "STOCK",
+      "stage": "msprof"
+    },
+    {
+      "id": "V3-7-msprof-r0-s1",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 1,
+      "version": "V3-7",
+      "stage": "msprof"
+    },
+    {
+      "id": "V3-7-msprof-r0-s2",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 2,
+      "version": "V3-7",
+      "stage": "msprof"
+    },
+    {
+      "id": "V3-7-msprof-r0-s3",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 3,
+      "version": "STOCK",
+      "stage": "msprof"
+    },
+    {
+      "id": "V3-7-off-after-r0-s0",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 0,
+      "version": "STOCK",
+      "stage": "off-after"
+    },
+    {
+      "id": "V3-7-off-after-r0-s1",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 1,
+      "version": "V3-7",
+      "stage": "off-after"
+    },
+    {
+      "id": "V3-7-off-after-r0-s2",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 2,
+      "version": "V3-7",
+      "stage": "off-after"
+    },
+    {
+      "id": "V3-7-off-after-r0-s3",
+      "candidate": "V3-7",
+      "block": 0,
+      "slot": 3,
+      "version": "STOCK",
+      "stage": "off-after"
+    }
+  ],
+  "consumer": "residual_add_fp16_ND",
+  "seed": 4242,
+  "consumer_validation": "untimed_immediate_same_stream_before_after",
+  "batch_size": 2,
+  "working_set": 4,
+  "gate_variants": 4,
+  "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+  "output_retention": "all_group_outputs_until_completion",
+  "paired_samples_per_arm_per_case_per_stage": 20,
+  "paired_units_per_arm": {
+    "ready": 20,
+    "steady": 10
+  },
+  "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+}

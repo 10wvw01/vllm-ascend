@@ -1,0 +1,25 @@
+{
+  "schema": "MF310P_V2_SELECTED_BUILD_V1",
+  "created_unix": 1793385512.6143253,
+  "head": "ceae9e4ca1e7dce4e7ff7c565e93d95ba758af07",
+  "build_command": "source /usr/local/Ascend/cann-9.1.0/set_env.sh; MEMFABRIC_HYBRID_HOME_PATH=/home/w00804146/310P/a3ut-20261029/memfabric-sdk SOC_VERSION=ascend310p3 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR=1 VLLM_ASCEND_310P_ENABLE_MEMFABRIC_MM_AR_V2=1 python3 setup.py build_ext --inplace",
+  "memfabric_home": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+  "memfabric_head": "db38d75e8485d31451302219eb7a1bfeb1dd107c",
+  "memfabric_tree": "4fe624cabbf62d6475f79cc63bd19dcbedacb0e7",
+  "torch": "2.10.0+cpu",
+  "torch_npu": "2.10.0.post4",
+  "artifacts": {
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_device.so": "d044a0c339f798f84d4e10e4c199f50edb9d5ad7b81cc782c117591dffb19aaa",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_v2_selected_device.so": "6d6fdb178f017e1cfbcd9c6f877832aa8478182eab19643452ccb2579cc45fd1",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/libmf310p_v2_trial_device.so": "a22f482ddd605a854efc423932adeca233be33dd7185d428e878fe155e883404",
+    "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v2-selected/vllm_ascend_C.so": "bc89be9f41edf31846b29b9d3a33091aa491f3e12ae5c392e1f882e553631300"
+  },
+  "symbols": {
+    "V2-7": "mf310p_v2_dcci_entire_launch_async -> V2TrialKernel",
+    "V2-15": "mf310p_v2_e4_group2048_launch_async -> E4Group2048Kernel"
+  },
+  "selected_api": "v2_selected_v1",
+  "kver_used": 28,
+  "device_compile": "PASS",
+  "device_execution": "NOT_RUN"
+}

@@ -1,0 +1,25 @@
+{
+  "rank": 0,
+  "argv": [
+    "/usr/local/Ascend/cann-9.1.0/tools/profiler/bin/msprof",
+    "--output=/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-msprof-20261031-002/frozen/runs/v3-5-c512-g1024/V3-5-msprof-r0-s0/msprof-rank0",
+    "--application=/usr/local/python3.12.13/bin/python3 -m L1_test.worker --run /home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-msprof-20261031-002/frozen/runs/v3-5-c512-g1024/run.json --job V3-5-msprof-r0-s0",
+    "--aic-metrics=PipeUtilization",
+    "--task-time=on",
+    "--runtime-api=on",
+    "--ascendcl=on",
+    "--aicpu=on",
+    "--hccl=on",
+    "--msproftx=on"
+  ],
+  "application": [
+    "/usr/local/python3.12.13/bin/python3",
+    "-m",
+    "L1_test.worker",
+    "--run",
+    "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-msprof-20261031-002/frozen/runs/v3-5-c512-g1024/run.json",
+    "--job",
+    "V3-5-msprof-r0-s0"
+  ],
+  "scope": "whole process; MSTX-selected analysis"
+}

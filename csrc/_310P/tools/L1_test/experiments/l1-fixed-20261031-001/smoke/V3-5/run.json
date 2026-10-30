@@ -1,0 +1,183 @@
+{
+  "plan": {
+    "contract": "L1_TENSOR_IO_V4",
+    "W": 2,
+    "N": 2,
+    "R": 1,
+    "mode": "shared",
+    "scenarios": [
+      "ready"
+    ],
+    "M": [
+      2048
+    ],
+    "collection": "off",
+    "stages": [
+      "off"
+    ],
+    "drift_limit": 0.05,
+    "versions": [
+      "V3-5"
+    ],
+    "jobs": [
+      {
+        "id": "V3-5-off-r0-s0",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off"
+      },
+      {
+        "id": "V3-5-off-r0-s1",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-5",
+        "stage": "off"
+      },
+      {
+        "id": "V3-5-off-r0-s2",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-5",
+        "stage": "off"
+      },
+      {
+        "id": "V3-5-off-r0-s3",
+        "candidate": "V3-5",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off"
+      }
+    ],
+    "consumer": "residual_add_fp16_ND",
+    "seed": 4242,
+    "consumer_validation": "untimed_immediate_same_stream_before_after",
+    "batch_size": 2,
+    "working_set": 4,
+    "gate_variants": 4,
+    "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+    "output_retention": "all_group_outputs_until_completion",
+    "paired_samples_per_arm_per_case_per_stage": 4,
+    "paired_units_per_arm": {
+      "ready": 4
+    },
+    "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+  },
+  "manifest": {
+    "card": 38144,
+    "devices": "4,5",
+    "cann": "/usr/local/Ascend/cann-9.1.0",
+    "admission": {
+      "g0_readonly": "PASS",
+      "cpu_contract": "PASS",
+      "private_compile": "PASS",
+      "binary_identity": "PASS",
+      "dual_rank_smoke": "IN_PROGRESS_THIS_RUN",
+      "evidence_files": {
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/g0.json": "235c49e8d3a41a762fbd2ca133276af79580775b99aa28f3d0a29df16fc66167",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-l1-test.log": "6682bc73308ffb1043f8568953ee8f5162db3e34addd7d11b84c8e516a7b5898",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/cpu-v3-v2.log": "faf1310b24e543c154033f2d7b9db3e06bb5e76021014e76902456c2d202a7d3",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v2-build-manifest.json": "cad3c8db575814b7cd10b6f376e917f5a39d004c87f9c285cb672f1d931a34c0",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/v3-build-manifest.json": "f9cbb010217e0715f18984ba05d5db6e5a672c7b3fa5d35f24d38c3066f6f34b",
+        "/home/w00804146/vllm-ascend/csrc/_310P/tools/L1_test/experiments/l1-fixed-20261031-001/admission/tensor-bridge-manifest.json": "f87cf9c945aa1adc9c4f70e5450677a454e76f657a5f52f7abb68c8f951e14ab"
+      }
+    },
+    "runtimes": {
+      "STOCK": {
+        "version": "STOCK",
+        "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+        "environment": {},
+        "files": {
+          "/usr/local/python3.12.13/lib/python3.12/site-packages/torch_npu/lib/libtorch_npu.so": "83fb9a0eb249aef6bca7f8463047fcb4d3062cc4849f17ddf31a5e050c838842"
+        }
+      },
+      "V3-5": {
+        "version": "V3-5",
+        "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+        "environment": {
+          "LD_LIBRARY_PATH": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build:/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64:/usr/local/Ascend/cann-9.1.0/lib64:/usr/local/Ascend/cann-9.1.0/lib64/plugin/opskernel:/usr/local/Ascend/cann-9.1.0/lib64/plugin/nnengine:/usr/local/Ascend/cann-9.1.0/opp/built-in/op_impl/ai_core/tbe/op_tiling/lib/linux/aarch64:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/lib:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/examples:/usr/local/Ascend/nnal/atb/latest/atb/cxx_abi_1/tests/atbopstest:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64:/usr/local/Ascend/ascend-toolkit/latest/tools/aml/lib64/plugin:/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/nnengine:/usr/local/Ascend/ascend-toolkit/latest/opp/built-in/op_impl/ai_core/tbe/op_tiling:/usr/local/python3.12.13/lib:",
+          "MF_SDMA_ORCH_JSON": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json",
+          "MEMFABRIC_HYBRID_HOME_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk",
+          "MEMFABRIC_HYBRID_EXTEND_LIB_PATH": "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64"
+        },
+        "api": "python_session_v1",
+        "library": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so",
+        "supported_M": [
+          2048,
+          4096
+        ],
+        "route_pattern": "A3Kernel",
+        "python_modules": {
+          "memfabric_mm_ar_v3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py",
+          "memfabric_mm_ar_a3": "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py"
+        },
+        "files": {
+          "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_host.so": "c31aaa804b196fb2df904898c0942083833de9d24008fd3613d29b1bbfec2d4d",
+          "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/v3-build/libmf310p_v3_device.so": "23649cebcddf712eae1ccf99139996f43ca8a097ee5528a1fbbd22e88e292a2c",
+          "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "fee6ca04c7efe5908318112446575de7c58cc0b4203b3172fc7c81e9766e7513",
+          "/home/w00804146/vllm-ascend/vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py": "441345ff515b1ac51417a5b58128a668316593ce7d7d47de5e274c2d38ab3b0f",
+          "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_smem.so": "b66037accdfa3313b83a464e0f9f264d0505dbc04d381d0fa2ef565224101067",
+          "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/lib64/libmf_hybm_core.so": "a27437858e0ab26642066498d06c6327e9d22e63b1551f2c82751deb6ba1cae2",
+          "/home/w00804146/310P/a3ut-20261029/memfabric-sdk/aarch64-linux/hybm/aicpu_kernel/libmf_sdma_orch_v28.json": "b34034cceccdbaee3a9cc27fb8d4e5df0c490b46a01b5c6ea0f2a86a7425d655",
+          "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so": "094afddaee3baedb868281692ab48949e87e370e9c4e9ccc273b44d2e1409b9d",
+          "/home/w00804146/vllm-ascend/csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+          "/home/w00804146/vllm-ascend/csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py": "b33add0e07c0b3dfbe5b9fd5bb345cf0ad7f6e5574f6f25b7bbdb8bf25299775"
+        },
+        "tensor_adapter": "/home/w00804146/vllm-ascend/build/310p_l1/l1-fixed-20261031-001/tensor_bridge/mf310p_tensor_bridge.so"
+      }
+    },
+    "framework_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+    "framework_files": {
+      "csrc/_310P/common/torch_tensor_entry.py": "ea85abb1450807e34fa655818881281b86bd61d93a353732b3c988b9274f0cc9",
+      "csrc/_310P/memfabric_mm_ar_v2/src/torch_adapter/tensor_entry.py": "e5dcac7f389a1200893e2925c52656360a0f427ba08e42b5d5b84d3a025d0fd2",
+      "csrc/_310P/memfabric_mm_ar_v3/src/torch_adapter/tensor_entry.py": "b33add0e07c0b3dfbe5b9fd5bb345cf0ad7f6e5574f6f25b7bbdb8bf25299775",
+      "csrc/_310P/memfabric_mm_ar_v3/test/quick_worker.py": "af231a4ec245086ecdf639ad686682ddd86c0976470b5375921d4e72ffbed919",
+      "csrc/_310P/memfabric_mm_ar_v3/tools/stage_guard.py": "e9537c86eb0b79130f60a5c1380af35692ff0e5fab4c803622ca92a4f067c10a",
+      "csrc/_310P/tools/L1_test/__init__.py": "5079075f928a3108e6aa24fb62f3a746f6d964e70a2425a83b85a489a7875af4",
+      "csrc/_310P/tools/L1_test/adapter_plugins/__init__.py": "b526d862d93fc2423b1ac7c921ebb2a7c11c78b0b7a6bcfcb1f6687d15bb2156",
+      "csrc/_310P/tools/L1_test/adapter_plugins/stock.py": "e863979c45066a213cfff3fd9f154d9be697c7bce859c8b9d3f7def0c5f7b393",
+      "csrc/_310P/tools/L1_test/adapter_plugins/tensor_api.py": "3dc32002b5410d37ffd6c53ffe3a283adc9c17f0eb8885fbf0705bd21d33b12f",
+      "csrc/_310P/tools/L1_test/adapter_plugins/v1.py": "e1ac569ed57508916d9fde49d93697688a861200be31001b913748df9b7a65ae",
+      "csrc/_310P/tools/L1_test/adapter_plugins/v2.py": "5e42aca9d79fe27d5127e97031f3f720697b66d65889aa3bbb38b0ac52d5ee02",
+      "csrc/_310P/tools/L1_test/adapter_plugins/v3.py": "70f76ff351ecbb88e1427ab66fc43e00204d65033ab54aafd3aca36248c0225e",
+      "csrc/_310P/tools/L1_test/adapters.py": "b402e711c7fd1266dd450281788e924fff655139ce5ccc42db220b5c2917f102",
+      "csrc/_310P/tools/L1_test/build_docs.py": "43583fc38b9483ac04dd168601140982b271d76a7d2c5ae68e8dc1810d286626",
+      "csrc/_310P/tools/L1_test/campaign.py": "1c68117fd9aaf5fde9ba9fc3eea1fe24b77392948632164b4fefb7905e13da98",
+      "csrc/_310P/tools/L1_test/cli.py": "22e6bb0ed79c365e0bb52f36a002de2c43b47e6a1bf3f809f77cfa9f07260acd",
+      "csrc/_310P/tools/L1_test/collect.py": "5b131aca896a8db21461be19b447b0c520cbf987508126f462412e1aad791ecd",
+      "csrc/_310P/tools/L1_test/core.py": "d0194241b863e33f1c7ece1afb22edfe605a0c286208b8fc5bf6f36a7e4acd7a",
+      "csrc/_310P/tools/L1_test/evidence.py": "a95b149f650c98575dc0829ddf8802ae31902d18ff83afe6d3a99916ae51bc1e",
+      "csrc/_310P/tools/L1_test/l1_bench.py": "ba463c1cab5a8d742cdf79b638e07f0631f447193637689521adb35dfa3410b2",
+      "csrc/_310P/tools/L1_test/measurement.py": "8a6f6232ac2096360c82f3e17039a1fc4edf22cde411e469e3767ba459810f87",
+      "csrc/_310P/tools/L1_test/profile_collect.py": "15912033e21cea8ac4ff9170777608125f866f25d62e3de947a1f154426b7f7b",
+      "csrc/_310P/tools/L1_test/profile_windows.py": "439175a7e95277e2b2588c30094e3212a54f353ebe50fbb645f644dd033f23a8",
+      "csrc/_310P/tools/L1_test/profiler_tool.py": "37585b5877653c894db6595ae4fd1e9aa2e6b67aae839d7d83b34a4601d59001",
+      "csrc/_310P/tools/L1_test/rank_launcher.py": "b525d5dac9d1afe31f0c4e149f3186396d6b50f078680ff93f0004b4e7e5e3a7",
+      "csrc/_310P/tools/L1_test/test_campaign.py": "0087d1e01470de167bee9af9fdb3401d592728f3a450ab47800c3a595c818f5e",
+      "csrc/_310P/tools/L1_test/test_l1_framework.py": "06ed30d66d2e1988e85f29069d90828ecbb01986b59474304a44e40180225b44",
+      "csrc/_310P/tools/L1_test/test_measurement.py": "afe5c39cbb4cd66fa5a995dc0d9b1a51bb280895055af94a27bebbcc7945d656",
+      "csrc/_310P/tools/L1_test/test_msprof.py": "7b9c58620ac0488c28c80c35945080bfd46690ad793b3e782398e670e81d0400",
+      "csrc/_310P/tools/L1_test/test_simple_adapters.py": "dc825d99450e7f3787dec5dcece46dc5daf08a92fb9e2afe5a4d0fd041c9bc75",
+      "csrc/_310P/tools/L1_test/test_tensor_entry.py": "b5004dccaeef20ecd4bcf286b30e40fcbbeada3de86c0b3534d1e9003d10a4e0",
+      "csrc/_310P/tools/L1_test/test_timeline.py": "4d680971f1249a91bcc340b1a926554acf0edb11154bd91e604b04da7329f11c",
+      "csrc/_310P/tools/L1_test/test_v2_selected_adapter.py": "8a700e9670238740d22fc9440b7ff9ecd2cf9c33556f69648c3be3a21c97d118",
+      "csrc/_310P/tools/L1_test/testing.py": "c93f75ffbbd2f110f8ec88b9cd18846710c8aa451140fa6fc6797bd8e3e541bf",
+      "csrc/_310P/tools/L1_test/timeline.py": "e9f427a038ba3386b90e334a14ef16dfb50abab90ba963d14871ebe0d1f2afbe",
+      "csrc/_310P/tools/L1_test/versions.json": "090d9228570ca76193a0e5c27ad6341b843fb3b35bef764873bb3bab2394f76f",
+      "csrc/_310P/tools/L1_test/worker.py": "9a2400e8988bc376f77dceb535d6c1c6d8020b3245719526a73f6af336113400",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar.py": "0a5660531f75d00d46ff5f96c6b101b810706b27d74165fd6f56595a23cf036e",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar_a3.py": "441345ff515b1ac51417a5b58128a668316593ce7d7d47de5e274c2d38ab3b0f",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar_runner_hooks.py": "cb94009093f8d8cde8d42ccbbee734f72e7c5502f00083a0b4cd6f7b2fddc633",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar_v2_serve.py": "87465c879b94f0c428f2dfbcc5408e1a816c24940df63a6aaab47f5c1c69908b",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar_v3.py": "fee6ca04c7efe5908318112446575de7c58cc0b4203b3172fc7c81e9766e7513",
+      "vllm_ascend/_310p/ops/memfabric_mm_ar_v32.py": "547db3a7e641fcbb53d6b53bd39c60ac4ebe88f2fe846a4354cec9198cb96f08"
+    }
+  },
+  "manifest_sha256": "b1d13308bd5c71b8d9eff57d40fd21e18ec5f72417bf550faa890d78a6a608c7",
+  "store_url": "tcp://127.0.0.1:8594",
+  "job_timeout": 900
+}

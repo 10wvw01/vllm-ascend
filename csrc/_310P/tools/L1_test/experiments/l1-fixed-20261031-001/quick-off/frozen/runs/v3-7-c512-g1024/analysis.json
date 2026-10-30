@@ -1,0 +1,1499 @@
+{
+  "contract": "L1_TENSOR_IO_V4",
+  "plan": {
+    "contract": "L1_TENSOR_IO_V4",
+    "W": 2,
+    "N": 10,
+    "R": 1,
+    "mode": "shared",
+    "scenarios": [
+      "ready",
+      "steady"
+    ],
+    "M": [
+      2048,
+      4096
+    ],
+    "collection": "off",
+    "stages": [
+      "off"
+    ],
+    "drift_limit": 0.05,
+    "versions": [
+      "V3-7"
+    ],
+    "jobs": [
+      {
+        "id": "V3-7-off-r0-s0",
+        "candidate": "V3-7",
+        "block": 0,
+        "slot": 0,
+        "version": "STOCK",
+        "stage": "off"
+      },
+      {
+        "id": "V3-7-off-r0-s1",
+        "candidate": "V3-7",
+        "block": 0,
+        "slot": 1,
+        "version": "V3-7",
+        "stage": "off"
+      },
+      {
+        "id": "V3-7-off-r0-s2",
+        "candidate": "V3-7",
+        "block": 0,
+        "slot": 2,
+        "version": "V3-7",
+        "stage": "off"
+      },
+      {
+        "id": "V3-7-off-r0-s3",
+        "candidate": "V3-7",
+        "block": 0,
+        "slot": 3,
+        "version": "STOCK",
+        "stage": "off"
+      }
+    ],
+    "consumer": "residual_add_fp16_ND",
+    "seed": 4242,
+    "consumer_validation": "untimed_immediate_same_stream_before_after",
+    "batch_size": 2,
+    "working_set": 4,
+    "gate_variants": 4,
+    "checking": "status_at_group_boundary; numeric_pre_post_and_last_group",
+    "output_retention": "all_group_outputs_until_completion",
+    "paired_samples_per_arm_per_case_per_stage": 20,
+    "paired_units_per_arm": {
+      "ready": 20,
+      "steady": 10
+    },
+    "statistic": "rank-max timing unit totals / total calls; N counts calls; quantiles label timing-unit scope"
+  },
+  "results": [
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 20,
+          "mean_us": 1181.9045,
+          "p50_us": 1172.7199999999998,
+          "p90_us": 1220.847,
+          "p99_us": 1295.8673999999999,
+          "std_us": 41.088371892178934,
+          "min_us": 1133.02,
+          "max_us": 1307.37,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        },
+        "V3-7": {
+          "n": 20,
+          "mean_us": 2056.8995,
+          "p50_us": 2054.5150000000003,
+          "p90_us": 2173.4970000000003,
+          "p99_us": 2305.1805,
+          "std_us": 98.42276446407102,
+          "min_us": 1886.54,
+          "max_us": 2326.85,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "stock_bracket_drift": [
+        0.027814355923901024
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.11839358490576689,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 2048,
+      "scenario": "ready",
+      "metric": "wall_us",
+      "arm_drift": {
+        "STOCK": 0.027814355923901024,
+        "V3-7": 0.030301534744084924
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.5746048846820179,
+      "latency_reduction": -0.7403263123204962,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 20,
+          "mean_us": 1091.8321311473846,
+          "p50_us": 1080.35147190094,
+          "p90_us": 1120.5397963523865,
+          "p99_us": 1198.9045774936676,
+          "std_us": 35.64216589872942,
+          "min_us": 1052.8390407562256,
+          "max_us": 1215.1039838790894,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        },
+        "V3-7": {
+          "n": 20,
+          "mean_us": 1963.9335930347443,
+          "p50_us": 1946.2115168571472,
+          "p90_us": 2081.424331665039,
+          "p99_us": 2211.0525965690613,
+          "std_us": 99.88627453785098,
+          "min_us": 1789.16597366333,
+          "max_us": 2229.2709350585938,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "stock_bracket_drift": [
+        0.015133082320809343
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.11839358490576689,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 2048,
+      "scenario": "ready",
+      "metric": "event_us",
+      "arm_drift": {
+        "STOCK": 0.015133082320809343,
+        "V3-7": 0.03190173863735257
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.5559414712491599,
+      "latency_reduction": -0.7987505011149338,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 10,
+          "mean_us": 1055.5625,
+          "p50_us": 1055.07,
+          "p90_us": 1058.8715,
+          "p99_us": 1063.29815,
+          "std_us": 3.951453688201331,
+          "min_us": 1048.71,
+          "max_us": 1063.79,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "V3-7": {
+          "n": 10,
+          "mean_us": 1862.498,
+          "p50_us": 1846.7649999999999,
+          "p90_us": 1913.2865000000002,
+          "p99_us": 1950.8421500000002,
+          "std_us": 46.67620706527047,
+          "min_us": 1811.36,
+          "max_us": 1955.015,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "stock_bracket_drift": [
+        0.0028052792756554368
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.055982926666470534,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 2048,
+      "scenario": "steady",
+      "metric": "wall_us",
+      "arm_drift": {
+        "STOCK": 0.0028052792756554368,
+        "V3-7": 0.02314590020584517
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.5667455750288054,
+      "latency_reduction": -0.7644601811830185,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 10,
+          "mean_us": 1019.9830532073975,
+          "p50_us": 1019.4594860076904,
+          "p90_us": 1024.1535067558289,
+          "p99_us": 1028.8996970653534,
+          "std_us": 4.073590790132494,
+          "min_us": 1013.4764909744263,
+          "max_us": 1029.4270515441895,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "V3-7": {
+          "n": 10,
+          "mean_us": 1823.4960436820984,
+          "p50_us": 1807.1420192718506,
+          "p90_us": 1876.7093777656555,
+          "p99_us": 1914.7097027301788,
+          "std_us": 47.2308484034998,
+          "min_us": 1769.9350118637085,
+          "max_us": 1918.9319610595703,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "stock_bracket_drift": [
+        0.002231457181227192
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.055982926666470534,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 2048,
+      "scenario": "steady",
+      "metric": "event_us",
+      "arm_drift": {
+        "STOCK": 0.002231457181227192,
+        "V3-7": 0.02427922588616016
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.5593557807494852,
+      "latency_reduction": -0.7877709222207236,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 20,
+          "mean_us": 2100.2264999999998,
+          "p50_us": 2094.8599999999997,
+          "p90_us": 2127.743,
+          "p99_us": 2137.6169,
+          "std_us": 20.99469415709595,
+          "min_us": 2067.78,
+          "max_us": 2139.42,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        },
+        "V3-7": {
+          "n": 20,
+          "mean_us": 3100.312,
+          "p50_us": 3054.75,
+          "p90_us": 3204.407,
+          "p99_us": 3275.0867000000003,
+          "std_us": 86.30248458764096,
+          "min_us": 2998.41,
+          "max_us": 3282.51,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "stock_bracket_drift": [
+        0.00461249769733052
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.0667620239357567,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 4096,
+      "scenario": "ready",
+      "metric": "wall_us",
+      "arm_drift": {
+        "STOCK": 0.00461249769733052,
+        "V3-7": 0.021878436032247484
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.6774242398829536,
+      "latency_reduction": -0.4761798310801242,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 20,
+          "mean_us": 2013.7213945388794,
+          "p50_us": 2011.3800764083862,
+          "p90_us": 2031.3594102859497,
+          "p99_us": 2063.8788986206055,
+          "std_us": 18.04078829692411,
+          "min_us": 1986.3799810409546,
+          "max_us": 2071.2759494781494,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        },
+        "V3-7": {
+          "n": 20,
+          "mean_us": 3011.4868998527527,
+          "p50_us": 2960.3644609451294,
+          "p90_us": 3133.596181869507,
+          "p99_us": 3198.2793474197388,
+          "std_us": 89.97868096873002,
+          "min_us": 2914.7140979766846,
+          "max_us": 3207.3440551757812,
+          "calls": 20,
+          "quantile_scope": "single_call_latency"
+        }
+      },
+      "stock_bracket_drift": [
+        0.005508728653792261
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.0667620239357567,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 4096,
+      "scenario": "ready",
+      "metric": "event_us",
+      "arm_drift": {
+        "STOCK": 0.005508728653792261,
+        "V3-7": 0.023250383845746736
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.6686801110233422,
+      "latency_reduction": -0.4954833911085057,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 10,
+          "mean_us": 1998.7904999999998,
+          "p50_us": 1996.105,
+          "p90_us": 2007.7845,
+          "p99_us": 2025.80295,
+          "std_us": 11.259562258365113,
+          "min_us": 1986.015,
+          "max_us": 2027.805,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "V3-7": {
+          "n": 10,
+          "mean_us": 2898.5055,
+          "p50_us": 2892.1375,
+          "p90_us": 2988.9139999999998,
+          "p99_us": 3013.5299,
+          "std_us": 67.82349502384844,
+          "min_us": 2794.545,
+          "max_us": 3016.265,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "stock_bracket_drift": [
+        0.0037086027654880116
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.02959130729796573,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 4096,
+      "scenario": "steady",
+      "metric": "wall_us",
+      "arm_drift": {
+        "STOCK": 0.0037086027654880116,
+        "V3-7": 0.032067485404510876
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.689593481882301,
+      "latency_reduction": -0.4501297159457185,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    },
+    {
+      "stage": "off",
+      "stats": {
+        "STOCK": {
+          "n": 10,
+          "mean_us": 1961.6875529289246,
+          "p50_us": 1959.4334959983826,
+          "p90_us": 1970.4179406166077,
+          "p99_us": 1988.9908754825592,
+          "std_us": 11.250233828092146,
+          "min_us": 1949.205994606018,
+          "max_us": 1991.0545349121094,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        },
+        "V3-7": {
+          "n": 10,
+          "mean_us": 2854.3556690216064,
+          "p50_us": 2849.9938249588013,
+          "p90_us": 2944.1730976104736,
+          "p99_us": 2971.648144721985,
+          "std_us": 70.42818707108621,
+          "min_us": 2744.7400093078613,
+          "max_us": 2974.700927734375,
+          "calls": 20,
+          "quantile_scope": "timing_block_mean_per_call"
+        }
+      },
+      "stock_bracket_drift": [
+        0.005043817476671597
+      ],
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "max_timer_overhead_ratio": 0.02959130729796573,
+      "warmup_stable": false,
+      "version": "V3-7",
+      "M": 4096,
+      "scenario": "steady",
+      "metric": "event_us",
+      "arm_drift": {
+        "STOCK": 0.005043817476671597,
+        "V3-7": 0.03329578235035857
+      },
+      "comparison_status": "OBSERVATIONAL_SHARED",
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "scope": "public Torch Tensor entry; not pure kernel or model TTFT",
+      "speedup": 0.6872610775942076,
+      "latency_reduction": -0.45505111900204054,
+      "benefit_verdict": "OBSERVATIONAL_ONLY"
+    }
+  ],
+  "release_go": false,
+  "downstream_validation": "PASS_UNTIMED",
+  "note": "N counts calls; steady quantiles describe block means. Independent rounds, not calls, are bootstrapped.",
+  "attribution": [
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "V3-7",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 0,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 2048,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "ready",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    },
+    {
+      "version": "STOCK",
+      "stage": "off",
+      "rank": 1,
+      "M": 4096,
+      "scenario": "steady",
+      "host_mean_us": {},
+      "host_phase_us": {},
+      "largest_measured_host_stage": null,
+      "missing_phases": {
+        "host_prepare": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_acquire_wrap": "UNKNOWN: no calibrated phase clock/evidence",
+        "enqueue": "UNKNOWN: no calibrated phase clock/evidence",
+        "mm": "UNKNOWN: no calibrated phase clock/evidence",
+        "seed": "UNKNOWN: no calibrated phase clock/evidence",
+        "local_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "peer_ready_wait": "UNKNOWN: no calibrated phase clock/evidence",
+        "transport_submit": "UNKNOWN: no calibrated phase clock/evidence",
+        "receive_reduce": "UNKNOWN: no calibrated phase clock/evidence",
+        "gather": "UNKNOWN: no calibrated phase clock/evidence",
+        "output_copy": "UNKNOWN: no calibrated phase clock/evidence",
+        "drain_quiet_done": "UNKNOWN: no calibrated phase clock/evidence"
+      },
+      "additive": false
+    }
+  ],
+  "kernel_statistics": [],
+  "timeline_statistics": []
+}

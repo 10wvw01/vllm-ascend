@@ -1,0 +1,2625 @@
+{
+  "schema": "MF310P_L1_FIXED_M_CAMPAIGN_V3",
+  "contract": "L1_TENSOR_IO_V4",
+  "completed": [
+    "stock",
+    "v2-e1-m2048",
+    "v2-t8-m4096",
+    "v3-5-c512-g1024",
+    "v3-6-c512-g1024",
+    "v3-7-c512-g1024"
+  ],
+  "pending": [],
+  "case_status": {
+    "stock": "PASS_L1_ONLY",
+    "v2-e1-m2048": "PASS_L1_ONLY",
+    "v2-t8-m4096": "PASS_L1_ONLY",
+    "v3-5-c512-g1024": "PASS_L1_ONLY",
+    "v3-6-c512-g1024": "PASS_L1_ONLY",
+    "v3-7-c512-g1024": "PASS_L1_ONLY"
+  },
+  "rows": [
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1160.2885,
+      "std_us": 12.089843785177706,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.1265704280421799,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1157.81,
+      "p90_us": 1176.369,
+      "p99_us": 1184.1729,
+      "arm_drift": {
+        "STOCK": 0.002556940025388199
+      },
+      "stock_bracket_drift": [
+        0.002556940025388199
+      ],
+      "stock_mean_us": 1160.2885,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1075.4440128803253,
+      "std_us": 12.256962261428159,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.1265704280421799,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1072.3695158958435,
+      "p90_us": 1086.5390539169312,
+      "p99_us": 1107.6562786102295,
+      "arm_drift": {
+        "STOCK": 0.004317095926260839
+      },
+      "stock_bracket_drift": [
+        0.004317095926260839
+      ],
+      "stock_mean_us": 1075.4440128803253,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1068.8165000000001,
+      "std_us": 15.691716931234787,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.058584757001032536,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1063.2175,
+      "p90_us": 1081.6280000000002,
+      "p99_us": 1105.5878,
+      "arm_drift": {
+        "STOCK": 0.002890541697820881
+      },
+      "stock_bracket_drift": [
+        0.002890541697820881
+      ],
+      "stock_mean_us": 1068.8165000000001,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1032.2838425636292,
+      "std_us": 16.313666413965795,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.058584757001032536,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1025.4684686660767,
+      "p90_us": 1044.6186542510986,
+      "p99_us": 1073.1687951087952,
+      "arm_drift": {
+        "STOCK": 0.0016411080638119024
+      },
+      "stock_bracket_drift": [
+        0.0016411080638119024
+      ],
+      "stock_mean_us": 1032.2838425636292,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2165.5625,
+      "std_us": 179.24009269343176,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.06750146575980459,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2110.79,
+      "p90_us": 2206.7180000000008,
+      "p99_us": 2729.1761,
+      "arm_drift": {
+        "STOCK": 0.0583443708924003
+      },
+      "stock_bracket_drift": [
+        0.0583443708924003
+      ],
+      "stock_mean_us": 2165.5625,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2054.3071925640106,
+      "std_us": 145.34873648776409,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.06750146575980459,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2023.4375,
+      "p90_us": 2039.370083808899,
+      "p99_us": 2566.6944360733023,
+      "arm_drift": {
+        "STOCK": 0.035156070984698085
+      },
+      "stock_bracket_drift": [
+        0.035156070984698085
+      ],
+      "stock_mean_us": 2054.3071925640106,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2004.8970000000002,
+      "std_us": 10.982656372663246,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.031190552051021038,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2009.785,
+      "p90_us": 2016.5055,
+      "p99_us": 2018.49405,
+      "arm_drift": {
+        "STOCK": 0.008741731674424935
+      },
+      "stock_bracket_drift": [
+        0.008741731674424935
+      ],
+      "stock_mean_us": 2004.8970000000002,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "stock",
+      "version": "STOCK",
+      "config": {},
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1965.4388546943665,
+      "std_us": 9.799291644690657,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "BASELINE_ONLY",
+      "paired_round_speedup": null,
+      "timer_overhead_ratio": 0.031190552051021038,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1965.9504890441895,
+      "p90_us": 1975.660240650177,
+      "p99_us": 1981.3237464427948,
+      "arm_drift": {
+        "STOCK": 0.008589486634238641
+      },
+      "stock_bracket_drift": [
+        0.008589486634238641
+      ],
+      "stock_mean_us": 1965.4388546943665,
+      "speedup": null,
+      "latency_reduction": null
+    },
+    {
+      "experiment": "v2-e1-m2048",
+      "version": "V2-7",
+      "config": {},
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1445.778,
+      "std_us": 68.6600490532886,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.1193215081480187,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1427.0700000000002,
+      "p90_us": 1527.9640000000002,
+      "p99_us": 1576.9267,
+      "arm_drift": {
+        "STOCK": 0.07976397514443945,
+        "V2-7": 0.04576365679096894
+      },
+      "stock_bracket_drift": [
+        0.07976397514443945
+      ],
+      "stock_mean_us": 1191.685,
+      "speedup": 0.8242517177602646,
+      "latency_reduction": -0.21322161477236024
+    },
+    {
+      "experiment": "v2-e1-m2048",
+      "version": "V2-7",
+      "config": {},
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1360.7774794101715,
+      "std_us": 64.95481177454775,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.1193215081480187,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1340.67702293396,
+      "p90_us": 1441.5680408477783,
+      "p99_us": 1484.1329061985016,
+      "arm_drift": {
+        "STOCK": 0.08588438211689908,
+        "V2-7": 0.031638801056353305
+      },
+      "stock_bracket_drift": [
+        0.08588438211689908
+      ],
+      "stock_mean_us": 1109.1743528842926,
+      "speedup": 0.8151034020382699,
+      "latency_reduction": -0.22683821156846173
+    },
+    {
+      "experiment": "v2-e1-m2048",
+      "version": "V2-7",
+      "config": {},
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1300.303,
+      "std_us": 50.297053502168446,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05021185935351534,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1309.615,
+      "p90_us": 1372.4755,
+      "p99_us": 1381.9160499999998,
+      "arm_drift": {
+        "STOCK": 0.04514943263544802,
+        "V2-7": 0.06250143746644254
+      },
+      "stock_bracket_drift": [
+        0.04514943263544802
+      ],
+      "stock_mean_us": 1100.499,
+      "speedup": 0.8463404298844192,
+      "latency_reduction": -0.18155763885292053
+    },
+    {
+      "experiment": "v2-e1-m2048",
+      "version": "V2-7",
+      "config": {},
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1259.335994720459,
+      "std_us": 47.43806967311406,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05021185935351534,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1267.3892378807068,
+      "p90_us": 1327.9491066932678,
+      "p99_us": 1336.2286031246185,
+      "arm_drift": {
+        "STOCK": 0.04388475981126838,
+        "V2-7": 0.059131500290662053
+      },
+      "stock_bracket_drift": [
+        0.04388475981126838
+      ],
+      "stock_mean_us": 1060.406243801117,
+      "speedup": 0.8420360001196507,
+      "latency_reduction": -0.1875976797404184
+    },
+    {
+      "experiment": "v2-t8-m4096",
+      "version": "V2-15",
+      "config": {},
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2319.641,
+      "std_us": 64.51917566894362,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06936529516155016,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-15": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2309.55,
+      "p90_us": 2396.683,
+      "p99_us": 2434.1698,
+      "arm_drift": {
+        "STOCK": 0.0046872006621028195,
+        "V2-15": 0.0015099933517150887
+      },
+      "stock_bracket_drift": [
+        0.0046872006621028195
+      ],
+      "stock_mean_us": 2108.531,
+      "speedup": 0.9089902273670796,
+      "latency_reduction": -0.10012183837942157
+    },
+    {
+      "experiment": "v2-t8-m4096",
+      "version": "V2-15",
+      "config": {},
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2223.949158191681,
+      "std_us": 65.26885734389624,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06936529516155016,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-15": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2223.1249809265137,
+      "p90_us": 2301.3230085372925,
+      "p99_us": 2347.122371196747,
+      "arm_drift": {
+        "STOCK": 0.0002985742821661752,
+        "V2-15": 0.00015103115726566863
+      },
+      "stock_bracket_drift": [
+        0.0002985742821661752
+      ],
+      "stock_mean_us": 2023.041832447052,
+      "speedup": 0.909661907060866,
+      "latency_reduction": -0.09930952614144095
+    },
+    {
+      "experiment": "v2-t8-m4096",
+      "version": "V2-15",
+      "config": {},
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2210.588,
+      "std_us": 45.797998111271134,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02927688880156608,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-15": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2206.9049999999997,
+      "p90_us": 2279.7655,
+      "p99_us": 2295.48355,
+      "arm_drift": {
+        "STOCK": 0.007226178487507839,
+        "V2-15": 0.00012124206158548034
+      },
+      "stock_bracket_drift": [
+        0.007226178487507839
+      ],
+      "stock_mean_us": 2009.1209999999999,
+      "speedup": 0.9088627098310493,
+      "latency_reduction": -0.10027619043352809
+    },
+    {
+      "experiment": "v2-t8-m4096",
+      "version": "V2-15",
+      "config": {},
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2164.3776893615723,
+      "std_us": 44.22600946957382,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02927688880156608,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V2-15": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_persistent_pool_and_tensor_lease",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2163.098931312561,
+      "p90_us": 2221.7671632766724,
+      "p99_us": 2250.0009751319885,
+      "arm_drift": {
+        "STOCK": 0.003576410456523016,
+        "V2-15": 0.004676931306621945
+      },
+      "stock_bracket_drift": [
+        0.003576410456523016
+      ],
+      "stock_mean_us": 1972.4816918373108,
+      "speedup": 0.9113389504671594,
+      "latency_reduction": -0.09728657980369682
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1627.8375,
+      "std_us": 86.6710834635751,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.12210514095062235,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1630.975,
+      "p90_us": 1739.16,
+      "p99_us": 1747.7334,
+      "arm_drift": {
+        "STOCK": 0.001465772730548709,
+        "V3-5": 0.02717343589762744
+      },
+      "stock_bracket_drift": [
+        0.001465772730548709
+      ],
+      "stock_mean_us": 1152.455,
+      "speedup": 0.7079668578712555,
+      "latency_reduction": -0.4124954987396472
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1542.5234973430634,
+      "std_us": 84.78284031341269,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.12210514095062235,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1557.877540588379,
+      "p90_us": 1643.3903694152832,
+      "p99_us": 1675.1439797878265,
+      "arm_drift": {
+        "STOCK": 0.006571683678073814,
+        "V3-5": 0.028735670884507902
+      },
+      "stock_bracket_drift": [
+        0.006571683678073814
+      ],
+      "stock_mean_us": 1065.4973983764648,
+      "speedup": 0.6907495413922333,
+      "latency_reduction": -0.4477027346040072
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1513.898,
+      "std_us": 29.273532004184247,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05566649099270245,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1522.3625000000002,
+      "p90_us": 1538.84,
+      "p99_us": 1547.102,
+      "arm_drift": {
+        "STOCK": 0.005742356546352134,
+        "V3-5": 0.005294386850528632
+      },
+      "stock_bracket_drift": [
+        0.005742356546352134
+      ],
+      "stock_mean_us": 1071.7935,
+      "speedup": 0.7079694272665662,
+      "latency_reduction": -0.41249037244581155
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1476.4686584472656,
+      "std_us": 29.200734171052673,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05566649099270245,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1486.1067533493042,
+      "p90_us": 1500.0285506248474,
+      "p99_us": 1512.4948680400848,
+      "arm_drift": {
+        "STOCK": 0.006687968612288708,
+        "V3-5": 0.005287813175526956
+      },
+      "stock_bracket_drift": [
+        0.006687968612288708
+      ],
+      "stock_mean_us": 1034.1341018676758,
+      "speedup": 0.7004104665216715,
+      "latency_reduction": -0.42773423270804134
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2530.4255000000003,
+      "std_us": 88.50192774595365,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06674077340981062,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2518.8450000000003,
+      "p90_us": 2631.164,
+      "p99_us": 2729.4026,
+      "arm_drift": {
+        "STOCK": 0.08104579127003841,
+        "V3-5": 0.00881786261202433
+      },
+      "stock_bracket_drift": [
+        0.08104579127003841
+      ],
+      "stock_mean_us": 2196.24,
+      "speedup": 0.8679330808198066,
+      "latency_reduction": -0.15216255964739767
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2446.186101436615,
+      "std_us": 90.20140924722439,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06674077340981062,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2448.9845037460327,
+      "p90_us": 2540.4606103897095,
+      "p99_us": 2654.917378425598,
+      "arm_drift": {
+        "STOCK": 0.04036123284740034,
+        "V3-5": 0.00881608659421218
+      },
+      "stock_bracket_drift": [
+        0.04036123284740034
+      ],
+      "stock_mean_us": 2066.20055437088,
+      "speedup": 0.8446620447877723,
+      "latency_reduction": -0.18390545209268594
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2436.9815,
+      "std_us": 119.57813249189843,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02958453628944034,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2414.4425,
+      "p90_us": 2508.5049999999997,
+      "p99_us": 2741.623,
+      "arm_drift": {
+        "STOCK": 0.010746220978839371,
+        "V3-5": 0.043022421859248317
+      },
+      "stock_bracket_drift": [
+        0.010746220978839371
+      ],
+      "stock_mean_us": 2014.2599999999998,
+      "speedup": 0.8265388965816933,
+      "latency_reduction": -0.2098644167088659
+    },
+    {
+      "experiment": "v3-5-c512-g1024",
+      "version": "V3-5",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2394.8634147644043,
+      "std_us": 120.30605202413292,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02958453628944034,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-5": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2371.7905282974243,
+      "p90_us": 2467.7881002426147,
+      "p99_us": 2699.091613292694,
+      "arm_drift": {
+        "STOCK": 0.010389488533058211,
+        "V3-5": 0.043026550760481896
+      },
+      "stock_bracket_drift": [
+        0.010389488533058211
+      ],
+      "stock_mean_us": 1971.3124632835388,
+      "speedup": 0.8231419174598179,
+      "latency_reduction": -0.2148573396504443
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1676.9535,
+      "std_us": 79.05756859877489,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.11440687175875816,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1661.815,
+      "p90_us": 1755.121,
+      "p99_us": 1842.6019,
+      "arm_drift": {
+        "STOCK": 0.23644671193957456,
+        "V3-6": 0.02927402735542084
+      },
+      "stock_bracket_drift": [
+        0.23644671193957456
+      ],
+      "stock_mean_us": 1290.9665,
+      "speedup": 0.76982844187391,
+      "latency_reduction": -0.2989907174198556
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1589.0741050243378,
+      "std_us": 80.05203703429288,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.11440687175875816,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1575.4684805870056,
+      "p90_us": 1677.4718761444092,
+      "p99_us": 1760.6127703189848,
+      "arm_drift": {
+        "STOCK": 0.13009947519702547,
+        "V3-6": 0.025992051419125195
+      },
+      "stock_bracket_drift": [
+        0.13009947519702547
+      ],
+      "stock_mean_us": 1145.7162022590637,
+      "speedup": 0.7209960810742154,
+      "latency_reduction": -0.3869700907529141
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1538.598,
+      "std_us": 18.614056274761776,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05364687213781278,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1534.9975,
+      "p90_us": 1563.5975,
+      "p99_us": 1575.5247499999998,
+      "arm_drift": {
+        "STOCK": 0.023075711578044,
+        "V3-6": 0.00824915583203567
+      },
+      "stock_bracket_drift": [
+        0.023075711578044
+      ],
+      "stock_mean_us": 1117.545,
+      "speedup": 0.7263398236576416,
+      "latency_reduction": -0.3767660362669958
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1496.3853001594543,
+      "std_us": 19.77974937320986,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.05364687213781278,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1495.2667355537415,
+      "p90_us": 1516.8303728103638,
+      "p99_us": 1537.2492361068726,
+      "arm_drift": {
+        "STOCK": 0.02277839367447232,
+        "V3-6": 0.011936335079755889
+      },
+      "stock_bracket_drift": [
+        0.02277839367447232
+      ],
+      "stock_mean_us": 1078.9336204528809,
+      "speedup": 0.7210266101504138,
+      "latency_reduction": -0.38691136488206634
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2563.9175,
+      "std_us": 76.76388902830554,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06470382873449469,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2575.925,
+      "p90_us": 2648.6870000000004,
+      "p99_us": 2674.8554,
+      "arm_drift": {
+        "STOCK": 0.021575060831142467,
+        "V3-6": 0.007782757806544138
+      },
+      "stock_bracket_drift": [
+        0.021575060831142467
+      ],
+      "stock_mean_us": 2148.4855,
+      "speedup": 0.8379698254721534,
+      "latency_reduction": -0.19336039270453553
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2477.6001691818237,
+      "std_us": 77.02253863767723,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.06470382873449469,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2487.916946411133,
+      "p90_us": 2560.3177547454834,
+      "p99_us": 2574.286506175995,
+      "arm_drift": {
+        "STOCK": 0.02250001390420242,
+        "V3-6": 0.005162501090804739
+      },
+      "stock_bracket_drift": [
+        0.02250001390420242
+      ],
+      "stock_mean_us": 2063.4764432907104,
+      "speedup": 0.8328528827846065,
+      "latency_reduction": -0.20069224789922635
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2427.1925,
+      "std_us": 59.78142011737428,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.028912554916119597,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2437.6625,
+      "p90_us": 2500.6905,
+      "p99_us": 2512.03455,
+      "arm_drift": {
+        "STOCK": 0.008405245093171532,
+        "V3-6": 0.00036798247529823414
+      },
+      "stock_bracket_drift": [
+        0.008405245093171532
+      ],
+      "stock_mean_us": 2042.7549999999999,
+      "speedup": 0.8416122742633722,
+      "latency_reduction": -0.18819559859111856
+    },
+    {
+      "experiment": "v3-6-c512-g1024",
+      "version": "V3-6",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2387.5481367111206,
+      "std_us": 58.728951362745086,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.028912554916119597,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-6": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2399.0105390548706,
+      "p90_us": 2454.2150735855103,
+      "p99_us": 2471.48010969162,
+      "arm_drift": {
+        "STOCK": 0.009674293456090055,
+        "V3-6": 0.0009722819226336554
+      },
+      "stock_bracket_drift": [
+        0.009674293456090055
+      ],
+      "stock_mean_us": 2001.3423919677734,
+      "speedup": 0.8382416928877712,
+      "latency_reduction": -0.19297334943453603
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2056.8995,
+      "std_us": 98.42276446407102,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.11839358490576689,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2054.5150000000003,
+      "p90_us": 2173.4970000000003,
+      "p99_us": 2305.1805,
+      "arm_drift": {
+        "STOCK": 0.027814355923901024,
+        "V3-7": 0.030301534744084924
+      },
+      "stock_bracket_drift": [
+        0.027814355923901024
+      ],
+      "stock_mean_us": 1181.9045,
+      "speedup": 0.5746048846820179,
+      "latency_reduction": -0.7403263123204962
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1963.9335930347443,
+      "std_us": 99.88627453785098,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.11839358490576689,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1946.2115168571472,
+      "p90_us": 2081.424331665039,
+      "p99_us": 2211.0525965690613,
+      "arm_drift": {
+        "STOCK": 0.015133082320809343,
+        "V3-7": 0.03190173863735257
+      },
+      "stock_bracket_drift": [
+        0.015133082320809343
+      ],
+      "stock_mean_us": 1091.8321311473846,
+      "speedup": 0.5559414712491599,
+      "latency_reduction": -0.7987505011149338
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1862.498,
+      "std_us": 46.67620706527047,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.055982926666470534,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1846.7649999999999,
+      "p90_us": 1913.2865000000002,
+      "p99_us": 1950.8421500000002,
+      "arm_drift": {
+        "STOCK": 0.0028052792756554368,
+        "V3-7": 0.02314590020584517
+      },
+      "stock_bracket_drift": [
+        0.0028052792756554368
+      ],
+      "stock_mean_us": 1055.5625,
+      "speedup": 0.5667455750288054,
+      "latency_reduction": -0.7644601811830185
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 2048,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 1823.4960436820984,
+      "std_us": 47.2308484034998,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.055982926666470534,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 1807.1420192718506,
+      "p90_us": 1876.7093777656555,
+      "p99_us": 1914.7097027301788,
+      "arm_drift": {
+        "STOCK": 0.002231457181227192,
+        "V3-7": 0.02427922588616016
+      },
+      "stock_bracket_drift": [
+        0.002231457181227192
+      ],
+      "stock_mean_us": 1019.9830532073975,
+      "speedup": 0.5593557807494852,
+      "latency_reduction": -0.7877709222207236
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 3100.312,
+      "std_us": 86.30248458764096,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.0667620239357567,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 3054.75,
+      "p90_us": 3204.407,
+      "p99_us": 3275.0867000000003,
+      "arm_drift": {
+        "STOCK": 0.00461249769733052,
+        "V3-7": 0.021878436032247484
+      },
+      "stock_bracket_drift": [
+        0.00461249769733052
+      ],
+      "stock_mean_us": 2100.2264999999998,
+      "speedup": 0.6774242398829536,
+      "latency_reduction": -0.4761798310801242
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "ready",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 20,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 3011.4868998527527,
+      "std_us": 89.97868096873002,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "single_call_latency",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.0667620239357567,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2960.3644609451294,
+      "p90_us": 3133.596181869507,
+      "p99_us": 3198.2793474197388,
+      "arm_drift": {
+        "STOCK": 0.005508728653792261,
+        "V3-7": 0.023250383845746736
+      },
+      "stock_bracket_drift": [
+        0.005508728653792261
+      ],
+      "stock_mean_us": 2013.7213945388794,
+      "speedup": 0.6686801110233422,
+      "latency_reduction": -0.4954833911085057
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "wall_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2898.5055,
+      "std_us": 67.82349502384844,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02959130729796573,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2892.1375,
+      "p90_us": 2988.9139999999998,
+      "p99_us": 3013.5299,
+      "arm_drift": {
+        "STOCK": 0.0037086027654880116,
+        "V3-7": 0.032067485404510876
+      },
+      "stock_bracket_drift": [
+        0.0037086027654880116
+      ],
+      "stock_mean_us": 1998.7904999999998,
+      "speedup": 0.689593481882301,
+      "latency_reduction": -0.4501297159457185
+    },
+    {
+      "experiment": "v3-7-c512-g1024",
+      "version": "V3-7",
+      "config": {
+        "compute_rows": 512,
+        "comm_rows": 1024,
+        "packet_bytes": 4194304
+      },
+      "M": 4096,
+      "scenario": "steady",
+      "stage": "off",
+      "metric": "event_us",
+      "status": "OBSERVATIONAL_SHARED",
+      "n": 10,
+      "source_head": "b7adbbeb9616e2fa2c0964df4c9438b7681ee2d4",
+      "mean_us": 2854.3556690216064,
+      "std_us": 70.42818707108621,
+      "downstream_validation": "PASS_UNTIMED",
+      "calls": 20,
+      "quantile_scope": "timing_block_mean_per_call",
+      "batch_size": 2,
+      "working_set": 4,
+      "benefit_verdict": "OBSERVATIONAL_ONLY",
+      "paired_round_speedup": {
+        "status": "INSUFFICIENT_INDEPENDENT_ROUNDS",
+        "rounds": 1,
+        "low": null,
+        "high": null
+      },
+      "timer_overhead_ratio": 0.02959130729796573,
+      "warmup_stable": false,
+      "execution_contracts": {
+        "STOCK": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "F.linear+HCCL",
+          "output_storage": "framework_allocation_per_call",
+          "max_retained_calls": 32,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "BACKEND_MANAGED",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        },
+        "V3-7": {
+          "caller_contract": "Torch dispatch: Tensor X/W -> complete ND Tensor Y",
+          "implementation_entry": "torch.ops.memfabric310p.mm_ar",
+          "output_storage": "operator_owned_tensor_lease",
+          "max_retained_calls": 2,
+          "output_slots": 2,
+          "operator_internal_stream_sync": "NO_AFTER_WARMUP",
+          "public_dispatch_alignment": "STOCK_TENSOR_BOUNDARY",
+          "model_callsite_integration": "NOT_RUN",
+          "comparison_scope": "public Tensor operator boundary; not pure kernel or model latency"
+        }
+      },
+      "timeline_windows": 0,
+      "p50_us": 2849.9938249588013,
+      "p90_us": 2944.1730976104736,
+      "p99_us": 2971.648144721985,
+      "arm_drift": {
+        "STOCK": 0.005043817476671597,
+        "V3-7": 0.03329578235035857
+      },
+      "stock_bracket_drift": [
+        0.005043817476671597
+      ],
+      "stock_mean_us": 1961.6875529289246,
+      "speedup": 0.6872610775942076,
+      "latency_reduction": -0.45505111900204054
+    }
+  ],
+  "release_go": false,
+  "note": "Each config uses its own paired Stock controls; no pooling across case identities."
+}
